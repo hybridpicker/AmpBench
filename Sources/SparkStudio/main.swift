@@ -1,4 +1,11 @@
-// Spark Studio: Spark Recorder and Spark Presets in one app. Their windows, menus and self-tests come from
-// SparkRecorderUI and SparkPresetsUI. The recorder's test options (--library, --ui-selftest, --dark) and the presets'
-// (--offline, --snapshot, --open, --size, --appearance, --live-selftest) work here too, plus --menu-dump.
+import Foundation
+import SparkRecorderUI
+
+// Spark Studio: Spark Recorder and Spark Presets in one window. Headless audio commands come first (--list, --record,
+// --play-tone, --inspect; the recorder's self-test starts this executable with --play-tone). The test options of
+// both apps work too (--library, --ui-selftest, --dark, --offline, --snapshot, --open, --size, --appearance,
+// --live-selftest), plus --menu-dump.
+if let status = RecorderCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
+    exit(status)
+}
 StudioApp.main()

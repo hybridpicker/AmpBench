@@ -688,6 +688,10 @@ private struct DetailsSection: View {
                 }
             }
 
+            if let sound = recording.preset {
+                SoundBlock(recording: recording, sound: sound)
+            }
+
             VStack(alignment: .leading, spacing: 3) {
                 DeskCaption("Tags, durch Kommas getrennt")
                 TextField("Tags", text: $tags)
@@ -769,6 +773,49 @@ private struct DetailsSection: View {
         guard name != recording.name, !name.isEmpty else { return }
         model.rename(recording.id, to: name)
         name = model.recordings.first { $0.id == recording.id }?.name ?? name
+    }
+}
+
+/// The sound a take was recorded with, from Spark Studio: name and place, and in Studio two keys to hear it again
+/// on the amp or to open it in the editor.
+private struct SoundBlock: View {
+    @EnvironmentObject private var model: AppModel
+    let recording: Recording
+    let sound: PresetStamp
+
+    private var place: String {
+        sound.slot.map { "Platz \($0)" } ?? "vorübergehend gespielt"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DeskCaption("Sound")
+            Text("\(sound.name.isEmpty ? "Ohne Namen" : sound.name), \(place)")
+                .font(.system(size: 13, weight: .semibold))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+                .accessibilityLabel("Sound: \(sound.name), \(place)")
+            if let actions = model.soundActions {
+                let snapshot = model.presetSnapshot(of: recording)
+                HStack(spacing: 8) {
+                    Button("Auf den Amp") { snapshot.map(actions.sendToAmp) }
+                        .buttonStyle(.hardwareKey(size: .small))
+                        .fixedSize()
+                        .help("Spielt diesen Sound am Verstärker, auf dem vorübergehenden Platz. Kein Platz wird überschrieben.")
+                    Button("Im Editor öffnen") { snapshot.map(actions.openInEditor) }
+                        .buttonStyle(.hardwareKey(size: .small))
+                        .fixedSize()
+                        .help("Öffnet den Sound im Bereich Presets als neues Preset, das du sichern kannst.")
+                }
+                .disabled(snapshot == nil)
+                if snapshot == nil {
+                    Text("Die Einstellungen dieses Sounds fehlen im Ordner .presets.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
     }
 }
 

@@ -64,11 +64,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let content = RootView()
-            .environmentObject(model)
-            .environmentObject(model.meter)
-            .environmentObject(model.playhead)
-            .environmentObject(model.live)
+        let content = RootView().recorderEnvironment(model)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
@@ -83,6 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Self.mainWindow = window
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// Spark Studio's window takes the place of the recorder's own: the self-test, the key router and "the window
+    /// closed while recording" then all refer to it.
+    func adopt(_ window: NSWindow) {
+        Self.mainWindow = window
+        window.delegate = self
     }
 
     /// A click on the Dock icon brings the window back after it was closed.
@@ -140,16 +143,38 @@ public struct SparkRecorderApp: App {
 }
 
 struct RootView: View {
-    @EnvironmentObject private var model: AppModel
-
     var body: some View {
         VStack(spacing: 0) {
             DeckView()
+            RecorderWorkspace()
+        }
+        .frame(minWidth: 1120, maxWidth: .infinity, minHeight: 680, maxHeight: .infinity)
+        .recorderPresentations()
+    }
+}
+
+/// Everything below the deck: waveform, transport, library. Spark Studio shows it as its area "Aufnahme".
+struct RecorderWorkspace: View {
+    var body: some View {
+        VStack(spacing: 0) {
             WavePanel()
             Divider()
             LibraryArea()
         }
-        .frame(minWidth: 1120, maxWidth: .infinity, minHeight: 680, maxHeight: .infinity)
+    }
+}
+
+extension View {
+    /// The recorder's sheets and questions. Spark Studio attaches them to its whole window, so they also appear when
+    /// a menu asks for them while the other area shows.
+    func recorderPresentations() -> some View { modifier(RecorderPresentations()) }
+}
+
+private struct RecorderPresentations: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+
+    func body(content: Content) -> some View {
+        content
         .sheet(isPresented: $model.showShortcuts) { ShortcutsSheet() }
         .sheet(isPresented: $model.showLoopbackInfo) { LoopbackSheet() }
         .sheet(isPresented: $model.showLatencyInfo) { LatencySheet() }
@@ -203,12 +228,14 @@ struct AppCommands: Commands {
             }
         }
         CommandGroup(replacing: .appSettings) {}
-        CommandGroup(replacing: .help) {
-            Button("Tastaturkürzel") {
-                AppDelegate.shared?.showMainWindow()
-                model.showShortcuts = true
+        if isStandalone {
+            CommandGroup(replacing: .help) {
+                Button("Tastaturkürzel") {
+                    AppDelegate.shared?.showMainWindow()
+                    model.showShortcuts = true
+                }
+                .keyboardShortcut("/", modifiers: .command)
             }
-            .keyboardShortcut("/", modifiers: .command)
         }
         // Spark Studio replaces the undo group for Presets, which drops groups placed after it.
         CommandGroup(after: isStandalone ? .undoRedo : .pasteboard) {
@@ -442,34 +469,5 @@ private struct LoopbackSheet: View {
             }
         }
         .frame(width: 440)
-    }
-}
-
-/// A sheet with a front panel on top: its title engraved on a dark strip. The content stays system text.
-private struct SheetPanel<Content: View>: View {
-    let title: String
-    @ViewBuilder let content: Content
-
-    init(_ title: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            Faceplate {
-                HStack {
-                    PanelLabel(title, size: 10, isAccessible: true)
-                        .accessibilityAddTraits(.isHeader)
-                    Spacer()
-                }
-                .padding(.horizontal, 20)
-                .frame(height: 36)
-            }
-            VStack(alignment: .leading, spacing: 12) {
-                content
-            }
-            .padding(20)
-        }
     }
 }

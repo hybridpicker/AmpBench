@@ -106,9 +106,10 @@ All in `Sources/SparkDesign`, each with a `#Preview` in light and dark and usabl
 | `PedalShell`, `Nameplate`, `AmpHeadShell`, `BrassPanel`, `Tolex`, `Grille`, `Footswitch`, `CableRail` | pedals and amp | `PedalShell(nameplate: "Drive", accent: c) { … }` |
 | `.amberSelection()` | amber selection for a `List` or `Table` | `Table(…).amberSelection()` |
 | `ScrollRouter` | hands the scroll wheel to the hovered control | used by `Knob`, `DeviceSlider`, `DisplayStepper` |
+| `SheetPanel` | a sheet with its title engraved on a front strip, content in system text | `SheetPanel("Tastaturkürzel") { … }` |
 
 App-specific glue stays in the apps and only maps their data onto these blocks, such as
-`Sources/SparkPresets/Design/ChainColors.swift` (chain colors as swatches) and `LoadMeter.swift` (the transfer meter,
+`Sources/SparkPresetsUI/Design/ChainColors.swift` (chain colors as swatches) and `LoadMeter.swift` (the transfer meter,
 a variant of `LEDSegments`).
 
 ## Spark Recorder
@@ -178,6 +179,11 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 - **Window pictures of Spark Presets** draw the sidebar as a plain list (`--snapshot` only): the system sidebar's
   text is drawn by the window server and does not appear in a cached picture at all. `--library <folder>` fills a
   test folder with the templates, so pictures never show one's own presets.
+- **Spark Studio's deck shows Bluetooth as a second lamp, "BT", in the SPARK module's head**, not as its own key: the
+  module's three rows (input, output, retro) fill the 122 pt deck, and a fourth would make the deck taller. Like the
+  click lamp, the BT lamp is a key: a click connects or disconnects. The visible key "Verbinden" / "Trennen" sits at
+  the foot of the presets' sidebar, next to the connection's state, where one looks for it.
+- **Spark Studio's area tabs** are `SegmentTabs` in the window's toolbar: the desk's tabs, since the toolbar is desk.
 - **Window pictures** (`WindowPicture`, used by both apps' snapshot modes) are drawn with `cacheDisplay`, which
   leaves the window background transparent, so it is painted first. Translucent materials, such as the sidebar's,
   are missing from these pictures, not from the app.

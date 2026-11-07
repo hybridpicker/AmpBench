@@ -48,9 +48,13 @@ public struct RecordingJournal: Codable, Equatable, Sendable {
     public var markers: [Marker]
     public var grid: BeatGrid?
     public var punch: PunchInfo?
+    /// The id the take will have, chosen at the start so the preset snapshot can be named after it.
+    public var takeID: UUID?
+    /// The sound the take is recorded with, so a take repaired after a crash keeps it too.
+    public var preset: PresetStamp?
 
     public init(fileName: String, startedAt: Date, source: SourceFormat?, pieceID: UUID?, markers: [Marker] = [],
-                grid: BeatGrid? = nil, punch: PunchInfo? = nil) {
+                grid: BeatGrid? = nil, punch: PunchInfo? = nil, takeID: UUID? = nil, preset: PresetStamp? = nil) {
         self.fileName = fileName
         self.startedAt = startedAt
         self.source = source
@@ -58,6 +62,8 @@ public struct RecordingJournal: Codable, Equatable, Sendable {
         self.markers = markers
         self.grid = grid
         self.punch = punch
+        self.takeID = takeID
+        self.preset = preset
     }
 }
 
@@ -308,6 +314,7 @@ public final class LibraryStore {
         }
         let attributes = fileAttributes(fileURL)
         let recording = Recording(
+            id: journal.takeID ?? UUID(),
             fileName: journal.fileName,
             createdAt: journal.startedAt,
             duration: seconds,
@@ -322,7 +329,8 @@ public final class LibraryStore {
             pieceID: journal.pieceID,
             recoveredAfterInterruption: true,
             grid: journal.grid,
-            punch: journal.punch
+            punch: journal.punch,
+            preset: journal.preset
         )
         document.recordings.append(recording)
         document.practiceLog.append(PracticeEntry(date: journal.startedAt, seconds: seconds, pieceID: journal.pieceID))

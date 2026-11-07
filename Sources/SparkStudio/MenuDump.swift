@@ -1,7 +1,7 @@
 import AppKit
 
-/// `--menu-dump <file>` writes every menu item, once with each window in front: area, menu, title, key (empty when
-/// it has none), enabled. It checks the shortcut routing without pictures of the screen. `--quit` ends the app afterwards.
+/// `--menu-dump <file>` writes every menu item, once with each area in front: area, menu, title, key (empty when it
+/// has none), enabled. It checks the shortcut routing without pictures of the screen. `--quit` ends the app afterwards.
 @MainActor
 enum MenuDump {
     static func startIfRequested(_ studio: Studio) {
@@ -11,19 +11,20 @@ enum MenuDump {
         Task {
             try? await Task.sleep(for: .seconds(1.5))
             var lines = ["area\tmenu\ttitle\tkey\tenabled"]
-            for (area, name) in [(Studio.Area.recording, "aufnahme"), (.presets, "presets")] {
+            for area in StudioArea.allCases {
+                let name = area.rawValue
                 studio.show(area)
-                // SwiftUI rebuilds the menus after the change of the window in front.
+                // SwiftUI rebuilds the menus after the change of the area.
                 try? await Task.sleep(for: .seconds(1))
                 guard let menu = NSApp.mainMenu else { continue }
                 // Studio refreshes the menus when the window in front changes; this makes sure before reading.
                 Studio.refreshMenus()
-                lines.append("# \(name): front \(studio.front), app active \(NSApp.isActive), main window \(NSApp.mainWindow?.title ?? "none"), menu delegate \(menu.items.compactMap { $0.submenu?.delegate }.count)")
+                lines.append("# \(name): area \(studio.area), app active \(NSApp.isActive), main window \(NSApp.mainWindow?.title ?? "none"), menu delegate \(menu.items.compactMap { $0.submenu?.delegate }.count)")
                 lines += items(in: menu, path: "").map { "\(name)\t\($0)" }
             }
             // Keys go through the menus as the system sends them, without the refresh above. ⌘N belongs to Presets
             // only: it must open a new preset with the Presets window in front and do nothing with the other.
-            for area in [Studio.Area.recording, .presets] {
+            for area in StudioArea.allCases {
                 studio.show(area)
                 try? await Task.sleep(for: .seconds(1))
                 let before = studio.presets.openPresetID

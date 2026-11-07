@@ -19,19 +19,27 @@ public struct PresetsApp: App {
         .commands { PresetCommands(model: model) }
     }
 
-    /// The window's content, also for the window the snapshot opens itself.
-    @MainActor static func root(_ model: PresetsModel) -> some View {
+    /// The window's content, also for the window the snapshot opens itself and for Spark Studio's area.
+    @MainActor static func root(_ model: PresetsModel, minimumSize: Bool = true) -> some View {
         ContentView()
             .environmentObject(model)
             .environmentObject(model.link)
             .environmentObject(model.editor)
-            .frame(minWidth: 900, minHeight: 600)
-            .task {
-                Snapshot.prepare()
-                model.start(bluetooth: !Snapshot.isOffline)
-                await Snapshot.run(model)
-                await LiveSelfTest.run(model)
-            }
+            .frame(minWidth: minimumSize ? 900 : nil, minHeight: minimumSize ? 600 : nil)
+            .task { await startOnce(model) }
+    }
+
+    @MainActor private static var started = false
+
+    /// Bluetooth, the snapshot and the live self-test start when the content first appears, and only then: Spark
+    /// Studio shows the content again on every switch to its area, and must not reconnect after "Trennen".
+    @MainActor private static func startOnce(_ model: PresetsModel) async {
+        guard !started else { return }
+        started = true
+        Snapshot.prepare()
+        model.start(bluetooth: !Snapshot.isOffline)
+        await Snapshot.run(model)
+        await LiveSelfTest.run(model)
     }
 }
 
@@ -125,9 +133,9 @@ struct PresetCommands: Commands {
             if managesConnection {
                 Divider()
                 if model.link.wanted {
-                    Button("Trennen") { model.link.stop() }
+                    Button("Vom Verstärker trennen") { model.link.stop() }
                 } else {
-                    Button("Verbinden") { model.start(bluetooth: true) }
+                    Button("Mit dem Verstärker verbinden") { model.start(bluetooth: true) }
                 }
             }
         }

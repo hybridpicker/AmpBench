@@ -15,6 +15,9 @@ final class KeyRouter {
     /// Spark Studio has a second window whose keys must stay its own. Nil in Spark Recorder, which routes every
     /// main window.
     static var ownsWindow: ((NSWindow) -> Bool)?
+    /// Spark Studio's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil in
+    /// Spark Recorder, where every key acts.
+    static var allowsKey: (@MainActor (String) -> Bool)?
 
     init(model: AppModel) {
         self.model = model
@@ -69,7 +72,7 @@ final class KeyRouter {
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard modifiers.isDisjoint(with: [.command, .control, .option]) else { return false }
         if let window = Self.activeWindow, window.isMainWindow || window === Self.windowOverride,
-           handleLeavingTextField(event, in: window) {
+           Self.allowsKey?("escape") ?? true, handleLeavingTextField(event, in: window) {
             return true
         }
         guard let window = Self.activeWindow, !Self.isEditingText, window.attachedSheet == nil,
@@ -78,6 +81,14 @@ final class KeyRouter {
         guard window.isMainWindow || window === Self.windowOverride else { return false }
 
         // Left and right arrows move through the take. Up and down stay with the table.
+        let name: String = switch event.keyCode {
+        case 123: "left"
+        case 124: "right"
+        case 51: "delete"
+        case 117: "forwardDelete"
+        default: event.charactersIgnoringModifiers?.lowercased() ?? ""
+        }
+        if let allowsKey = Self.allowsKey, !allowsKey(name) { return false }
         switch event.keyCode {
         case 123:
             model.nudge(by: modifiers.contains(.shift) ? -1 : -5)

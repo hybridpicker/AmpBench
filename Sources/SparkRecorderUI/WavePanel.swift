@@ -762,6 +762,13 @@ struct BannerView: View {
             if banner.canUndo {
                 Button("Rückgängig", action: model.undoLastDiscard).controlSize(.small)
             }
+            if let action = banner.action {
+                Button(action.title) {
+                    model.banner = nil
+                    action.run()
+                }
+                .controlSize(.small)
+            }
             Button {
                 model.banner = nil
             } label: {

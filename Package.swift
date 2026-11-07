@@ -36,7 +36,8 @@ let package = Package(
                                            "-Xlinker", "\(root)/Resources/SparkPresets-Info.plist"])]),
         // Spark Studio: Spark Recorder and Spark Presets in one app, with both windows and both usage descriptions.
         .executableTarget(
-            name: "SparkStudio", dependencies: ["SparkRecorderUI", "SparkPresetsUI"], path: "Sources/SparkStudio",
+            name: "SparkStudio", dependencies: ["SparkCore", "SparkDesign", "SparkRecorderUI", "SparkPresetsUI"],
+            path: "Sources/SparkStudio",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/SparkStudio-Info.plist"])]),
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),

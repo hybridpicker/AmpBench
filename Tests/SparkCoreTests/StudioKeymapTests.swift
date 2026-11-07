@@ -16,10 +16,16 @@ final class StudioKeymapTests: XCTestCase {
         XCTAssertTrue(StudioKeymap.conflicts(in: apart).isEmpty)
     }
 
-    /// Only R, Space and Esc work as single keys in the whole window. Everything else would surprise in the editor.
-    func testOnlyRSpaceAndEscapeAreSingleKeysEverywhere() {
+    /// Only R and Space work as single keys in the whole window. Everything else would surprise in the editor, and
+    /// Esc stays with the presets' search field.
+    func testOnlyRAndSpaceAreSingleKeysEverywhere() {
         let singles = StudioKeymap.shortcuts(in: .everywhere).filter(\.isSingleKey).map(\.key)
-        XCTAssertEqual(Set(singles), ["r", "space", "escape"])
+        XCTAssertEqual(Set(singles), ["r", "space"])
+        XCTAssertTrue(StudioKeymap.isSingleKeyEverywhere(" "))
+        XCTAssertTrue(StudioKeymap.isSingleKeyEverywhere("r"))
+        for key in ["escape", "left", "n", "1", "delete"] {
+            XCTAssertFalse(StudioKeymap.isSingleKeyEverywhere(key), key)
+        }
     }
 
     /// The knobs keep the arrow keys in the presets area, the recorder keeps them for jumping in its area.

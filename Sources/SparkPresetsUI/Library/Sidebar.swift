@@ -15,7 +15,37 @@ enum ChainSummary {
     }
 }
 
+/// True in Spark Studio, which connects only on request and can disconnect again.
+private struct ManagesConnectionKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var managesConnection: Bool {
+        get { self[ManagesConnectionKey.self] }
+        set { self[ManagesConnectionKey.self] = newValue }
+    }
+}
+
+/// Connects or disconnects, next to the connection's state, so it is found where one looks for it.
+private struct ConnectKey: View {
+    @EnvironmentObject private var model: PresetsModel
+    @EnvironmentObject private var link: SparkLink
+
+    var body: some View {
+        Button(link.wanted ? "Trennen" : "Verbinden") {
+            if link.wanted { link.stop() } else { model.start(bluetooth: true) }
+        }
+        .buttonStyle(.hardwareKey(size: .small))
+        .fixedSize()
+        .help(link.wanted
+            ? "Trennt vom Verstärker, damit die Spark-App am Handy ihn nutzen kann."
+            : "Verbindet mit dem Verstärker. Die Spark-App am Handy darf dabei nicht verbunden sein.")
+    }
+}
+
 struct Sidebar: View {
+    @Environment(\.managesConnection) private var managesConnection
     @EnvironmentObject private var model: PresetsModel
     @EnvironmentObject private var link: SparkLink
 
@@ -63,6 +93,7 @@ struct Sidebar: View {
                 HStack(spacing: 8) {
                     ConnectionStatus()
                     Spacer(minLength: 4)
+                    if managesConnection { ConnectKey() }
                     NewPresetMenu()
                 }
                 .padding(.horizontal, 14)
@@ -266,7 +297,7 @@ struct ConnectionStatus: View {
         switch link.status {
         case .connected: return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
         case .searching, .connecting: return "Spark-App am Handy trennen"
-        case .off: return "Verstärker → Verbinden"
+        case .off: return "Die Spark-App am Handy kann ihn jetzt nutzen"
         default: return nil
         }
     }

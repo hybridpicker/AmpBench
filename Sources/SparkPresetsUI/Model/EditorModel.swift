@@ -35,6 +35,8 @@ final class EditorModel: ObservableObject {
     /// A stored preset to switch to before anything else in the queue.
     private var pendingSlot: Int?
     var show: ((Banner.Kind, String) -> Void)?
+    /// Called with every preset opened in the editor. Spark Studio sets the metronome from its tempo.
+    var onOpen: ((SparkPreset) -> Void)?
 
     init(link: SparkLink) {
         self.link = link
@@ -57,6 +59,7 @@ final class EditorModel: ObservableObject {
         editor = PresetEditor(preset)
         self.source = source
         showsOriginal = false
+        onOpen?(preset)
     }
 
     /// Takes a fresh copy of the source, such as a slot read again, when nothing was changed.

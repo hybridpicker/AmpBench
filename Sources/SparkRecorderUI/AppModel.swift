@@ -36,6 +36,8 @@ struct Banner: Identifiable, Equatable {
     let kind: Kind
     let text: String
     var canUndo = false
+    /// A key in the banner, such as Spark Studio's "Übernehmen" for a tempo going into the preset.
+    var action: BannerAction?
 
     static func == (lhs: Banner, rhs: Banner) -> Bool { lhs.id == rhs.id }
 }
@@ -209,6 +211,12 @@ final class AppModel: ObservableObject {
     /// The delays the bars of the running recording are corrected by.
     private var activeLatency = ClickLatency()
     private var bannerUndoAction: (@MainActor (AppModel) -> Void)?
+    /// Spark Studio's sound of the amp for a new take. Nil in Spark Recorder.
+    var soundProvider: (@MainActor () -> TakeSound?)?
+    /// Spark Studio's actions for a take's sound: play it on the amp, open it in the editor. Nil in Spark Recorder.
+    var soundActions: SoundActions?
+    /// Called after the metronome's tempo was changed by hand, so Spark Studio can offer it to the preset.
+    var onTempoChanged: (@MainActor (Double) -> Void)?
     private var peakHoldAge = 0.0
     private var monitorStartedAt = Date()
     private var diskCheckAge = 0.0
@@ -371,12 +379,32 @@ final class AppModel: ObservableObject {
         }
     }
 
+    // MARK: Sound of a take (Spark Studio)
+
+    /// Writes the snapshot of what the amp plays now and returns its stamp, or nil without one. Only Spark Studio
+    /// provides the sound, from the editor's state in memory: no Bluetooth request, so nothing here can delay or
+    /// end a recording. A snapshot that cannot be written leaves the take without a sound, never without audio.
+    private func stampSound(for takeID: UUID) -> PresetStamp? {
+        guard let sound = soundProvider?() else { return nil }
+        do {
+            try store.writePresetSnapshot(sound.snapshot, for: takeID)
+            return sound.stamp
+        } catch {
+            return nil
+        }
+    }
+
+    func presetSnapshot(of recording: Recording) -> Data? {
+        store.presetSnapshot(of: recording.id)
+    }
+
     // MARK: Banner
 
-    func show(_ kind: Banner.Kind, _ text: String, sticky: Bool = false, canUndo: Bool = false) {
+    func show(_ kind: Banner.Kind, _ text: String, sticky: Bool = false, canUndo: Bool = false,
+              action: BannerAction? = nil) {
         bannerTask?.cancel()
         bannerUndoAction = nil
-        banner = Banner(kind: kind, text: text, canUndo: canUndo)
+        banner = Banner(kind: kind, text: text, canUndo: canUndo, action: action)
         announce(text)
         guard !sticky else { return }
         bannerTask = Task { [weak self] in
@@ -730,10 +758,12 @@ final class AppModel: ObservableObject {
                 ?? "Aufnahme_\(LibraryStore.fileStamp(now))"
             let url = store.uniqueName(stem)
             let source = sourceFormat(device)
+            let takeID = UUID()
             let journal = RecordingJournal(
                 fileName: url.lastPathComponent, startedAt: now, source: source,
                 pieceID: punch.map(\.pieceID) ?? currentPieceID,
-                punch: punch.map { PunchInfo(sourceID: $0.sourceID, bars: $0.bars) })
+                punch: punch.map { PunchInfo(sourceID: $0.sourceID, bars: $0.bars) },
+                takeID: takeID, preset: stampSound(for: takeID))
             try store.writeJournal(journal)
 
             var clickSettings = metronome
@@ -942,6 +972,7 @@ final class AppModel: ObservableObject {
         edit.autoLevelEnabled = autoLevelDefault
         edit.autoLevelDB = AutoLevel.gainDB(forPeak: peak)
         let recording = Recording(
+            id: journal.takeID ?? UUID(),
             fileName: journal.fileName,
             createdAt: start,
             duration: result.seconds,
@@ -956,7 +987,8 @@ final class AppModel: ObservableObject {
             edit: edit,
             peakDB: peak > 0 ? 20 * log10(Double(peak)) : nil,
             grid: journal.grid,
-            punch: journal.punch
+            punch: journal.punch,
+            preset: journal.preset
         )
         store.add(recording)
         store.logPractice(date: start, seconds: result.seconds, pieceID: journal.pieceID)
@@ -1860,6 +1892,15 @@ final class AppModel: ObservableObject {
     // MARK: Metronome
 
     func updateMetronome(_ change: (inout MetronomeSettings) -> Void) {
+        updateMetronome(notifying: true, change)
+    }
+
+    /// The tempo of a preset opened in Spark Studio. It does not ask back whether it should go into the preset.
+    func setTempoFromPreset(_ bpm: Double) {
+        updateMetronome(notifying: false) { $0.bpm = bpm }
+    }
+
+    private func updateMetronome(notifying: Bool, _ change: (inout MetronomeSettings) -> Void) {
         let previous = metronome
         change(&metronome)
         metronome.bpm = min(max(metronome.bpm.rounded(), TapTempo.range.lowerBound), TapTempo.range.upperBound)
@@ -1875,6 +1916,7 @@ final class AppModel: ObservableObject {
         }
         applyPlaybackClick()
         if let data = try? JSONEncoder().encode(metronome) { defaults.set(data, forKey: "metronome") }
+        if notifying, metronome.bpm != previous.bpm { onTempoChanged?(metronome.bpm) }
     }
 
     func tap() {

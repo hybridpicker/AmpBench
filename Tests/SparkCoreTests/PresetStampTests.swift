@@ -121,6 +121,29 @@ final class PresetStampTests: XCTestCase {
         XCTAssertEqual(store.presetSnapshot(of: recording.id), bytes)
     }
 
+    // MARK: Crash recovery
+
+    func testATakeRepairedAfterACrashKeepsItsIDAndSound() throws {
+        let takeID = UUID()
+        try store.writeJournal(RecordingJournal(fileName: "crash.wav", startedAt: Date(), source: nil, pieceID: nil,
+                                                takeID: takeID, preset: stamp))
+        try store.writePresetSnapshot(Data("{}".utf8), for: takeID)
+        try Synthetic.rawWAV(frames: 44_100, declaredData: 0).write(to: store.folder.appendingPathComponent("crash.wav"))
+        guard case .repaired = store.recoverInterruptedRecording() else { return XCTFail("expected repair") }
+        let recording = try XCTUnwrap(store.document.recordings.first)
+        XCTAssertEqual(recording.id, takeID)
+        XCTAssertEqual(recording.preset, stamp)
+        XCTAssertNotNil(store.presetSnapshot(of: recording.id), "the snapshot belongs to the repaired take")
+    }
+
+    func testAnOldJournalWithoutIDOrSoundStillRecovers() throws {
+        let json = #"{"fileName": "old.wav", "startedAt": "2026-01-02T10:00:00Z", "markers": []}"#
+        try Data(json.utf8).write(to: store.journalURL)
+        try Synthetic.rawWAV(frames: 44_100, declaredData: 0).write(to: store.folder.appendingPathComponent("old.wav"))
+        guard case .repaired = store.recoverInterruptedRecording() else { return XCTFail("expected repair") }
+        XCTAssertNil(store.document.recordings.first?.preset)
+    }
+
     func testMissingSnapshotIsNil() {
         XCTAssertNil(store.presetSnapshot(of: UUID()))
     }

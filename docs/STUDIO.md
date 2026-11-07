@@ -11,7 +11,7 @@ ist, und wird mit jeder Stufe fortgeschrieben. Am Ende ersetzt es den Prompt und
 |---|---|---|
 | 0 | Datenmodell, Tastaturmodell, Layout, dieses Dokument | fertig, nur Code ohne Verhalten |
 | 1 | Ein Bundle, zwei Fenster | fertig, am Amp vom Nutzer geprüft (2026-11-07) |
-| 2 | Ein Fenster, zwei Bereiche | offen |
+| 2 | Ein Fenster, zwei Bereiche | gebaut, mit Selbsttests geprüft; Test am Amp offen |
 | 3 | Stücke = Songs, gemeinsamer Ordner, alte Apps entfernen | offen |
 
 Stufe 1 ist am Spark MINI geprüft (siehe unten). Die beiden alten Apps verhalten sich unverändert.
@@ -33,6 +33,47 @@ SparkStudio (executable, eigene Info.plist: Mikrofon + Bluetooth)
 - Bluetooth verbindet nicht beim Start, sondern beim ersten Öffnen des Bereichs Presets oder mit „Verbinden“ im Deck,
   und trennt auf Wunsch wieder, damit die Spark-App am Handy benutzbar bleibt (der Amp nimmt nur eine
   Steuerverbindung). Ein Bluetooth-Fehler wird gemeldet und beendet nie eine laufende Aufnahme.
+
+## Stufe 2 – Stand
+
+- **Ein Fenster** „Spark Studio“: Deck oben fest (122 pt), darunter der Bereich, gewählt mit `SegmentTabs` in der
+  Toolbar oder ⇧⌘1 / ⇧⌘2 (Menü Darstellung). Mindestinhalt 1120 × 720. Der Recorder-AppDelegate übernimmt dieses
+  Fenster (`RecorderHost.adopt`), darum gelten Dock-REC, „Aufnahme läuft weiter, wenn das Fenster zu ist“ und der
+  UI-Selbsttest unverändert. Die Bereiche werden beim Wechsel neu aufgebaut; ihr Zustand liegt in den Modellen.
+- **Erweiterbar:** `StudioArea` in Sources/SparkStudio/Studio.swift ist die Liste der Bereiche. Eine neue App kommt
+  als Bibliothek mit einem Host (wie `RecorderHost`, `PresetsHost`), einem neuen Fall in `StudioArea`, einem Scope in
+  `StudioKeymap` und je einer Zeile in `StudioWindowView` und `StudioCommands`; ⇧⌘ plus die nächste Ziffer zeigt sie.
+- **Bluetooth im Deck:** zweites Lämpchen „BT“ im Kopf des SPARK-Moduls, anklickbar wie das Klick-Lämpchen
+  (Verbinden/Trennen). Die sichtbare Taste „Verbinden/Trennen“ steht unten in der Seitenleiste der Presets neben der
+  Verbindungsanzeige; im Menü heißen die Punkte jetzt „Mit dem Verstärker verbinden“ / „Vom Verstärker trennen“.
+  Bluetooth startet beim ersten Öffnen des Bereichs Presets, nicht bei jedem Wechsel, sonst würde „Trennen“
+  nicht halten.
+- **Sound am Take:** Beim Start der Aufnahme fragt der Recorder Studio, was der Amp spielt, nur aus dem Speicher
+  (`PresetsModel.heardPreset`): der Editor-Stand, wenn er live auf 7F spielt (auch beim A/B-Vergleich), ein
+  ausprobiertes Preset, sonst der gespeicherte Platz. Ohne Verbindung bleibt der Take ohne Sound. Stempel und
+  Take-ID stehen schon im Journal, der Schnappschuss wird beim Start geschrieben; ein nach einem Absturz reparierter
+  Take behält beides. Im Inspektor: „Sound: Crunch, Platz 2“ mit „Auf den Amp“ (nur 7F) und „Im Editor öffnen“
+  (als neues, ungesichertes Preset im Bereich Presets).
+- **BPM, eine Quelle:** Öffnet der Editor ein Preset, stellt dessen Tempo das Metronom (nicht während einer
+  Aufnahme). Ändert man das Metronom von Hand, fragt ein Banner nach 1,5 s Ruhe „Tempo 96 auch ins Preset „Crunch“
+  übernehmen?“ mit der Taste „Übernehmen“; das Preset gilt dann als geändert, bis es gesichert ist.
+- **Tasten:** Einzeltasten wirken nur im Bereich Aufnahme, R und Leertaste überall (außer in Textfeldern), Esc
+  bleibt in Presets beim Suchfeld. Der KeyRouter fragt dafür `StudioKeymap.isSingleKeyEverywhere`. ⌘/ zeigt eine
+  Liste aller Kürzel, erzeugt aus `StudioKeymap`.
+- **Meldungen des Recorders** (etwa „Kein Spark“ nach R) erscheinen im Bereich Presets oben über dem Inhalt.
+- Neuer Baustein `SheetPanel` in SparkDesign (vorher privat im Recorder); DESIGN.md nennt ihn und die zwei
+  Studio-Abweichungen (BT-Lämpchen statt Taste im Deck, Tabs in der Toolbar).
+
+Geprüft (gebaut, Testordner, kein Gerät):
+- `--menu-dump`: keine Taste doppelt in einem Bereich, ⌘N wirkt nur im Bereich Presets (echter Tastendruck).
+- UI-Selbsttest `main` im Studio-Fenster: dieselben Ergebnisse wie in Spark Recorder (3 FAIL der Testumgebung, das
+  BlackHole-Signal kommt nicht an).
+- Neues Szenario `--ui-selftest sound`: Stempel im Journal, Schnappschuss beim Start, „Auf den Amp“ mitten in der
+  Aufnahme scheitert über den echten Studio-Weg (Presets offline, wie ein Verbindungsabbruch) und die Aufnahme
+  läuft weiter und endet mit Sound und Schnappschuss. 10 von 10 bestanden.
+- Fensterbilder beider Bereiche angesehen.
+
+Offen am Amp: Stempel mit echtem Preset, „Auf den Amp“ und „Im Editor öffnen“, BPM-Abgleich, BT-Lämpchen.
 
 ## Stufe 1 – Stand
 

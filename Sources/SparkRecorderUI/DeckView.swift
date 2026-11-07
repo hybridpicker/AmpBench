@@ -279,12 +279,44 @@ private struct QualityLines: View {
 
 // MARK: - Spark
 
+/// The amp's Bluetooth connection, shown in the deck by Spark Studio. Nil in Spark Recorder.
+public struct DeckBluetooth {
+    public enum State { case connected, busy, off, unavailable }
+
+    public var state: State
+    /// What the lamp's help and VoiceOver say, such as "Spark MINI" or "Suche den Verstärker …".
+    public var detail: String
+    /// Connects when off, disconnects otherwise.
+    public var toggle: @MainActor () -> Void
+
+    public init(state: State, detail: String, toggle: @escaping @MainActor () -> Void) {
+        self.state = state
+        self.detail = detail
+        self.toggle = toggle
+    }
+}
+
+private struct DeckBluetoothKey: EnvironmentKey {
+    static var defaultValue: DeckBluetooth? { nil }
+}
+
+extension EnvironmentValues {
+    public var deckBluetooth: DeckBluetooth? {
+        get { self[DeckBluetoothKey.self] }
+        set { self[DeckBluetoothKey.self] = newValue }
+    }
+}
+
 private struct SparkModule: View {
     @EnvironmentObject private var model: AppModel
+    @Environment(\.deckBluetooth) private var bluetooth
 
     var body: some View {
         FaceplateModule("Spark") {
-            connectionLamp
+            HStack(spacing: 8) {
+                connectionLamp
+                if let bluetooth { BluetoothLamp(bluetooth: bluetooth) }
+            }
         } content: {
             Spacer(minLength: 4)
             VStack(spacing: 6) {
@@ -365,6 +397,28 @@ private struct SparkModule: View {
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// USB brings the sound in, Bluetooth controls the amp. The lamp is a key, like the click's: a click connects or
+/// disconnects, so the Spark app on the phone can take the amp.
+private struct BluetoothLamp: View {
+    let bluetooth: DeckBluetooth
+
+    private var isConnectedOrBusy: Bool { bluetooth.state == .connected || bluetooth.state == .busy }
+
+    var body: some View {
+        Button(action: bluetooth.toggle) {
+            Lamp("BT", tone: bluetooth.state == .connected ? .on : .amber,
+                 isOn: isConnectedOrBusy)
+        }
+        .buttonStyle(.plain)
+        .disabled(bluetooth.state == .unavailable)
+        .help("Verstärker über Bluetooth: \(bluetooth.detail). " + (isConnectedOrBusy
+            ? "Klicken trennt, damit die Spark-App am Handy den Verstärker nutzen kann."
+            : "Klicken verbindet."))
+        .accessibilityLabel("Verstärker über Bluetooth: \(bluetooth.detail)")
+        .accessibilityHint(isConnectedOrBusy ? "Trennt die Verbindung." : "Verbindet mit dem Verstärker.")
     }
 }
 

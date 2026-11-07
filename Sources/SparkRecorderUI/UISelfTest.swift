@@ -217,9 +217,52 @@ final class UISelfTest {
         case "realwindow": await realWindowScenario()
         case "nospark": await noSparkScenario()
         case "reconnect": await reconnectScenario()
+        case "sound": await soundScenario()
         default: note("FAIL unknown scenario")
         }
         await finish()
+    }
+
+    /// A take keeps the sound the amp plays when it starts, and a failing amp action during the recording ends
+    /// nothing. In Spark Studio the action goes the real way to the presets, which are offline in tests, so it fails
+    /// like a lost Bluetooth connection. In Spark Recorder a stand-in action counts the call.
+    private func soundScenario() async {
+        useTestDevices()
+        await wait(1)
+        // Whole seconds, because the journal stores dates without fractions.
+        let stamp = PresetStamp(slot: 2, name: "Crunch", stampedAt: Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down)),
+                                sha256: String(repeating: "ab", count: 32))
+        let soundFile = Data(#"{"format":2,"preset":{"name":"Crunch"}}"#.utf8)
+        model.soundProvider = { TakeSound(stamp: stamp, snapshot: soundFile) }
+        var standInCalls = 0
+        if model.soundActions == nil {
+            model.soundActions = SoundActions(sendToAmp: { _ in standInCalls += 1 }, openInEditor: { _ in })
+        }
+        startTone(amplitude: 0.05)
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "R starts a recording")
+        let journal = model.store.readJournal()
+        check(journal?.preset == stamp, "the journal keeps the sound, for a take repaired after a crash")
+        if let id = journal?.takeID {
+            check(model.store.presetSnapshot(of: id) == soundFile, "the snapshot is written when the take starts")
+        } else {
+            check(false, "the journal names the take's id")
+        }
+        await wait(0.6)
+        // What a lost connection does in Studio: the amp action fails and reports. The recording goes on.
+        model.soundActions?.sendToAmp(soundFile)
+        await wait(0.8)
+        check(model.phase == .recording, "a failing amp action does not end the recording")
+        await press("r", keyCode: 15)
+        check(await waitUntil { model.phase == .idle && model.current != nil }, "R stops the take")
+        await stopTone()
+        guard let take = model.current else { return }
+        check(take.preset == stamp, "the take keeps its sound", detail: "\(String(describing: take.preset))")
+        check(model.presetSnapshot(of: take) == soundFile, "the take's snapshot is next to it")
+        check(journal?.takeID == take.id, "the take has the id chosen at its start")
+        if standInCalls > 0 { note("NOTE stand-in amp action was called \(standInCalls) time(s)") }
+        await snapshot("sound-inspector")
+        model.soundProvider = nil
     }
 
     private func mainScenario() async {

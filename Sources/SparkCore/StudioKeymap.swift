@@ -72,7 +72,6 @@ public enum StudioKeymap {
     static let everywhere: [StudioShortcut] = [
         StudioShortcut("r", [], .everywhere, "Aufnahme starten oder stoppen, auch „Nochmal“"),
         StudioShortcut("space", [], .everywhere, "Abspielen oder anhalten; während der Aufnahme stoppen und anhören"),
-        StudioShortcut("escape", [], .everywhere, "Textfeld verlassen"),
         StudioShortcut("1", [.command, .shift], .everywhere, "Bereich Aufnahme"),
         StudioShortcut("2", [.command, .shift], .everywhere, "Bereich Presets"),
         StudioShortcut("/", .command, .everywhere, "Tastaturkürzel"),
@@ -84,6 +83,7 @@ public enum StudioKeymap {
     }
 
     static let recording: [StudioShortcut] = [
+        StudioShortcut("escape", [], .recording, "Textfeld verlassen"),
         StudioShortcut("l", [], .recording, "Schleife: A, B, aus"),
         StudioShortcut("m", [], .recording, "Marker setzen, auch während der Aufnahme"),
         StudioShortcut("k", [], .recording, "Take behalten"),
@@ -152,5 +152,11 @@ public enum StudioKeymap {
 
     public static func shortcuts(in scope: KeyScope) -> [StudioShortcut] {
         all.filter { $0.scope == scope }
+    }
+
+    /// True when a single key, named as typed (" " counts as "space"), works in every area.
+    public static func isSingleKeyEverywhere(_ key: String) -> Bool {
+        let name = key == " " ? "space" : key
+        return all.contains { $0.scope == .everywhere && $0.isSingleKey && $0.key == name }
     }
 }

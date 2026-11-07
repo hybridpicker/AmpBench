@@ -318,34 +318,41 @@ sidebar's text does not appear in a picture taken this way.
 
 ## Spark Studio
 
-Spark Recorder and Spark Presets in one app, on the way to one window (plan and decisions:
-[docs/STUDIO.md](docs/STUDIO.md)). For now it has the two windows of the two apps, each behaving as in its app:
+Spark Recorder and Spark Presets in one window (plan and decisions: [docs/STUDIO.md](docs/STUDIO.md)):
 
-- **Aufnahme** (`⇧⌘1`) is Spark Recorder's window, **Presets** (`⇧⌘2`) is Spark Presets' window. Both are in the
-  "Fenster" menu. A click on the Dock icon brings Aufnahme back, and the Dock shows REC while recording.
-- The menus follow the window in front: `⌘E`, `⌘⌫` and `⇧⌘R` act on the take in Aufnahme and on the preset in Presets,
-  `⌘Z` undoes in the window in front. Presets' own keys (`⌘N`, `⌘D`, `⇧⌘S`, `⌥⌘1` – `⌥⌘4`, `⌘B`, `⇧⌘L`, `⌘R`,
-  `⌃0` – `⌃7`) work only there, and the single keys of the recorder only in Aufnahme. `⌘S` and `⌘1` – `⌘4` work in
-  both windows.
-- **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the Presets window opens
-  or with "Verstärker → Verbinden", and "Verstärker → Trennen" lets the Spark app on the phone take the amp again.
-  The sidebar then says "Getrennt".
-- It uses the same folders as the two apps, `~/Music/Spark Recorder` and `~/Music/Spark Presets`. Its settings (input,
-  click, window places) are its own, because it is a new app for macOS, and it asks again for the microphone and for
-  Bluetooth. Only one app holds the amp's Bluetooth connection, and only one app at a time uses the recordings
-  library: started second, Studio or Spark Recorder leaves it alone and says that another instance is running.
+- The **deck** stays on top. Below it the toolbar's tabs, or `⇧⌘1` and `⇧⌘2`, choose the area: **Aufnahme**
+  (waveform, transport, library) or **Presets** (sidebar and editor). The Dock shows REC while recording, also with
+  the window closed.
+- **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the Presets area first
+  shows, with the key "Verbinden" at the foot of the presets' sidebar, with the lamp "BT" in the deck's SPARK module,
+  or with "Verstärker → Mit dem Verstärker verbinden". "Trennen" lets the Spark app on the phone take the amp again.
+- **Every take knows its sound.** When a recording starts while the amp is connected, the take keeps what the amp
+  plays: the preset in the editor when it plays live, a tried-out preset, or the stored slot. The inspector shows
+  "Sound: Crunch, Platz 2", "Auf den Amp" plays it on the temporary place (never a slot), and "Im Editor öffnen"
+  opens it as a new preset. The settings are a preset file in `.presets/<take id>.json` in the recordings folder.
+- **One tempo.** Opening a preset sets the metronome to its tempo. Changing the metronome by hand asks whether the
+  preset should get the new tempo too; nothing is written into a preset without that.
+- **Keys**: single keys act only in Aufnahme, `R` and `Space` everywhere (not while typing). `⌘E`, `⌘⌫`, `⇧⌘R` and
+  `⌘Z` act in the area in front. Presets' own keys (`⌘N`, `⌘D`, `⇧⌘S`, `⌥⌘1` – `⌥⌘4`, `⌘B`, `⇧⌘L`, `⌘R`,
+  `⌃0` – `⌃7`) work in Presets, `⌘S` and `⌘1` – `⌘4` in both. `⌘/` lists them all.
+- It uses the same folders as the two apps, `~/Music/Spark Recorder` and `~/Music/Spark Presets`. Its settings are its
+  own, and macOS asks again for the microphone and Bluetooth. Only one app holds the amp's Bluetooth connection, and
+  only one app at a time uses the recordings library: started second, Studio or Spark Recorder leaves it alone and
+  says that another instance is running.
 
 The self-tests of both apps run in Studio too, with the same options. A test library given with `--library <folder>`
 keeps the presets in its subfolder `Presets`, filled with made-up presets:
 
 ```bash
 .build/debug/SparkStudio --library /tmp/studio-test --ui-selftest main /tmp/studio-results
+.build/debug/SparkStudio --library /tmp/studio-test --offline --ui-selftest sound /tmp/studio-results
 .build/debug/SparkStudio --library /tmp/studio-test --offline --open saved:Lead --snapshot /tmp/presets.png --quit
-.build/debug/SparkStudio --library /tmp/studio-test --offline --menu-dump /tmp/menus.tsv --quit
+.build/debug/SparkStudio --library /tmp/studio-test --offline --menu-dump /tmp/studio-menus.txt --quit
 ```
 
-`--menu-dump` lists every menu item with its key and state, once with each window in front, and checks with a real key
-press that `⌘N` reaches Presets only while its window is in front.
+The `sound` scenario stamps a made-up sound on a take and lets an amp action fail during the recording, which must not
+end it. `--menu-dump` lists every menu item with its key and state, once with each area in front, and checks with a real
+key press that `⌘N` reaches Presets only while that area shows.
 
 ## Design (Gestaltung)
 

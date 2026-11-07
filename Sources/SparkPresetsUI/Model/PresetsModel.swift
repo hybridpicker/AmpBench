@@ -58,6 +58,8 @@ final class PresetsModel: ObservableObject {
     private var bannerTask: Task<Void, Never>?
     private var changes: Set<AnyCancellable> = []
     private var interrupted: InterruptedStore?
+    /// The last preset played with "Ausprobieren", to know what the amp plays while `link.tryingOut` is set.
+    private var lastTriedOut: SparkPreset?
 
     init(folder: URL = PresetLibrary.defaultFolder) {
         library = PresetLibrary(folder: folder)
@@ -290,10 +292,55 @@ final class PresetsModel: ObservableObject {
 
     func tryOut(_ item: SavedPreset) {
         guard canUseAmp else { return }
+        lastTriedOut = item.file.preset
         run {
             try await self.link.tryOut(item.file.preset)
             self.show(.info, "„\(item.name)“ spielt zum Ausprobieren. Gespeichert ist nichts, ein Preset-Wechsel beendet es.")
         }
+    }
+
+    /// Plays a preset that is not in the library, such as a take's sound, on the temporary place 7F. `report` gets
+    /// nil when it plays, or what went wrong, for showing it where the request came from.
+    func tryOut(_ preset: SparkPreset, report: (@MainActor (String?) -> Void)? = nil) {
+        guard link.status == .connected else {
+            let text = "Der Verstärker ist nicht verbunden. Verbinde ihn, dann spielt der Sound auf dem vorübergehenden Platz."
+            show(.warning, text)
+            report?(text)
+            return
+        }
+        guard canUseAmp else {
+            report?("Der Verstärker ist gerade beschäftigt. Versuch es gleich noch einmal.")
+            return
+        }
+        lastTriedOut = preset
+        run {
+            do {
+                try await self.link.tryOut(preset)
+            } catch {
+                report?(error.localizedDescription)
+                throw error
+            }
+            self.show(.info, "„\(preset.name)“ spielt zum Ausprobieren. Gespeichert ist nichts, ein Preset-Wechsel beendet es.")
+            report?(nil)
+        }
+    }
+
+    /// Opens a preset from elsewhere, such as a take's sound, as a new preset that can be saved.
+    func openCopy(_ preset: SparkPreset) {
+        openDraft(preset)
+    }
+
+    /// What the amp plays now, as far as the app knows, and from which slot. Read from memory only, never asked of
+    /// the amp, so it costs nothing at the start of a recording.
+    var heardPreset: (preset: SparkPreset, slot: Int?)? {
+        guard link.status == .connected else { return nil }
+        // The editor's state on the temporary place, including the saved state while comparing (A/B).
+        if link.isEditingLive, let preset = editor.preset { return (preset, nil) }
+        // A preset tried out without the editor.
+        if let name = link.tryingOut, let preset = lastTriedOut, preset.name == name { return (preset, nil) }
+        // A stored slot: what is stored there, whatever the editor shows.
+        if let slot = link.activeSlot, let preset = link.slots[slot] { return (preset, slot + 1) }
+        return nil
     }
 
     func askToStore(_ item: SavedPreset, in slot: Int) {
