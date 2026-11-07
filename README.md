@@ -104,6 +104,27 @@ The bars are meant to be as exact as in a DAW, well under a millisecond on the a
   2 ms. The result counts for exactly that pair of devices and for recordings made afterwards. It can also be set by
   hand in the metronome details, in steps of 0.5 ms.
 
+### Measuring the latency
+
+The Mac's headphone output is a 3.5 mm jack and the amp's guitar input is 6.3 mm, so the cable needs both ends: a
+3.5 mm stereo to 6.3 mm mono cable, or a 3.5 mm cable with a 3.5 mm to 6.3 mm adapter. The click plays on both
+channels, so the left one is enough.
+
+1. Unplug the guitar and connect the cable from the headphone output to the amp's guitar input. Keep USB connected.
+2. On the amp, choose a preset without delay, reverb and noise gate, and turn the master volume down.
+3. Set the Mac's volume to about half.
+4. In the metronome details, the click output must be the headphone output ("Externe Kopfhörer"). "Eingang prüfen"
+   and retro recording must be off.
+5. Choose "Aufnahme → Klick-Latenz messen …" and "Messen". It takes about ten seconds.
+6. Unplug the cable and plug the guitar back in.
+
+Without a cable, a wired headphone or earbud held directly on a pickup works too. The pickup picks up the speaker's
+magnetic field without any delay of its own, so the click then takes exactly the way a played note does. Mute the
+strings, turn the Mac up and use a preset with some gain. The neck pickup and single coils give the strongest signal.
+
+The result is stored for the input and the click output it was measured with. The internal delay of the amp is most of
+it, so for another click output, such as the built-in speakers, the same correction can be set by hand.
+
 On the BlackHole loop test, every beat lands within one sample of the grid.
 
 Dragging over the waveform of such a take selects whole bars, and `⌥` selects freely. The bar controls below the transport

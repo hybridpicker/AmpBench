@@ -58,7 +58,7 @@ public enum LatencyProbeError: LocalizedError, Equatable {
         case .clickDidNotStart:
             return "Der Klick ist nicht angelaufen."
         case .noSignal:
-            return "Am Eingang kam kein Klick an. Steckt das Kabel vom Klick-Ausgang im Gitarreneingang, und ist der Ausgang laut genug?"
+            return "Am Eingang kam kein Klick an. Steckt das Kabel im Gitarreneingang, oder liegt der Kopfhörer direkt auf dem Tonabnehmer? Ist der Ausgang laut genug?"
         case .unstable(let spread):
             return String(format: "Die Klicks kamen ungleichmäßig an (Streuung %.1f ms). Wähle am Amp ein Preset ohne Delay, Hall und Noise Gate und miss noch einmal.", spread)
         }

@@ -364,7 +364,7 @@ private struct LatencySheet: View {
             Text("Klick-Latenz messen").font(.title2.weight(.semibold))
             Text("Damit die Takte auf die Millisekunde stimmen, misst die App, wie lange ein Klick von „\(model.clickOutput?.name ?? "–")“ bis in die Aufnahme von „\(model.selectedInput?.name ?? "–")“ braucht. Der Amp verzögert die Gitarre intern, und das melden die Geräte nicht.")
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Steck dafür ein Kabel vom Kopfhörerausgang des Klick-Ausgangs in den Gitarreneingang des Amps. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.")
+            Text("Steck dafür ein Kabel vom Kopfhörerausgang in den Gitarreneingang des Amps, mit 3,5-mm-Klinke am Mac und 6,3-mm-Klinke am Amp. Ohne Kabel geht auch ein Kopfhörer direkt auf dem Tonabnehmer, bei abgedämpften Saiten. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.")
                 .fixedSize(horizontal: false, vertical: true)
             Text("Das Ergebnis gilt für genau diese beiden Geräte und für Aufnahmen, die danach entstehen.")
                 .font(.callout)
