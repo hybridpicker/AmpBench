@@ -13,7 +13,7 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | 0 | Datenmodell (Sound am Take, Teile, Tonart), Tastaturmodell, Layout | 66f5cdb | – (kein Verhalten) |
 | 1 | Ein Bundle, zwei Fenster, Bluetooth auf Abruf | 308cc7f, 61d4bdb | vom Nutzer geprüft (2026-11-07) |
 | 2 | Ein Fenster mit Bereichen, Sound am Take, ein Tempo | cc3ebb3 | offen |
-| 3 | Stücke = Songs, `~/Music/Spark Studio`, alte Apps entfernt, neues Icon | dieser Stand | offen |
+| 3 | Stücke = Songs, `~/Music/Spark Studio`, alte Apps entfernt, neues Icon | 3960ccd | offen |
 
 Am Spark MINI noch zu prüfen: ein Take mit echtem Preset (Stempel, „Auf den Amp“, „Im Editor öffnen“), der
 Tempo-Abgleich, das Lämpchen „BT“, „Spielen“ bei Stücken und Teilen, und die Übernahme der echten Ordner beim ersten
@@ -130,8 +130,10 @@ Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der
   den Fingerabdruck, und alte Stempel werden neu berechnet.
 - **Kleine Bildschirme:** 720 pt Inhalt plus Toolbar und Menüleiste passen knapp auf 800 pt hohe Bildschirme, mit Dock
   unten nicht. Vorschlag: die Bibliothek schrumpfen lassen, nicht das Deck.
-- **Bibliothek der Presets** (aus der früheren Roadmap): Favoriten, Tags und Bewertung (Felder gibt es seit Format 2,
-  die Oberfläche fehlt), Filter und Sortierung, Import und Export, Versionsverlauf pro Preset.
+- **Bibliothek der Presets** (aus der früheren Roadmap): **Gruppen** nach Wunsch des Nutzers, etwa „Practice“, „U2“,
+  „Country“, „Basis Setup“ (ein Preset in mehreren, als Abschnitte der Seitenleiste, zuordnen per Kontextmenü oder
+  Ziehen); Favoriten, Tags und Bewertung (Felder gibt es seit Format 2, die Oberfläche fehlt), Filter und
+  Sortierung, Import und Export, Versionsverlauf pro Preset.
 - **Setlists und Auftrittsmodus** bauen auf den Stücken auf: Reihenfolge per Drag & Drop, großer Vollbildmodus mit
   Umschalten per Pfeiltasten, Leertaste und Zahlen, nächster Song oder Teil per Taste. Optional „Setlist auf den Amp“:
   bis zu vier Presets auf die Plätze, mit Nachfrage und Sicherung wie beim Speichern auf einen Platz.
