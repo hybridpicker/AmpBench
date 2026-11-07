@@ -8,16 +8,37 @@ public struct MetronomeSettings: Codable, Equatable, Sendable {
     public var beatsPerBar: Int
     public var volume: Float
     public var countInBars: Int
-    /// Keeps the click running during the recording, for example over headphones.
-    public var clickWhileRecording: Bool
+    /// The click sounds while playing or recording, and never in between.
+    public var clickEnabled: Bool
 
     public init(bpm: Double = 90, beatsPerBar: Int = 4, volume: Float = 0.6, countInBars: Int = 0,
-                clickWhileRecording: Bool = false) {
+                clickEnabled: Bool = false) {
         self.bpm = bpm
         self.beatsPerBar = beatsPerBar
         self.volume = volume
         self.countInBars = countInBars
-        self.clickWhileRecording = clickWhileRecording
+        self.clickEnabled = clickEnabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case bpm, beatsPerBar, volume, countInBars, clickEnabled
+    }
+
+    private enum LegacyKeys: String, CodingKey {
+        case clickWhileRecording
+    }
+
+    /// Someone who chose the click during recordings in an earlier version finds it switched on.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        bpm = try c.decodeIfPresent(Double.self, forKey: .bpm) ?? 90
+        beatsPerBar = try c.decodeIfPresent(Int.self, forKey: .beatsPerBar) ?? 4
+        volume = try c.decodeIfPresent(Float.self, forKey: .volume) ?? 0.6
+        countInBars = try c.decodeIfPresent(Int.self, forKey: .countInBars) ?? 0
+        clickEnabled = try c.decodeIfPresent(Bool.self, forKey: .clickEnabled)
+            ?? legacy.decodeIfPresent(Bool.self, forKey: .clickWhileRecording)
+            ?? false
     }
 
     public var countInBeats: Int { countInBars * beatsPerBar }
@@ -126,6 +147,12 @@ public final class ClickEngine {
         spark_click_set_mute_from(click, Int64(Double(beats) * 60 / bpm * sampleRate))
     }
 
+    /// Silences the click or lets it sound. It keeps counting either way, so the bars stay valid.
+    public func setMuted(_ muted: Bool) {
+        guard let click else { return }
+        spark_click_set_mute_from(click, muted ? 0 : -1)
+    }
+
     public func stop() {
         if let unit {
             AudioOutputUnitStop(unit)
@@ -158,8 +185,8 @@ public enum LoopbackProbe {
 
     /// Runs on the main thread and takes about three seconds.
     public static func measure(input: InputDevice, output: AudioDeviceID, volume: Float = 0.05,
-                               seconds: Double = 1.5) async throws -> Measurement {
-        let capture = CaptureEngine()
+                               seconds: Double = 1.5, inputPolicy: InputPolicy = .sparkOnly) async throws -> Measurement {
+        let capture = CaptureEngine(inputPolicy: inputPolicy)
         try capture.open(device: input)
         defer { capture.close() }
         try await Task.sleep(nanoseconds: 300_000_000)

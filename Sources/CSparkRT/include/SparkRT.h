@@ -47,6 +47,8 @@ OSStatus spark_capture_render_status(const SparkCapture *capture);
 
 float spark_capture_file_peak(const SparkCapture *capture);
 int64_t spark_capture_file_frames(const SparkCapture *capture);
+/// Host time of the first frame written to the file, or 0 before that or when the device gives no valid time.
+uint64_t spark_capture_file_first_host_time(const SparkCapture *capture);
 int64_t spark_capture_dropped_frames(const SparkCapture *capture);
 OSStatus spark_capture_write_status(const SparkCapture *capture);
 uint32_t spark_capture_clipped_blocks(const SparkCapture *capture);

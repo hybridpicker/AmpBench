@@ -42,7 +42,7 @@ final class AudioPathTests: XCTestCase {
 
     private func record(seconds: Double, whilePlaying tone: URL, edit: EditList = EditList(),
                         configure: (PlaybackEngine) -> Void = { _ in }) throws -> (result: RecordingResult, facts: AudioFacts) {
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -108,7 +108,7 @@ final class AudioPathTests: XCTestCase {
     func testHalfTempoKeepsPitchAndTakesTwiceAsLong() throws {
         let tone = try makeTone(seconds: 2)
         var finished = false
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -189,7 +189,7 @@ final class AudioPathTests: XCTestCase {
 
     func testPlaybackDoesNotDisturbRunningRecording() throws {
         let tone = try makeTone(seconds: 8)
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -220,7 +220,7 @@ final class AudioPathTests: XCTestCase {
 
     func testLiveOverviewMatchesTheFile() throws {
         let tone = try makeTone(amplitude: 0.25)
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -249,7 +249,7 @@ final class AudioPathTests: XCTestCase {
 
     func testRetroBufferSavesWhatWasJustPlayed() throws {
         let tone = try makeTone(amplitude: 0.25)
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input, retroSeconds: 3)
         defer { capture.close() }
@@ -281,7 +281,7 @@ final class AudioPathTests: XCTestCase {
         }) else {
             throw XCTSkip("no second virtual output available")
         }
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -304,13 +304,13 @@ final class AudioPathTests: XCTestCase {
             throw XCTSkip("no microphone permission for the test process")
         }
         let measurement = try await MainActor.run {
-            Task { try await LoopbackProbe.measure(input: input, output: output.id, seconds: 0.5) }
+            Task { try await LoopbackProbe.measure(input: input, output: output.id, seconds: 0.5, inputPolicy: .testDevices) }
         }.value
         XCTAssertTrue(measurement.outputReachesInput, "BlackHole loops output to input by design")
     }
 
     func testGateStartsTheFileAtTheRequestedMoment() throws {
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
@@ -324,10 +324,46 @@ final class AudioPathTests: XCTestCase {
         XCTAssertEqual(result.seconds, 0.5, accuracy: 0.15)
     }
 
+    /// The app closes the input from inside the interruption callback. This froze when it ran within the listener.
+    func testClosingFromTheInterruptionCallbackDoesNotFreeze() throws {
+        for round in 0..<4 {
+            let description: [String: Any] = [
+                kAudioAggregateDeviceNameKey: InputPolicy.testDeviceName,
+                kAudioAggregateDeviceUIDKey: "local.sparkrecorder.test.\(UUID().uuidString)",
+                kAudioAggregateDeviceIsPrivateKey: 1,
+                kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: input.uid]],
+            ]
+            var aggregate = AudioObjectID(0)
+            guard AudioHardwareCreateAggregateDevice(description as CFDictionary, &aggregate) == noErr else {
+                throw XCTSkip("could not create an aggregate device")
+            }
+            wait(0.4)
+            guard let device = AudioDevices.inputDevices().first(where: { $0.id == aggregate }) else {
+                AudioHardwareDestroyAggregateDevice(aggregate)
+                throw XCTSkip("the aggregate device did not appear as input")
+            }
+            let capture = CaptureEngine(inputPolicy: .testDevices)
+            try requireMicrophone(capture)
+            var closed = false
+            capture.onInterrupted = { _ in
+                capture.close()
+                closed = true
+            }
+            try capture.open(device: device)
+            try capture.startRecording(to: folder.file("freeze-\(round).wav"))
+            wait(0.4)
+            AudioHardwareDestroyAggregateDevice(aggregate)
+            let start = Date()
+            while !closed, Date().timeIntervalSince(start) < 3 { wait(0.05) }
+            XCTAssertTrue(closed, "round \(round): the callback must be able to close the input")
+            XCTAssertFalse(capture.isOpen)
+        }
+    }
+
     func testRemovedDeviceEndsRecordingAndKeepsAudio() throws {
         // A private aggregate around BlackHole can be destroyed mid-recording, like a pulled cable.
         let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "SparkRecorder Test Device",
+            kAudioAggregateDeviceNameKey: InputPolicy.testDeviceName,
             kAudioAggregateDeviceUIDKey: "local.sparkrecorder.test.\(UUID().uuidString)",
             kAudioAggregateDeviceIsPrivateKey: 1,
             kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: input.uid]],
@@ -342,7 +378,7 @@ final class AudioPathTests: XCTestCase {
         guard let device = AudioDevices.inputDevices().first(where: { $0.id == aggregate }) else {
             throw XCTSkip("the aggregate device did not appear as input")
         }
-        let capture = CaptureEngine()
+        let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         var interruption: CaptureInterruption?
         capture.onInterrupted = { interruption = $0 }

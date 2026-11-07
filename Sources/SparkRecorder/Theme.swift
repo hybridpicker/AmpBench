@@ -43,6 +43,10 @@ enum Theme {
         light: NSColor(red: 0.70, green: 0.20, blue: 0.55, alpha: 1),
         dark: NSColor(red: 0.95, green: 0.55, blue: 0.85, alpha: 1))
 
+    static let gridBar = dynamic(light: NSColor(white: 0, alpha: 0.62), dark: NSColor(white: 1, alpha: 0.62))
+    static let gridBeat = dynamic(light: NSColor(white: 0, alpha: 0.20), dark: NSColor(white: 1, alpha: 0.20))
+    static let gridText = dynamic(light: gray(0.15), dark: gray(0.88))
+
     /// Single-series chart color. Checked with the palette validator against both surfaces.
     static let chartBar = dynamic(
         light: NSColor(red: 0x0A / 255, green: 0x7F / 255, blue: 0xB0 / 255, alpha: 1),

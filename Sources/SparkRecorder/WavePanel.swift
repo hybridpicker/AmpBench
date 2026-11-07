@@ -15,6 +15,10 @@ struct WavePanel: View {
                 singleWave.frame(height: 118)
             }
             TransportBar()
+            if !model.isRecording, model.compareIDs.isEmpty, let recording = model.current, let grid = recording.grid,
+               recording.health == .ok {
+                BarControls(recording: recording, grid: grid)
+            }
             if let banner = model.banner {
                 BannerView(banner: banner)
             }
@@ -41,9 +45,11 @@ struct WavePanel: View {
                 placeholder("Die Datei „\(recording.fileName)“ ist beschädigt und lässt sich nicht lesen.")
             }
         } else {
-            placeholder(model.recordings.isEmpty
-                        ? "Noch keine Aufnahmen. Mit R nimmst du die erste auf."
-                        : "Wähle unten eine Aufnahme aus.")
+            placeholder(!model.recordings.isEmpty
+                        ? "Wähle unten eine Aufnahme aus."
+                        : model.selectedInput == nil
+                        ? "Noch keine Aufnahmen. Schließ den Spark an, dann nimmst du mit R die erste auf."
+                        : "Noch keine Aufnahmen. Mit R nimmst du die erste auf.")
         }
     }
 
@@ -100,6 +106,13 @@ struct WaveformEditor: View {
                 WaveformShape(waveform: waveform, duration: duration)
                     .equatable()
                     .clipShape(RoundedRectangle(cornerRadius: 8))
+                if let grid = recording.grid {
+                    BarGridOverlay(grid: grid, duration: duration)
+                        .equatable()
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
                 trimShade(width: width, height: geometry.size.height)
                 loopOverlay(width: width, height: geometry.size.height)
                 markerOverlay(width: width, height: geometry.size.height)
@@ -142,7 +155,11 @@ struct WaveformEditor: View {
         } else {
             let lower = seconds(min(start, end))
             let upper = seconds(max(start, end))
-            if upper - lower >= 0.05 {
+            // Dragging over a take with bars picks whole bars. Holding Option selects freely.
+            if isActive, let grid = recording.grid, !NSEvent.modifierFlags.contains(.option) {
+                model.setBarSelection(grid.snappedBars(from: lower, to: upper, duration: duration))
+                model.loopSelectedBars()
+            } else if upper - lower >= 0.05 {
                 model.setLoop(lower...upper)
                 model.seek(to: lower)
             }
@@ -203,6 +220,60 @@ struct WaveformEditor: View {
     }
 }
 
+/// Bar lines with their numbers, and beat lines when there is room for them.
+private struct BarGridOverlay: View, Equatable {
+    let grid: BeatGrid
+    let duration: Double
+
+    var body: some View {
+        Canvas { context, size in
+            guard duration > 0, size.width > 0 else { return }
+            let pointsPerSecond = size.width / duration
+            let barWidth = grid.secondsPerBar * pointsPerSecond
+            let last = grid.lastBar(duration: duration)
+            let beatWidth = grid.secondsPerBeat * pointsPerSecond
+            let lineEvery = max(Int((3 / barWidth).rounded(.up)), 1)
+            let labelEvery = max(Int((24 / barWidth).rounded(.up)), 1)
+            var bars = Path()
+            var beats = Path()
+            var labels: [(bar: Int, x: Double)] = []
+            var bar = grid.firstBar
+            while bar <= last {
+                let index = bar - grid.firstBar
+                let x = grid.time(ofBar: bar) * pointsPerSecond
+                if index % lineEvery == 0 {
+                    bars.addRect(CGRect(x: x, y: 0, width: 1, height: size.height))
+                }
+                if beatWidth >= 10 {
+                    for beat in 1..<grid.beatsPerBar {
+                        beats.addRect(CGRect(x: x + Double(beat) * beatWidth, y: 0, width: 1, height: size.height))
+                    }
+                }
+                if index % labelEvery == 0 { labels.append((bar, x)) }
+                bar += 1
+            }
+            context.fill(beats, with: .color(Theme.gridBeat))
+            context.fill(bars, with: .color(Theme.gridBar))
+            for label in labels {
+                BarLabel.draw(label.bar, at: label.x, height: size.height, fontSize: 9, in: context)
+            }
+        }
+    }
+}
+
+/// A bar number on its own background, so it stays readable over a loud waveform.
+private enum BarLabel {
+    static func draw(_ bar: Int, at x: Double, height: Double, fontSize: CGFloat, in context: GraphicsContext) {
+        let text = context.resolve(Text("\(bar)")
+            .font(.system(size: fontSize, weight: .bold, design: .monospaced))
+            .foregroundColor(Theme.gridText))
+        let measured = text.measure(in: CGSize(width: 80, height: 30))
+        let rect = CGRect(x: x + 2, y: height - measured.height - 3, width: measured.width + 5, height: measured.height + 1)
+        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Theme.waveBackground.opacity(0.88)))
+        context.draw(text, at: CGPoint(x: rect.minX + 2.5, y: rect.minY + 0.5), anchor: .topLeading)
+    }
+}
+
 private struct PlayheadLine: View {
     @EnvironmentObject private var playhead: PlayheadState
     let duration: Double
@@ -251,12 +322,81 @@ private struct LiveWaveView: View {
                 bin += binsPerPoint
             }
             context.fill(path, with: .color(Theme.record))
+            // Above the audio, so a loud signal cannot hide the bars.
+            drawGrid(in: context, size: size)
         }
         .background(RoundedRectangle(cornerRadius: 8).fill(Theme.waveBackground))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.record.opacity(0.7), lineWidth: 1.5))
-        .accessibilityElement()
+        .overlay(alignment: .topLeading) { LiveBarDisplay() }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel("Wellenform der laufenden Aufnahme")
+    }
+
+    /// The bars move along with the audio, with the present at the right edge.
+    private func drawGrid(in context: GraphicsContext, size: CGSize) {
+        guard let grid = live.grid, live.secondsPerBin > 0, size.width > 0 else { return }
+        let pointsPerSecond = 1 / (live.secondsPerBin * Double(binsPerPoint))
+        let now = Double(live.pairs.count / 2) * live.secondsPerBin
+        let earliest = now - Double(size.width) / pointsPerSecond
+        var bar = max(grid.position(at: max(earliest, grid.offset))?.bar ?? grid.firstBar, grid.firstBar)
+        let barWidth = grid.secondsPerBar * pointsPerSecond
+        let beatWidth = grid.secondsPerBeat * pointsPerSecond
+        let labelEvery = max(Int((24 / barWidth).rounded(.up)), 1)
+        var bars = Path()
+        var beats = Path()
+        var labels: [(bar: Int, x: Double)] = []
+        while grid.time(ofBar: bar) <= now {
+            let x = Double(size.width) - (now - grid.time(ofBar: bar)) * pointsPerSecond
+            bars.addRect(CGRect(x: x, y: 0, width: 1, height: size.height))
+            if beatWidth >= 10 {
+                for beat in 1..<grid.beatsPerBar {
+                    beats.addRect(CGRect(x: x + Double(beat) * beatWidth, y: 0, width: 1, height: size.height))
+                }
+            }
+            if (bar - grid.firstBar) % labelEvery == 0 { labels.append((bar, x)) }
+            bar += 1
+        }
+        context.fill(beats, with: .color(Theme.gridBeat))
+        context.fill(bars, with: .color(Theme.gridBar))
+        for label in labels {
+            BarLabel.draw(label.bar, at: label.x, height: size.height, fontSize: 11, in: context)
+        }
+    }
+}
+
+/// Says where the recording is right now, large enough to read from the instrument.
+private struct LiveBarDisplay: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var meter: MeterState
+
+    var body: some View {
+        if let grid = model.activeGrid {
+            let position = grid.position(at: meter.seconds)
+            HStack(spacing: 10) {
+                Text(position.map { "Takt \($0.bar)" } ?? "Gleich")
+                    .font(.system(size: 22, weight: .heavy, design: .monospaced).monospacedDigit())
+                HStack(spacing: 4) {
+                    ForEach(1...grid.beatsPerBar, id: \.self) { beat in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(beat == position?.beat ? (beat == 1 ? Theme.record : Theme.meterAmber) : Color.secondary.opacity(0.3))
+                            .frame(width: grid.beatsPerBar > 7 ? 10 : 16, height: 16)
+                    }
+                }
+                if let bars = model.activePunchBars {
+                    Text("Neu: \(AppModel.barsText(bars))")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(RoundedRectangle(cornerRadius: 6).fill(.background.opacity(0.82)))
+            .padding(6)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Position in der Aufnahme")
+            .accessibilityValue(position.map { "Takt \($0.bar), Schlag \($0.beat)" } ?? "Vor dem ersten Takt")
+        }
     }
 }
 
@@ -361,6 +501,63 @@ private struct TransportBar: View {
             return "\(TimeText.clock(loop.lowerBound)) – \(TimeText.clock(loop.upperBound))"
         }
         return model.loopStart != nil ? "A gesetzt" : "Schleife"
+    }
+}
+
+/// For a take with bars: where the playhead is, which bars are chosen, and what to do with them.
+private struct BarControls: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var playhead: PlayheadState
+    let recording: Recording
+    let grid: BeatGrid
+
+    private var last: Int { recording.lastBar ?? grid.firstBar }
+    private var bars: ClosedRange<Int> { model.barSelection ?? grid.firstBar...grid.firstBar }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            let position = grid.position(at: playhead.position)
+            Text(position.map { "Takt \($0.bar) · Schlag \($0.beat)" } ?? "Vor Takt \(grid.firstBar)")
+                .font(.system(size: 12, weight: .semibold, design: .monospaced).monospacedDigit())
+                .lineLimit(1)
+                .frame(minWidth: 134, alignment: .leading)
+                .accessibilityLabel("Position")
+
+            Divider().frame(height: 20)
+
+            PanelLabel("Takte")
+            Stepper(value: Binding(get: { bars.lowerBound }, set: { model.setBarSelection($0...max($0, bars.upperBound)) }),
+                    in: grid.firstBar...max(last, grid.firstBar)) {
+                Text("\(bars.lowerBound)").font(.system(size: 12, design: .monospaced).monospacedDigit()).frame(minWidth: 24, alignment: .trailing)
+            }
+            .controlSize(.small)
+            .accessibilityLabel("Erster Takt")
+            .accessibilityValue("\(bars.lowerBound)")
+            PanelLabel("bis")
+            Stepper(value: Binding(get: { bars.upperBound }, set: { model.setBarSelection(min(bars.lowerBound, $0)...$0) }),
+                    in: grid.firstBar...max(last, grid.firstBar)) {
+                Text("\(bars.upperBound)").font(.system(size: 12, design: .monospaced).monospacedDigit()).frame(minWidth: 24, alignment: .trailing)
+            }
+            .controlSize(.small)
+            .accessibilityLabel("Letzter Takt")
+            .accessibilityValue("\(bars.upperBound)")
+            Text("von \(last)").font(.callout.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+
+            Button(action: model.toggleBarLoop) {
+                Label(model.isLoopingBars ? "Loop aus" : "Takte loopen", systemImage: "repeat")
+            }
+            .buttonStyle(DeckKeyStyle(isOn: model.isLoopingBars))
+            .help("Spielt die gewählten Takte in Schleife. In der Wellenform ziehen wählt ganze Takte, mit ⌥ frei.")
+
+            Button(action: model.recordSelectedBars) {
+                Label("Takte neu aufnehmen", systemImage: "record.circle")
+            }
+            .buttonStyle(DeckKeyStyle())
+            .disabled(!model.canRecordBars)
+            .help("Zählt ein und nimmt die gewählten Takte im Tempo dieser Aufnahme neu auf. Das wird eine eigene Aufnahme, das Original bleibt unverändert.")
+
+            Spacer(minLength: 0)
+        }
     }
 }
 

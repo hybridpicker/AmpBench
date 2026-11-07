@@ -57,7 +57,8 @@ struct DeckView: View {
 
     private var recordHelp: String {
         switch model.phase {
-        case .idle, .preparing: return "Aufnahme starten (R)"
+        case .idle, .preparing:
+            return model.selectedInput == nil ? "Kein Spark verbunden, Aufnahme nicht möglich" : "Aufnahme starten (R)"
         case .countIn: return "Einzähler abbrechen (R)"
         case .recording: return "Aufnahme stoppen (R)"
         }
@@ -75,6 +76,7 @@ private struct RecordDisplay: View {
     private var stateText: String {
         switch model.phase {
         case .idle:
+            if model.selectedInput == nil { return "KEIN SPARK" }
             if model.isRetroOn { return "HÖRT MIT" }
             return model.isMonitoring ? "PRÜFEN" : "BEREIT"
         case .preparing: return "START …"
@@ -85,6 +87,7 @@ private struct RecordDisplay: View {
 
     private var stateColor: Color {
         if model.isRecording { return Theme.record }
+        if model.selectedInput == nil { return Theme.meterAmber }
         return model.isListening ? Theme.listening : Theme.displayText
     }
 
@@ -128,7 +131,14 @@ private struct RecordDisplay: View {
 
     @ViewBuilder
     private var statusLine: some View {
-        if model.isRetroOn {
+        if model.isRecording, let grid = model.activeGrid {
+            let position = grid.position(at: meter.seconds)
+            Text((position.map { "Takt \($0.bar) · Schlag \($0.beat)" } ?? "Gleich geht's los")
+                 + (model.pendingMarkerCount > 0 ? " · \(model.pendingMarkerCount) Marker" : ""))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
+                .foregroundStyle(Theme.displayText)
+                .lineLimit(1)
+        } else if model.isRetroOn {
             Text("Puffer \(TimeText.clock(meter.retroSeconds)) von \(TimeText.clock(model.retroMinutes * 60))")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.listening)
@@ -138,7 +148,8 @@ private struct RecordDisplay: View {
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.displayText)
         } else {
-            Text(model.isRecording ? "Gespeichert wird laufend" : "Taste R nimmt auf")
+            Text(model.isRecording ? "Gespeichert wird laufend"
+                 : model.selectedInput == nil ? "Ohne Spark keine Aufnahme" : "Taste R nimmt auf")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundStyle(Theme.displayDim)
                 .lineLimit(1)
@@ -286,7 +297,7 @@ private struct QualityPanel: View {
     }
 
     private var sourceText: String {
-        model.selectedInput.map { QualityText.source(device: $0) } ?? "kein Eingang"
+        model.selectedInput.map { QualityText.source(device: $0) } ?? "kein Spark verbunden"
     }
 
     private var fileText: String {
@@ -303,10 +314,18 @@ private struct DevicePanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             labeledPicker("Eingang") {
-                Picker("Eingang", selection: Binding(get: { model.inputID }, set: { model.chooseInput($0) })) {
-                    ForEach(model.inputs) { Text($0.name).tag(Optional($0.id)) }
+                if model.inputs.isEmpty {
+                    Label("Kein Spark verbunden", systemImage: "exclamationmark.triangle.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(Theme.engraved)
+                        .lineLimit(1)
+                        .help("Die App nimmt nur von einem Spark über USB auf. Verbinde den Spark und schalte ihn ein.")
+                } else {
+                    Picker("Eingang", selection: Binding(get: { model.inputID }, set: { model.chooseInput($0) })) {
+                        ForEach(model.inputs) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .disabled(model.isRecording)
                 }
-                .disabled(model.isRecording)
             }
             labeledPicker("Ausgabe") {
                 Picker("Ausgabe", selection: Binding(get: { model.outputID }, set: { model.chooseOutput($0) })) {
@@ -324,7 +343,7 @@ private struct DevicePanel: View {
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                     .font(.system(size: 11))
-                    .disabled(model.isRecording)
+                    .disabled(model.isRecording || (model.selectedInput == nil && !model.isRetroOn))
                     .help("Hält die letzten Minuten im Arbeitsspeicher. Nichts wird von selbst gespeichert. Standardmäßig aus.")
                     .accessibilityHint("Der Eingang hört dauerhaft mit, solange das eingeschaltet ist.")
                 if model.isRetroOn {
@@ -379,9 +398,10 @@ private struct MetronomePanel: View {
                 Button(action: model.toggleClick) {
                     Image(systemName: "metronome.fill")
                 }
-                .buttonStyle(DeckKeyStyle(isOn: model.isClickRunning))
-                .help("Metronom an oder aus (N)")
-                .accessibilityLabel(model.isClickRunning ? "Metronom ausschalten" : "Metronom einschalten")
+                .buttonStyle(DeckKeyStyle(isOn: model.metronome.clickEnabled))
+                .help("Klick an oder aus (N). Er ist nur beim Abspielen und Aufnehmen zu hören.")
+                .accessibilityLabel(model.metronome.clickEnabled ? "Klick ausschalten" : "Klick einschalten")
+                .accessibilityHint("Der Klick ist nur beim Abspielen und Aufnehmen zu hören.")
 
                 Stepper(value: Binding(get: { model.metronome.bpm }, set: { value in model.updateMetronome { $0.bpm = value } }),
                         in: TapTempo.range, step: 1) {
@@ -389,6 +409,7 @@ private struct MetronomePanel: View {
                         .font(.system(size: 17, weight: .semibold, design: .monospaced).monospacedDigit())
                         .frame(minWidth: 40, alignment: .trailing)
                 }
+                .disabled(model.phase != .idle)
                 .accessibilityLabel("Tempo")
                 .accessibilityValue("\(Int(model.metronome.bpm)) Schläge pro Minute")
                 PanelLabel("BPM")
@@ -397,6 +418,7 @@ private struct MetronomePanel: View {
             HStack(spacing: 6) {
                 Button("Tap", action: model.tap)
                     .buttonStyle(DeckKeyStyle())
+                    .disabled(model.phase != .idle)
                     .help("Tempo eintippen (T)")
                     .accessibilityLabel("Tempo eintippen")
                 Picker("Taktart", selection: Binding(get: { model.metronome.beatsPerBar }, set: { value in model.updateMetronome { $0.beatsPerBar = value } })) {
@@ -405,6 +427,7 @@ private struct MetronomePanel: View {
                 .labelsHidden()
                 .controlSize(.small)
                 .frame(width: 62)
+                .disabled(model.phase != .idle)
                 .accessibilityLabel("Taktart")
                 Button {
                     showDetails.toggle()
@@ -429,10 +452,10 @@ private struct MetronomePanel: View {
     }
 
     private var beatLamps: some View {
-        let isOn = model.isClickRunning && meter.beat > 0
-        let current = isOn ? Int((meter.beat - 1) % UInt64(model.metronome.beatsPerBar)) : -1
+        let beatsPerBar = max(model.activeBeatsPerBar, 1)
+        let current = meter.beat > 0 ? Int((meter.beat - 1) % UInt64(beatsPerBar)) : -1
         return HStack(spacing: 2) {
-            ForEach(0..<min(model.metronome.beatsPerBar, 4), id: \.self) { index in
+            ForEach(0..<min(beatsPerBar, 4), id: \.self) { index in
                 Circle()
                     .fill(current == index ? Theme.meterAmber : Theme.meterOff)
                     .frame(width: 6, height: 6)
@@ -450,13 +473,17 @@ private struct MetronomeDetails: View {
             Slider(value: Binding(get: { Double(model.metronome.volume) }, set: { value in model.updateMetronome { $0.volume = Float(value) } }), in: 0...1) {
                 Text("Lautstärke")
             }
-            Toggle("Klick auch während der Aufnahme", isOn: Binding(get: { model.metronome.clickWhileRecording }, set: { value in model.updateMetronome { $0.clickWhileRecording = value } }))
+            Toggle("Klick an", isOn: Binding(get: { model.metronome.clickEnabled }, set: { _ in model.toggleClick() }))
+            Text("Er ist nur beim Abspielen und Aufnehmen zu hören. Beim Abspielen liegt er auf dem Ausgang der Wiedergabe, beim Aufnehmen auf dem Klick-Ausgang. Ein Einzähler klingt immer.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
             Picker("Klick-Ausgang", selection: Binding(get: { model.clickOutputID }, set: { model.chooseClickOutput($0) })) {
                 Text("Automatisch").tag(AudioDeviceID?.none)
                 ForEach(model.outputs) { Text($0.name).tag(Optional($0.id)) }
             }
             if let output = model.clickOutput {
-                Text("Der Klick geht jetzt auf „\(output.name)“.")
+                Text("Beim Aufnehmen geht der Klick auf „\(output.name)“.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

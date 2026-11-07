@@ -20,7 +20,8 @@ func runCommandLine(_ arguments: [String]) -> Int32? {
         return 0
     case "--list":
         for device in AudioDevices.inputDevices() {
-            print("input \(device.name): \(device.channels) ch, \(device.physicalBits) bit, current \(device.currentRate) Hz, max \(device.maxRate) Hz")
+            let allowed = InputPolicy.sparkOnly.allows(device) ? "allowed" : "not allowed"
+            print("input \(device.name) [\(allowed)]: \(device.channels) ch, \(device.physicalBits) bit, current \(device.currentRate) Hz, max \(device.maxRate) Hz")
         }
         for device in AudioDevices.outputDevices() {
             print("output \(device.name): \(device.channels) ch")
@@ -42,6 +43,12 @@ private func record(_ arguments: [String]) -> Int32 {
         print("usage: --record <device name part> <seconds> <output.wav>")
         return 64
     }
+    guard let device = AudioDevices.inputDevices().filter(InputPolicy.sparkOnly.allows).first(where: {
+        $0.name.lowercased().contains(arguments[1].lowercased())
+    }) else {
+        print("no matching Spark input on USB")
+        return 1
+    }
     let semaphore = DispatchSemaphore(value: 0)
     var granted = false
     AVCaptureDevice.requestAccess(for: .audio) { allowed in
@@ -50,12 +57,6 @@ private func record(_ arguments: [String]) -> Int32 {
     }
     semaphore.wait()
     print("microphone permission: \(granted)")
-    guard let device = AudioDevices.inputDevices().first(where: {
-        $0.name.lowercased().contains(arguments[1].lowercased())
-    }) else {
-        print("no matching input device")
-        return 1
-    }
     let capture = CaptureEngine()
     do {
         try capture.open(device: device)

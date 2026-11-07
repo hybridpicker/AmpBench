@@ -209,7 +209,9 @@ public enum AudioDevices {
     /// Calls `handler` on the main queue whenever the set of devices changes. Returns a token for `stopObserving`.
     public static func observeDeviceList(_ handler: @escaping () -> Void) -> AudioObjectPropertyListenerBlock? {
         var property = address(kAudioHardwarePropertyDevices)
-        let listener: AudioObjectPropertyListenerBlock = { _, _ in handler() }
+        // Returns first and reacts afterwards: the reaction can close the input, which removes listeners, and Core
+        // Audio waits for a running listener when one gets removed.
+        let listener: AudioObjectPropertyListenerBlock = { _, _ in DispatchQueue.main.async(execute: handler) }
         let status = AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &property, .main, listener)
         return status == noErr ? listener : nil
     }

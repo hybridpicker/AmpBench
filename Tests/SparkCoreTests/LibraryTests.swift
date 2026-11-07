@@ -463,3 +463,50 @@ extension JSONDecoder {
         return decoder
     }
 }
+
+extension LibraryTests {
+    func testUndoingARemovedPieceBringsItsTakesBack() throws {
+        let piece = try XCTUnwrap(store.addPiece(named: "A"))
+        let member = try addRecording("a.wav")
+        store.assign(member.id, toPiece: piece.id)
+        store.toggleBestTake(member.id)
+        let removed = try XCTUnwrap(store.removePiece(piece.id))
+        XCTAssertNil(store.recording(member.id)?.pieceID)
+        store.restorePiece(removed)
+        XCTAssertEqual(store.recording(member.id)?.pieceID, piece.id)
+        XCTAssertEqual(store.document.pieces.first { $0.id == piece.id }?.bestTakeID, member.id)
+    }
+
+    func testRestoredPieceLeavesATakeThatMovedOnAlone() throws {
+        let first = try XCTUnwrap(store.addPiece(named: "A"))
+        let second = try XCTUnwrap(store.addPiece(named: "B"))
+        let member = try addRecording("a.wav")
+        store.assign(member.id, toPiece: first.id)
+        let removed = try XCTUnwrap(store.removePiece(first.id))
+        store.assign(member.id, toPiece: second.id)
+        store.restorePiece(removed)
+        XCTAssertEqual(store.recording(member.id)?.pieceID, second.id)
+    }
+
+    func testPieceTitlesStayUnique() throws {
+        let first = try XCTUnwrap(store.addPiece(named: "Blues"))
+        _ = try XCTUnwrap(store.addPiece(named: "Etüde"))
+        XCTAssertFalse(store.renamePiece(first.id, to: "etüde"))
+        XCTAssertFalse(store.renamePiece(first.id, to: "   "))
+        XCTAssertEqual(store.document.pieces.first { $0.id == first.id }?.name, "Blues")
+        XCTAssertTrue(store.renamePiece(first.id, to: "BLUES"), "changing only the case of its own title is fine")
+    }
+
+    func testRecoveryKeepsBarsAndSourceOfAnInterruptedPassage() throws {
+        let source = UUID()
+        let url = try audio("Take Takt 5-8.wav", seconds: 1)
+        let grid = BeatGrid(bpm: 100, beatsPerBar: 4, offset: 0.15, firstBar: 5)
+        try store.writeJournal(RecordingJournal(
+            fileName: url.lastPathComponent, startedAt: Date(), source: nil, pieceID: nil, grid: grid,
+            punch: PunchInfo(sourceID: source, bars: 5...8)))
+        _ = store.recoverInterruptedRecording()
+        let recovered = try XCTUnwrap(store.document.recordings.first { $0.fileName == url.lastPathComponent })
+        XCTAssertEqual(recovered.grid, grid)
+        XCTAssertEqual(recovered.punch?.sourceID, source)
+    }
+}

@@ -118,6 +118,8 @@ public final class PlaybackEngine {
     private var renderer: EditRenderer?
     private var loopRange: (start: Int64, end: Int64)?
     private var idleStop: DispatchWorkItem?
+    private var clickGrid: BeatGrid?
+    private var clickVolume: Float = 0
 
     public private(set) var sampleRate: Double = 0
     public private(set) var totalFrames: Int64 = 0
@@ -317,6 +319,18 @@ public final class PlaybackEngine {
         restartIfPlaying()
     }
 
+    /// Mixes a click on the given grid into what plays, or none with nil. Nothing of it reaches a file or an export.
+    /// A new volume arrives with the next chunks, while a new grid restarts the queued audio.
+    public func setClick(_ grid: BeatGrid?, volume: Float) {
+        let changed = queue.sync { () -> Bool in
+            let changed = clickGrid != grid
+            clickGrid = grid
+            clickVolume = volume
+            return changed
+        }
+        if changed { restartIfPlaying() }
+    }
+
     public func setEdit(_ edit: EditList) {
         self.edit = edit
         guard sampleRate > 0 else { return }
@@ -491,6 +505,11 @@ public final class PlaybackEngine {
             if let loopRange {
                 Self.applyLoopRamps(channels[channel], count: count, firstFrame: firstFrame, loop: loopRange,
                                     rampFrames: Int64(Self.loopRampSeconds * sampleRate))
+            }
+            // After the ramps, so a click right on the loop start is not faded away.
+            if let clickGrid {
+                PlaybackClick.mix(into: channels[channel], count: count, firstFrame: firstFrame, sampleRate: sampleRate,
+                                  grid: clickGrid, volume: clickVolume)
             }
         }
     }

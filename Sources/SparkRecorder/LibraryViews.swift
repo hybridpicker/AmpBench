@@ -18,6 +18,7 @@ struct LibraryArea: View {
                     .frame(width: 280)
                     .accessibilityLabel("Ansicht der Bibliothek")
                     Spacer()
+                    CurrentPiecePicker()
                     if let progress = model.exportProgress {
                         ProgressView(value: progress) { Text("Export").font(.caption) }
                             .frame(width: 120)
@@ -32,12 +33,39 @@ struct LibraryArea: View {
                 case .stats: StatsPane()
                 }
             }
-            .frame(minWidth: 560, maxWidth: .infinity, maxHeight: .infinity)
+            .frame(minWidth: 560, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             InspectorPane()
                 .frame(minWidth: 290, idealWidth: 330, maxWidth: 420, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Always in view, because it decides where the next recording goes.
+private struct CurrentPiecePicker: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 6) {
+            PanelLabel("Neue Aufnahmen in")
+            Picker("Neue Aufnahmen in", selection: Binding(get: { model.currentPieceID }, set: { model.setCurrentPiece($0) })) {
+                Text("Kein Stück").tag(UUID?.none)
+                ForEach(model.pieces) { Text($0.name).tag(UUID?.some($0.id)) }
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .frame(maxWidth: 170)
+            .accessibilityLabel("Stück für neue Aufnahmen")
+            Button {
+                model.beginNewPiece()
+            } label: {
+                Image(systemName: "plus")
+            }
+            .controlSize(.small)
+            .help("Neues Stück anlegen")
+            .accessibilityLabel("Neues Stück anlegen")
+        }
     }
 }
 
@@ -53,7 +81,9 @@ struct RecordingsPane: View {
             Divider()
             if model.recordings.isEmpty {
                 ContentUnavailableView("Noch keine Aufnahmen", systemImage: "waveform",
-                                       description: Text("Drück R und spiel los. Dateien im Ordner werden automatisch erkannt."))
+                                       description: Text(model.selectedInput == nil
+                                                         ? "Schließ den Spark an, dann drück R und spiel los. Dateien im Ordner werden automatisch erkannt."
+                                                         : "Drück R und spiel los. Dateien im Ordner werden automatisch erkannt."))
             } else {
                 table
             }
@@ -125,6 +155,15 @@ struct RecordingsPane: View {
                 .help("Alle Filter zurücksetzen")
                 .accessibilityLabel("Alle Filter zurücksetzen")
             }
+
+            Button {
+                model.discard()
+            } label: {
+                Image(systemName: "trash")
+            }
+            .disabled(model.isRecording || model.selection.isEmpty)
+            .help("Markierte Aufnahmen in den Papierkorb legen (⌘⌫). Lässt sich mit ⌘Z rückgängig machen.")
+            .accessibilityLabel("Markierte Aufnahmen in den Papierkorb legen")
         }
         .controlSize(.small)
         .padding(.horizontal, 10)
@@ -184,7 +223,9 @@ struct RecordingsPane: View {
     }
 
     @ViewBuilder
-    private func contextMenu(_ ids: Set<UUID>) -> some View {
+    private func contextMenu(_ menuIDs: Set<UUID>) -> some View {
+        // A click beside the rows delivers no ids. The menu then acts on what is marked, and says so.
+        let ids = RemovalTargets.resolve(menuIDs: menuIDs, selection: model.selection, current: nil)
         if ids.count == 1, let id = ids.first {
             Button("Umbenennen …") { model.beginRename(id) }
             Button("Im Finder zeigen") { model.reveal(id) }
@@ -201,10 +242,13 @@ struct RecordingsPane: View {
             ForEach(model.pieces) { piece in
                 Button(piece.name) { model.assign(ids, toPiece: piece.id) }
             }
+            Divider()
+            Button("Neues Stück …") { model.beginNewPiece(assigning: ids) }
         }
+        .disabled(ids.isEmpty)
         Divider()
-        Button("In den Papierkorb legen") { model.discard(ids) }
-            .disabled(model.isRecording)
+        Button(ids.count > 1 ? "\(ids.count) Aufnahmen in den Papierkorb legen" : "In den Papierkorb legen") { model.discard(ids) }
+            .disabled(model.isRecording || ids.isEmpty)
     }
 }
 
@@ -249,19 +293,25 @@ private struct PiecesPane: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                TextField("Neues Stück oder neue Übung", text: $newName)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(add)
-                Button("Anlegen", action: add)
-                    .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    TextField("Titel eines neuen Stücks oder einer Übung", text: $newName)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(add)
+                    Button("Anlegen", action: add)
+                        .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .controlSize(.small)
+                Text("Ein Stück sammelt deine Takes. Der Punkt links wählt das Stück für neue Aufnahmen, ein Klick auf den Titel ändert ihn. Fertige Aufnahmen ordnest du im Rechtsklick-Menü der Liste oder rechts unter Details zu.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .controlSize(.small)
             .padding(10)
             Divider()
             if model.pieces.isEmpty {
                 ContentUnavailableView("Noch keine Stücke", systemImage: "music.note.list",
-                                       description: Text("Lege ein Stück an und wähle es im Inspektor oder oben als aktuelles Stück. Neue Takes landen dann dort."))
+                                       description: Text("Gib oben einen Titel ein und drück den Zeilenschalter. Neue Aufnahmen landen dann in diesem Stück."))
             } else {
                 List {
                     ForEach(model.pieces.sorted { $0.createdAt > $1.createdAt }) { piece in
@@ -283,8 +333,10 @@ private struct PieceRow: View {
     @EnvironmentObject private var model: AppModel
     let piece: Piece
     @State private var isExpanded = false
-    @State private var editedName = ""
-    @State private var isRenaming = false
+    @State private var title = ""
+    @FocusState private var titleFocused: Bool
+
+    private var isCurrent: Bool { model.currentPieceID == piece.id }
 
     private var takes: [Recording] { model.takes(of: piece.id) }
     private var minutes: Double { takes.reduce(0) { $0 + $1.duration } / 60 }
@@ -318,44 +370,51 @@ private struct PieceRow: View {
             }
         } label: {
             HStack {
-                if isRenaming {
-                    TextField("Name", text: $editedName)
-                        .onSubmit {
-                            model.renamePiece(piece.id, to: editedName)
-                            isRenaming = false
-                        }
-                } else {
-                    Text(piece.name).fontWeight(.medium)
+                Button {
+                    model.setCurrentPiece(isCurrent ? nil : piece.id)
+                } label: {
+                    Image(systemName: isCurrent ? "largecircle.fill.circle" : "circle")
+                        .foregroundStyle(isCurrent ? Theme.loopEdge : Color.secondary)
                 }
-                Text("\(takes.count) Takes, \(TimeText.clock(minutes * 60))")
+                .buttonStyle(.plain)
+                .help(isCurrent ? "Neue Aufnahmen landen in diesem Stück. Klick hebt das auf." : "Neue Aufnahmen in dieses Stück legen")
+                .accessibilityLabel(isCurrent ? "Stück für neue Aufnahmen, aufheben" : "Neue Aufnahmen in \(piece.name) legen")
+
+                TextField("Titel", text: $title)
+                    .textFieldStyle(.plain)
+                    .fontWeight(.medium)
+                    .focused($titleFocused)
+                    .onSubmit(commitTitle)
+                    .onChange(of: titleFocused) { if !titleFocused { commitTitle() } }
+                    .help("Klicken und tippen ändert den Titel")
+                    .accessibilityLabel("Titel des Stücks")
+                Text("\(takes.count) \(takes.count == 1 ? "Take" : "Takes"), \(TimeText.clock(minutes * 60))")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
-                Spacer()
-                if model.currentPieceID == piece.id {
-                    Text("Aktuell").font(.caption).foregroundStyle(.secondary)
-                }
+                    .lineLimit(1)
+                    .fixedSize()
                 Button("Takes zeigen") {
                     model.query = LibraryQuery()
                     model.query.piece = .piece(piece.id)
                     model.tab = .recordings
                 }
                 .controlSize(.small)
-                Menu {
-                    Button("Als aktuelles Stück wählen") { model.setCurrentPiece(piece.id) }
-                    Button("Umbenennen") {
-                        editedName = piece.name
-                        isRenaming = true
-                    }
-                    Divider()
-                    Button("Stück entfernen (Takes bleiben)") { model.removePiece(piece.id) }
+                Button {
+                    model.removePiece(piece.id)
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "minus.circle")
                 }
-                .menuStyle(.borderlessButton)
-                .frame(width: 28)
-                .accessibilityLabel("Weitere Aktionen für \(piece.name)")
+                .buttonStyle(.plain)
+                .help("Stück entfernen. Die Takes bleiben in der Liste, und es lässt sich rückgängig machen.")
+                .accessibilityLabel("\(piece.name) entfernen, die Takes bleiben")
             }
         }
+        .onAppear { title = piece.name }
+        .onChange(of: piece.name) { if !titleFocused { title = piece.name } }
+    }
+
+    private func commitTitle() {
+        if !model.renamePiece(piece.id, to: title) { title = piece.name }
     }
 }
 
@@ -537,13 +596,13 @@ private struct DetailsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                PanelLabel("Name")
-                TextField("Name", text: $name)
+                PanelLabel("Titel, auch der Dateiname")
+                TextField("Titel", text: $name)
                     .textFieldStyle(.roundedBorder)
                     .focused($nameFocused)
                     .onSubmit(commitName)
                     .onChange(of: nameFocused) { if !nameFocused { commitName() } }
-                    .accessibilityLabel("Name der Aufnahme")
+                    .accessibilityLabel("Titel der Aufnahme")
             }
 
             HStack {
@@ -572,13 +631,23 @@ private struct DetailsSection: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 PanelLabel("Stück")
-                Picker("Stück", selection: Binding(get: { recording.pieceID }, set: { model.assign([recording.id], toPiece: $0) })) {
-                    Text("Kein Stück").tag(UUID?.none)
-                    ForEach(model.pieces) { Text($0.name).tag(UUID?.some($0.id)) }
+                HStack(spacing: 6) {
+                    Picker("Stück", selection: Binding(get: { recording.pieceID }, set: { model.assign([recording.id], toPiece: $0) })) {
+                        Text("Kein Stück").tag(UUID?.none)
+                        ForEach(model.pieces) { Text($0.name).tag(UUID?.some($0.id)) }
+                    }
+                    .labelsHidden()
+                    .controlSize(.small)
+                    .accessibilityLabel("Stück")
+                    Button {
+                        model.beginNewPiece(assigning: [recording.id])
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .controlSize(.small)
+                    .help("Neues Stück anlegen und diese Aufnahme zuordnen")
+                    .accessibilityLabel("Neues Stück für diese Aufnahme anlegen")
                 }
-                .labelsHidden()
-                .controlSize(.small)
-                .accessibilityLabel("Stück")
                 if recording.pieceID != nil {
                     Button {
                         model.toggleBestTake(recording.id)
@@ -612,6 +681,12 @@ private struct DetailsSection: View {
             Divider()
 
             Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
+                if let punch = recording.punch {
+                    row("Neu", AppModel.barsText(punch.bars))
+                }
+                if let grid = recording.grid {
+                    row("Raster", "\(Int(grid.bpm)) BPM, \(grid.beatsPerBar)/4")
+                }
                 row("Datum", recording.createdAt.formatted(date: .abbreviated, time: .standard))
                 row("Dauer", TimeText.clock(recording.duration, tenths: true))
                 row("Quelle", QualityText.source(recording.source))
@@ -628,6 +703,10 @@ private struct DetailsSection: View {
                     .controlSize(.small)
                 Button("Umbenennen …") { model.beginRename(recording.id) }
                     .controlSize(.small)
+                if let source = recording.punch?.sourceID, model.recordings.contains(where: { $0.id == source }) {
+                    Button("Zum Original") { model.select(source) }
+                        .controlSize(.small)
+                }
             }
         }
         .onAppear {

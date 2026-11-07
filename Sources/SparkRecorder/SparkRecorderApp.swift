@@ -6,6 +6,8 @@ import SwiftUI
 struct LaunchOptions {
     var folder: URL = LibraryStore.defaultFolder
     var isTestLibrary = false
+    /// A real library only ever records from a Spark. A test library only ever hears virtual test devices.
+    var inputPolicy = InputPolicy.sparkOnly
 
     static let current: LaunchOptions = {
         var options = LaunchOptions()
@@ -13,6 +15,14 @@ struct LaunchOptions {
         if let index = arguments.firstIndex(of: "--library"), index + 1 < arguments.count {
             options.folder = URL(fileURLWithPath: arguments[index + 1], isDirectory: true)
             options.isTestLibrary = true
+            options.inputPolicy = .testDevices
+            if let flag = arguments.firstIndex(of: "--test-input"), flag + 1 < arguments.count {
+                switch arguments[flag + 1] {
+                case "none": options.inputPolicy = .nothing
+                case "aggregate": options.inputPolicy = .testAggregateOnly
+                default: break
+                }
+            }
         }
         return options
     }()
@@ -98,7 +108,7 @@ struct SparkRecorderApp: App {
         let defaults = options.isTestLibrary
             ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
             : .standard
-        let model = AppModel(folder: options.folder, defaults: defaults)
+        let model = AppModel(folder: options.folder, defaults: defaults, inputPolicy: options.inputPolicy)
         AppDelegate.model = model
         _model = StateObject(wrappedValue: model)
         keyRouter = KeyRouter(model: model)
@@ -134,6 +144,25 @@ struct RootView: View {
         } message: {
             Text("Die Datei im Ordner bekommt denselben Namen.")
         }
+        .alert("Neues Stück", isPresented: Binding(
+            get: { model.newPieceTargets != nil },
+            set: { if !$0 { model.newPieceTargets = nil } }
+        )) {
+            TextField("Titel", text: $model.newPieceName)
+            Button("Anlegen", action: model.commitNewPiece)
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text(newPieceMessage)
+        }
+    }
+
+    private var newPieceMessage: String {
+        let count = model.newPieceTargets?.count ?? 0
+        switch count {
+        case 0: return "Neue Aufnahmen landen dann in diesem Stück."
+        case 1: return "Die markierte Aufnahme kommt in dieses Stück."
+        default: return "Die \(count) markierten Aufnahmen kommen in dieses Stück."
+        }
     }
 }
 
@@ -165,6 +194,8 @@ struct AppCommands: Commands {
             Button(recordTitle + "  (R)", action: model.toggleRecord)
                 .disabled(!model.libraryIsUsable)
             Button("Marker setzen  (M)", action: model.addMarker)
+            Button("Gewählte Takte neu aufnehmen", action: model.recordSelectedBars)
+                .disabled(!model.canRecordBars)
             Button("Behalten  (K)") { model.keep() }
                 .disabled(model.current?.status != .open)
             Divider()
@@ -200,6 +231,8 @@ struct AppCommands: Commands {
             Button("Abspielen oder anhalten  (Leertaste)", action: model.togglePlay)
             Button("Schleife A, B, aus  (L)", action: model.toggleLoop)
                 .disabled(model.current == nil)
+            Button("Gewählte Takte loopen", action: model.toggleBarLoop)
+                .disabled(model.barSelection == nil)
             Divider()
             Button("5 Sekunden zurück  (←)") { model.nudge(by: -5) }
             Button("5 Sekunden vor  (→)") { model.nudge(by: 5) }
@@ -208,7 +241,7 @@ struct AppCommands: Commands {
             Button("Schneller  (+)") { model.setTempo(model.tempo + 0.05) }
             Button("Tempo und Tonhöhe zurücksetzen  (0)", action: model.resetTempoAndPitch)
             Divider()
-            Button("Metronom an oder aus  (N)", action: model.toggleClick)
+            Button("Klick an oder aus  (N)", action: model.toggleClick)
             Button("Tap-Tempo  (T)", action: model.tap)
             Divider()
             Button("Zwei Takes vergleichen", action: model.startCompare)
@@ -241,6 +274,7 @@ struct AppCommands: Commands {
             }
             .disabled(model.current == nil)
             Divider()
+            Button("Neues Stück …") { model.beginNewPiece() }
             Button("Ordner prüfen") { model.scanFolder() }
                 .disabled(model.isRecording)
             Button("Bibliotheksordner im Finder zeigen", action: model.revealLibraryFolder)
@@ -273,7 +307,7 @@ private struct ShortcutsSheet: View {
 
     private let rows: [(String, String)] = [
         ("R", "Aufnahme starten oder stoppen, auch „Nochmal“"),
-        ("Leertaste", "Abspielen oder anhalten"),
+        ("Leertaste", "Abspielen oder anhalten, wirkt nicht während der Aufnahme"),
         ("L", "Schleife: erst A, dann B, dann aus"),
         ("M", "Marker setzen, auch während der Aufnahme"),
         ("K", "Take behalten"),
@@ -285,7 +319,7 @@ private struct ShortcutsSheet: View {
         ("1 – 5", "Bewerten"),
         ("F", "Favorit"),
         ("B", "Beim Vergleich zum anderen Take wechseln"),
-        ("N", "Metronom an oder aus"),
+        ("N", "Klick an oder aus, zu hören beim Abspielen und Aufnehmen"),
         ("T", "Tempo eintippen"),
         ("G", "Retro-Puffer speichern"),
         ("⌘F", "Suchen"),

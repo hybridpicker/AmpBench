@@ -9,6 +9,7 @@ public enum CaptureError: LocalizedError {
     case noInputFormat
     case notOpen
     case alreadyRecording
+    case inputNotAllowed(String)
 
     public var errorDescription: String? {
         switch self {
@@ -17,6 +18,8 @@ public enum CaptureError: LocalizedError {
         case .noInputFormat: return "Das Gerät liefert kein nutzbares Eingangssignal."
         case .notOpen: return "Der Audioeingang ist nicht geöffnet."
         case .alreadyRecording: return "Es läuft bereits eine Aufnahme."
+        case .inputNotAllowed(let name):
+            return "„\(name)“ ist als Eingang nicht erlaubt. Spark Recorder nimmt nur von einem Spark über USB auf."
         }
     }
 }
@@ -48,6 +51,7 @@ public final class CaptureEngine {
     public static let overviewBinFrames: UInt32 = 256
     private static let retroMarginSeconds = 5.0
 
+    private let inputPolicy: InputPolicy
     private var unit: AudioUnit?
     private var capture: OpaquePointer?
     private var file: ExtAudioFileRef?
@@ -65,7 +69,9 @@ public final class CaptureEngine {
     /// Called on the main queue when the running input can no longer deliver audio.
     public var onInterrupted: ((CaptureInterruption) -> Void)?
 
-    public init() {}
+    public init(inputPolicy: InputPolicy = .sparkOnly) {
+        self.inputPolicy = inputPolicy
+    }
 
     deinit {
         close()
@@ -77,6 +83,8 @@ public final class CaptureEngine {
     // MARK: Opening the input
 
     public func open(device: InputDevice, retroSeconds: Double = 0) throws {
+        // Checked here, below every feature, so nothing can record from a device that is not allowed.
+        guard inputPolicy.allows(device) else { throw CaptureError.inputNotAllowed(device.name) }
         close()
         deviceID = device.id
         if device.maxRate > device.currentRate, AudioDevices.setRate(device.maxRate, on: device.id) {
@@ -176,17 +184,17 @@ public final class CaptureEngine {
 
     private func watchDevice(_ device: AudioDeviceID) {
         addListener(device, kAudioDevicePropertyDeviceIsAlive) { [weak self] in
-            guard let self, !AudioDevices.isAlive(device) else { return }
+            guard let self, self.deviceID == device, !AudioDevices.isAlive(device) else { return }
             self.onInterrupted?(.deviceLost)
         }
         // A pulled USB cable can also just remove the device from the system.
         addListener(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices) { [weak self] in
-            guard let self, !AudioDevices.exists(device) else { return }
+            guard let self, self.deviceID == device, !AudioDevices.exists(device) else { return }
             self.onInterrupted?(.deviceLost)
         }
         let rate = sampleRate
         addListener(device, kAudioDevicePropertyNominalSampleRate) { [weak self] in
-            guard let self, AudioDevices.currentRate(of: device) != rate else { return }
+            guard let self, self.deviceID == device, AudioDevices.currentRate(of: device) != rate else { return }
             self.onInterrupted?(.sampleRateChanged)
         }
     }
@@ -194,7 +202,9 @@ public final class CaptureEngine {
     private func addListener(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector,
                              _ handler: @escaping () -> Void) {
         var address = AudioDevices.address(selector)
-        let listener: AudioObjectPropertyListenerBlock = { _, _ in handler() }
+        // Core Audio waits for a running listener when one gets removed. Reacting here could end the capture and
+        // remove this very listener, which freezes the app, so the reaction runs after the listener has returned.
+        let listener: AudioObjectPropertyListenerBlock = { _, _ in DispatchQueue.main.async(execute: handler) }
         if AudioObjectAddPropertyListenerBlock(object, &address, .main, listener) == noErr {
             listeners.append((object, address, listener))
         }
@@ -317,6 +327,8 @@ public final class CaptureEngine {
     public var recordedFrames: Int64 { capture.map { spark_capture_file_frames($0) } ?? 0 }
     public var recordedSeconds: Double { sampleRate > 0 ? Double(recordedFrames) / sampleRate : 0 }
     public var droppedFrames: Int64 { capture.map { spark_capture_dropped_frames($0) } ?? 0 }
+    /// When the first frame of the file was captured, in host time. Zero until it was written or when unknown.
+    public var firstFrameHostTime: UInt64 { capture.map { spark_capture_file_first_host_time($0) } ?? 0 }
     public var callbackCount: UInt64 { capture.map { spark_capture_callback_count($0) } ?? 0 }
 
     public func takeLevel() -> Float { capture.map { spark_capture_take_level($0) } ?? 0 }

@@ -27,6 +27,7 @@ struct SparkCapture {
 
     _Atomic uint32_t file_peak_bits;
     _Atomic int64_t file_frames;
+    _Atomic uint64_t file_first_host_time;
     _Atomic int64_t dropped_frames;
     _Atomic OSStatus write_status;
     _Atomic uint32_t clipped_blocks;
@@ -205,7 +206,13 @@ void spark_capture_process(SparkCapture *capture, const float *interleaved, uint
             }
             if (write) atomic_store_explicit(&capture->gate_host_time, 0, memory_order_release);
         }
-        if (write) write_to_file(capture, file, interleaved + offset * channels, frames - offset);
+        if (write) {
+            if (host_time != 0 && atomic_load_explicit(&capture->file_frames, memory_order_relaxed) == 0) {
+                uint64_t first = host_time + (uint64_t)((double)offset * capture->ticks_per_frame);
+                atomic_store_explicit(&capture->file_first_host_time, first, memory_order_relaxed);
+            }
+            write_to_file(capture, file, interleaved + offset * channels, frames - offset);
+        }
     }
     atomic_store(&capture->busy, false);
 }
@@ -240,6 +247,7 @@ void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, uint
     // No file is attached here, so the audio thread does not touch any of the file state.
     atomic_store(&capture->file_peak_bits, 0);
     atomic_store(&capture->file_frames, 0);
+    atomic_store(&capture->file_first_host_time, 0);
     atomic_store(&capture->dropped_frames, 0);
     atomic_store(&capture->write_status, noErr);
     atomic_store(&capture->clipped_blocks, 0);
@@ -290,6 +298,10 @@ int64_t spark_capture_file_frames(const SparkCapture *capture) {
 
 int64_t spark_capture_dropped_frames(const SparkCapture *capture) {
     return atomic_load_explicit(&capture->dropped_frames, memory_order_relaxed);
+}
+
+uint64_t spark_capture_file_first_host_time(const SparkCapture *capture) {
+    return atomic_load_explicit(&capture->file_first_host_time, memory_order_relaxed);
 }
 
 OSStatus spark_capture_write_status(const SparkCapture *capture) {

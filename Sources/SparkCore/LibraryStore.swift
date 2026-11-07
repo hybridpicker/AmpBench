@@ -46,14 +46,25 @@ public struct RecordingJournal: Codable, Equatable, Sendable {
     public var source: SourceFormat?
     public var pieceID: UUID?
     public var markers: [Marker]
+    public var grid: BeatGrid?
+    public var punch: PunchInfo?
 
-    public init(fileName: String, startedAt: Date, source: SourceFormat?, pieceID: UUID?, markers: [Marker] = []) {
+    public init(fileName: String, startedAt: Date, source: SourceFormat?, pieceID: UUID?, markers: [Marker] = [],
+                grid: BeatGrid? = nil, punch: PunchInfo? = nil) {
         self.fileName = fileName
         self.startedAt = startedAt
         self.source = source
         self.pieceID = pieceID
         self.markers = markers
+        self.grid = grid
+        self.punch = punch
     }
+}
+
+/// What it takes to bring a removed piece back with its takes.
+public struct RemovedPiece: Equatable, Sendable {
+    public let piece: Piece
+    public let takeIDs: [UUID]
 }
 
 public struct ScanReport: Equatable, Sendable {
@@ -309,7 +320,9 @@ public final class LibraryStore {
             status: .open,
             markers: journal.markers,
             pieceID: journal.pieceID,
-            recoveredAfterInterruption: true
+            recoveredAfterInterruption: true,
+            grid: journal.grid,
+            punch: journal.punch
         )
         document.recordings.append(recording)
         document.practiceLog.append(PracticeEntry(date: journal.startedAt, seconds: seconds, pieceID: journal.pieceID))
@@ -611,17 +624,38 @@ public final class LibraryStore {
         return piece
     }
 
-    public func renamePiece(_ id: UUID, to name: String) {
+    /// Returns false when the name is empty or another piece already has it.
+    @discardableResult
+    public func renamePiece(_ id: UUID, to name: String) -> Bool {
         let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !cleaned.isEmpty, let index = document.pieces.firstIndex(where: { $0.id == id }) else { return }
+        guard !cleaned.isEmpty, let index = document.pieces.firstIndex(where: { $0.id == id }) else { return false }
+        let isTaken = document.pieces.contains {
+            $0.id != id && $0.name.caseInsensitiveCompare(cleaned) == .orderedSame
+        }
+        guard !isTaken else { return false }
         document.pieces[index].name = cleaned
+        return true
     }
 
     /// Takes keep their files and metadata. They just no longer belong to the piece.
-    public func removePiece(_ id: UUID) {
+    @discardableResult
+    public func removePiece(_ id: UUID) -> RemovedPiece? {
+        guard let piece = document.pieces.first(where: { $0.id == id }) else { return nil }
+        let takeIDs = document.recordings.filter { $0.pieceID == id }.map(\.id)
         document.pieces.removeAll { $0.id == id }
         for index in document.recordings.indices where document.recordings[index].pieceID == id {
             document.recordings[index].pieceID = nil
+        }
+        return RemovedPiece(piece: piece, takeIDs: takeIDs)
+    }
+
+    /// Brings a removed piece back. A take that joined another piece in the meantime stays there.
+    public func restorePiece(_ removed: RemovedPiece) {
+        guard !document.pieces.contains(where: { $0.id == removed.piece.id }) else { return }
+        document.pieces.append(removed.piece)
+        for index in document.recordings.indices
+        where removed.takeIDs.contains(document.recordings[index].id) && document.recordings[index].pieceID == nil {
+            document.recordings[index].pieceID = removed.piece.id
         }
     }
 

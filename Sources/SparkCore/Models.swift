@@ -39,6 +39,21 @@ public struct SourceFormat: Codable, Equatable, Sendable {
     }
 }
 
+/// Says that a take holds new versions of bars of another take. The other take stays as it is.
+public struct PunchInfo: Codable, Equatable, Sendable {
+    public var sourceID: UUID
+    public var firstBar: Int
+    public var lastBar: Int
+
+    public init(sourceID: UUID, bars: ClosedRange<Int>) {
+        self.sourceID = sourceID
+        firstBar = bars.lowerBound
+        lastBar = bars.upperBound
+    }
+
+    public var bars: ClosedRange<Int> { firstBar...max(firstBar, lastBar) }
+}
+
 public struct Recording: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var fileName: String
@@ -62,13 +77,16 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     public var peakDB: Double?
     public var health: FileHealth
     public var recoveredAfterInterruption: Bool
+    /// The bars of the take, when it was recorded with the metronome.
+    public var grid: BeatGrid?
+    public var punch: PunchInfo?
 
     public init(
         id: UUID = UUID(), fileName: String, createdAt: Date, duration: Double, sampleRate: Double, channels: Int,
         fileBits: Int, fileSize: Int64 = 0, inode: UInt64 = 0, source: SourceFormat? = nil, status: TakeStatus = .open,
         rating: Int = 0, favorite: Bool = false, tags: [String] = [], note: String = "", markers: [Marker] = [],
         pieceID: UUID? = nil, edit: EditList = EditList(), peakDB: Double? = nil, health: FileHealth = .ok,
-        recoveredAfterInterruption: Bool = false
+        recoveredAfterInterruption: Bool = false, grid: BeatGrid? = nil, punch: PunchInfo? = nil
     ) {
         self.id = id
         self.fileName = fileName
@@ -91,6 +109,8 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         self.peakDB = peakDB
         self.health = health
         self.recoveredAfterInterruption = recoveredAfterInterruption
+        self.grid = grid
+        self.punch = punch
     }
 
     /// Missing fields get defaults, so a file written by an older or newer version still loads.
@@ -117,9 +137,17 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         peakDB = try c.decodeIfPresent(Double.self, forKey: .peakDB)
         health = try c.decodeIfPresent(FileHealth.self, forKey: .health) ?? .ok
         recoveredAfterInterruption = try c.decodeIfPresent(Bool.self, forKey: .recoveredAfterInterruption) ?? false
+        grid = try c.decodeIfPresent(BeatGrid.self, forKey: .grid)
+        punch = try c.decodeIfPresent(PunchInfo.self, forKey: .punch)
     }
 
     public var name: String { (fileName as NSString).deletingPathExtension }
+
+    /// The last bar that can be chosen. A re-recorded passage rings out past its last bar, which adds no bar to it.
+    public var lastBar: Int? {
+        guard let last = grid?.lastBar(duration: duration) else { return nil }
+        return punch.map { min(last, $0.lastBar) } ?? last
+    }
 
     // Comparable forms for sortable table columns.
     public var favoriteRank: Int { favorite ? 1 : 0 }

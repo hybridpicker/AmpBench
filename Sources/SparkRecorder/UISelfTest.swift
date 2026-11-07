@@ -86,7 +86,8 @@ final class UISelfTest {
         // These tests must only ever hear the virtual test device, never a real input.
         if characters == "r" || characters == "g" {
             let name = model.selectedInput?.name ?? ""
-            guard name.contains("BlackHole") || name.contains("SparkRecorder Test Device") else {
+            // Without any input the key must do nothing, which is exactly what the "nospark" scenario checks.
+            guard model.selectedInput == nil || name.contains("BlackHole") || name == InputPolicy.testDeviceName else {
                 check(false, "refused to press \(characters): input is not the test device", detail: name)
                 return
             }
@@ -215,6 +216,8 @@ final class UISelfTest {
         case "legacy": await legacyScenario()
         case "pictures": await pictureScenario()
         case "realwindow": await realWindowScenario()
+        case "nospark": await noSparkScenario()
+        case "reconnect": await reconnectScenario()
         default: note("FAIL unknown scenario")
         }
         await finish()
@@ -351,11 +354,14 @@ final class UISelfTest {
         // Undo what the letters above switched on.
         model.clearLoop()
         if model.playhead.isPlaying { await press(" ", keyCode: 49) }
-        if model.isClickRunning { model.toggleClick() }
+        if model.metronome.clickEnabled { model.toggleClick() }
         if model.current?.favorite == true { model.toggleFavorite() }
 
         await libraryChecks(first: first)
         await practiceChecks(first: first)
+        await spaceAndClickChecks(first: first)
+        await barChecks()
+        await removalAndPieceChecks()
         await editAndExportChecks(first: first)
         await retroChecks()
         await feedbackChecks()
@@ -429,13 +435,7 @@ final class UISelfTest {
         check(PracticeStats.totalMinutes(model.practiceLog) > 0, "statistics count the recorded time")
         model.tab = .recordings
 
-        // Metronome and count-in.
-        await press("n", keyCode: 45)
-        check(model.isClickRunning, "N starts the metronome")
-        await wait(0.7)
-        check(model.meter.beat > 0, "beats are counted", detail: "\(model.meter.beat)")
-        await press("n", keyCode: 45)
-        check(!model.isClickRunning, "N stops it")
+        // Tempo and count-in.
         for _ in 0..<4 {
             await press("t", keyCode: 17)
             await wait(0.4)
@@ -478,6 +478,212 @@ final class UISelfTest {
         let filesAfter = (try? FileManager.default.contentsOfDirectory(atPath: model.store.folder.path).count) ?? 0
         check(filesAfter == filesBefore, "cancelled count-in leaves no file", detail: "\(filesBefore) -> \(filesAfter)")
         model.updateMetronome { $0.countInBars = 0 }
+    }
+
+    /// The space bar during a recording, and a click that only sounds while playing or recording.
+    private func spaceAndClickChecks(first: Recording) async {
+        model.select(first.id)
+        await wait(0.2)
+
+        // A switched-on click stays silent until something plays or records.
+        await press("n", keyCode: 45)
+        check(model.metronome.clickEnabled, "N switches the click on")
+        await wait(0.7)
+        check(!model.isClickRunning, "the click stays silent while nothing plays or records")
+        check(model.meter.beat == 0, "no beats are counted while idle", detail: "\(model.meter.beat)")
+        check(model.playbackClickGrid != nil, "the click is ready for playback")
+
+        await press(" ", keyCode: 49)
+        check(await waitUntil { model.playhead.isPlaying }, "space plays with the click on")
+        check(!model.isClickRunning, "playback carries the click itself, without a second clock")
+        await wait(0.8)
+        check(model.meter.beat > 0, "the beat lamps follow the playback", detail: "\(model.meter.beat)")
+        await press(" ", keyCode: 49)
+        await wait(0.2)
+        check(!model.playhead.isPlaying && model.meter.beat == 0, "pausing silences the click again", detail: "\(model.meter.beat)")
+
+        // The space bar during a recording: nothing happens, and it plays the new take after stopping.
+        let previous = model.currentID
+        let before = Set(model.recordings.map(\.id))
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "R records with the click on")
+        check(model.isClickRunning, "the click sounds while recording")
+        await wait(0.5)
+        await press(" ", keyCode: 49)
+        await wait(0.2)
+        check(!model.playhead.isPlaying, "space during a recording does not start an older take")
+        check(model.phase == .recording, "space during a recording does not end it")
+        check(model.currentID == previous, "space during a recording changes nothing")
+        check(model.playbackClickGrid == nil, "no click goes to the playback during a recording")
+        await wait(0.5)
+        await press("r", keyCode: 15)
+        _ = await waitUntil { model.phase == .idle }
+        check(!model.isClickRunning, "the click stops with the recording")
+        check(model.metronome.clickEnabled, "the click stays switched on for next time")
+        let newTake = model.recordings.first { !before.contains($0.id) }
+        check(newTake != nil && model.currentID == newTake?.id, "the new take is in focus after stopping")
+        await press(" ", keyCode: 49)
+        check(await waitUntil { model.playhead.isPlaying }, "space after stopping plays")
+        check(model.currentID == newTake?.id, "space after stopping plays the take just recorded")
+        await press(" ", keyCode: 49)
+
+        await press("n", keyCode: 45)
+        check(!model.metronome.clickEnabled && model.playbackClickGrid == nil, "N switches the click off")
+    }
+
+    /// Bars while recording, looping them, and recording them again without touching the original.
+    private func barChecks() async {
+        model.updateMetronome {
+            $0.bpm = 120
+            $0.beatsPerBar = 4
+            $0.countInBars = 1
+        }
+        if !model.metronome.clickEnabled { model.toggleClick() }
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "recording with bars starts")
+        check(await waitUntil { model.activeGrid != nil }, "the bars are known during the recording")
+        if let grid = model.activeGrid {
+            check(abs(grid.offset - 0.15) < 0.1, "bar 1 starts right after the pre-roll", detail: "\(grid.offset)")
+            check(grid.bpm == 120 && grid.beatsPerBar == 4 && grid.firstBar == 1, "the bars follow the metronome")
+        }
+        let tempo = model.metronome.bpm
+        model.updateMetronome { $0.bpm = 80 }
+        await press("t", keyCode: 17)
+        check(model.metronome.bpm == tempo, "the tempo stays fixed during a recording", detail: "\(model.metronome.bpm)")
+        await wait(4.6)
+        let position = model.activeGrid?.position(at: model.meter.seconds)
+        check(position?.bar == 3, "the display reaches bar 3 after four seconds", detail: "\(String(describing: position))")
+        await snapshot("15-bars-recording")
+        await press("r", keyCode: 15)
+        _ = await waitUntil { model.phase == .idle }
+        check(model.activeGrid == nil, "the live bars end with the recording")
+        guard let take = model.current, let grid = take.grid else {
+            check(false, "the take keeps its bars")
+            return
+        }
+        check(model.store.readJournal() == nil, "the journal is gone")
+        try? model.store.save()
+        let text = (try? String(contentsOf: model.store.documentURL, encoding: .utf8)) ?? ""
+        check(text.contains("\"beatsPerBar\" : 4"), "the bars are in the library file")
+
+        // Looping bars.
+        model.setBarSelection(2...2)
+        model.loopSelectedBars()
+        check(model.isLoopingBars, "the chosen bars loop")
+        if let loop = model.loopRange {
+            check(abs(loop.lowerBound - grid.time(ofBar: 2)) < 0.001 && abs(loop.upperBound - grid.time(ofBar: 3)) < 0.001,
+                  "the loop lies exactly on the bars", detail: "\(loop)")
+        } else {
+            check(false, "a loop exists")
+        }
+        await snapshot("16-bars-loop")
+        check(grid.position(at: model.playhead.position)?.bar == 2, "after jumping to the loop the display shows its bar",
+              detail: "\(model.playhead.position)")
+        await press(" ", keyCode: 49)
+        await wait(2.6)
+        check(model.playhead.isPlaying, "the loop keeps playing past its end")
+        let inLoop = model.playhead.position
+        check(inLoop >= grid.time(ofBar: 2) - 0.05 && inLoop <= grid.time(ofBar: 3) + 0.05, "the playhead stays in the bar", detail: "\(inLoop)")
+        await press(" ", keyCode: 49)
+        model.toggleBarLoop()
+        check(model.loopRange == nil, "the bar loop switches off")
+
+        // Recording bars again. The count-in can be cancelled without leaving anything.
+        let original = model.store.url(of: take)
+        let originalData = try? Data(contentsOf: original)
+        let countBefore = model.recordings.count
+        model.setBarSelection(2...3)
+        check(model.canRecordBars, "the chosen bars can be recorded again")
+        model.recordSelectedBars()
+        _ = await waitUntil(timeout: 3) { if case .countIn = model.phase { return true } else { return false } }
+        await press("r", keyCode: 15)
+        await wait(0.2)
+        check(model.phase == .idle && model.recordings.count == countBefore, "R cancels re-recording during the count-in")
+
+        let started = Date()
+        model.recordSelectedBars()
+        var sawCountIn = false
+        while Date().timeIntervalSince(started) < 4 {
+            if case .countIn = model.phase { sawCountIn = true; break }
+            await wait(0.02)
+        }
+        check(sawCountIn, "re-recording counts in")
+        check(await waitUntil(timeout: 5) { model.phase == .recording }, "re-recording starts after the count-in")
+        check(await waitUntil { model.activeGrid != nil }, "the bars are known during re-recording")
+        check(model.activeGrid?.firstBar == 2, "the bars keep their numbers", detail: "\(String(describing: model.activeGrid))")
+        await wait(1)
+        await snapshot("17-bars-rerecording")
+        check(await waitUntil(timeout: 6) { model.phase == .idle }, "re-recording stops by itself after the last bar")
+        check(model.recordings.count == countBefore + 1, "re-recording adds one take")
+        if let punchTake = model.current {
+            check(punchTake.id != take.id, "the new version is in focus")
+            check(punchTake.punch?.sourceID == take.id && punchTake.punch?.bars == 2...3, "the new version knows its source")
+            check(punchTake.grid?.firstBar == 2, "the new version shows the same bar numbers")
+            check(punchTake.fileName.contains("Takt 2-3"), "the file name names the bars", detail: punchTake.fileName)
+            check(abs(punchTake.duration - 4.45) < 0.3, "two bars at 120 BPM were recorded", detail: "\(punchTake.duration)")
+            check(punchTake.tags.contains("Neuaufnahme"), "the new version is tagged")
+            check(punchTake.lastBar == 3, "the ringing out adds no bar to choose", detail: "\(String(describing: punchTake.lastBar))")
+            check(model.barSelection == 2...3, "the new version starts with its own bars chosen", detail: "\(String(describing: model.barSelection))")
+            await snapshot("18-bars-new-version")
+        }
+        check((try? Data(contentsOf: original)) == originalData, "the original file stays byte for byte the same")
+        check(model.recordings.contains { $0.id == take.id }, "the original stays in the library")
+        check(!model.isClickRunning, "the click stops after re-recording")
+        model.toggleClick()
+        model.updateMetronome { $0.countInBars = 0 }
+    }
+
+    /// Removing recordings when nothing is marked, and looking after pieces.
+    private func removalAndPieceChecks() async {
+        model.selection = []
+        await wait(0.1)
+        let focused = model.currentID
+        let count = model.recordings.count
+        model.discard([])
+        await wait(0.2)
+        check(model.recordings.count == count - (focused == nil ? 0 : 1), "a remove command without rows takes the take in focus")
+        if focused != nil {
+            window?.undoManager?.undo()
+            await wait(0.3)
+            check(model.recordings.count == count, "undo brings it back")
+        }
+        model.selection = []
+        await wait(0.1)
+        if let visible = model.recordings.first {
+            model.selection = [visible.id]
+            model.discard([])
+            await wait(0.2)
+            check(!model.recordings.contains { $0.id == visible.id }, "a remove command without rows takes the marked row")
+            model.undoLastDiscard()
+            await wait(0.3)
+            check(model.recordings.contains { $0.id == visible.id }, "the banner's undo brings it back")
+        }
+
+        model.addPiece(named: "Etüde")
+        guard let piece = model.pieces.first(where: { $0.name == "Etüde" }), let take = model.recordings.first else {
+            check(false, "a piece exists")
+            return
+        }
+        model.assign([take.id], toPiece: piece.id)
+        check(model.renamePiece(piece.id, to: "Etüde 2"), "a piece gets a new title")
+        check(model.pieces.first { $0.id == piece.id }?.name == "Etüde 2", "the title changed")
+        model.addPiece(named: "Tonleiter", makeCurrent: false)
+        check(!model.renamePiece(piece.id, to: "tonleiter"), "two pieces cannot share a title")
+        check(model.banner != nil, "the taken title is explained")
+
+        model.tab = .pieces
+        await snapshot("19-pieces")
+        model.removePiece(piece.id)
+        check(!model.pieces.contains { $0.id == piece.id }, "a piece can be removed")
+        check(model.recordings.first { $0.id == take.id }?.pieceID == nil, "its takes stay without it")
+        check(model.banner?.canUndo == true, "removing a piece offers undo")
+        model.undoLastDiscard()
+        await wait(0.1)
+        check(model.pieces.contains { $0.id == piece.id }, "undo brings the piece back")
+        check(model.recordings.first { $0.id == take.id }?.pieceID == piece.id, "undo brings its takes back")
+        check(model.currentPieceID == piece.id, "undo restores the piece for new recordings")
+        model.setCurrentPiece(nil)
+        model.tab = .recordings
     }
 
     private func editAndExportChecks(first: Recording) async {
@@ -549,7 +755,8 @@ final class UISelfTest {
               detail: "\(model.selectedInput?.identity as Any) vs \(model.effectiveOutput?.identity as Any): \(model.feedbackRisk)")
         await press("r", keyCode: 15)
         _ = await waitUntil(timeout: 8) { model.phase == .recording }
-        await press(" ", keyCode: 49)
+        model.togglePlay()
+        await wait(0.1)
         check(!model.playhead.isPlaying, "playback to the input device stays blocked during a recording")
         check(model.banner?.kind == .warning, "the block is explained")
         await snapshot("13-feedback")
@@ -561,10 +768,11 @@ final class UISelfTest {
         // Playback to a safe output during a recording stays possible.
         await press("r", keyCode: 15)
         _ = await waitUntil(timeout: 8) { model.phase == .recording }
-        await press(" ", keyCode: 49)
-        check(model.playhead.isPlaying, "playback to another output works during a recording")
+        model.togglePlay()
+        await wait(0.1)
+        check(model.playhead.isPlaying, "the play button reaches another output during a recording")
         await wait(0.6)
-        await press(" ", keyCode: 49)
+        model.togglePlay()
         await press("r", keyCode: 15)
         _ = await waitUntil { model.phase == .idle }
         check(model.meter.droppedFrames == 0, "no dropouts")
@@ -573,7 +781,7 @@ final class UISelfTest {
     private func deviceLossChecks() async {
         guard let blackHole = model.inputs.first(where: { $0.name.contains("BlackHole") }) else { return }
         let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey: "SparkRecorder Test Device",
+            kAudioAggregateDeviceNameKey: InputPolicy.testDeviceName,
             kAudioAggregateDeviceUIDKey: "local.sparkrecorder.uitest.\(UUID().uuidString)",
             kAudioAggregateDeviceIsPrivateKey: 1,
             kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: blackHole.uid]],
@@ -684,6 +892,103 @@ final class UISelfTest {
             if let match = findTextField(in: child) { return match }
         }
         return nil
+    }
+
+    // MARK: Spark only
+
+    private func audioFiles() -> [String] {
+        ((try? FileManager.default.contentsOfDirectory(atPath: model.store.folder.path)) ?? [])
+            .filter { LibraryStore.audioExtensions.contains(($0 as NSString).pathExtension.lowercased()) }
+    }
+
+    /// No allowed device exists, while the microphone, BlackHole and even the amp may be right there on the system.
+    private func noSparkScenario() async {
+        let available = AudioDevices.inputDevices().map(\.name)
+        note("NOTE inputs on this Mac: \(available.count)")
+        check(available.count > 0, "the system does offer inputs that must stay unused")
+        check(model.inputs.isEmpty, "the app offers no input at all")
+        check(model.inputID == nil, "no input is selected")
+        await wait(0.5)
+        await snapshot("no-spark")
+
+        await press("r", keyCode: 15)
+        await wait(0.5)
+        check(model.phase == .idle, "R does not start a recording", detail: "\(model.phase)")
+        check(model.banner?.text.contains("Kein Spark") == true, "R explains why", detail: model.banner?.text ?? "none")
+        check(!model.isListening, "the input stays closed after R")
+        check(!FileManager.default.fileExists(atPath: model.store.journalURL.path), "no journal was started")
+
+        model.toggleMonitor()
+        await wait(0.5)
+        check(!model.isMonitoring && !model.isListening, "level check stays off")
+        model.toggleRetro()
+        await wait(0.5)
+        check(!model.isRetroOn && !model.isListening, "retro stays off")
+        await press("g", keyCode: 5)
+        check(model.canMeasureLoopback == false, "loopback measurement is unavailable")
+        check(audioFiles().isEmpty && model.recordings.isEmpty, "no audio file was created", detail: "\(audioFiles())")
+        await snapshot("no-spark-pressed")
+    }
+
+    private func makeTestDevice(uid: String) -> AudioObjectID? {
+        guard let blackHole = AudioDevices.inputDevices().first(where: { $0.name.contains("BlackHole") }) else { return nil }
+        let description: [String: Any] = [
+            kAudioAggregateDeviceNameKey: InputPolicy.testDeviceName,
+            kAudioAggregateDeviceUIDKey: uid,
+            kAudioAggregateDeviceIsPrivateKey: 1,
+            kAudioAggregateDeviceSubDeviceListKey: [[kAudioSubDeviceUIDKey: blackHole.uid]],
+        ]
+        var device = AudioObjectID(0)
+        return AudioHardwareCreateAggregateDevice(description as CFDictionary, &device) == noErr ? device : nil
+    }
+
+    /// One allowed device comes and goes, as an amp does when its cable is pulled and plugged back in.
+    private func reconnectScenario() async {
+        useTestOutputOnly()
+        check(model.inputs.isEmpty, "no input before the device appears")
+        let uid = "local.sparkrecorder.reconnect.\(UUID().uuidString)"
+        guard let first = makeTestDevice(uid: uid) else {
+            check(false, "test device can be created")
+            return
+        }
+        check(await waitUntil { model.selectedInput != nil }, "a connected device becomes the input")
+        check(!model.isListening && model.phase == .idle, "connecting it starts nothing")
+
+        model.toggleMonitor()
+        check(await waitUntil { model.isMonitoring }, "level check runs")
+        AudioHardwareDestroyAggregateDevice(first)
+        check(await waitUntil { model.inputID == nil }, "pulling it leaves no input selected")
+        check(await waitUntil { !model.isListening }, "listening ends with the device")
+        await wait(0.5)
+        check(model.inputs.isEmpty, "the app falls back to nothing, not to another device")
+        await press("r", keyCode: 15)
+        await wait(0.3)
+        check(model.phase == .idle && audioFiles().isEmpty, "R does nothing while it is gone")
+        await snapshot("reconnect-gone")
+
+        guard let second = makeTestDevice(uid: uid) else {
+            check(false, "test device can be created again")
+            return
+        }
+        defer { AudioHardwareDestroyAggregateDevice(second) }
+        check(await waitUntil { model.selectedInput != nil }, "plugging it back selects it again")
+        await wait(1)
+        check(!model.isListening && model.phase == .idle && audioFiles().isEmpty, "plugging it back starts nothing")
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "R records after it is back")
+        await wait(1)
+        await press("r", keyCode: 15)
+        check(await waitUntil { model.phase == .idle }, "recording stops")
+        check(model.recordings.count == 1 && audioFiles().count == 1, "the take is there")
+
+        // A pulled cable during a recording keeps the take and leaves nothing listening.
+        await press("r", keyCode: 15)
+        _ = await waitUntil(timeout: 8) { model.phase == .recording }
+        await wait(1)
+        AudioHardwareDestroyAggregateDevice(second)
+        check(await waitUntil(timeout: 4) { model.phase == .idle }, "pulling it during a recording ends the recording")
+        check(model.recordings.count == 2, "audio up to the pull is kept")
+        check(model.inputID == nil && !model.isListening, "afterwards there is no input and nothing listens")
     }
 
     // MARK: Real window
