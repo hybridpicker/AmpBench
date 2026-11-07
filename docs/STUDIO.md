@@ -14,10 +14,14 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | 1 | Ein Bundle, zwei Fenster, Bluetooth auf Abruf | 308cc7f, 61d4bdb | vom Nutzer geprüft (2026-11-07) |
 | 2 | Ein Fenster mit Bereichen, Sound am Take, ein Tempo | cc3ebb3 | offen |
 | 3 | Stücke = Songs, `~/Music/Spark Studio`, alte Apps entfernt, neues Icon | 3960ccd | offen |
+| – | Immer im Dark Mode, auf Wunsch des Nutzers | 6a85f45 | installiert, läuft |
+
+Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
+`~/Music/Spark Studio` angelegt und die alten Ordner übernommen; dass alle Aufnahmen und Presets dort angekommen sind,
+ist noch nicht bestätigt.
 
 Am Spark MINI noch zu prüfen: ein Take mit echtem Preset (Stempel, „Auf den Amp“, „Im Editor öffnen“), der
-Tempo-Abgleich, das Lämpchen „BT“, „Spielen“ bei Stücken und Teilen, und die Übernahme der echten Ordner beim ersten
-Start.
+Tempo-Abgleich, das Lämpchen „BT“ und „Spielen“ bei Stücken und Teilen.
 
 ## Aufbau
 
@@ -45,6 +49,9 @@ SparkStudio  (App: ein Fenster, Bereiche, Verbindungen zwischen ihnen; Info.plis
     echten Tastendruck.
   - Die Recorder-Gruppe „In den Papierkorb legen“ steht nach `.pasteboard`: Presets ersetzt `.undoRedo`, und SwiftUI
     lässt Gruppen weg, die an einer ersetzten hängen.
+- **Immer dunkel.** Studio setzt beim Start `NSApp.appearance` auf Dunkel, auch für den Schreibtisch, unabhängig von
+  der Systemeinstellung. Die hellen Werte aus DESIGN.md bleiben gültig; `--appearance light` und der Bild-Selbsttest
+  zeichnen sie weiter.
 - **Bluetooth auf Abruf.** Beim Start kein `CBCentralManager`, also keine Bluetooth-Abfrage. Verbunden wird beim
   ersten Zeigen des Bereichs Presets (nur beim ersten, sonst hielte „Trennen“ nicht), mit der Taste „Verbinden“ unten
   in der Seitenleiste, mit dem Lämpchen „BT“ im Deck oder über das Menü. Zustand `.off` heißt „Getrennt“. Ein
@@ -137,5 +144,7 @@ Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der
 - **Setlists und Auftrittsmodus** bauen auf den Stücken auf: Reihenfolge per Drag & Drop, großer Vollbildmodus mit
   Umschalten per Pfeiltasten, Leertaste und Zahlen, nächster Song oder Teil per Taste. Optional „Setlist auf den Amp“:
   bis zu vier Presets auf die Plätze, mit Nachfrage und Sicherung wie beim Speichern auf einen Platz.
-- **Alte Apps:** Spark Recorder und Spark Presets sind aus dem Projekt entfernt. Installierte Kopien in /Applications
-  arbeiten weiter auf den alten Ordnern; was sie dort ändern, sieht Studio nicht mehr.
+- **Alte Apps:** Spark Recorder und Spark Presets sind aus dem Projekt entfernt, ihre installierten Kopien liegen seit
+  2026-11-07 im Papierkorb und sind aus dem Dock genommen. Die alten Ordner `~/Music/Spark Recorder` und
+  `~/Music/Spark Presets` sind unverändert da; Studio liest sie nicht mehr. Ob und wann sie gelöscht werden, entscheidet
+  der Nutzer.
