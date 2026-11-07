@@ -64,6 +64,7 @@ final class PresetsModel: ObservableObject {
         editor = EditorModel(link: link)
         editor.show = { [weak self] kind, text in self?.show(kind, text) }
         link.onAmpEvent = { [weak self] text in self?.show(.info, text) }
+        link.onAmpSelected = { [weak self] slot in self?.ampSelected(slot) }
         link.onConnected = { [weak self] in self?.connected() }
         // Menus and buttons depend on the connection and the editor too.
         link.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
@@ -78,7 +79,8 @@ final class PresetsModel: ObservableObject {
 
     // MARK: Selection
 
-    /// Selects something else. With unsaved changes, it asks first.
+    /// Selects something else and plays it: a slot by switching the amp to it, a preset from the Mac on the
+    /// temporary place, which never touches a slot. With unsaved changes, it asks first.
     func select(_ new: Selection?) {
         guard new != selection else { return }
         if editor.isModified, new != nil {
@@ -96,14 +98,17 @@ final class PresetsModel: ObservableObject {
         apply(next)
     }
 
-    private func apply(_ new: Selection?) {
+    private func apply(_ new: Selection?, play: Bool = true) {
         selection = new
         switch new {
         case .slot(let slot):
             if let preset = link.slots[slot] { editor.open(preset, from: .slot(slot)) } else { editor.close() }
+            if play { self.play(slot: slot) }
         case .saved(let url):
             if let item = items.first(where: { $0.url == url }) {
                 editor.open(item.file.preset, from: .saved(url))
+                // Clicking through the list sends only the last one: the queue keeps only the newest whole preset.
+                if play, editor.isLiveEnabled { editor.playNow() }
             } else {
                 editor.close()
             }
@@ -114,7 +119,7 @@ final class PresetsModel: ObservableObject {
 
     private func slotsChanged(_ slots: [SparkPreset?]) {
         guard case .slot(let slot) = selection, let preset = slots[slot] else { return }
-        if editor.source == .slot(slot) { editor.refresh(preset, from: .slot(slot)) } else { apply(selection) }
+        if editor.source == .slot(slot) { editor.refresh(preset, from: .slot(slot)) } else { apply(selection, play: false) }
     }
 
     // MARK: Library
@@ -179,6 +184,7 @@ final class PresetsModel: ObservableObject {
         editor.open(preset, from: .draft)
         // A new preset counts as changed until it is saved, so it is not lost by accident.
         editor.markUnsaved()
+        if editor.isLiveEnabled { editor.playNow() }
     }
 
     // MARK: Saving
@@ -257,9 +263,9 @@ final class PresetsModel: ObservableObject {
 
     var canUseAmp: Bool { link.status == .connected && !isBusy }
 
+    /// Switches the amp to a slot, in turn with live changes.
     func play(slot: Int) {
-        guard canUseAmp, link.activeSlot != slot || link.tryingOut != nil || link.isEditingLive else { return }
-        run { try await self.link.select(slot: slot) }
+        editor.play(slot: slot)
     }
 
     /// Saves what a slot holds on the Mac. A preset with the same settings already saved is not saved twice.
@@ -319,6 +325,12 @@ final class PresetsModel: ObservableObject {
             request.then?(stored)
             self.show(.info, "„\(preset.name)“ ist auf Platz \(slot + 1) gespeichert und geprüft. Das bisherige „\(current.name)“ liegt als Sicherung auf dem Mac.")
         }
+    }
+
+    /// The amp's own preset button: the app follows, unless the editor holds unsaved changes.
+    private func ampSelected(_ slot: Int) {
+        guard !editor.isModified, selection != .slot(slot) else { return }
+        apply(.slot(slot), play: false)
     }
 
     func reloadAmp() {

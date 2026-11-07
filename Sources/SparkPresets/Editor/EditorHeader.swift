@@ -52,6 +52,8 @@ struct EditorHeader: View {
                         }
                         .font(.system(size: 11))
                     }
+                    LoadMeter(transfer: link.transfer)
+                        .padding(.top, 3)
                 }
             }
             .frame(minWidth: 260)

@@ -245,9 +245,9 @@ gives the model. Three models have more parameters than the community sources na
 tremolo 4), and they appear numbered. The models of the paid Jimi Hendrix add-on are in the catalog but hidden, and
 the five that were tried were refused, because the add-on is not unlocked on this amp.
 
-Not confirmed: the order of reverb parameters 2 to 5 is disputed between sources. The catalog follows the two that
-agree (low cut, high cut, density, length). A listening test changed the sound for both 3 and 5 but could not tell
-which is which.
+The order of reverb parameters 2 to 5 is disputed between sources. The catalog follows the two that agree (low cut,
+high cut, density, length), and a listening test confirmed it: with everything else at its maximum, parameter 3 at 0
+made the reverb dull but still long, parameter 5 at 0 made it short.
 
 ### Sources
 

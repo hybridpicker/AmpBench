@@ -174,6 +174,8 @@ public enum SparkProtocol {
 
         /// True while a chunk or a multi-chunk message is only partly received.
         public var isInsideChunk: Bool { current != nil || pending != nil }
+        /// How many chunks of a multi-chunk message have arrived, and how many it has. Nil between messages.
+        public private(set) var chunkProgress: (received: Int, total: Int)?
 
         public func feed(_ bytes: [UInt8]) -> [Message] {
             var messages: [Message] = []
@@ -208,8 +210,10 @@ public enum SparkProtocol {
             }
             pending!.data += part
             pending!.ok = pending!.ok && ok
+            chunkProgress = (number + 1, total)
             guard number + 1 >= total, let done = pending else { return nil }
             pending = nil
+            chunkProgress = nil
             return Message(command: done.command, sub: done.sub, sequence: done.sequence, payload: done.data,
                            checksumOK: done.ok)
         }

@@ -37,7 +37,13 @@ final class SparkProtocolTests: XCTestCase {
         let preset = Synthetic.presetPayload()
         XCTAssertGreaterThan(preset.count, SparkProtocol.chunkCapacity)
         let bytes = SparkProtocol.frame(command: 0x03, sub: 0x01, payload: preset, sequence: 1, header: false)
-        let messages = SparkProtocol.Parser().feed(bytes)
+        let parser = SparkProtocol.Parser()
+        let firstChunk = bytes.firstIndex(of: 0xF7)!
+        XCTAssertTrue(parser.feed(Array(bytes[...firstChunk])).isEmpty)
+        XCTAssertEqual(parser.chunkProgress?.received, 1)
+        XCTAssertEqual(parser.chunkProgress?.total, (preset.count + 24) / 25)
+        let messages = parser.feed(Array(bytes[(firstChunk + 1)...]))
+        XCTAssertNil(parser.chunkProgress)
         XCTAssertEqual(messages.count, 1)
         XCTAssertEqual(messages[0].payload, preset)
 

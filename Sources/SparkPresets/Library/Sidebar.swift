@@ -67,7 +67,13 @@ struct Sidebar: View {
                     NewPresetMenu()
                 }
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.top, 8)
+                // Only while nothing is open in the editor, whose display has its own meter.
+                if model.editor.preset == nil {
+                    LoadMeter(transfer: link.transfer, segments: 18, height: 4, showsLabel: false)
+                        .padding(.horizontal, 12)
+                }
+                Spacer().frame(height: 8)
             }
             .background(.bar)
         }
@@ -99,20 +105,15 @@ private struct SlotRow: View {
                     .lineLimit(1)
             }
             Spacer(minLength: 0)
-            Button {
-                model.play(slot: slot)
-            } label: {
-                Image(systemName: isActive ? "speaker.wave.2.fill" : "play.fill")
+            if isActive {
+                Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(isActive ? Theme.amberHot : .secondary)
+                    .foregroundStyle(Theme.amberHot)
+                    .help("Spielt gerade")
             }
-            .buttonStyle(.borderless)
-            .disabled(!model.canUseAmp || isActive)
-            .help(isActive ? "Spielt gerade" : "Diesen Platz spielen (⌘\(slot + 1))")
-            .accessibilityLabel(isActive ? "Spielt gerade" : "Platz \(slot + 1) spielen")
         }
+        .help("Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))")
         .contextMenu {
-            Button("Spielen") { model.play(slot: slot) }.disabled(!model.canUseAmp)
             Button("Auf dem Mac sichern") { model.backUp(slot: slot) }.disabled(preset == nil)
         }
         .accessibilityElement(children: .combine)
@@ -132,8 +133,8 @@ private struct LibraryRow: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+        .help("Klicken spielt das Preset zum Anhören, ohne einen Platz zu überschreiben")
         .contextMenu {
-            Button("Ausprobieren") { model.tryOut(item) }.disabled(!model.canUseAmp)
             Menu("Auf Platz speichern") {
                 ForEach(0..<4, id: \.self) { slot in
                     Button("Platz \(slot + 1)") { model.askToStore(item, in: slot) }

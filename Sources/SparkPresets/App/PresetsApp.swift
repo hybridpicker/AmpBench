@@ -72,9 +72,9 @@ struct PresetCommands: Commands {
         }
         CommandMenu("Verstärker") {
             ForEach(0..<4, id: \.self) { slot in
-                Button("Platz \(slot + 1) spielen") { model.play(slot: slot) }
+                Button("Platz \(slot + 1) spielen") { model.select(.slot(slot)) }
                     .keyboardShortcut(KeyEquivalent(Character("\(slot + 1)")), modifiers: .command)
-                    .disabled(!model.canUseAmp)
+                    .disabled(model.link.status != .connected)
             }
             Divider()
             ForEach(0..<4, id: \.self) { slot in
@@ -90,11 +90,6 @@ struct PresetCommands: Commands {
             .disabled(!editor.isModified && !editor.showsOriginal)
             Toggle("Änderungen live hören", isOn: Binding(get: { editor.isLiveEnabled }, set: { editor.isLiveEnabled = $0 }))
                 .keyboardShortcut("l", modifiers: [.command, .shift])
-            Button("Ausgewähltes Preset ausprobieren") {
-                if let item = model.selectedItem { model.tryOut(item) }
-            }
-            .keyboardShortcut("t", modifiers: .command)
-            .disabled(model.selectedItem == nil || !model.canUseAmp)
             Divider()
             Button("Verstärker neu lesen") { model.reloadAmp() }
                 .keyboardShortcut("r", modifiers: .command)

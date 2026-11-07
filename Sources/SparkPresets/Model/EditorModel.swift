@@ -32,6 +32,8 @@ final class EditorModel: ObservableObject {
     private var strainedUntil: ContinuousClock.Instant?
     /// What the amp is known to play on 7F, to check it after a change got no answer.
     private var needsCheck = false
+    /// A stored preset to switch to before anything else in the queue.
+    private var pendingSlot: Int?
     var show: ((Banner.Kind, String) -> Void)?
 
     init(link: SparkLink) {
@@ -151,6 +153,15 @@ final class EditorModel: ObservableObject {
         source = .saved(url)
     }
 
+    /// Switches the amp to a stored preset. It goes through the same queue as live changes, so a change made right
+    /// after it can never arrive before it and end up on the stored preset's sound.
+    func play(slot: Int) {
+        guard link.status == .connected else { return }
+        queue.removeAll()
+        pendingSlot = slot
+        runQueue()
+    }
+
     /// Plays the current state on the amp, for example after reconnecting or switching live on.
     func playNow() {
         guard let preset, link.status == .connected else { return }
@@ -189,7 +200,18 @@ final class EditorModel: ObservableObject {
     }
 
     private func drain() async {
-        while let change = queue.next() {
+        while pendingSlot != nil || !queue.isEmpty {
+            if let slot = pendingSlot {
+                pendingSlot = nil
+                guard link.activeSlot != slot || link.isEditingLive || link.tryingOut != nil else { continue }
+                do {
+                    try await link.select(slot: slot)
+                } catch {
+                    show?(.error, "Der Verstärker hat nicht auf Platz \(slot + 1) umgeschaltet: \(error.localizedDescription)")
+                }
+                continue
+            }
+            guard let change = queue.next() else { break }
             let clock = ContinuousClock()
             if let until = strainedUntil, until > clock.now { try? await Task.sleep(until: until) }
             let wait = LivePacing.wait(before: change, now: clock.now, recentModelChanges: modelChanges)

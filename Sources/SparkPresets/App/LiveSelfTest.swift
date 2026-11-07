@@ -21,12 +21,16 @@ enum LiveSelfTest {
         }
 
         let link = model.link, editor = model.editor
+        let started = Date()
+        link.trace = { line in lines.append(String(format: "    %6.2f ", Date().timeIntervalSince(started)) + line) }
         note("Waiting for the amp …")
         guard await until(seconds: 40, { link.status == .connected && link.slots.allSatisfy { $0 != nil } }) else {
             note("FAIL the amp was not connected and read within 40 seconds")
             finish(lines, path, failures: 1)
             return
         }
+        // Clicking two slots quickly and turning a knob at once: the switches must come first, the edit last.
+        model.select(.slot(1))
         model.select(.slot(0))
         guard let start = editor.preset, start.effects.count == 7 else {
             note("FAIL stored preset 1 has no chain of 7")

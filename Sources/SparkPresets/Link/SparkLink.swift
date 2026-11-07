@@ -2,6 +2,17 @@ import CoreBluetooth
 import Foundation
 import SparkControl
 
+/// A preset on its way to or from the amp, for the load meter.
+struct Transfer: Equatable {
+    enum Kind { case sending, reading, switching }
+    var kind: Kind
+    var done = 0
+    /// Chunks in all. Nil while unknown, and for a switch, which is a single message.
+    var total: Int?
+
+    var fraction: Double? { total.map { Double(min(done, $0)) / Double(max($0, 1)) } }
+}
+
 enum LinkError: LocalizedError {
     case notConnected
     case noAnswer
@@ -39,8 +50,15 @@ final class SparkLink: NSObject, ObservableObject {
     @Published private(set) var slots: [SparkPreset?] = Array(repeating: nil, count: 4)
     /// What the link is doing, for the status line.
     @Published private(set) var activity: String?
+    /// What is moving between Mac and amp right now, with its progress.
+    @Published private(set) var transfer: Transfer?
+    private var transferToken = 0
     /// Something the amp did by itself, such as a press of its preset button.
     var onAmpEvent: ((String) -> Void)?
+    /// Every message sent and received, one line each, for the live self-test.
+    var trace: ((String) -> Void)?
+    /// The amp switched to a stored preset by itself, 0 to 3.
+    var onAmpSelected: ((Int) -> Void)?
     /// Called after every new connection, once the amp was read.
     var onConnected: (() -> Void)?
     /// Called when the amp confirmed a change with an echo (`03`) instead of an acknowledgement (`04`). That came
@@ -133,7 +151,9 @@ final class SparkLink: NSObject, ObservableObject {
                 throw LinkError.notConnected
             }
             sequence = (sequence + 1) & 0x7F
-            write(build(sequence), to: peripheral, characteristic)
+            let blocks = build(sequence)
+            trace?("→ " + Self.describe(blocks))
+            write(blocks, to: peripheral, characteristic)
             try await Task.sleep(for: gap)
         }
     }
@@ -157,6 +177,7 @@ final class SparkLink: NSObject, ObservableObject {
         }
         sequence = (sequence + 1) & 0x7F
         let blocks = build(sequence)
+        trace?("→ " + Self.describe(blocks))
         return try await withCheckedThrowingContinuation { continuation in
             waiting = (sub, commands, 0, continuation)
             armTimeout()
@@ -186,8 +207,9 @@ final class SparkLink: NSObject, ObservableObject {
 
     func readPreset(_ place: SparkPresetPlace) async throws -> SparkPreset {
         let slot: UInt8? = if case .slot(let slot) = place { slot } else { nil }
-        let message = try await request({ [SparkProtocol.getPreset(slot: slot, sequence: $0)] },
-                                        answer: SparkProtocol.Sub.preset)
+        let message = try await tracked(Transfer(kind: .reading)) {
+            try await request({ [SparkProtocol.getPreset(slot: slot, sequence: $0)] }, answer: SparkProtocol.Sub.preset)
+        }
         do {
             return try SparkPreset(payload: message.payload)
         } catch {
@@ -196,13 +218,34 @@ final class SparkLink: NSObject, ObservableObject {
     }
 
     private func switchTo(_ slot: UInt8) async throws {
-        _ = try await request({ [SparkProtocol.changeHardwarePreset(slot: slot, sequence: $0)] },
+        _ = try await tracked(Transfer(kind: .switching)) {
+            try await request({ [SparkProtocol.changeHardwarePreset(slot: slot, sequence: $0)] },
                               answer: SparkProtocol.Sub.hardwarePreset, command: SparkProtocol.Command.acknowledge)
+        }
     }
 
+    /// The amp confirms every chunk with `05 01` and the whole preset with `04 01`, which drives the load meter.
     private func send(_ preset: SparkPreset, to place: SparkPresetPlace) async throws {
-        _ = try await request({ SparkProtocol.sendPreset(preset, to: place, sequence: $0) },
+        let total = SparkProtocol.sendPreset(preset, to: place, sequence: 0).count
+        _ = try await tracked(Transfer(kind: .sending, total: total)) {
+            try await request({ SparkProtocol.sendPreset(preset, to: place, sequence: $0) },
                               answer: SparkProtocol.Sub.preset, command: SparkProtocol.Command.acknowledge)
+        }
+    }
+
+    /// The command and sub-command of a message to the amp, and the number of chunks.
+    private static func describe(_ blocks: [[UInt8]]) -> String {
+        guard let first = blocks.first, let start = first.firstIndex(of: 0xF0), first.count > start + 5 else { return "?" }
+        let text = String(format: "%02X %02X", first[start + 4], first[start + 5])
+        return blocks.count > 1 ? text + " (\(blocks.count) chunks)" : text
+    }
+
+    private func tracked<T>(_ transfer: Transfer, _ work: () async throws -> T) async rethrows -> T {
+        transferToken += 1
+        let mine = transferToken
+        self.transfer = transfer
+        defer { if transferToken == mine { self.transfer = nil } }
+        return try await work()
     }
 
     // MARK: Actions
@@ -314,7 +357,19 @@ final class SparkLink: NSObject, ObservableObject {
 
     private func received(_ bytes: [UInt8]) {
         armTimeout()
-        for message in parser.feed(bytes) {
+        let messages = parser.feed(bytes)
+        if transfer?.kind == .reading, let progress = parser.chunkProgress {
+            transfer?.done = progress.received
+            transfer?.total = progress.total
+        }
+        for message in messages {
+            if let trace, message.sub != SparkProtocol.Sub.tunerPitch {
+                let event = SparkEvent(message).map { " \($0)" } ?? ""
+                trace(String(format: "← %02X %02X", message.command, message.sub) + event)
+            }
+            if message.command == 0x05, message.sub == SparkProtocol.Sub.preset, transfer?.kind == .sending {
+                transfer?.done += 1
+            }
             if let waiting, waiting.sub == message.sub, waiting.commands.contains(message.command) {
                 self.waiting = nil
                 waiting.continuation.resume(returning: message)
@@ -328,6 +383,7 @@ final class SparkLink: NSObject, ObservableObject {
                 isEditingLive = false
                 let name = slots[Int(slot)].map { " „\($0.name)“" } ?? ""
                 onAmpEvent?("Am Verstärker gewählt: Platz \(slot + 1)\(name)")
+                onAmpSelected?(Int(slot))
             }
         }
     }
