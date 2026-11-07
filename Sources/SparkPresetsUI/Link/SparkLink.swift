@@ -35,7 +35,8 @@ enum LinkError: LocalizedError {
 @MainActor
 final class SparkLink: NSObject, ObservableObject {
     enum Status: Equatable {
-        case starting, unauthorized, bluetoothOff, unsupported, searching, connecting, connected
+        /// `off`: disconnected on request, in Spark Studio. The link does not look for the amp until started again.
+        case starting, unauthorized, bluetoothOff, unsupported, searching, connecting, connected, off
     }
 
     @Published private(set) var status = Status.starting
@@ -81,21 +82,35 @@ final class SparkLink: NSObject, ObservableObject {
     private var waiting: (sub: UInt8, commands: Set<UInt8>, token: Int, continuation: CheckedContinuation<SparkProtocol.Message, Error>)?
     private var token = 0
     private var queue: Task<Void, Never>?
-    private var wanted = false
+    /// True between `start` and `stop`: the link should hold or look for a connection.
+    @Published private(set) var wanted = false
 
     func start() {
         wanted = true
-        if central == nil {
-            central = CBCentralManager(delegate: self, queue: .main)
+        if let central {
+            updateStatus(for: central.state)
         } else {
-            scan()
+            central = CBCentralManager(delegate: self, queue: .main)
         }
     }
 
+    /// Ends the connection, so the Spark app on the phone can take the amp. A request still running fails with
+    /// "not connected" and is reported like any lost connection.
     func stop() {
         wanted = false
         central?.stopScan()
         if let peripheral { central?.cancelPeripheralConnection(peripheral) }
+        status = .off
+    }
+
+    private func updateStatus(for state: CBManagerState) {
+        switch state {
+        case .poweredOn: scan()
+        case .unauthorized: status = .unauthorized
+        case .poweredOff: status = .bluetoothOff
+        case .unsupported: status = .unsupported
+        default: break
+        }
     }
 
     private func scan() {
@@ -405,22 +420,14 @@ final class SparkLink: NSObject, ObservableObject {
         tryingOut = nil
         // The amp ends the temporary preset when the connection ends.
         isEditingLive = false
-        if central?.state == .poweredOn { status = .searching }
+        if central?.state == .poweredOn { status = wanted ? .searching : .off }
         scan()
     }
 }
 
 extension SparkLink: CBCentralManagerDelegate, CBPeripheralDelegate {
     nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        MainActor.assumeIsolated {
-            switch central.state {
-            case .poweredOn: scan()
-            case .unauthorized: status = .unauthorized
-            case .poweredOff: status = .bluetoothOff
-            case .unsupported: status = .unsupported
-            default: break
-            }
-        }
+        MainActor.assumeIsolated { updateStatus(for: central.state) }
     }
 
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,

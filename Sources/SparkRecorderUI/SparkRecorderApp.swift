@@ -33,6 +33,15 @@ struct LaunchOptions {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     static var model: AppModel?
     private(set) static var mainWindow: NSWindow?
+    /// The one instance, whether it is the app's delegate (Spark Recorder) or a helper of Spark Studio.
+    private(set) static weak var shared: AppDelegate?
+    /// "Spark Recorder" in the app, "Aufnahme" in Spark Studio.
+    static var windowTitle = "Spark Recorder"
+
+    override init() {
+        super.init()
+        Self.shared = self
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // For looking at the dark design in tests, without touching the system setting.
@@ -63,7 +72,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
-        window.title = "Spark Recorder"
+        window.title = Self.windowTitle
         window.isReleasedWhenClosed = false
         window.tabbingMode = .disallowed
         window.contentMinSize = NSSize(width: 1120, height: 680)
@@ -106,14 +115,21 @@ public struct SparkRecorderApp: App {
 
     @MainActor
     public init() {
+        let model = Self.makeModel()
+        _model = StateObject(wrappedValue: model)
+        keyRouter = KeyRouter(model: model)
+    }
+
+    /// The model for the launch options, also used by Spark Studio.
+    @MainActor
+    static func makeModel() -> AppModel {
         let options = LaunchOptions.current
         let defaults = options.isTestLibrary
             ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
             : .standard
         let model = AppModel(folder: options.folder, defaults: defaults, inputPolicy: options.inputPolicy)
         AppDelegate.model = model
-        _model = StateObject(wrappedValue: model)
-        keyRouter = KeyRouter(model: model)
+        return model
     }
 
     public var body: some Scene {
@@ -173,23 +189,33 @@ struct RootView: View {
 
 struct AppCommands: Commands {
     @ObservedObject var model: AppModel
+    /// False in Spark Studio while the Presets window is in front: the keys both apps use then belong to Presets.
+    var isActive = true
+    /// False in Spark Studio, which brings its own File menu and window items.
+    var isStandalone = true
 
     var body: some Commands {
-        CommandGroup(replacing: .newItem) {}
+        if isStandalone {
+            CommandGroup(replacing: .newItem) {}
+            CommandGroup(before: .windowList) {
+                Button("Spark Recorder zeigen") { AppDelegate.shared?.showMainWindow() }
+                    .keyboardShortcut("0", modifiers: .command)
+            }
+        }
         CommandGroup(replacing: .appSettings) {}
-        CommandGroup(before: .windowList) {
-            Button("Spark Recorder zeigen") { (NSApp.delegate as? AppDelegate)?.showMainWindow() }
-                .keyboardShortcut("0", modifiers: .command)
-        }
         CommandGroup(replacing: .help) {
-            Button("Tastaturkürzel") { model.showShortcuts = true }
-                .keyboardShortcut("/", modifiers: .command)
+            Button("Tastaturkürzel") {
+                AppDelegate.shared?.showMainWindow()
+                model.showShortcuts = true
+            }
+            .keyboardShortcut("/", modifiers: .command)
         }
-        CommandGroup(after: .undoRedo) {
+        // Spark Studio replaces the undo group for Presets, which drops groups placed after it.
+        CommandGroup(after: isStandalone ? .undoRedo : .pasteboard) {
             Divider()
             Button("In den Papierkorb legen", action: discardOrEditText)
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(model.isRecording)
+                .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
+                .disabled(model.isRecording || !isActive)
             Button("Zuletzt Verworfenes wiederherstellen", action: model.restoreLastTrashed)
                 .disabled(!model.canRestoreLastTrashed)
         }
@@ -257,11 +283,11 @@ struct AppCommands: Commands {
         CommandMenu("Bibliothek") {
             Button("Suchen") { model.tab = .recordings }
             Button("Umbenennen …") { model.beginRename() }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(model.current == nil)
+                .keyboardShortcut(owned(KeyboardShortcut("e", modifiers: .command)))
+                .disabled(model.current == nil || !isActive)
             Button("Im Finder zeigen") { model.reveal() }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .disabled(model.current == nil)
+                .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: [.command, .shift])))
+                .disabled(model.current == nil || !isActive)
             Divider()
             Menu("Exportieren") {
                 Button("WAV, 24 Bit …") { model.export(.wav24) }
@@ -284,6 +310,11 @@ struct AppCommands: Commands {
                 .disabled(model.isRecording)
             Button("Bibliotheksordner im Finder zeigen", action: model.revealLibraryFolder)
         }
+    }
+
+    /// A shortcut both apps use belongs to this menu only while its window is in front.
+    private func owned(_ shortcut: KeyboardShortcut) -> KeyboardShortcut? {
+        isActive ? shortcut : nil
     }
 
     private var recordTitle: String {

@@ -37,48 +37,64 @@ public struct PresetsApp: App {
 
 struct PresetCommands: Commands {
     @ObservedObject var model: PresetsModel
+    /// False in Spark Studio while the Aufnahme window is in front: Presets' own keys rest, the keys both apps use
+    /// go to the recorder, and undo goes to the window in front.
+    var isActive = true
+    /// True in Spark Studio, which connects only on request and can disconnect again.
+    var managesConnection = false
 
     private var editor: EditorModel { model.editor }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("Neues Preset") { model.newPreset() }
-                .keyboardShortcut("n", modifiers: .command)
+                .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: .command)))
+                .disabled(!isActive)
             Button("Neues Preset aus Vorlage …") { model.showsTemplates = true }
-                .keyboardShortcut("n", modifiers: [.command, .shift])
+                .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .shift])))
+                .disabled(!isActive)
             Button("Duplizieren") { model.duplicateCurrent() }
-                .keyboardShortcut("d", modifiers: .command)
-                .disabled(editor.preset == nil)
+                .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
+                .disabled(editor.preset == nil || !isActive)
         }
         CommandGroup(replacing: .saveItem) {
             Button("Auf dem Mac sichern") { model.saveOnMac() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(editor.preset == nil || editor.showsOriginal)
             Button("Sichern unter …") { model.beginSaveAs() }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(editor.preset == nil || editor.showsOriginal)
+                .keyboardShortcut(owned(KeyboardShortcut("s", modifiers: [.command, .shift])))
+                .disabled(editor.preset == nil || editor.showsOriginal || !isActive)
         }
         CommandGroup(replacing: .undoRedo) {
             // Text fields keep their own undo, everything else goes to the editor.
             Button("Rückgängig") {
-                if Self.textIsEditing { NSApp.sendAction(Selector(("undo:")), to: nil, from: nil) } else { editor.undo() }
+                if Self.textIsEditing || !isActive {
+                    NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+                } else {
+                    editor.undo()
+                }
             }
             .keyboardShortcut("z", modifiers: .command)
             Button("Wiederholen") {
-                if Self.textIsEditing { NSApp.sendAction(Selector(("redo:")), to: nil, from: nil) } else { editor.redo() }
+                if Self.textIsEditing || !isActive {
+                    NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
+                } else {
+                    editor.redo()
+                }
             }
             .keyboardShortcut("z", modifiers: [.command, .shift])
         }
         CommandGroup(after: .pasteboard) {
             Divider()
             Button("Umbenennen …") { model.beginRename() }
-                .keyboardShortcut("e", modifiers: .command)
-                .disabled(model.selectedItem == nil)
+                .keyboardShortcut(owned(KeyboardShortcut("e", modifiers: .command)))
+                .disabled(model.selectedItem == nil || !isActive)
             Button("In den Papierkorb") { model.trash() }
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(model.selectedItem == nil)
+                .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
+                .disabled(model.selectedItem == nil || !isActive)
             Button("Im Finder zeigen") { model.reveal() }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: [.command, .shift])))
+                .disabled(!isActive)
         }
         CommandMenu("Verstärker") {
             ForEach(0..<4, id: \.self) { slot in
@@ -89,27 +105,38 @@ struct PresetCommands: Commands {
             Divider()
             ForEach(0..<4, id: \.self) { slot in
                 Button("Auf Platz \(slot + 1) speichern …") { model.askToStoreEdited(in: slot) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(slot + 1)")), modifiers: [.command, .option])
-                    .disabled(!model.canUseAmp || editor.preset == nil || editor.showsOriginal)
+                    .keyboardShortcut(owned(KeyboardShortcut(KeyEquivalent(Character("\(slot + 1)")),
+                                                             modifiers: [.command, .option])))
+                    .disabled(!model.canUseAmp || editor.preset == nil || editor.showsOriginal || !isActive)
             }
             Divider()
             Button(editor.showsOriginal ? "Bearbeiteten Stand spielen" : "Mit gespeichertem Stand vergleichen") {
                 editor.toggleComparison()
             }
-            .keyboardShortcut("b", modifiers: .command)
-            .disabled(!editor.isModified && !editor.showsOriginal)
+            .keyboardShortcut(owned(KeyboardShortcut("b", modifiers: .command)))
+            .disabled((!editor.isModified && !editor.showsOriginal) || !isActive)
             Toggle("Änderungen live hören", isOn: Binding(get: { editor.isLiveEnabled }, set: { editor.isLiveEnabled = $0 }))
-                .keyboardShortcut("l", modifiers: [.command, .shift])
+                .keyboardShortcut(owned(KeyboardShortcut("l", modifiers: [.command, .shift])))
+                .disabled(!isActive)
             Divider()
             Button("Verstärker neu lesen") { model.reloadAmp() }
-                .keyboardShortcut("r", modifiers: .command)
-                .disabled(!model.canUseAmp)
+                .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: .command)))
+                .disabled(!model.canUseAmp || !isActive)
+            if managesConnection {
+                Divider()
+                if model.link.wanted {
+                    Button("Trennen") { model.link.stop() }
+                } else {
+                    Button("Verbinden") { model.start(bluetooth: true) }
+                }
+            }
         }
         CommandMenu("Kette") {
             ForEach(ChainPlace.allCases) { place in
                 Button(place.title) { editor.focus = place }
-                    .keyboardShortcut(KeyEquivalent(Character("\(place.rawValue + 1)")), modifiers: .control)
-                    .disabled(editor.preset == nil)
+                    .keyboardShortcut(owned(KeyboardShortcut(KeyEquivalent(Character("\(place.rawValue + 1)")),
+                                                             modifiers: .control)))
+                    .disabled(editor.preset == nil || !isActive)
             }
             Divider()
             Button("Gewähltes Gerät an oder aus") {
@@ -117,9 +144,14 @@ struct PresetCommands: Commands {
                     editor.setOn(place: editor.focus.rawValue, !effect.isOn)
                 }
             }
-            .keyboardShortcut("0", modifiers: .control)
-            .disabled(editor.isLocked)
+            .keyboardShortcut(owned(KeyboardShortcut("0", modifiers: .control)))
+            .disabled(editor.isLocked || !isActive)
         }
+    }
+
+    /// A shortcut that belongs to this menu only while its window is in front.
+    private func owned(_ shortcut: KeyboardShortcut) -> KeyboardShortcut? {
+        isActive ? shortcut : nil
     }
 
     private static var textIsEditing: Bool {

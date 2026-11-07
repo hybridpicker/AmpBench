@@ -23,11 +23,17 @@ enum Snapshot {
     }
 
     static var isOffline: Bool { arguments["offline"] != nil }
+    /// The window to size and draw. Spark Studio sets it, because there the first visible window is the recorder's.
+    static weak var window: NSWindow?
+    private static var target: NSWindow? { window ?? NSApp.windows.first(where: { $0.isVisible }) }
     /// `--library <folder>` keeps presets in a test folder instead of `~/Music/Spark Presets`, so pictures never show
     /// one's own presets. A new, empty test folder gets the templates as made-up presets and one backup.
     static var libraryFolder: URL? {
         guard let path = arguments["library"], !path.isEmpty else { return nil }
-        let folder = URL(fileURLWithPath: path, isDirectory: true)
+        return seededTestFolder(URL(fileURLWithPath: path, isDirectory: true))
+    }
+
+    static func seededTestFolder(_ folder: URL) -> URL {
         let library = PresetLibrary(folder: folder)
         try? library.reload()
         if library.items.isEmpty {
@@ -50,14 +56,7 @@ enum Snapshot {
             MainActor.assumeIsolated {
                 NSApp.activate(ignoringOtherApps: true)
                 guard !NSApp.windows.contains(where: \.isVisible) else { return }
-                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
-                                      styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-                                      backing: .buffered, defer: false)
-                let host = NSHostingView(rootView: PresetsApp.root(PresetsApp.sharedModel))
-                host.sceneBridgingOptions = [.toolbars, .title]
-                window.contentView = host
-                window.title = "Spark Presets"
-                window.isReleasedWhenClosed = false
+                let window = PresetsHost.makeWindow(for: PresetsApp.sharedModel, title: "Spark Presets")
                 window.center()
                 window.makeKeyAndOrderFront(nil)
             }
@@ -76,7 +75,7 @@ enum Snapshot {
         let values = arguments
         guard values["snapshot"] != nil || values["open"] != nil || values["size"] != nil else { return }
         try? await Task.sleep(for: .milliseconds(600))
-        if let size = values["size"], let window = NSApp.windows.first(where: { $0.isVisible }) {
+        if let size = values["size"], let window = target {
             let parts = size.split(separator: "x").compactMap { Double($0) }
             if parts.count == 2 {
                 window.setContentSize(NSSize(width: parts[0], height: parts[1]))
@@ -112,7 +111,7 @@ enum Snapshot {
 
     /// Draws the window's content into a PNG. Translucent materials, such as the sidebar's, are left out.
     static func write(to url: URL) {
-        guard let window = NSApp.windows.first(where: { $0.isVisible }),
+        guard let window = target,
               let view = window.contentView?.superview ?? window.contentView, let data = WindowPicture.png(of: view) else {
             FileHandle.standardError.write(Data("No window to draw.\n".utf8))
             return

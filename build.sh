@@ -1,9 +1,9 @@
 #!/bin/zsh
-# Builds "build/Spark Recorder.app" and "build/Spark Presets.app".
+# Builds "build/Spark Recorder.app", "build/Spark Presets.app" and "build/Spark Studio.app".
 #
-#   ./build.sh                    builds both apps
+#   ./build.sh                    builds all three apps
 #   ./build.sh --install          also copies them to /Applications and adds them to the Dock
-#   ./build.sh [--install] presets  only Spark Presets, "recorder" only Spark Recorder
+#   ./build.sh [--install] studio   only Spark Studio, "presets" only Spark Presets, "recorder" only Spark Recorder
 #
 # Signs with an Apple Development certificate if there is one, because macOS then keeps the microphone permission
 # across rebuilds. Without one it falls back to an ad-hoc signature, and macOS may ask again after every build.
@@ -17,11 +17,11 @@ apps=()
 for argument in "$@"; do
     case "$argument" in
         --install) install=1 ;;
-        recorder|presets) apps+=("$argument") ;;
-        *) echo "usage: ./build.sh [--install] [recorder] [presets]" >&2; exit 64 ;;
+        recorder|presets|studio) apps+=("$argument") ;;
+        *) echo "usage: ./build.sh [--install] [recorder] [presets] [studio]" >&2; exit 64 ;;
     esac
 done
-(( ${#apps} )) || apps=(recorder presets)
+(( ${#apps} )) || apps=(recorder presets studio)
 
 icon="Resources/AppIcon.icns"
 if [[ ! -f "$icon" || "Tools/make-icon.swift" -nt "$icon" ]]; then
@@ -31,9 +31,14 @@ presets_icon="Resources/PresetsIcon.icns"
 if [[ ! -f "$presets_icon" || "Tools/make-icon.swift" -nt "$presets_icon" ]]; then
     swift Tools/make-icon.swift "$presets_icon" presets
 fi
+studio_icon="Resources/StudioIcon.icns"
+if [[ ! -f "$studio_icon" || "Tools/make-icon.swift" -nt "$studio_icon" ]]; then
+    swift Tools/make-icon.swift "$studio_icon" studio
+fi
 
 (( ${apps[(Ie)recorder]} )) && swift build -c release --product SparkRecorder
 (( ${apps[(Ie)presets]} )) && swift build -c release --product SparkPresets
+(( ${apps[(Ie)studio]} )) && swift build -c release --product SparkStudio
 bin_path="$(swift build -c release --show-bin-path)"
 
 identity="${SPARK_SIGN_IDENTITY:-}"
@@ -55,6 +60,7 @@ make_app() {
 
 (( ${apps[(Ie)recorder]} )) && make_app "Spark Recorder" SparkRecorder Resources/Info.plist "$icon"
 (( ${apps[(Ie)presets]} )) && make_app "Spark Presets" SparkPresets Resources/SparkPresets-Info.plist "$presets_icon"
+(( ${apps[(Ie)studio]} )) && make_app "Spark Studio" SparkStudio Resources/SparkStudio-Info.plist "$studio_icon"
 
 # install_app <app name>
 install_app() {
@@ -116,5 +122,6 @@ install_app() {
 if [[ -n "$install" ]]; then
     (( ${apps[(Ie)recorder]} )) && install_app "Spark Recorder"
     (( ${apps[(Ie)presets]} )) && install_app "Spark Presets"
+    (( ${apps[(Ie)studio]} )) && install_app "Spark Studio"
 fi
 exit 0

@@ -11,9 +11,9 @@ Everything stays on this Mac. The app makes no network connections and has no te
 ## Build and run
 
 ```bash
-./build.sh                    # builds "build/Spark Recorder.app" and "build/Spark Presets.app"
+./build.sh                    # builds "build/Spark Recorder.app", "build/Spark Presets.app" and "build/Spark Studio.app"
 ./build.sh --install          # also copies them to /Applications and adds them to the Dock
-./build.sh --install presets  # only Spark Presets ("recorder" for only Spark Recorder)
+./build.sh --install studio   # only Spark Studio ("presets" or "recorder" for only that app)
 ```
 
 Requires macOS 14 or later and the Swift toolchain from Xcode. There are no external dependencies. The build signs with
@@ -316,6 +316,37 @@ a picture of the app's own window, with `--offline`, `--appearance light|dark`, 
 so pictures never show your own presets. These pictures draw the sidebar as a plain list, because the system
 sidebar's text does not appear in a picture taken this way.
 
+## Spark Studio
+
+Spark Recorder and Spark Presets in one app, on the way to one window (plan and decisions:
+[docs/STUDIO.md](docs/STUDIO.md)). For now it has the two windows of the two apps, each behaving as in its app:
+
+- **Aufnahme** (`⇧⌘1`) is Spark Recorder's window, **Presets** (`⇧⌘2`) is Spark Presets' window. Both are in the
+  "Fenster" menu. A click on the Dock icon brings Aufnahme back, and the Dock shows REC while recording.
+- The menus follow the window in front: `⌘E`, `⌘⌫` and `⇧⌘R` act on the take in Aufnahme and on the preset in Presets,
+  `⌘Z` undoes in the window in front. Presets' own keys (`⌘N`, `⌘D`, `⇧⌘S`, `⌥⌘1` – `⌥⌘4`, `⌘B`, `⇧⌘L`, `⌘R`,
+  `⌃0` – `⌃7`) work only there, and the single keys of the recorder only in Aufnahme. `⌘S` and `⌘1` – `⌘4` work in
+  both windows.
+- **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the Presets window opens
+  or with "Verstärker → Verbinden", and "Verstärker → Trennen" lets the Spark app on the phone take the amp again.
+  The sidebar then says "Getrennt".
+- It uses the same folders as the two apps, `~/Music/Spark Recorder` and `~/Music/Spark Presets`. Its settings (input,
+  click, window places) are its own, because it is a new app for macOS, and it asks again for the microphone and for
+  Bluetooth. Only one app holds the amp's Bluetooth connection, and only one app at a time uses the recordings
+  library: started second, Studio or Spark Recorder leaves it alone and says that another instance is running.
+
+The self-tests of both apps run in Studio too, with the same options. A test library given with `--library <folder>`
+keeps the presets in its subfolder `Presets`, filled with made-up presets:
+
+```bash
+.build/debug/SparkStudio --library /tmp/studio-test --ui-selftest main /tmp/studio-results
+.build/debug/SparkStudio --library /tmp/studio-test --offline --open saved:Lead --snapshot /tmp/presets.png --quit
+.build/debug/SparkStudio --library /tmp/studio-test --offline --menu-dump /tmp/menus.tsv --quit
+```
+
+`--menu-dump` lists every menu item with its key and state, once with each window in front, and checks with a real key
+press that `⌘N` reaches Presets only while its window is in front.
+
 ## Design (Gestaltung)
 
 Both apps speak one design language, "Spark Studio": the instrument stays dark, the desk follows the system, keys
@@ -347,13 +378,16 @@ design against its backgrounds, at least 4.5 : 1.
 ```
 Sources/CSparkRT       Realtime capture and click (C)
 Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
-Sources/SparkRecorder  The app (SwiftUI)
+Sources/SparkRecorderUI Spark Recorder's window, menus, keys and self-test (SwiftUI)
+Sources/SparkRecorder  The Spark Recorder app: headless audio commands, then the window
 Sources/SparkDesign    The shared design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
 Sources/SparkControl   The amp's Bluetooth control protocol, the model catalog and the preset library, without
                        Bluetooth code
 Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
-Sources/SparkPresets   Spark Presets, the preset editor (SwiftUI, CoreBluetooth): App, Link, Model, Design, Editor,
-                       Library
+Sources/SparkPresetsUI Spark Presets' window, editor and Bluetooth link (SwiftUI, CoreBluetooth): App, Link, Model,
+                       Design, Editor, Library
+Sources/SparkPresets   The Spark Presets app, a thin shell
+Sources/SparkStudio    Spark Studio: both windows in one app, shared menus, Bluetooth on demand
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets
 Tests/SparkDesignTests Contrast of every text color against its backgrounds

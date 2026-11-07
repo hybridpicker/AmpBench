@@ -75,12 +75,10 @@ public enum StudioKeymap {
         StudioShortcut("escape", [], .everywhere, "Textfeld verlassen"),
         StudioShortcut("1", [.command, .shift], .everywhere, "Bereich Aufnahme"),
         StudioShortcut("2", [.command, .shift], .everywhere, "Bereich Presets"),
-        StudioShortcut("0", .command, .everywhere, "Spark Studio zeigen"),
         StudioShortcut("/", .command, .everywhere, "Tastaturkürzel"),
         StudioShortcut("z", .command, .everywhere, "Rückgängig, im aktiven Bereich"),
         StudioShortcut("z", [.command, .shift], .everywhere, "Wiederholen, im aktiven Bereich"),
         StudioShortcut("s", .command, .everywhere, "Preset im Editor auf dem Mac sichern", when: "Preset offen"),
-        StudioShortcut("s", [.command, .shift], .everywhere, "Preset sichern unter …", when: "Preset offen"),
     ] + (1...4).map {
         StudioShortcut("\($0)", .command, .everywhere, "Platz \($0) spielen", when: "Bluetooth verbunden")
     }
@@ -116,6 +114,7 @@ public enum StudioKeymap {
         StudioShortcut("n", .command, .presets, "Neues Preset"),
         StudioShortcut("n", [.command, .shift], .presets, "Neues Preset aus Vorlage …"),
         StudioShortcut("d", .command, .presets, "Preset duplizieren", when: "Preset offen"),
+        StudioShortcut("s", [.command, .shift], .presets, "Preset sichern unter …", when: "Preset offen"),
         StudioShortcut("e", .command, .presets, "Preset umbenennen", when: "Preset gewählt"),
         StudioShortcut("delete", .command, .presets, "Preset in den Papierkorb", when: "Preset gewählt"),
         StudioShortcut("r", [.command, .shift], .presets, "Preset im Finder zeigen"),

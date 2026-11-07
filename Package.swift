@@ -2,7 +2,7 @@
 import Foundation
 import PackageDescription
 
-// The probe and Spark Presets talk Bluetooth, and macOS wants a usage description for that even in a bare binary, so
+// The probe, Spark Presets and Spark Studio talk Bluetooth, and macOS wants a usage description for that even in a bare binary, so
 // their Info.plist is linked into it. The app bundle carries the same file.
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 
@@ -34,6 +34,11 @@ let package = Package(
             name: "SparkPresets", dependencies: ["SparkPresetsUI"], path: "Sources/SparkPresets",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/SparkPresets-Info.plist"])]),
+        // Spark Studio: Spark Recorder and Spark Presets in one app, with both windows and both usage descriptions.
+        .executableTarget(
+            name: "SparkStudio", dependencies: ["SparkRecorderUI", "SparkPresetsUI"], path: "Sources/SparkStudio",
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
+                                           "-Xlinker", "\(root)/Resources/SparkStudio-Info.plist"])]),
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),
         .testTarget(name: "SparkControlTests", dependencies: ["SparkControl"], path: "Tests/SparkControlTests"),
         .testTarget(name: "SparkDesignTests", dependencies: ["SparkDesign"], path: "Tests/SparkDesignTests"),

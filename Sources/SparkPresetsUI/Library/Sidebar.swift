@@ -257,6 +257,7 @@ struct ConnectionStatus: View {
         case .unauthorized: "Kein Bluetooth-Zugriff"
         case .bluetoothOff: "Bluetooth ist aus"
         case .unsupported: "Kein Bluetooth LE"
+        case .off: "Getrennt"
         }
     }
 
@@ -265,6 +266,7 @@ struct ConnectionStatus: View {
         switch link.status {
         case .connected: return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
         case .searching, .connecting: return "Spark-App am Handy trennen"
+        case .off: return "Verstärker → Verbinden"
         default: return nil
         }
     }

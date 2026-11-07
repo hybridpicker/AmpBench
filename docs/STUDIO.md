@@ -10,11 +10,11 @@ ist, und wird mit jeder Stufe fortgeschrieben. Am Ende ersetzt es den Prompt und
 | Stufe | Inhalt | Stand |
 |---|---|---|
 | 0 | Datenmodell, Tastaturmodell, Layout, dieses Dokument | fertig, nur Code ohne Verhalten |
-| 1 | Ein Bundle, zwei Fenster | begonnen: Icon und Info.plist; Target, Bibliotheken und Fenster warten auf Design-M3 |
+| 1 | Ein Bundle, zwei Fenster | gebaut und mit Selbsttests geprüft; Test am Amp offen |
 | 2 | Ein Fenster, zwei Bereiche | offen |
 | 3 | Stücke = Songs, gemeinsamer Ordner, alte Apps entfernen | offen |
 
-Am Gerät ist für Studio noch nichts geprüft. Stufe 0 ändert kein Verhalten der beiden Apps.
+Am Gerät ist für Studio noch nichts geprüft. Die beiden alten Apps verhalten sich unverändert.
 
 ## Architektur (Ziel)
 
@@ -36,20 +36,44 @@ SparkStudio (executable, eigene Info.plist: Mikrofon + Bluetooth)
 
 ## Stufe 1 – Stand
 
-Design-M1 ist committet (fffa794), die Bedingung aus dem Prompt ist also erfüllt. Die Design-Session arbeitet aber in M2/M3
-an den Views beider Apps und an Package.swift und hat darum gebeten, dort bis M3 nichts zu ändern. Deshalb:
+Zwei Commits: 308cc7f verschiebt nur (Code beider Apps in `SparkRecorderUI` und `SparkPresetsUI`, die alten
+Executables sind dünne Hüllen); der folgende Commit baut `SparkStudio`.
 
-- Fertig, ohne fremde Dateien:
-  - `Resources/SparkStudio-Info.plist`: Bundle `local.sparkstudio`, Mikrofon- und Bluetooth-Beschreibung. Neue
-    Bundle-ID heißt: macOS fragt beim ersten Start von Studio neu nach Mikrofon und Bluetooth.
-  - Icon: `swift Tools/make-icon.swift Resources/StudioIcon.icns studio` zeichnet Record-Taste und Preset-Regler
-    nebeneinander auf einer Front mit gravierter Trennlinie. Die Zeichnung der Record-Taste ist dafür unverändert in
-    `drawRecordKey` gewandert; Recorder- und Presets-Icon sind nachweislich Byte für Byte gleich geblieben.
-- Wartet auf Design-M3 (Views beider Apps) und Freigabe von Package.swift:
-  - Target `SparkStudio` in Package.swift, build.sh baut „Spark Studio.app“ mit dem neuen Icon.
-  - Views verschieben nach `SparkRecorderUI` / `SparkPresetsUI` (nur verschieben, nicht ändern).
-  - AppDelegate mit den Fenstern „Aufnahme“ (⇧⌘1) und „Presets“ (⇧⌘2), KeyRouter nur im Aufnahme-Fenster,
-    Bluetooth erst beim Öffnen von Presets, beide Selbsttests über `SparkStudio`.
+- **Hosts statt öffentlicher Module.** `RecorderHost` und `PresetsHost` (je eine Datei in der Bibliothek) sind die
+  einzige öffentliche Oberfläche, dazu `RecorderMenus` und `PresetMenus`. Der Rest bleibt `internal`. Der
+  AppDelegate des Recorders läuft in Studio als gewöhnliches Objekt weiter und macht Fenster, Wiederherstellen nach Absturz,
+  Dock-REC und Selbsttest wie im Recorder.
+- **Menüs folgen dem Fenster vorn.** `AppCommands` und `PresetCommands` haben `isActive`. Ist ihr Fenster nicht vorn,
+  geben sie gemeinsame Tasten (⌘E, ⌘⌫, ⇧⌘R) ab, ihre eigenen ruhen, ⌘Z geht über die Responder-Kette an das Fenster
+  vorn. In den alten Apps ist `isActive` immer wahr.
+  - Gefunden mit `--menu-dump`: SwiftUI baut Menüs erst beim Aufklappen neu, Tasten gingen danach noch an den alten
+    Stand (⌘N legte im Aufnahme-Fenster ein Preset an). Studio stößt darum bei jedem Fensterwechsel das Update aller
+    Menüs an. Der Dump prüft das mit einem echten Tastendruck.
+  - Die Gruppe „In den Papierkorb legen“ hing an `.undoRedo`, das Presets ersetzt; SwiftUI ließ sie dann weg. In
+    Studio steht sie nach `.pasteboard`.
+- **Einzeltasten** (KeyRouter) wirken nur im Aufnahme-Fenster (`KeyRouter.ownsWindow`), auch Esc.
+- **Bluetooth auf Abruf.** Beim Start kein `CBCentralManager`, also auch keine Bluetooth-Abfrage. Das Presets-Fenster
+  startet die Verbindung beim Erscheinen (wie die App). „Verstärker → Trennen/Verbinden“; neuer Zustand `.off`
+  („Getrennt“). Die Taste „Verbinden“ im Deck kommt mit Stufe 2, wenn das Deck beide Verbindungen zeigt.
+- **Testordner:** `--library L` gibt dem Recorder L und den Presets `L/Presets` (mit erfundenen Presets gefüllt).
+  Der Recorder übersieht den Unterordner, weil er nur Audiodateien liest.
+- ⌘0 „Spark Recorder zeigen“ entfällt in Studio; dafür ⇧⌘1/⇧⌘2 im Menü Fenster. ⇧⌘S gilt nur im Presets-Fenster,
+  weil es dort ein Sheet öffnet.
+
+Geprüft (nur gebaut und mit Testordnern, kein Gerät):
+- Verschieben: Fensterbilder beider Apps vor und nach 308cc7f unterscheiden sich nur dort, wo sich auch zwei Läufe
+  desselben Stands unterscheiden (Pegel, Schalter-Animation, Kantenglättung der Welle); gleiche Compiler-Warnungen.
+- Recorder-Selbsttest `main` in Studio: dieselben PASS/FAIL wie in Spark Recorder. 3 FAIL in beiden kommen aus dieser
+  Testumgebung (das BlackHole-Testsignal kommt nicht an); einzelne weitere FAIL sind in beiden mal da, mal nicht.
+- Presets-Bild aus Studio = Bild aus der App, bis auf die Uhrzeit der erfundenen Sicherung.
+- `--menu-dump`: in keinem Fenster eine Taste doppelt; ⌘N nur im Presets-Fenster wirksam (zweimal geprüft).
+
+Offen in Stufe 1:
+- Am Amp (mit getrennter Handy-App): Presets-Fenster verbindet, Plätze lesen, Preset nur auf 7F senden, Trennen und
+  Verbinden über das Menü; Aufnahme vom Spark-USB-Eingang läuft weiter, während Bluetooth getrennt wird.
+- Von Hand: ⌘E/⌘⌫/⇧⌘R und Einzeltasten mit echter Tastatur in beiden Fenstern.
+- Studio hat eigene Einstellungen (Bundle `local.sparkstudio`): Eingang, Klick, Fensterlage beginnen neu. Übernahme
+  der Recorder-Einstellungen gehört zur Migration in Stufe 3.
 
 ## Datenmodell (Stufe 0, in Code)
 
@@ -101,11 +125,10 @@ drückt die Taste, außer während einer Aufnahme.
 | `R` | Aufnahme starten oder stoppen, auch „Nochmal“ | kein Textfeld |
 | `Leertaste` | Abspielen oder anhalten; während der Aufnahme stoppen und anhören | kein Textfeld |
 | `Esc` | Textfeld verlassen | |
-| `⇧⌘1` / `⇧⌘2` | Bereich Aufnahme / Presets | neu |
-| `⌘0` | Spark Studio zeigen | heute „Spark Recorder zeigen“ |
+| `⇧⌘1` / `⇧⌘2` | Fenster (ab Stufe 2: Bereich) Aufnahme / Presets | ersetzt `⌘0` „Spark Recorder zeigen“ |
 | `⌘/` | Tastaturkürzel (eine Liste beider Bereiche) | |
 | `⌘Z` / `⇧⌘Z` | Rückgängig / Wiederholen im aktiven Bereich, Textfeld zuerst | |
-| `⌘S` / `⇧⌘S` | Preset im Editor sichern / sichern unter | Preset offen |
+| `⌘S` | Preset im Editor sichern | Preset offen |
 | `⌘1` – `⌘4` | Platz spielen | Bluetooth verbunden |
 
 ### Nur Bereich Aufnahme
@@ -125,6 +148,7 @@ drückt die Taste, außer während einer Aufnahme.
 | Kürzel | Wirkung |
 |---|---|
 | `⌘N` / `⇧⌘N` / `⌘D` | Neues Preset / aus Vorlage / duplizieren |
+| `⇧⌘S` | Sichern unter … (öffnet ein Sheet am Presets-Fenster) |
 | `⌥⌘1` – `⌥⌘4` | Auf Platz speichern … (Nachfrage, Sicherung, Zurücklesen) |
 | `⌘B` | A/B mit gespeichertem Stand |
 | `⇧⌘L` | Änderungen live hören an/aus |
