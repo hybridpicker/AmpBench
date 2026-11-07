@@ -34,11 +34,18 @@ final class SparkLink: NSObject, ObservableObject {
     @Published private(set) var activeSlot: Int?
     /// The name of a preset that plays without being stored.
     @Published private(set) var tryingOut: String?
+    /// True while the editor's preset plays on the temporary place, so live changes are heard.
+    @Published private(set) var isEditingLive = false
     @Published private(set) var slots: [SparkPreset?] = Array(repeating: nil, count: 4)
     /// What the link is doing, for the status line.
     @Published private(set) var activity: String?
     /// Something the amp did by itself, such as a press of its preset button.
     var onAmpEvent: ((String) -> Void)?
+    /// Called after every new connection, once the amp was read.
+    var onConnected: (() -> Void)?
+    /// Called when the amp confirmed a change with an echo (`03`) instead of an acknowledgement (`04`). That came
+    /// before the amp hung once, so whoever sends changes should slow down.
+    var onStrain: (() -> Void)?
 
     nonisolated(unsafe) private static let service = CBUUID(string: SparkProtocol.serviceUUID)
     nonisolated(unsafe) private static let write = CBUUID(string: SparkProtocol.writeUUID)
@@ -53,7 +60,7 @@ final class SparkLink: NSObject, ObservableObject {
     private var writeCharacteristic: CBCharacteristic?
     private var parser = SparkProtocol.Parser()
     private var sequence: UInt8 = 0
-    private var waiting: (sub: UInt8, command: UInt8, token: Int, continuation: CheckedContinuation<SparkProtocol.Message, Error>)?
+    private var waiting: (sub: UInt8, commands: Set<UInt8>, token: Int, continuation: CheckedContinuation<SparkProtocol.Message, Error>)?
     private var token = 0
     private var queue: Task<Void, Never>?
     private var wanted = false
@@ -97,31 +104,63 @@ final class SparkLink: NSObject, ObservableObject {
                          command: UInt8 = SparkProtocol.Command.response) async throws -> SparkProtocol.Message {
         try await serial { [self] in
             do {
-                return try await once(build, sub: sub, command: command)
+                return try await once(build, sub: sub, commands: [command])
             } catch LinkError.noAnswer {
-                return try await once(build, sub: sub, command: command)
+                return try await once(build, sub: sub, commands: [command])
             }
         }
     }
 
-    private func once(_ build: (UInt8) -> [[UInt8]], sub: UInt8, command: UInt8) async throws -> SparkProtocol.Message {
+    /// Sends a change the amp confirms, with `04 <sub>` or at times with an echo `03 <sub>`. It is not sent a second
+    /// time, because a change that already happened gets no answer at all. Returns false when none came.
+    private func confirmed(_ build: @escaping (UInt8) -> [[UInt8]], answer sub: UInt8) async throws -> Bool {
+        try await serial { [self] in
+            do {
+                let message = try await once(build, sub: sub, commands: [SparkProtocol.Command.acknowledge,
+                                                                         SparkProtocol.Command.response])
+                if message.command != SparkProtocol.Command.acknowledge { onStrain?() }
+                return true
+            } catch LinkError.noAnswer {
+                return false
+            }
+        }
+    }
+
+    /// Sends a message the amp does not answer, then keeps a short gap.
+    private func sendOnly(_ build: @escaping (UInt8) -> [[UInt8]], gap: Duration) async throws {
+        try await serial { [self] in
+            guard status == .connected, let peripheral, let characteristic = writeCharacteristic else {
+                throw LinkError.notConnected
+            }
+            sequence = (sequence + 1) & 0x7F
+            write(build(sequence), to: peripheral, characteristic)
+            try await Task.sleep(for: gap)
+        }
+    }
+
+    private func write(_ blocks: [[UInt8]], to peripheral: CBPeripheral, _ characteristic: CBCharacteristic) {
+        let size = max(peripheral.maximumWriteValueLength(for: .withoutResponse), 20)
+        let type: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
+        // A write longer than one Bluetooth packet is refused, so every block goes on its own.
+        for block in blocks {
+            for start in stride(from: 0, to: block.count, by: size) {
+                peripheral.writeValue(Data(block[start..<min(start + size, block.count)]), for: characteristic,
+                                      type: type)
+            }
+        }
+    }
+
+    private func once(_ build: (UInt8) -> [[UInt8]], sub: UInt8, commands: Set<UInt8>) async throws -> SparkProtocol.Message {
         try await Task.sleep(for: Self.gap)
         guard status == .connected, let peripheral, let characteristic = writeCharacteristic else {
             throw LinkError.notConnected
         }
         sequence = (sequence + 1) & 0x7F
-        let size = max(peripheral.maximumWriteValueLength(for: .withoutResponse), 20)
-        let type: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
+        let blocks = build(sequence)
         return try await withCheckedThrowingContinuation { continuation in
-            waiting = (sub, command, 0, continuation)
+            waiting = (sub, commands, 0, continuation)
             armTimeout()
-            // A write longer than one Bluetooth packet is refused, so every block goes on its own.
-            for block in build(sequence) {
-                for start in stride(from: 0, to: block.count, by: size) {
-                    peripheral.writeValue(Data(block[start..<min(start + size, block.count)]), for: characteristic,
-                                          type: type)
-                }
-            }
+            write(blocks, to: peripheral, characteristic)
         }
     }
 
@@ -129,7 +168,7 @@ final class SparkLink: NSObject, ObservableObject {
         guard let current = waiting else { return }
         token += 1
         let mine = token
-        waiting = (current.sub, current.command, mine, current.continuation)
+        waiting = (current.sub, current.commands, mine, current.continuation)
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.silence) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, let waiting = self.waiting, waiting.token == mine else { return }
@@ -145,7 +184,7 @@ final class SparkLink: NSObject, ObservableObject {
         waiting.continuation.resume(throwing: error)
     }
 
-    private func readPreset(_ place: SparkPresetPlace) async throws -> SparkPreset {
+    func readPreset(_ place: SparkPresetPlace) async throws -> SparkPreset {
         let slot: UInt8? = if case .slot(let slot) = place { slot } else { nil }
         let message = try await request({ [SparkProtocol.getPreset(slot: slot, sequence: $0)] },
                                         answer: SparkProtocol.Sub.preset)
@@ -197,6 +236,7 @@ final class SparkLink: NSObject, ObservableObject {
         try await switchTo(UInt8(slot))
         activeSlot = slot
         tryingOut = nil
+        isEditingLive = false
     }
 
     /// Plays a preset without storing it. Switching to any slot ends it.
@@ -206,7 +246,46 @@ final class SparkLink: NSObject, ObservableObject {
         try await send(preset, to: .temporary)
         try await switchTo(0x7F)
         tryingOut = preset.name
+        isEditingLive = false
         activeSlot = nil
+    }
+
+    // MARK: Live editing
+
+    /// Plays the editor's preset on the temporary place. Changes after it are heard at once.
+    func playForEditing(_ preset: SparkPreset) async throws {
+        activity = "Sende „\(preset.name)“ zum Bearbeiten …"
+        defer { activity = nil }
+        try await send(preset, to: .temporary)
+        try await switchTo(0x7F)
+        tryingOut = nil
+        isEditingLive = true
+        activeSlot = nil
+    }
+
+    /// Sends one live change. Only used while `isEditingLive`. Returns false when a change that the amp confirms
+    /// got no answer, so the caller can check what plays.
+    func apply(_ change: LiveChange) async throws -> Bool {
+        switch change {
+        case .parameter(let effect, let index, let value):
+            try await sendOnly({ [SparkProtocol.setParameter(effect: effect, index: index, value: value, sequence: $0)] },
+                               gap: LivePacing.parameterGap)
+            return true
+        case .toggle(let effect, let isOn):
+            return try await confirmed({ [SparkProtocol.setEffect(effect, on: isOn, sequence: $0)] },
+                                       answer: SparkProtocol.Sub.effectOnOff)
+        case .model(let old, let new):
+            return try await confirmed({ [SparkProtocol.changeModel(from: old, to: new, sequence: $0)] },
+                                       answer: SparkProtocol.Sub.changeEffect)
+        case .whole(let preset):
+            try await playForEditing(preset)
+            return true
+        }
+    }
+
+    /// Ends live editing in the link's view, for example when the amp switched to a stored preset.
+    func endEditing() {
+        isEditingLive = false
     }
 
     /// Stores a preset in a slot, switches to it and reads it back to make sure it arrived unchanged.
@@ -217,6 +296,7 @@ final class SparkLink: NSObject, ObservableObject {
         try await switchTo(UInt8(slot))
         activeSlot = slot
         tryingOut = nil
+        isEditingLive = false
         activity = "Prüfe Platz \(slot + 1) …"
         let stored = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = stored
@@ -235,7 +315,7 @@ final class SparkLink: NSObject, ObservableObject {
     private func received(_ bytes: [UInt8]) {
         armTimeout()
         for message in parser.feed(bytes) {
-            if let waiting, waiting.sub == message.sub, waiting.command == message.command {
+            if let waiting, waiting.sub == message.sub, waiting.commands.contains(message.command) {
                 self.waiting = nil
                 waiting.continuation.resume(returning: message)
                 continue
@@ -245,6 +325,7 @@ final class SparkLink: NSObject, ObservableObject {
                let slot = SparkValues.slot(message.payload), slot < 4 {
                 activeSlot = Int(slot)
                 tryingOut = nil
+                isEditingLive = false
                 let name = slots[Int(slot)].map { " „\($0.name)“" } ?? ""
                 onAmpEvent?("Am Verstärker gewählt: Platz \(slot + 1)\(name)")
             }
@@ -253,7 +334,10 @@ final class SparkLink: NSObject, ObservableObject {
 
     private func connected() {
         status = .connected
-        Task { await loadAll() }
+        Task {
+            await loadAll()
+            onConnected?()
+        }
     }
 
     private func lost() {
@@ -263,6 +347,8 @@ final class SparkLink: NSObject, ObservableObject {
         parser = SparkProtocol.Parser()
         activeSlot = nil
         tryingOut = nil
+        // The amp ends the temporary preset when the connection ends.
+        isEditingLive = false
         if central?.state == .poweredOn { status = .searching }
         scan()
     }

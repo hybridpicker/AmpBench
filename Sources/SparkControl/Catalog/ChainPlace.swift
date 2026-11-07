@@ -18,6 +18,19 @@ public enum ChainPlace: Int, CaseIterable, Codable, Sendable, Identifiable {
         }
     }
 
+    /// A short label for narrow places, such as a pedal.
+    public var shortTitle: String {
+        switch self {
+        case .gate: "Gate"
+        case .compressor: "Komp"
+        case .drive: "Drive"
+        case .amp: "Amp"
+        case .modulation: "Mod"
+        case .delay: "Delay"
+        case .reverb: "Hall"
+        }
+    }
+
     /// A color of its own for every place, so the chain reads at a glance. Plain RGB, the app turns it into colors.
     public var accent: RGB {
         switch self {

@@ -53,7 +53,7 @@ public enum PresetLibraryError: LocalizedError {
 /// moves a file to the Trash, never deletes it.
 public final class PresetLibrary {
     /// Names up to this length keep the short string form the amp uses for names.
-    public static let nameLimit = 31
+    public static let nameLimit = PresetRules.nameLimit
 
     public let folder: URL
     public private(set) var items: [SavedPreset] = []
@@ -132,6 +132,23 @@ public final class PresetLibrary {
         if renamed.url != item.url { try fileManager.removeItem(at: item.url) }
         try reload()
         return items.first { $0.url == renamed.url } ?? renamed
+    }
+
+    /// Writes new settings into a saved preset. A changed name renames the file too.
+    @discardableResult
+    public func replace(_ item: SavedPreset, with preset: SparkPreset, date: Date = Date()) throws -> SavedPreset {
+        let trimmed = preset.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw PresetLibraryError.emptyName }
+        guard trimmed.utf8.count <= Self.nameLimit else { throw PresetLibraryError.nameTooLong(Self.nameLimit) }
+        var updated = item
+        updated.file.preset = preset
+        updated.file.savedAt = date
+        let wanted = Self.fileName(for: preset.name)
+        if wanted != item.url.deletingPathExtension().lastPathComponent { updated.url = uniqueURL(wanted) }
+        try write(updated)
+        if updated.url != item.url { try fileManager.removeItem(at: item.url) }
+        try reload()
+        return items.first { $0.url == updated.url } ?? updated
     }
 
     /// Moves the file to the Trash and returns where it went.

@@ -264,21 +264,46 @@ on the amp.
 
 ## Spark Presets
 
-A separate app for the amp's presets, similar to what the Spark app does on a tablet:
+A separate app to edit the amp's presets, keep them on the Mac and switch them.
 
-- **Am Verstärker**: the four slots with name and signal chain. A click or `⌘1` – `⌘4` switches, and a press of the
-  preset button on the amp shows up at once.
-- **Auf dem Mac**: a library of presets. `⌘S` saves the selected slot. A preset with the same settings is not saved
-  twice. Rename with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
-- **Ausprobieren** (`⌘T`) plays a saved preset without overwriting a slot. Switching to any slot ends it.
-- **Auf Platz speichern** asks first, then reads the slot fresh from the amp and saves it on the Mac as a backup,
-  stores the preset, switches to it and reads it back to check it arrived unchanged.
+- **Am Verstärker**: the four slots in the sidebar. Selecting one opens it in the editor, the play button or
+  `⌘1` – `⌘4` switches to it, and a press of the preset button on the amp shows up at once.
+- **Editor**: the signal chain as a row of pedals with the amp head in the middle. A click on a unit shows all its
+  controls below: the model, chosen from the catalog, on and off, and every parameter as a knob, a switch or a
+  selector. Knobs turn by dragging (`⌥` for fine steps), with the scroll wheel or the arrow keys (`⇧` for big steps),
+  a double click goes back to the model's start value, and VoiceOver can adjust them. `⌃1` – `⌃7` choose a unit,
+  `⌃0` switches it.
+- **Live**: the first change sends the preset to the amp's temporary place, without touching a slot, and every change
+  after it is heard at once. Only the newest value of a knob is sent, one message at a time, and model changes are
+  spaced out, because a fast series of them once made the amp hang. After a lost connection the edited state goes
+  back to the amp. `⇧⌘L` turns live changes off.
+- **Undo, A/B, changed**: `⌘Z` and `⇧⌘Z` undo and redo, a whole knob turn being one step. `⌘B` plays the saved state
+  for comparing and back. The display says when something differs from the saved state, and switching to another
+  preset asks first.
+- **Saving**: `⌘S` saves on the Mac, into the preset's own file or as a new one, `⇧⌘S` under a new name. "Auf Platz N
+  speichern" (`⌥⌘1` – `⌥⌘4`) asks first, then reads the slot fresh from the amp and saves it on the Mac as a backup,
+  stores the preset, switches to it and reads it back to check it arrived unchanged. If the connection breaks while
+  storing, the app checks the slot as soon as the amp is back and says what it holds.
+- **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
+  description and BPM.
+- **Auf dem Mac**: presets as files, searchable by name and model. "Ausprobieren" (`⌘T`) plays a saved preset
+  without overwriting a slot. Rename with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
 
 Presets are readable JSON files in `~/Music/Spark Presets/`, one per preset. Files placed there show up when the window
 comes to the front. The app only scans for devices that offer the Spark control service, so it never sees other
 Bluetooth devices, and it makes no network connections. The Spark app on the phone must be disconnected, because the
-amp takes only one control connection. Effect parameters are shown by number, as the amp reports them, because their
-names are not part of the protocol.
+amp takes only one control connection.
+
+The pedals, the amp and their controls are drawn by the app (`Sources/SparkPresets/Design`) in its own style, after
+the app icon: dark device fronts, amber lamps, knurled knobs. They stay dark in light and dark mode, like hardware,
+and text on them keeps a contrast of at least 4.5 to 1. Animations are small and stop with "Reduce motion".
+
+Two options help with checking the app. `--live-selftest <log>` edits a copy of slot 1 on the temporary place
+through the same code the window uses, reads back what the amp plays after every step and compares, then switches
+back to slot 1. On the Spark MINI all of its ten checks passed: a first change, on and off, a fast knob turn, a model
+change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes a picture of the app's own window, with
+`--offline`, `--appearance light|dark`, `--size 900x600`, `--open template:Lead` and `--focus delay` (the sidebar's
+translucent material is missing from these pictures).
 
 ## Project layout
 
@@ -289,7 +314,8 @@ Sources/SparkRecorder  The app (SwiftUI)
 Sources/SparkControl   The amp's Bluetooth control protocol, the model catalog and the preset library, without
                        Bluetooth code
 Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
-Sources/SparkPresets   Spark Presets, the preset app (SwiftUI, CoreBluetooth)
+Sources/SparkPresets   Spark Presets, the preset editor (SwiftUI, CoreBluetooth): App, Link, Model, Design, Editor,
+                       Library
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets
 Tools/make-icon.swift  Draws the app icons
