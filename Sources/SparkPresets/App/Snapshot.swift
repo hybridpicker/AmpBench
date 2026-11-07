@@ -9,7 +9,7 @@ import SwiftUI
 ///     SparkPresets --offline --appearance dark --size 900x600 --open template:Crunch --focus drive \
 ///                  --snapshot /tmp/shot.png [--delay 2] [--quit]
 ///
-/// `--offline` leaves Bluetooth off. `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
+/// `--offline` leaves Bluetooth off, `--library <test folder>` uses a folder of made-up presets. `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
 @MainActor
 enum Snapshot {
     static var arguments: [String: String] {
@@ -23,6 +23,23 @@ enum Snapshot {
     }
 
     static var isOffline: Bool { arguments["offline"] != nil }
+    /// `--library <folder>` keeps presets in a test folder instead of `~/Music/Spark Presets`, so pictures never show
+    /// one's own presets. A new, empty test folder gets the templates as made-up presets and one backup.
+    static var libraryFolder: URL? {
+        guard let path = arguments["library"], !path.isEmpty else { return nil }
+        let folder = URL(fileURLWithPath: path, isDirectory: true)
+        let library = PresetLibrary(folder: folder)
+        try? library.reload()
+        if library.items.isEmpty {
+            for template in PresetFactory.templates {
+                try? library.save(template.preset, origin: "Vorlage")
+            }
+            if let first = PresetFactory.templates.first {
+                try? library.save(first.preset, origin: "Platz 2", isBackup: true)
+            }
+        }
+        return folder
+    }
     /// Window pictures skip the sidebar's translucent material, so it gets a plain background then.
     static let isActive = CommandLine.arguments.contains("--snapshot")
 

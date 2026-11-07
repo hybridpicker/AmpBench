@@ -135,18 +135,13 @@ struct TemplateSheet: View {
         } label: {
             VStack(alignment: .leading, spacing: 6) {
                 Text(name)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.device.amber.color)
+                    .font(Theme.Fonts.title(16))
+                    .foregroundStyle(Theme.device.amber)
                 Text(summary)
                     .font(.caption)
                     .foregroundStyle(Theme.device.label.color)
                     .lineLimit(2, reservesSpace: true)
-                HStack(spacing: 4) {
-                    ForEach(Array(preset.effects.enumerated()), id: \.offset) { index, effect in
-                        let place = ChainPlace(rawValue: index) ?? .modulation
-                        LampDot(color: place.swatch, isOn: effect.isOn, size: 7)
-                    }
-                }
+                ChainMiniature(preset: preset)
                 Text(ChainSummary.text(preset))
                     .font(.caption2)
                     .foregroundStyle(Theme.device.labelDim.color)
@@ -154,11 +149,34 @@ struct TemplateSheet: View {
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.device.faceGradient))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.1)))
+            .background(FaceplateSurface(radius: Theme.Radius.display))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }
         .buttonStyle(PressStyle())
         .accessibilityLabel("\(name): \(summary)")
+    }
+}
+
+/// The chain of a preset in miniature: a small dark pedal per effect with its nameplate color, the amp wider, and
+/// switched-off effects dimmed.
+struct ChainMiniature: View {
+    let preset: SparkPreset
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(Array(preset.effects.enumerated()), id: \.offset) { index, effect in
+                let place = ChainPlace.of(index: index, count: preset.effects.count) ?? .modulation
+                VStack(spacing: 0) {
+                    Rectangle().fill(place.color).frame(height: 4)
+                    Rectangle().fill(LinearGradient(colors: [Theme.device.pedalTop.color, Theme.device.pedalBottom.color],
+                                                    startPoint: .top, endPoint: .bottom))
+                }
+                .frame(width: place == .amp ? 26 : 13, height: 17)
+                .clipShape(RoundedRectangle(cornerRadius: 3))
+                .overlay(RoundedRectangle(cornerRadius: 3).strokeBorder(Theme.device.faceEdge, lineWidth: 1))
+                .opacity(effect.isOn ? 1 : 0.4)
+            }
+        }
+        .accessibilityHidden(true)
     }
 }

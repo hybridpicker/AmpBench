@@ -13,6 +13,7 @@ struct ContentView: View {
             EditorView()
                 .overlay(alignment: .bottom) { BannerView().padding(14) }
         }
+        .searchable(text: $model.search, placement: .toolbar, prompt: "Presets suchen")
         .sheet(item: $model.renameTarget) { _ in RenameSheet() }
         .sheet(isPresented: saveAsShown) { SaveAsSheet() }
         .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }

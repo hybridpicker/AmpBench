@@ -17,35 +17,40 @@ struct EditorHeader: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
-            Display {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 8) {
-                        TextField("Name", text: $name)
-                            .textFieldStyle(.plain)
-                            .font(.system(size: 22, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Theme.device.amber.color)
-                            .focused($field, equals: .name)
-                            .onSubmit(commitName)
-                            .disabled(editor.isLocked)
-                            .accessibilityLabel("Name des Presets")
-                        badges.fixedSize()
+            Display(padding: EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14)) {
+                VStack(alignment: .leading, spacing: 5) {
+                    // In a narrow window the lamps move below the name, so the name keeps its room.
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 12) {
+                            nameField.frame(minWidth: 150)
+                            lamps.fixedSize()
+                            bpmField
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 12) {
+                                nameField
+                                bpmField
+                            }
+                            lamps.fixedSize()
+                        }
                     }
                     HStack(spacing: 8) {
                         Text(sourceText)
-                            .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(Theme.device.amberDim.color)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(Theme.device.amberDim)
                             .lineLimit(1)
                             .fixedSize()
+                        Text("·").foregroundStyle(Theme.device.amberDim).accessibilityHidden(true)
                         ZStack(alignment: .leading) {
                             if description.isEmpty && field != .description {
                                 Text("Beschreibung hinzufügen")
-                                    .foregroundStyle(Theme.device.amberDim.color.opacity(0.55))
+                                    .foregroundStyle(Theme.device.lampOffText)
                                     .lineLimit(1)
                                     .accessibilityHidden(true)
                             }
                             TextField("", text: $description)
                                 .textFieldStyle(.plain)
-                                .foregroundStyle(Theme.device.amberDim.color)
+                                .foregroundStyle(Theme.device.amberDim)
                                 .focused($field, equals: .description)
                                 .onSubmit(commitDescription)
                                 .disabled(editor.isLocked)
@@ -53,13 +58,14 @@ struct EditorHeader: View {
                         }
                         .font(.system(size: 11))
                     }
-                    LoadMeter(transfer: link.transfer)
-                        .padding(.top, 3)
+                    HStack(spacing: 8) {
+                        PanelLabel("Übertragung", color: Theme.device.lampOffText)
+                        LoadMeter(transfer: link.transfer, height: 4)
+                    }
+                    .padding(.top, 2)
                 }
             }
-            .frame(minWidth: 260)
-            bpmField
-            Spacer(minLength: 0)
+            .frame(minWidth: 280)
             actions
         }
         .onAppear(perform: load)
@@ -73,64 +79,80 @@ struct EditorHeader: View {
         }
     }
 
-    private var badges: some View {
-        HStack(spacing: 8) {
-            if editor.isModified && !editor.showsOriginal {
-                HStack(spacing: 4) {
-                    Circle().fill(Theme.device.amberHot.color).frame(width: 6, height: 6)
-                    PanelLabel("Geändert", color: Theme.device.amberHot.color)
-                }
-                .accessibilityElement(children: .combine)
-            }
+    private var nameField: some View {
+        TextField("Name", text: $name)
+            .textFieldStyle(.plain)
+            .font(Theme.Fonts.title(23))
+            .foregroundStyle(Theme.device.amber)
+            .focused($field, equals: .name)
+            .onSubmit(commitName)
+            .disabled(editor.isLocked)
+            .accessibilityLabel("Name des Presets")
+    }
+
+    private var lamps: some View {
+        HStack(spacing: 10) {
             if editor.showsOriginal {
-                PanelLabel("A · Gespeichert", color: Theme.device.amber.color)
+                Lamp("A · Gespeichert", tone: .amber, isOn: true, size: 6)
+            } else {
+                Lamp("Geändert", tone: .hot, isOn: editor.isModified, size: 6)
+                    .accessibilityLabel(editor.isModified ? "Geändert" : "Unverändert")
             }
-            HStack(spacing: 4) {
-                LampDot(tone: .on, isOn: editor.isHeard, size: 7)
-                PanelLabel("Live", color: editor.isHeard ? Theme.device.on.color : Theme.device.labelDim.color)
-            }
-            .help(editor.isHeard ? "Der Verstärker spielt diesen Stand, Änderungen sind sofort hörbar."
-                                 : "Die erste Änderung schickt das Preset zum Verstärker, ohne einen Platz zu überschreiben.")
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(editor.isHeard ? "Live am Verstärker" : "Nicht am Verstärker")
+            Lamp("Live", tone: .on, isOn: editor.isHeard, size: 6)
+                .help(editor.isHeard ? "Der Verstärker spielt diesen Stand, Änderungen sind sofort hörbar."
+                                     : "Die erste Änderung schickt das Preset zum Verstärker, ohne einen Platz zu überschreiben.")
+                .accessibilityLabel(editor.isHeard ? "Live am Verstärker" : "Nicht am Verstärker")
         }
     }
 
+    /// The tempo, typed into the display.
     private var bpmField: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text("BPM").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
             TextField("BPM", text: $bpm)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 58)
+                .textFieldStyle(.plain)
+                .font(Theme.Fonts.mono(20, weight: .semibold))
+                .foregroundStyle(Theme.device.amber)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 48)
                 .focused($field, equals: .bpm)
                 .onSubmit(commitBPM)
                 .disabled(editor.isLocked)
                 .accessibilityLabel("Tempo in BPM")
+            Text("BPM")
+                .font(Theme.Fonts.lamp())
+                .foregroundStyle(Theme.device.amberDim)
+                .accessibilityHidden(true)
         }
+        .fixedSize()
     }
 
     private var actions: some View {
         HStack(spacing: 8) {
-            ControlGroup {
-                Button { editor.undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                    .disabled(!editor.canUndo || editor.showsOriginal)
-                    .help("Rückgängig (⌘Z)")
-                    .accessibilityLabel("Rückgängig")
-                Button { editor.redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                    .disabled(!editor.canRedo || editor.showsOriginal)
-                    .help("Wiederholen (⇧⌘Z)")
-                    .accessibilityLabel("Wiederholen")
-            }
-            .fixedSize()
-            Toggle(isOn: Binding(get: { editor.showsOriginal }, set: { _ in editor.toggleComparison() })) {
-                Text(editor.showsOriginal ? "A" : "A/B").frame(minWidth: 28)
-            }
-            .toggleStyle(.button)
-            .disabled(!editor.isModified && !editor.showsOriginal)
-            .help("Vergleicht mit dem gespeicherten Stand (⌘B)")
-            .accessibilityLabel("Mit dem gespeicherten Stand vergleichen")
+            Button { editor.undo() } label: { Image(systemName: "arrow.uturn.backward") }
+                .buttonStyle(.hardwareKey(keycap: "⌘Z"))
+                .fixedSize()
+                .disabled(!editor.canUndo || editor.showsOriginal)
+                .help("Rückgängig (⌘Z)")
+                .accessibilityLabel("Rückgängig")
+            Button { editor.redo() } label: { Image(systemName: "arrow.uturn.forward") }
+                .buttonStyle(.hardwareKey())
+                .fixedSize()
+                .disabled(!editor.canRedo || editor.showsOriginal)
+                .help("Wiederholen (⇧⌘Z)")
+                .accessibilityLabel("Wiederholen")
+            Button(editor.showsOriginal ? "A" : "A / B") { editor.toggleComparison() }
+                .buttonStyle(.hardwareKey(editor.showsOriginal ? .on : .normal, keycap: "⌘B"))
+                .fixedSize()
+                .disabled(!editor.isModified && !editor.showsOriginal)
+                .help("Vergleicht mit dem gespeicherten Stand (⌘B)")
+                .accessibilityLabel("Mit dem gespeicherten Stand vergleichen")
+                .accessibilityValue(editor.showsOriginal ? "gespeicherter Stand" : "bearbeiteter Stand")
+            Button("Sichern") { model.saveOnMac() }
+                .buttonStyle(.hardwareKey(.primary, keycap: "⌘S"))
+                .fixedSize()
+                .disabled(editor.showsOriginal)
+                .help("Auf dem Mac sichern (⌘S)")
             Menu {
-                Button("Auf dem Mac sichern") { model.saveOnMac() }
                 Button("Sichern unter …") { model.beginSaveAs() }
                 Divider()
                 ForEach(0..<4, id: \.self) { slot in
@@ -143,12 +165,20 @@ struct EditorHeader: View {
                 Button("Änderungen verwerfen") { editor.revert() }.disabled(!editor.isModified)
                 Button("Duplizieren") { model.duplicateCurrent() }
             } label: {
-                Label("Sichern", systemImage: "square.and.arrow.down")
-            } primaryAction: {
-                model.saveOnMac()
+                Text("⋯")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.device.keyText)
+                    .frame(width: 30, height: 28)
+                    .background(KeyBody())
+                    .contentShape(Rectangle())
             }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
             .fixedSize()
             .disabled(editor.showsOriginal)
+            .help("Sichern unter, auf einem Platz speichern, verwerfen, duplizieren")
+            .accessibilityLabel("Weitere Aktionen")
         }
     }
 

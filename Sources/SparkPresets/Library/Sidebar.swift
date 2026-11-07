@@ -45,7 +45,7 @@ struct Sidebar: View {
                 ForEach(presets) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
             }
             if !backups.isEmpty {
-                Section("Sicherungen vor dem Überschreiben") {
+                Section("Sicherungen") {
                     ForEach(backups) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
                 }
             }
@@ -55,29 +55,65 @@ struct Sidebar: View {
                 }
             }
         }
-        .listStyle(.sidebar)
-        .scrollContentBackground(Snapshot.isActive ? .hidden : .automatic)
-        .background(Snapshot.isActive ? Color(nsColor: .controlBackgroundColor) : Color.clear)
-        .searchable(text: $model.search, placement: .sidebar, prompt: "Presets suchen")
+        .modifier(SidebarListStyle())
+        .amberSelection()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
-                HStack {
+                HStack(spacing: 8) {
                     ConnectionStatus()
                     Spacer(minLength: 4)
                     NewPresetMenu()
                 }
-                .padding(.horizontal, 12)
-                .padding(.top, 8)
+                .padding(.horizontal, 14)
+                .padding(.top, 10)
                 // Only while nothing is open in the editor, whose display has its own meter.
                 if model.editor.preset == nil {
                     LoadMeter(transfer: link.transfer, height: 4, showsLabel: false)
-                        .padding(.horizontal, 12)
+                        .padding(.horizontal, 14)
+                        .padding(.top, 6)
                 }
                 Spacer().frame(height: 8)
             }
             .background(.bar)
         }
+    }
+}
+
+/// The system sidebar. Window pictures cannot capture its vibrant text, so they show it as a plain list instead.
+private struct SidebarListStyle: ViewModifier {
+    func body(content: Content) -> some View {
+        if Snapshot.isActive {
+            content
+                .listStyle(.inset)
+                .scrollContentBackground(.hidden)
+                .background(Color(nsColor: .controlBackgroundColor))
+        } else {
+            content.listStyle(.sidebar)
+        }
+    }
+}
+
+/// The round key of a slot on the amp: dark with its number in dim amber, or lit amber with a glow while it plays.
+private struct SlotKey: View {
+    let number: Int
+    let isPlaying: Bool
+
+    var body: some View {
+        Text("\(number)")
+            .font(.system(size: 11, weight: .heavy, design: .monospaced))
+            .foregroundStyle(isPlaying ? Theme.device.primaryText : Theme.device.amberDim)
+            .frame(width: 22, height: 22)
+            .background(
+                Circle()
+                    .fill(RadialGradient(
+                        colors: isPlaying ? [Theme.device.primaryTop.color, Swatch(hex: 0xE69A1E).color]
+                                          : [Theme.device.knobTop.color, Theme.device.knobBottom.color],
+                        center: UnitPoint(x: 0.4, y: 0.35), startRadius: 0, endRadius: 14))
+                    .overlay(Circle().strokeBorder(Theme.device.knobEdge, lineWidth: 1))
+                    .shadow(color: isPlaying ? Theme.device.amberHot.color.opacity(0.7) : .clear, radius: 5)
+            )
+            .accessibilityHidden(true)
     }
 }
 
@@ -91,14 +127,10 @@ private struct SlotRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Text("\(slot + 1)")
-                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(isActive ? Color.black : Theme.device.amberDim.color)
-                .frame(width: 20, height: 20)
-                .background(Circle().fill(isActive ? Theme.device.amberHot.color : Theme.device.lampOff.color))
-                .shadow(color: isActive ? Theme.device.amberHot.color.opacity(0.7) : .clear, radius: 4)
+            SlotKey(number: slot + 1, isPlaying: isActive)
             VStack(alignment: .leading, spacing: 1) {
                 Text(preset?.name ?? (link.status == .connected ? "Wird gelesen …" : "–"))
+                    .fontWeight(isActive ? .semibold : .regular)
                     .lineLimit(1)
                 Text(preset.map(ChainSummary.text) ?? " ")
                     .font(.caption)
@@ -109,10 +141,11 @@ private struct SlotRow: View {
             if isActive {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(Theme.device.amberHot.color)
+                    .foregroundStyle(Theme.desk.amber)
                     .help("Spielt gerade")
             }
         }
+        .padding(.vertical, 2)
         .help("Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))")
         .contextMenu {
             Button("Auf dem Mac sichern") { model.backUp(slot: slot) }.disabled(preset == nil)
@@ -127,13 +160,22 @@ private struct LibraryRow: View {
     @EnvironmentObject private var model: PresetsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(item.name).lineLimit(1)
-            Text(ChainSummary.text(item.file.preset))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+        HStack(spacing: 9) {
+            Image(systemName: item.file.isBackup ? "clock" : "folder")
+                .font(.system(size: 12))
+                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .frame(width: 22)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(item.name).lineLimit(1)
+                Text(item.file.isBackup ? item.file.savedAt.formatted(date: .abbreviated, time: .shortened)
+                                        : ChainSummary.text(item.file.preset))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
+        .padding(.vertical, 2)
         .help("Klicken spielt das Preset zum Anhören, ohne einen Platz zu überschreiben")
         .contextMenu {
             Menu("Auf Platz speichern") {
@@ -161,8 +203,14 @@ private struct NewPresetMenu: View {
             Button("Aktuelles duplizieren") { model.duplicateCurrent() }.disabled(model.editor.preset == nil)
         } label: {
             Image(systemName: "plus")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(Theme.device.keyText)
+                .frame(width: 28, height: 24)
+                .background(KeyBody())
+                .contentShape(Rectangle())
         }
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Neues Preset")
@@ -175,14 +223,11 @@ struct ConnectionStatus: View {
     @EnvironmentObject private var link: SparkLink
 
     var body: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(lamp)
-                .frame(width: 8, height: 8)
-                .shadow(color: link.status == .connected ? Theme.device.on.color.opacity(0.8) : .clear, radius: 3)
+        HStack(spacing: 8) {
+            LampDot(tone: tone, isOn: isLit)
             VStack(alignment: .leading, spacing: 0) {
-                Text(title).font(.caption.weight(.semibold)).lineLimit(1)
-                if let detail { Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2) }
+                Text(title).font(.system(size: 11.5, weight: .semibold)).lineLimit(1)
+                if let detail { Text(detail).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(2) }
             }
             if link.activity != nil { ProgressView().controlSize(.mini) }
         }
@@ -191,11 +236,15 @@ struct ConnectionStatus: View {
         .accessibilityLabel([title, detail, link.activity].compactMap { $0 }.joined(separator: ", "))
     }
 
-    private var lamp: Color {
+    private var tone: Lamp.Tone {
+        link.status == .connected ? .on : .hot
+    }
+
+    /// Green when connected, amber while looking for the amp, dark when Bluetooth cannot be used.
+    private var isLit: Bool {
         switch link.status {
-        case .connected: Theme.device.on.color
-        case .searching, .connecting, .starting: Theme.device.amberHot.color
-        default: .red
+        case .connected, .searching, .connecting, .starting: true
+        default: false
         }
     }
 
@@ -214,7 +263,7 @@ struct ConnectionStatus: View {
     private var detail: String? {
         if let activity = link.activity { return activity }
         switch link.status {
-        case .connected: return link.firmware.map { "Firmware \($0)" }
+        case .connected: return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
         case .searching, .connecting: return "Spark-App am Handy trennen"
         default: return nil
         }

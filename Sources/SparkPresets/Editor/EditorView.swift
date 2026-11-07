@@ -11,17 +11,19 @@ struct EditorView: View {
     var body: some View {
         if let preset = editor.preset {
             VStack(spacing: 0) {
-                EditorHeader(preset: preset)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
+                Faceplate(top: Theme.device.faceTop, bottom: Swatch(hex: 0x1C1C1F)) {
+                    EditorHeader(preset: preset)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 14)
+                }
                 ScrollView {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 20) {
                         ChainStrip(preset: preset)
                         UnitPanel(preset: preset)
                         if preset.effects.count != ChainPlace.allCases.count {
                             Text("Dieses Preset hat \(preset.effects.count) statt 7 Effekte. Die Plätze sind daher nummeriert.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.device.labelDim.color)
+                                .foregroundStyle(Theme.device.labelDim)
                         }
                     }
                     .padding(18)
@@ -33,10 +35,12 @@ struct EditorView: View {
         }
     }
 
+    /// The dark board the pedals stand on, lit softly from above.
     private var board: some View {
         ZStack {
             Theme.device.board.color
-            LinearGradient(colors: [.white.opacity(0.04), .clear], startPoint: .top, endPoint: .center)
+            EllipticalGradient(colors: [.white.opacity(0.05), .clear], center: .top, startRadiusFraction: 0,
+                               endRadiusFraction: 0.6)
         }
     }
 

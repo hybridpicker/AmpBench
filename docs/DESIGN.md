@@ -137,6 +137,29 @@ a variant of `LEDSegments`).
   because the module has room for exactly three rows. The count-in choice has no engraving beside it, its values name
   themselves ("Kein Einzähler", "1 Takt einzählen").
 
+## Spark Presets
+
+- **Title bar:** the system's sidebar toggle, the title, and the search on the right of the toolbar.
+- **Sidebar:** "Am Verstärker" with four round slot keys (dark with the number in dim amber; the playing slot lit
+  amber with a glow, the number dark, a speaker on the right), the name and the chain summary. "Auf dem Mac" with a
+  folder symbol, "Sicherungen" with a clock and the date of the backup. At the foot: the connection lamp (green when
+  connected, amber while searching, dark when Bluetooth cannot be used), device name, firmware, and the "+" key.
+  Selection in amber.
+- **Header:** a front strip with one display: the name (23 bold, editable), lamps GEÄNDERT and LIVE, BPM in mono on
+  the right; below the origin and the description; then ÜBERTRAGUNG with the transfer meter. In a narrow window the
+  lamps move below the name. On the right the keys Rückgängig ⌘Z, Wiederholen, A/B ⌘B (switched on while the saved
+  state plays), Sichern ⌘S as the main key, and "⋯" for Sichern unter, Platz speichern, Verwerfen, Duplizieren.
+- **Chain:** pedals 104 × 150 pt with the same dark body, the nameplate in the place's color, the model, mini knobs
+  with amber pointers, a lamp in the place's color and the footswitch. Selected: a 2 pt amber frame, no glow. Off:
+  62 % opacity, lamp dark. The amp head is 206 pt: tolex, a brass strip with lamp, italic serif name and "AMP", five
+  mini knobs, the grille, and the model group engraved bottom right. A dark rail runs behind. No screws. In a
+  narrow window the whole row shrinks together, down to two thirds.
+- **Control field:** a panel with a 3 pt stripe in the place's color; the engraving "Verzerrer · Platz 3 von 7", the
+  model as a 22 bold amber menu with a chevron, summary and model it follows; on the right lamp, footswitch (38) and
+  AN/AUS. Knobs 56 pt with the ring in the place's color, the name engraved and the value in amber mono. On the right
+  two sentences on how to turn them.
+- **Sheets:** rename and save-as stay system dialogs; the templates show each chain as a miniature row of pedals.
+
 ## Where the apps differ from the canvas, and why
 
 The canvas "Spark Apps Design" is intent, not a pixel specification. These differences are deliberate:
@@ -152,6 +175,9 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
   key (shift is ignored) and `⌘E` renames in both apps, so these keys carry no keycap. Shortcuts were not changed.
 - **List selection** needs AppKit: SwiftUI cannot recolor the selection of a `List` or `Table` on macOS, so
   `.amberSelection()` turns the table's own highlight off and draws the amber tint and bar beneath the rows.
+- **Window pictures of Spark Presets** draw the sidebar as a plain list (`--snapshot` only): the system sidebar's
+  text is drawn by the window server and does not appear in a cached picture at all. `--library <folder>` fills a
+  test folder with the templates, so pictures never show one's own presets.
 - **Window pictures** (`WindowPicture`, used by both apps' snapshot modes) are drawn with `cacheDisplay`, which
   leaves the window background transparent, so it is painted first. Translucent materials, such as the sidebar's,
   are missing from these pictures, not from the app.

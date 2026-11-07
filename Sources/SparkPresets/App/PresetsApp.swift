@@ -4,7 +4,7 @@ import SwiftUI
 
 @main
 struct PresetsApp: App {
-    @MainActor static let sharedModel = PresetsModel()
+    @MainActor static let sharedModel = PresetsModel(folder: Snapshot.libraryFolder ?? PresetLibrary.defaultFolder)
     @StateObject private var model = PresetsApp.sharedModel
 
     init() {

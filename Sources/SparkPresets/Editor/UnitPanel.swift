@@ -2,7 +2,8 @@ import SparkControl
 import SparkDesign
 import SwiftUI
 
-/// The controls of the unit in focus: its model, on and off, and every parameter.
+/// The control field of the unit in focus: a front with a stripe in the place's color, its model, on and off, and
+/// every parameter.
 struct UnitPanel: View {
     let preset: SparkPreset
     @EnvironmentObject private var editor: EditorModel
@@ -15,50 +16,74 @@ struct UnitPanel: View {
             let info = ModelCatalog.info(for: effect.name, place: place, parameterCount: effect.parameters.count)
             VStack(alignment: .leading, spacing: 14) {
                 header(index: index, place: place, effect: effect, info: info)
-                ParameterGrid(index: index, place: place, effect: effect, info: info)
+                HStack(alignment: .center, spacing: 18) {
+                    ParameterGrid(index: index, place: place, effect: effect, info: info)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    EngravedDivider().frame(maxHeight: 90)
+                    OperatingHint(isLive: editor.isLiveEnabled)
+                        .frame(maxWidth: 300, alignment: .leading)
+                }
+                .padding(.top, 4)
             }
-            .padding(18)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(Theme.device.faceGradient)
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
-                        LinearGradient(colors: [.white.opacity(0.16), .black.opacity(0.5)], startPoint: .top,
-                                       endPoint: .bottom)))
-                    .overlay(alignment: .top) {
-                        Capsule().fill(place.color).frame(height: 3).padding(.horizontal, 18)
-                            .shadow(color: place.color.opacity(0.7), radius: 4)
-                    }
-                    .shadow(color: .black.opacity(0.5), radius: 10, y: 5)
-            )
+            .background(FaceplateSurface(radius: Theme.Radius.panel, top: Theme.device.panelTop,
+                                         bottom: Theme.device.panelBottom))
+            .overlay(alignment: .top) {
+                UnevenRoundedRectangle(bottomLeadingRadius: 3, bottomTrailingRadius: 3)
+                    .fill(place.color)
+                    .frame(height: 3)
+                    .shadow(color: place.color.opacity(0.7), radius: 4)
+                    .padding(.horizontal, 20)
+                    .accessibilityHidden(true)
+            }
         }
     }
 
     private func header(index: Int, place: ChainPlace, effect: SparkPreset.Effect, info: ModelInfo) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            VStack(alignment: .leading, spacing: 5) {
-                PanelLabel(place.title, color: place.color)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                PanelLabel("\(place.title) · Platz \(index + 1) von \(preset.effects.count)", color: place.color,
+                           isAccessible: true)
                 ModelPicker(index: index, place: place, current: info)
                 Text(info.summary)
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.device.label.color)
+                    .foregroundStyle(Theme.device.fieldText)
                     .lineLimit(2)
                 if let inspiration = info.inspiration {
                     Text("Vorbild: \(inspiration)")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.device.labelDim.color)
+                        .foregroundStyle(Theme.device.engraving)
                 }
             }
             Spacer(minLength: 8)
             VStack(spacing: 6) {
-                LampDot(color: place.swatch, isOn: effect.isOn, size: 11)
+                LampDot(color: place.swatch, isOn: effect.isOn, size: 10)
                 Footswitch(isOn: effect.isOn, label: "\(place.title) an oder aus", size: 38,
                            isEnabled: !editor.isLocked) {
                     editor.setOn(place: index, !effect.isOn)
                 }
-                PanelLabel(effect.isOn ? "An" : "Aus", color: effect.isOn ? Theme.device.amber.color : Theme.device.labelDim.color)
+                PanelLabel(effect.isOn ? "An" : "Aus", color: effect.isOn ? Theme.device.amber : Theme.device.lampOffText)
             }
         }
+    }
+}
+
+/// How the knobs are turned, in two sentences.
+private struct OperatingHint: View {
+    let isLive: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("**Scrollen** dreht fein, **Ziehen** grob, **Doppelklick** setzt den Standardwert.")
+            if isLive {
+                Text("Jede Änderung ist sofort am Verstärker hörbar, ohne einen Platz zu überschreiben.")
+            }
+        }
+        .font(.system(size: 11.5))
+        .foregroundStyle(Theme.device.labelDim)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -72,8 +97,8 @@ private struct ModelPicker: View {
     var body: some View {
         if ModelCatalog.models(for: place).count < 2 {
             Text(current.name)
-                .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.device.amber.color)
+                .font(Theme.Fonts.title(22))
+                .foregroundStyle(Theme.device.amber)
         } else {
             menu
         }
@@ -93,14 +118,13 @@ private struct ModelPicker: View {
                 }
             }
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Text(current.name)
-                    .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.device.amber.color)
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.device.amberDim.color)
+                    .font(Theme.Fonts.title(22))
+                    .foregroundStyle(Theme.device.amber)
+                Chevron(color: Theme.device.amberDim, size: 9)
             }
+            .contentShape(Rectangle())
         }
         .menuStyle(.button)
         .buttonStyle(.plain)
@@ -134,16 +158,18 @@ private struct ParameterGrid: View {
 
     var body: some View {
         let visible = effect.parameters.filter { info.parameter(Int($0.index)).isVisible }
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 82, maximum: 110), spacing: 12)], alignment: .leading,
-                  spacing: 14) {
-            ForEach(visible, id: \.index) { parameter in
-                control(for: parameter, info: info.parameter(Int(parameter.index)))
+        VStack(alignment: .leading, spacing: 0) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 84, maximum: 96), spacing: 14)], alignment: .leading,
+                      spacing: 14) {
+                ForEach(visible, id: \.index) { parameter in
+                    control(for: parameter, info: info.parameter(Int(parameter.index)))
+                }
             }
-        }
-        if visible.isEmpty {
-            Text("Dieses Modell hat keine einstellbaren Regler.")
-                .font(.callout)
-                .foregroundStyle(Theme.device.labelDim.color)
+            if visible.isEmpty {
+                Text("Dieses Modell hat keine einstellbaren Regler.")
+                    .font(.callout)
+                    .foregroundStyle(Theme.device.labelDim)
+            }
         }
     }
 
@@ -166,7 +192,7 @@ private struct ParameterGrid: View {
     private func rotary(_ parameter: SparkPreset.Parameter, _ parameterInfo: ParameterInfo, mode: Knob.Mode,
                         start: Float?) -> some View {
         Knob(name: parameterInfo.name, value: parameter.value, mode: mode, accent: place.color,
-                      size: 58, startValue: start, isEnabled: !editor.isLocked,
+                      size: 56, startValue: start, isEnabled: !editor.isLocked,
                       display: parameterInfo.display,
                       onBegin: { editor.beginGesture() },
                       onChange: { editor.setParameter(place: index, index: parameter.index, value: $0) },
