@@ -364,8 +364,9 @@ on the amp.
 
 ## Design (Gestaltung)
 
-One design language: the instrument stays dark, the desk follows the system, keys instead of buttons and lamps instead
-of icons. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and the building blocks of
+One design language: the instrument stays dark, keys instead of buttons and lamps instead of icons. The desk around it
+would follow the system, but Spark Studio always shows it dark; the light pictures below show the light desk that tests
+can still draw. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and the building blocks of
 `Sources/SparkDesign`. New views use those blocks; a new color or button style goes into SparkDesign and DESIGN.md
 first. The icon (`Tools/make-icon.swift`) puts the record key into the amber ring of a control: recording and sound
 in one sign.

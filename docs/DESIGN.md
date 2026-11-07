@@ -16,6 +16,8 @@ Spark Recorder and Spark Presets, so the two sections below still carry their na
 2. **The desk follows the system.** Library, lists, fields, sidebar, sheets and menus are macOS: system font, system
    colors, system spacing, system controls. The one exception is the selection in lists: an amber tint with a 3 pt
    amber bar on the left, instead of the system's blue.
+   Spark Studio itself always shows the dark desk, at the user's wish (2026-11-07). The light values stay valid and
+   tested: `--appearance light` and the `pictures` self-test still draw them.
 3. **Keys instead of buttons, lamps instead of icons.** Every action on the device is a hardware key with its shortcut
    engraved as a keycap. Every state is a lamp with a word beside it, never color alone. Amber is the only signal
    color. Red belongs to recording only (the record key, the REC lamp) and, as text color, to "Verwerfen". There is

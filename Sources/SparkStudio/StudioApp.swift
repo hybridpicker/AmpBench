@@ -44,6 +44,9 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
     private var studio: Studio { Studio.shared }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Always dark, at the user's wish (2026-11-07): the desk too, not only the device. Tests may still draw light
+        // pictures with --appearance light, and the recorder's pictures self-test switches by itself.
+        NSApp.appearance = NSAppearance(named: .darkAqua)
         studio.makeWindow()
         // Bluetooth stays off until the area Presets first shows, unless a test asks for it right away.
         if PresetsHost.isRequestedAtLaunch { studio.area = .presets }
