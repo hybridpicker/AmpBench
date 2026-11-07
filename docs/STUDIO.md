@@ -10,7 +10,7 @@ ist, und wird mit jeder Stufe fortgeschrieben. Am Ende ersetzt es den Prompt und
 | Stufe | Inhalt | Stand |
 |---|---|---|
 | 0 | Datenmodell, Tastaturmodell, Layout, dieses Dokument | fertig, nur Code ohne Verhalten |
-| 1 | Ein Bundle, zwei Fenster | wartet auf den Design-Meilenstein 1 (Target `SparkDesign` committet) |
+| 1 | Ein Bundle, zwei Fenster | begonnen: Icon und Info.plist; Target, Bibliotheken und Fenster warten auf Design-M3 |
 | 2 | Ein Fenster, zwei Bereiche | offen |
 | 3 | Stücke = Songs, gemeinsamer Ordner, alte Apps entfernen | offen |
 
@@ -33,6 +33,23 @@ SparkStudio (executable, eigene Info.plist: Mikrofon + Bluetooth)
 - Bluetooth verbindet nicht beim Start, sondern beim ersten Öffnen des Bereichs Presets oder mit „Verbinden“ im Deck,
   und trennt auf Wunsch wieder, damit die Spark-App am Handy benutzbar bleibt (der Amp nimmt nur eine
   Steuerverbindung). Ein Bluetooth-Fehler wird gemeldet und beendet nie eine laufende Aufnahme.
+
+## Stufe 1 – Stand
+
+Design-M1 ist committet (fffa794), die Bedingung aus dem Prompt ist also erfüllt. Die Design-Session arbeitet aber in M2/M3
+an den Views beider Apps und an Package.swift und hat darum gebeten, dort bis M3 nichts zu ändern. Deshalb:
+
+- Fertig, ohne fremde Dateien:
+  - `Resources/SparkStudio-Info.plist`: Bundle `local.sparkstudio`, Mikrofon- und Bluetooth-Beschreibung. Neue
+    Bundle-ID heißt: macOS fragt beim ersten Start von Studio neu nach Mikrofon und Bluetooth.
+  - Icon: `swift Tools/make-icon.swift Resources/StudioIcon.icns studio` zeichnet Record-Taste und Preset-Regler
+    nebeneinander auf einer Front mit gravierter Trennlinie. Die Zeichnung der Record-Taste ist dafür unverändert in
+    `drawRecordKey` gewandert; Recorder- und Presets-Icon sind nachweislich Byte für Byte gleich geblieben.
+- Wartet auf Design-M3 (Views beider Apps) und Freigabe von Package.swift:
+  - Target `SparkStudio` in Package.swift, build.sh baut „Spark Studio.app“ mit dem neuen Icon.
+  - Views verschieben nach `SparkRecorderUI` / `SparkPresetsUI` (nur verschieben, nicht ändern).
+  - AppDelegate mit den Fenstern „Aufnahme“ (⇧⌘1) und „Presets“ (⇧⌘2), KeyRouter nur im Aufnahme-Fenster,
+    Bluetooth erst beim Öffnen von Presets, beide Selbsttests über `SparkStudio`.
 
 ## Datenmodell (Stufe 0, in Code)
 

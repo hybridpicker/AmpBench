@@ -1,6 +1,6 @@
 // Draws the app icons: a dark studio-device faceplate with a glowing record key and a waveform that peaks in a spark,
-// or for Spark Presets the same faceplate with a preset knob and four lamps.
-// Usage: swift Tools/make-icon.swift <output.icns> [presets]
+// for Spark Presets the same faceplate with a preset knob and four lamps, and for Spark Studio both on one front.
+// Usage: swift Tools/make-icon.swift <output.icns> [presets|studio]
 import AppKit
 import CoreGraphics
 import Foundation
@@ -58,11 +58,42 @@ func draw(size: Int) -> CGImage {
     context.restoreGState()
 
     let center = CGPoint(x: 512, y: 512)
-    if variant == "presets" {
-        drawPresetKnob(context, center: center)
-        return context.makeImage()!
+    switch variant {
+    case "presets": drawPresetKnob(context, center: center)
+    case "studio": drawStudioFront(context)
+    default: drawRecordKey(context, center: center)
     }
+    return context.makeImage()!
+}
 
+/// Spark Studio: the record key and the preset knob side by side, each at a bit more than half size, with an engraved line between.
+func drawStudioFront(_ context: CGContext) {
+    let scale: CGFloat = 0.56
+    for (x, part) in [(CGFloat(314), drawRecordKey), (CGFloat(710), drawPresetKnob)] {
+        context.saveGState()
+        // Both drawings are laid out around the middle of the 1024 grid, so they are moved and shrunk as a whole.
+        context.translateBy(x: x, y: 512)
+        context.scaleBy(x: scale, y: scale)
+        context.translateBy(x: -512, y: -512)
+        part(context, CGPoint(x: 512, y: 512))
+        context.restoreGState()
+    }
+    // The engraved divider of the device front: a dark line with a faint light line beside it.
+    context.saveGState()
+    context.setLineWidth(5)
+    context.setStrokeColor(color(0, 0, 0, 0.85))
+    context.move(to: CGPoint(x: 510, y: 330))
+    context.addLine(to: CGPoint(x: 510, y: 694))
+    context.strokePath()
+    context.setStrokeColor(color(1, 1, 1, 0.07))
+    context.move(to: CGPoint(x: 515, y: 330))
+    context.addLine(to: CGPoint(x: 515, y: 694))
+    context.strokePath()
+    context.restoreGState()
+}
+
+/// The record key: a machined ring, the glowing red key, a waveform across it whose tallest bar ends in a spark.
+func drawRecordKey(_ context: CGContext, center: CGPoint) {
     // Machined ring around the key.
     context.saveGState()
     context.addPath(circle(center, 300))
@@ -137,8 +168,6 @@ func draw(size: Int) -> CGImage {
     context.setFillColor(color(1, 1, 0.96))
     context.fillPath()
     context.restoreGState()
-
-    return context.makeImage()!
 }
 
 /// The preset knob: a machined ring, a knurled knob pointing at the second of four lamps, that lamp lit.
@@ -224,7 +253,7 @@ func writePNG(_ image: CGImage, to url: URL) throws {
 }
 
 guard (2...3).contains(CommandLine.arguments.count) else {
-    print("usage: make-icon.swift <output.icns> [presets]")
+    print("usage: make-icon.swift <output.icns> [presets|studio]")
     exit(64)
 }
 let variant = CommandLine.arguments.count == 3 ? CommandLine.arguments[2] : "recorder"
