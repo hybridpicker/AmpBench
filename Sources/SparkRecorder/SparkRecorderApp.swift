@@ -310,7 +310,7 @@ private struct ShortcutsSheet: View {
 
     private let rows: [(String, String)] = [
         ("R", "Aufnahme starten oder stoppen, auch „Nochmal“"),
-        ("Leertaste", "Abspielen oder anhalten, wirkt nicht während der Aufnahme"),
+        ("Leertaste", "Abspielen oder anhalten. Während der Aufnahme: stoppen und sofort anhören"),
         ("L", "Schleife: erst A, dann B, dann aus"),
         ("M", "Marker setzen, auch während der Aufnahme"),
         ("K", "Take behalten"),

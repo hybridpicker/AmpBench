@@ -87,7 +87,7 @@ final class KeyRouter {
 
         guard let key = event.charactersIgnoringModifiers?.lowercased(), key.count == 1 else { return false }
         // Space activates the focused control for people who navigate by keyboard or VoiceOver. A running recording
-        // goes first: a stray space on a focused stop button must not end it. R and VoiceOver's own keys still work.
+        // goes first: space ends it and plays the new take, whatever has the focus. R and VoiceOver's own keys still work.
         if key == " ", model.phase == .idle, NSApp.isFullKeyboardAccessEnabled, window.firstResponder is NSButton {
             return false
         }

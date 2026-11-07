@@ -1261,11 +1261,23 @@ final class AppModel: ObservableObject {
         playhead.isPlaying = false
     }
 
-    /// The space bar. Nothing but "listen to the take just recorded": while a recording starts or runs, it does nothing,
-    /// so it cannot start an older take or disturb the recording. The take is in focus as soon as it is stopped.
+    /// Space plays or pauses. During a recording it stops it and plays the new take right away, so listening back
+    /// is one key. During the count-in it cancels, like R.
     func spaceBarPressed() {
-        guard phase == .idle else { return }
-        togglePlay()
+        switch phase {
+        case .idle:
+            togglePlay()
+        case .preparing:
+            break
+        case .countIn:
+            toggleRecord()
+        case .recording:
+            let before = currentID
+            stopRecording(note: nil)
+            // Plays only a take that this recording produced, never an older one when nothing was saved.
+            guard phase == .idle, let id = currentID, id != before, current?.health == .ok else { return }
+            if !playback.isPlaying { togglePlay() }
+        }
     }
 
     func togglePlay() {

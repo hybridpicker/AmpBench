@@ -502,30 +502,40 @@ final class UISelfTest {
         await wait(0.2)
         check(!model.playhead.isPlaying && model.meter.beat == 0, "pausing silences the click again", detail: "\(model.meter.beat)")
 
-        // The space bar during a recording: nothing happens, and it plays the new take after stopping.
-        let previous = model.currentID
-        let before = Set(model.recordings.map(\.id))
+        // R stops a recording without playing, and space afterwards plays the new take.
+        var before = Set(model.recordings.map(\.id))
         await press("r", keyCode: 15)
         check(await waitUntil(timeout: 8) { model.phase == .recording }, "R records with the click on")
         check(model.isClickRunning, "the click sounds while recording")
-        await wait(0.5)
-        await press(" ", keyCode: 49)
-        await wait(0.2)
-        check(!model.playhead.isPlaying, "space during a recording does not start an older take")
-        check(model.phase == .recording, "space during a recording does not end it")
-        check(model.currentID == previous, "space during a recording changes nothing")
         check(model.playbackClickGrid == nil, "no click goes to the playback during a recording")
-        await wait(0.5)
+        await wait(1.0)
         await press("r", keyCode: 15)
         _ = await waitUntil { model.phase == .idle }
         check(!model.isClickRunning, "the click stops with the recording")
         check(model.metronome.clickEnabled, "the click stays switched on for next time")
-        let newTake = model.recordings.first { !before.contains($0.id) }
+        check(!model.playhead.isPlaying, "R stops without playing")
+        var newTake = model.recordings.first { !before.contains($0.id) }
         check(newTake != nil && model.currentID == newTake?.id, "the new take is in focus after stopping")
         await press(" ", keyCode: 49)
         check(await waitUntil { model.playhead.isPlaying }, "space after stopping plays")
         check(model.currentID == newTake?.id, "space after stopping plays the take just recorded")
         await press(" ", keyCode: 49)
+        await wait(0.2)
+
+        // Space during a recording stops it and plays the new take right away.
+        before = Set(model.recordings.map(\.id))
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "R records again for the space check")
+        await wait(1.0)
+        await press(" ", keyCode: 49)
+        check(await waitUntil { model.phase == .idle }, "space during a recording ends it")
+        newTake = model.recordings.first { !before.contains($0.id) }
+        check(newTake != nil && model.currentID == newTake?.id, "space during a recording saves the new take")
+        check(await waitUntil { model.playhead.isPlaying }, "space during a recording plays the new take right away")
+        check(!model.isClickRunning, "the click stops with the recording")
+        await press(" ", keyCode: 49)
+        await wait(0.2)
+        check(!model.playhead.isPlaying, "space pauses the new take")
 
         await press("n", keyCode: 45)
         check(!model.metronome.clickEnabled && model.playbackClickGrid == nil, "N switches the click off")

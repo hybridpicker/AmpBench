@@ -24,7 +24,7 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 | Key | Action |
 |---|---|
 | `R` | Start or stop recording, also "Nochmal" |
-| `Space` | Play or pause. It does nothing while a recording runs, and after stopping it plays the new take |
+| `Space` | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels |
 | `L` | Loop: first press sets A, second sets B, third removes it |
 | `M` | Marker, also during a recording |
 | `K` | Keep the take |
