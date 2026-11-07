@@ -1,4 +1,5 @@
 import SparkCore
+import SparkDesign
 import SwiftUI
 
 /// The middle panel: the take in focus, its waveform, the transport and the decision keys.
@@ -55,7 +56,7 @@ struct WavePanel: View {
 
     private func placeholder(_ text: String) -> some View {
         RoundedRectangle(cornerRadius: 8)
-            .fill(Theme.waveBackground)
+            .fill(Theme.desk.waveBackground.color)
             .overlay(Text(text).foregroundStyle(.secondary))
     }
 }
@@ -79,7 +80,7 @@ private struct WaveformShape: View, Equatable {
                 let bottom = middle - CGFloat(column.min) * scale
                 path.addRect(CGRect(x: CGFloat(index), y: top, width: 1, height: max(bottom - top, 0.5)))
             }
-            context.fill(path, with: .color(Theme.wave))
+            context.fill(path, with: .color(Theme.desk.wave.color))
         }
     }
 
@@ -102,7 +103,7 @@ struct WaveformEditor: View {
         GeometryReader { geometry in
             let width = geometry.size.width
             ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 8).fill(Theme.waveBackground)
+                RoundedRectangle(cornerRadius: 8).fill(Theme.desk.waveBackground.color)
                 WaveformShape(waveform: waveform, duration: duration)
                     .equatable()
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -179,24 +180,24 @@ struct WaveformEditor: View {
         if let dragStart, let dragCurrent, abs(dragCurrent - dragStart) >= 4 {
             let lower = max(min(dragStart, dragCurrent), 0)
             let upper = min(max(dragStart, dragCurrent), width)
-            Rectangle().fill(Theme.loop).frame(width: upper - lower, height: height).offset(x: lower)
+            Rectangle().fill(Theme.desk.loopFill.color).frame(width: upper - lower, height: height).offset(x: lower)
         } else if isActive, let loop = model.loopRange {
             let lower = CGFloat(loop.lowerBound / duration) * width
             let upper = CGFloat(loop.upperBound / duration) * width
-            Rectangle().fill(Theme.loop)
+            Rectangle().fill(Theme.desk.loopFill.color)
                 .frame(width: max(upper - lower, 1), height: height)
-                .overlay(alignment: .leading) { Rectangle().fill(Theme.loopEdge).frame(width: 1.5) }
-                .overlay(alignment: .trailing) { Rectangle().fill(Theme.loopEdge).frame(width: 1.5) }
+                .overlay(alignment: .leading) { Rectangle().fill(Theme.desk.loopEdge.color).frame(width: 1.5) }
+                .overlay(alignment: .trailing) { Rectangle().fill(Theme.desk.loopEdge.color).frame(width: 1.5) }
                 .overlay(alignment: .topLeading) {
-                    Text("A").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.loopEdge).padding(2)
+                    Text("A").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.desk.loopEdge.color).padding(2)
                 }
                 .overlay(alignment: .topTrailing) {
-                    Text("B").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.loopEdge).padding(2)
+                    Text("B").font(.system(size: 9, weight: .bold)).foregroundStyle(Theme.desk.loopEdge.color).padding(2)
                 }
                 .offset(x: lower)
                 .allowsHitTesting(false)
         } else if isActive, let start = model.loopStart {
-            Rectangle().fill(Theme.loopEdge).frame(width: 1.5, height: height)
+            Rectangle().fill(Theme.desk.loopEdge.color).frame(width: 1.5, height: height)
                 .offset(x: CGFloat(start / duration) * width)
                 .allowsHitTesting(false)
         }
@@ -208,8 +209,8 @@ struct WaveformEditor: View {
             VStack(alignment: .leading, spacing: 0) {
                 Image(systemName: "flag.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(Theme.marker)
-                Rectangle().fill(Theme.marker.opacity(0.7)).frame(width: 1)
+                    .foregroundStyle(Theme.desk.marker.color)
+                Rectangle().fill(Theme.desk.marker.color.opacity(0.7)).frame(width: 1)
             }
             .frame(height: height, alignment: .top)
             .offset(x: x)
@@ -252,8 +253,8 @@ private struct BarGridOverlay: View, Equatable {
                 if index % labelEvery == 0 { labels.append((bar, x)) }
                 bar += 1
             }
-            context.fill(beats, with: .color(Theme.gridBeat))
-            context.fill(bars, with: .color(Theme.gridBar))
+            context.fill(beats, with: .color(Theme.desk.gridBeat.color))
+            context.fill(bars, with: .color(Theme.desk.gridBar.color))
             for label in labels {
                 BarLabel.draw(label.bar, at: label.x, height: size.height, fontSize: 9, in: context)
             }
@@ -266,10 +267,10 @@ private enum BarLabel {
     static func draw(_ bar: Int, at x: Double, height: Double, fontSize: CGFloat, in context: GraphicsContext) {
         let text = context.resolve(Text("\(bar)")
             .font(.system(size: fontSize, weight: .bold, design: .monospaced))
-            .foregroundColor(Theme.gridText))
+            .foregroundColor(Color(nsColor: .labelColor)))
         let measured = text.measure(in: CGSize(width: 80, height: 30))
         let rect = CGRect(x: x + 2, y: height - measured.height - 3, width: measured.width + 5, height: measured.height + 1)
-        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Theme.waveBackground.opacity(0.88)))
+        context.fill(Path(roundedRect: rect, cornerRadius: 2), with: .color(Theme.desk.waveBackground.color.opacity(0.88)))
         context.draw(text, at: CGPoint(x: rect.minX + 2.5, y: rect.minY + 0.5), anchor: .topLeading)
     }
 }
@@ -321,13 +322,13 @@ private struct LiveWaveView: View {
                 path.addRect(CGRect(x: startX + CGFloat(bin / binsPerPoint), y: top, width: 1, height: max(bottom - top, 0.5)))
                 bin += binsPerPoint
             }
-            context.fill(path, with: .color(Theme.record))
+            context.fill(path, with: .color(Theme.device.record.color))
             // Above the audio, so a loud signal cannot hide the bars.
             drawGrid(in: context, size: size)
         }
-        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.waveBackground))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.desk.waveBackground.color))
         .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.record.opacity(0.7), lineWidth: 1.5))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.device.record.color.opacity(0.7), lineWidth: 1.5))
         .overlay(alignment: .topLeading) { LiveBarDisplay() }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Wellenform der laufenden Aufnahme")
@@ -357,8 +358,8 @@ private struct LiveWaveView: View {
             if (bar - grid.firstBar) % labelEvery == 0 { labels.append((bar, x)) }
             bar += 1
         }
-        context.fill(beats, with: .color(Theme.gridBeat))
-        context.fill(bars, with: .color(Theme.gridBar))
+        context.fill(beats, with: .color(Theme.desk.gridBeat.color))
+        context.fill(bars, with: .color(Theme.desk.gridBar.color))
         for label in labels {
             BarLabel.draw(label.bar, at: label.x, height: size.height, fontSize: 11, in: context)
         }
@@ -379,7 +380,7 @@ private struct LiveBarDisplay: View {
                 HStack(spacing: 4) {
                     ForEach(1...grid.beatsPerBar, id: \.self) { beat in
                         RoundedRectangle(cornerRadius: 2)
-                            .fill(beat == position?.beat ? (beat == 1 ? Theme.record : Theme.meterAmber) : Color.secondary.opacity(0.3))
+                            .fill(beat == position?.beat ? (beat == 1 ? Theme.device.record.color : Theme.device.meterAmber.color) : Color.secondary.opacity(0.3))
                             .frame(width: grid.beatsPerBar > 7 ? 10 : 16, height: 16)
                     }
                 }
@@ -411,7 +412,7 @@ private struct CompareStack: View {
                         Button(index == 0 ? "A" : "B") {
                             if model.compareActive != index { model.switchCompare() }
                         }
-                        .buttonStyle(DeckKeyStyle(isOn: model.compareActive == index))
+                        .buttonStyle(.hardwareKey(model.compareActive == index ? .on : .normal))
                         .help("Zu diesem Take wechseln (Taste B)")
                         .accessibilityLabel("Take \(index == 0 ? "A" : "B"): \(recording.name)")
 
@@ -419,7 +420,7 @@ private struct CompareStack: View {
                             WaveformEditor(recording: recording, waveform: waveform, isActive: model.compareActive == index)
                                 .opacity(model.compareActive == index ? 1 : 0.5)
                         } else {
-                            RoundedRectangle(cornerRadius: 8).fill(Theme.waveBackground)
+                            RoundedRectangle(cornerRadius: 8).fill(Theme.desk.waveBackground.color)
                         }
 
                         VStack(alignment: .leading, spacing: 2) {
@@ -453,7 +454,7 @@ private struct TransportBar: View {
                 Label(playhead.isPlaying ? "Pause" : "Abspielen", systemImage: playhead.isPlaying ? "pause.fill" : "play.fill")
                     .frame(minWidth: 84)
             }
-            .buttonStyle(DeckKeyStyle(isOn: playhead.isPlaying))
+            .buttonStyle(.hardwareKey(playhead.isPlaying ? .on : .normal))
             .disabled(model.recordings.isEmpty)
             .help("Abspielen oder anhalten (Leertaste)")
 
@@ -466,14 +467,14 @@ private struct TransportBar: View {
             Button(action: model.toggleLoop) {
                 Label(loopTitle, systemImage: "repeat")
             }
-            .buttonStyle(DeckKeyStyle(isOn: model.loopRange != nil))
+            .buttonStyle(.hardwareKey(model.loopRange != nil ? .on : .normal))
             .disabled(model.current == nil)
             .help("Taste L: erster Druck setzt A, zweiter setzt B, dritter löscht. Oder in der Wellenform ziehen.")
 
             Button(action: model.addMarker) {
                 Label("Marker", systemImage: "flag")
             }
-            .buttonStyle(DeckKeyStyle())
+            .buttonStyle(.hardwareKey())
             .disabled(model.current == nil && !model.isRecording)
             .help("Marker an der aktuellen Stelle setzen (M), auch während der Aufnahme")
 
@@ -485,10 +486,10 @@ private struct TransportBar: View {
 
             if !model.compareIDs.isEmpty {
                 Button("Vergleich beenden", action: model.clearCompare)
-                    .buttonStyle(DeckKeyStyle())
+                    .buttonStyle(.hardwareKey())
             } else if model.canCompare {
                 Button("Vergleichen", action: model.startCompare)
-                    .buttonStyle(DeckKeyStyle())
+                    .buttonStyle(.hardwareKey())
                     .help("Die zwei markierten Takes direkt vergleichen")
             } else if let recording = model.current, recording.status == .open, !model.isRecording {
                 ReviewButtons(recording: recording)
@@ -546,13 +547,13 @@ private struct BarControls: View {
             Button(action: model.toggleBarLoop) {
                 Label(model.isLoopingBars ? "Loop aus" : "Takte loopen", systemImage: "repeat")
             }
-            .buttonStyle(DeckKeyStyle(isOn: model.isLoopingBars))
+            .buttonStyle(.hardwareKey(model.isLoopingBars ? .on : .normal))
             .help("Spielt die gewählten Takte in Schleife. In der Wellenform ziehen wählt ganze Takte, mit ⌥ frei.")
 
             Button(action: model.recordSelectedBars) {
                 Label("Takte neu aufnehmen", systemImage: "record.circle")
             }
-            .buttonStyle(DeckKeyStyle())
+            .buttonStyle(.hardwareKey())
             .disabled(!model.canRecordBars)
             .help("Zählt ein und nimmt die gewählten Takte im Tempo dieser Aufnahme neu auf. Das wird eine eigene Aufnahme, das Original bleibt unverändert.")
 
@@ -613,7 +614,7 @@ private struct ReviewButtons: View {
             } label: {
                 Label("Behalten", systemImage: "checkmark")
             }
-            .buttonStyle(DeckKeyStyle())
+            .buttonStyle(.hardwareKey())
             .help("Take behalten (K)")
 
             Button {
@@ -621,13 +622,13 @@ private struct ReviewButtons: View {
             } label: {
                 Label("Verwerfen", systemImage: "trash")
             }
-            .buttonStyle(DeckKeyStyle())
+            .buttonStyle(.hardwareKey())
             .help("In den Papierkorb legen (⌘⌫). Lässt sich mit ⌘Z rückgängig machen.")
 
             Button(action: model.toggleRecord) {
                 Label("Nochmal", systemImage: "arrow.counterclockwise")
             }
-            .buttonStyle(DeckKeyStyle())
+            .buttonStyle(.hardwareKey())
             .help("Neu aufnehmen (R). Dieser Take bleibt als „Offen“ erhalten.")
         }
     }
@@ -650,8 +651,8 @@ struct BannerView: View {
     private var tint: Color {
         switch banner.kind {
         case .info: return .accentColor
-        case .warning: return Theme.meterAmber
-        case .error: return Theme.meterRed
+        case .warning: return Theme.device.meterAmber.color
+        case .error: return Theme.device.meterRed.color
         }
     }
 

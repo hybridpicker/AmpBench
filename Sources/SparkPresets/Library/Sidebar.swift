@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// A short line for a preset: the amp and the effects that are on, gate and reverb aside.
@@ -70,7 +71,7 @@ struct Sidebar: View {
                 .padding(.top, 8)
                 // Only while nothing is open in the editor, whose display has its own meter.
                 if model.editor.preset == nil {
-                    LoadMeter(transfer: link.transfer, segments: 18, height: 4, showsLabel: false)
+                    LoadMeter(transfer: link.transfer, height: 4, showsLabel: false)
                         .padding(.horizontal, 12)
                 }
                 Spacer().frame(height: 8)
@@ -92,10 +93,10 @@ private struct SlotRow: View {
         HStack(spacing: 9) {
             Text("\(slot + 1)")
                 .font(.system(size: 12, weight: .bold, design: .monospaced))
-                .foregroundStyle(isActive ? Color.black : Theme.amberDim)
+                .foregroundStyle(isActive ? Color.black : Theme.device.amberDim.color)
                 .frame(width: 20, height: 20)
-                .background(Circle().fill(isActive ? Theme.amberHot : Theme.lampOff))
-                .shadow(color: isActive ? Theme.amberHot.opacity(0.7) : .clear, radius: 4)
+                .background(Circle().fill(isActive ? Theme.device.amberHot.color : Theme.device.lampOff.color))
+                .shadow(color: isActive ? Theme.device.amberHot.color.opacity(0.7) : .clear, radius: 4)
             VStack(alignment: .leading, spacing: 1) {
                 Text(preset?.name ?? (link.status == .connected ? "Wird gelesen …" : "–"))
                     .lineLimit(1)
@@ -108,7 +109,7 @@ private struct SlotRow: View {
             if isActive {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(Theme.amberHot)
+                    .foregroundStyle(Theme.device.amberHot.color)
                     .help("Spielt gerade")
             }
         }
@@ -178,7 +179,7 @@ struct ConnectionStatus: View {
             Circle()
                 .fill(lamp)
                 .frame(width: 8, height: 8)
-                .shadow(color: link.status == .connected ? Theme.on.opacity(0.8) : .clear, radius: 3)
+                .shadow(color: link.status == .connected ? Theme.device.on.color.opacity(0.8) : .clear, radius: 3)
             VStack(alignment: .leading, spacing: 0) {
                 Text(title).font(.caption.weight(.semibold)).lineLimit(1)
                 if let detail { Text(detail).font(.caption2).foregroundStyle(.secondary).lineLimit(2) }
@@ -192,8 +193,8 @@ struct ConnectionStatus: View {
 
     private var lamp: Color {
         switch link.status {
-        case .connected: Theme.on
-        case .searching, .connecting, .starting: Theme.amberHot
+        case .connected: Theme.device.on.color
+        case .searching, .connecting, .starting: Theme.device.amberHot.color
         default: .red
         }
     }

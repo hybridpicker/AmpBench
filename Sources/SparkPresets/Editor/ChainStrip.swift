@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// The signal chain as a row of pedals with the amp head in the middle. A click on a unit shows its controls
@@ -60,23 +61,23 @@ private struct PedalUnit: View {
     private var isSelected: Bool { editor.focus == place }
 
     var body: some View {
-        PedalShell(place: place, isOn: effect.isOn, isSelected: isSelected) {
+        PedalShell(nameplate: width < 104 ? place.shortTitle : place.title, accent: place.color, isOn: effect.isOn, isSelected: isSelected) {
             VStack(spacing: 6) {
-                LED(isOn: effect.isOn, color: Theme.accent(place), size: 8)
+                LampDot(color: place.swatch, isOn: effect.isOn, size: 8)
                     .padding(.top, 10)
                 Button {
                     editor.focus = place
                 } label: {
                     VStack(spacing: 2) {
-                        PanelLabel(width < 104 ? place.shortTitle : place.title, color: Theme.accent(place).opacity(0.95))
+                        PanelLabel(width < 104 ? place.shortTitle : place.title, color: place.color.opacity(0.95))
                         Text(info.name)
                             .font(.system(size: 11, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Theme.label)
+                            .foregroundStyle(Theme.device.label.color)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .minimumScaleFactor(0.75)
                             .frame(height: 28)
-                        MiniKnobs(effect: effect, info: info, accent: Theme.accent(place), width: width)
+                        MiniKnobs(effect: effect, info: info, accent: place.color, width: width)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
@@ -91,7 +92,6 @@ private struct PedalUnit: View {
                 }
                 .padding(.bottom, 9)
             }
-            .padding(.horizontal, 6)
             .frame(width: width, height: 146)
         }
     }
@@ -113,11 +113,11 @@ private struct AmpUnit: View {
                 VStack(spacing: 7) {
                     BrassPanel {
                         HStack(spacing: 6) {
-                            LED(isOn: effect.isOn, color: Theme.amberHot, size: 9)
+                            LampDot(tone: .hot, isOn: effect.isOn, size: 9)
                             Text(info.name)
                                 .font(.system(size: 13, weight: .bold, design: .serif))
                                 .italic()
-                                .foregroundStyle(Theme.amber)
+                                .foregroundStyle(Theme.device.amber.color)
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.7)
                             Spacer(minLength: 0)
@@ -125,10 +125,10 @@ private struct AmpUnit: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
                     }
-                    MiniKnobs(effect: effect, info: info, accent: Theme.accent(.amp), width: width)
+                    MiniKnobs(effect: effect, info: info, accent: ChainPlace.amp.color, width: width)
                     Grille().frame(height: 40)
                     if let group = info.group {
-                        PanelLabel(group.rawValue, color: Theme.amberDim)
+                        PanelLabel(group.rawValue, color: Theme.device.amberDim.color)
                     }
                 }
                 .padding(9)

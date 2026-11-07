@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// Name, BPM and state of the preset in the editor, with undo, A/B and saving.
@@ -16,13 +17,13 @@ struct EditorHeader: View {
 
     var body: some View {
         HStack(alignment: .center, spacing: 16) {
-            AmberDisplay {
+            Display {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
                         TextField("Name", text: $name)
                             .textFieldStyle(.plain)
                             .font(.system(size: 22, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Theme.amber)
+                            .foregroundStyle(Theme.device.amber.color)
                             .focused($field, equals: .name)
                             .onSubmit(commitName)
                             .disabled(editor.isLocked)
@@ -32,19 +33,19 @@ struct EditorHeader: View {
                     HStack(spacing: 8) {
                         Text(sourceText)
                             .font(.system(size: 11, weight: .medium, design: .rounded))
-                            .foregroundStyle(Theme.amberDim)
+                            .foregroundStyle(Theme.device.amberDim.color)
                             .lineLimit(1)
                             .fixedSize()
                         ZStack(alignment: .leading) {
                             if description.isEmpty && field != .description {
                                 Text("Beschreibung hinzufügen")
-                                    .foregroundStyle(Theme.amberDim.opacity(0.55))
+                                    .foregroundStyle(Theme.device.amberDim.color.opacity(0.55))
                                     .lineLimit(1)
                                     .accessibilityHidden(true)
                             }
                             TextField("", text: $description)
                                 .textFieldStyle(.plain)
-                                .foregroundStyle(Theme.amberDim)
+                                .foregroundStyle(Theme.device.amberDim.color)
                                 .focused($field, equals: .description)
                                 .onSubmit(commitDescription)
                                 .disabled(editor.isLocked)
@@ -76,17 +77,17 @@ struct EditorHeader: View {
         HStack(spacing: 8) {
             if editor.isModified && !editor.showsOriginal {
                 HStack(spacing: 4) {
-                    Circle().fill(Theme.amberHot).frame(width: 6, height: 6)
-                    PanelLabel("Geändert", color: Theme.amberHot)
+                    Circle().fill(Theme.device.amberHot.color).frame(width: 6, height: 6)
+                    PanelLabel("Geändert", color: Theme.device.amberHot.color)
                 }
                 .accessibilityElement(children: .combine)
             }
             if editor.showsOriginal {
-                PanelLabel("A · Gespeichert", color: Theme.amber)
+                PanelLabel("A · Gespeichert", color: Theme.device.amber.color)
             }
             HStack(spacing: 4) {
-                LED(isOn: editor.isHeard, color: Theme.on, size: 7)
-                PanelLabel("Live", color: editor.isHeard ? Theme.on : Theme.labelDim)
+                LampDot(tone: .on, isOn: editor.isHeard, size: 7)
+                PanelLabel("Live", color: editor.isHeard ? Theme.device.on.color : Theme.device.labelDim.color)
             }
             .help(editor.isHeard ? "Der Verstärker spielt diesen Stand, Änderungen sind sofort hörbar."
                                  : "Die erste Änderung schickt das Preset zum Verstärker, ohne einen Platz zu überschreiben.")

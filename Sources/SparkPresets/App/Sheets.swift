@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 struct BannerView: View {
@@ -41,8 +42,8 @@ struct BannerView: View {
 
     private func color(_ kind: Banner.Kind) -> Color {
         switch kind {
-        case .info: Theme.on
-        case .warning: Theme.amberHot
+        case .info: Theme.device.on.color
+        case .warning: Theme.device.amberHot.color
         case .error: .red
         }
     }
@@ -135,25 +136,25 @@ struct TemplateSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(name)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.amber)
+                    .foregroundStyle(Theme.device.amber.color)
                 Text(summary)
                     .font(.caption)
-                    .foregroundStyle(Theme.label)
+                    .foregroundStyle(Theme.device.label.color)
                     .lineLimit(2, reservesSpace: true)
                 HStack(spacing: 4) {
                     ForEach(Array(preset.effects.enumerated()), id: \.offset) { index, effect in
                         let place = ChainPlace(rawValue: index) ?? .modulation
-                        LED(isOn: effect.isOn, color: Theme.accent(place), size: 7)
+                        LampDot(color: place.swatch, isOn: effect.isOn, size: 7)
                     }
                 }
                 Text(ChainSummary.text(preset))
                     .font(.caption2)
-                    .foregroundStyle(Theme.labelDim)
+                    .foregroundStyle(Theme.device.labelDim.color)
                     .lineLimit(1)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.faceGradient))
+            .background(RoundedRectangle(cornerRadius: 10).fill(Theme.device.faceGradient))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.1)))
             .contentShape(RoundedRectangle(cornerRadius: 10))
         }

@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// The editor: the preset's name and state on top, the signal chain on a dark board, the unit in focus below it.
@@ -20,7 +21,7 @@ struct EditorView: View {
                         if preset.effects.count != ChainPlace.allCases.count {
                             Text("Dieses Preset hat \(preset.effects.count) statt 7 Effekte. Die Plätze sind daher nummeriert.")
                                 .font(.caption)
-                                .foregroundStyle(Theme.labelDim)
+                                .foregroundStyle(Theme.device.labelDim.color)
                         }
                     }
                     .padding(18)
@@ -34,7 +35,7 @@ struct EditorView: View {
 
     private var board: some View {
         ZStack {
-            Theme.board
+            Theme.device.board.color
             LinearGradient(colors: [.white.opacity(0.04), .clear], startPoint: .top, endPoint: .center)
         }
     }

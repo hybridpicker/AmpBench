@@ -1,5 +1,6 @@
 import CoreAudio
 import SparkCore
+import SparkDesign
 import SwiftUI
 
 /// The top panel: recording state, level, source and file format, devices, metronome.
@@ -25,34 +26,27 @@ struct DeckView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .background(
-            LinearGradient(colors: [Theme.faceplateTop, Theme.faceplateBottom], startPoint: .top, endPoint: .bottom)
+            LinearGradient(colors: [Theme.device.faceTop.color, Theme.device.faceBottom.color], startPoint: .top, endPoint: .bottom)
         )
         .overlay(alignment: .bottom) {
-            Rectangle().fill(Theme.faceplateLine).frame(height: 1)
+            Rectangle().fill(Theme.device.faceEdge.color).frame(height: 1)
         }
     }
 
     private var recordKey: some View {
-        Button(action: model.toggleRecord) {
-            ZStack {
-                switch model.phase {
-                case .recording:
-                    RoundedRectangle(cornerRadius: 4).fill(.white).frame(width: 22, height: 22)
-                case .countIn(let beats):
-                    Text("\(beats)").font(.system(size: 24, weight: .heavy, design: .rounded)).foregroundStyle(.white)
-                case .idle, .preparing:
-                    EmptyView()
-                }
-            }
-            .frame(width: 92, height: 92)
-            .contentShape(Circle())
+        RecordKey(state: recordState, size: 92, action: model.toggleRecord)
+            .disabled(!model.libraryIsUsable || (model.selectedInput == nil && !model.isRecording))
+            .help(recordHelp)
+            .accessibilityLabel(recordHelp)
+            .accessibilityHint("Taste R")
+    }
+
+    private var recordState: RecordKey.State {
+        switch model.phase {
+        case .recording: .recording
+        case .countIn(let beats): .countIn(beats)
+        case .idle, .preparing: .idle
         }
-        .buttonStyle(RecordKeyStyle(isActive: model.isRecording, reduceMotion: reduceMotion))
-        .frame(width: 92, height: 92)
-        .disabled(!model.libraryIsUsable || (model.selectedInput == nil && !model.isRecording))
-        .help(recordHelp)
-        .accessibilityLabel(recordHelp)
-        .accessibilityHint("Taste R")
     }
 
     private var recordHelp: String {
@@ -86,9 +80,9 @@ private struct RecordDisplay: View {
     }
 
     private var stateColor: Color {
-        if model.isRecording { return Theme.record }
-        if model.selectedInput == nil { return Theme.meterAmber }
-        return model.isListening ? Theme.listening : Theme.displayText
+        if model.isRecording { return Theme.device.record.color }
+        if model.selectedInput == nil { return Theme.device.meterAmber.color }
+        return model.isListening ? Theme.device.listening.color : Theme.device.amber.color
     }
 
     var body: some View {
@@ -107,7 +101,7 @@ private struct RecordDisplay: View {
             }
             Text(TimeText.clock(meter.seconds, tenths: true))
                 .font(.system(size: 34, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(model.isRecording ? Color.white : Theme.displayText)
+                .foregroundStyle(model.isRecording ? Color.white : Theme.device.amber.color)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             statusLine
@@ -116,10 +110,10 @@ private struct RecordDisplay: View {
         .padding(.vertical, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: 92)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.display))
+        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.device.display.color))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(model.isRecording ? Theme.record : Theme.displayLine, lineWidth: model.isRecording ? 2 : 1)
+                .strokeBorder(model.isRecording ? Theme.device.record.color : Theme.device.displayEdge.color, lineWidth: model.isRecording ? 2 : 1)
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { pulse = true }
@@ -136,22 +130,22 @@ private struct RecordDisplay: View {
             Text((position.map { "Takt \($0.bar) · Schlag \($0.beat)" } ?? "Gleich geht's los")
                  + (model.pendingMarkerCount > 0 ? " · \(model.pendingMarkerCount) Marker" : ""))
                 .font(.system(size: 11, weight: .semibold, design: .monospaced).monospacedDigit())
-                .foregroundStyle(Theme.displayText)
+                .foregroundStyle(Theme.device.amber.color)
                 .lineLimit(1)
         } else if model.isRetroOn {
             Text("Puffer \(TimeText.clock(meter.retroSeconds)) von \(TimeText.clock(model.retroMinutes * 60))")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.listening)
+                .foregroundStyle(Theme.device.listening.color)
                 .lineLimit(1)
         } else if model.pendingMarkerCount > 0, model.isRecording {
             Text("\(model.pendingMarkerCount) Marker")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.displayText)
+                .foregroundStyle(Theme.device.amber.color)
         } else {
             Text(model.isRecording ? "Gespeichert wird laufend"
                  : model.selectedInput == nil ? "Ohne Spark keine Aufnahme" : "Taste R nimmt auf")
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(Theme.displayDim)
+                .foregroundStyle(Theme.device.amberDim.color)
                 .lineLimit(1)
         }
     }
@@ -194,7 +188,7 @@ private struct MeterPanel: View {
             }
             .frame(height: 16)
             .padding(4)
-            .background(RoundedRectangle(cornerRadius: 5).fill(Theme.display))
+            .background(RoundedRectangle(cornerRadius: 5).fill(Theme.device.display.color))
             .accessibilityElement()
             .accessibilityLabel("Eingangspegel")
             .accessibilityValue(meterValue)
@@ -203,17 +197,17 @@ private struct MeterPanel: View {
 
             HStack(spacing: 12) {
                 Button(action: model.clearClip) {
-                    Lamp(text: "ÜBERSTEUERT", color: Theme.meterRed, isOn: meter.clipped)
+                    Lamp("ÜBERSTEUERT", tone: .record, isOn: meter.clipped)
                 }
                 .buttonStyle(.plain)
                 .help("Das Signal hat die Vollaussteuerung erreicht. Klick setzt die Anzeige zurück.")
                 .accessibilityLabel(meter.clipped ? "Übersteuert, zurücksetzen" : "Keine Übersteuerung")
 
-                Lamp(text: signalText, color: Theme.meterAmber, isOn: model.isListening && meter.signal != .ok)
+                Lamp(signalText, tone: .amber, isOn: model.isListening && meter.signal != .ok)
                     .accessibilityLabel(signalAccessibilityText)
 
                 if meter.droppedFrames > 0 {
-                    Lamp(text: "AUSSETZER", color: Theme.meterRed, isOn: true)
+                    Lamp("AUSSETZER", tone: .record, isOn: true)
                         .accessibilityLabel("Aussetzer in der Aufnahme")
                 }
                 Spacer(minLength: 4)
@@ -244,11 +238,11 @@ private struct MeterPanel: View {
     }
 
     private func color(_ index: Int, lit: Bool) -> Color {
-        guard lit else { return Theme.meterOff }
+        guard lit else { return Theme.device.meterOff.color }
         let db = Self.floorDB * (1 - Float(index) / Float(Self.segments))
-        if db >= -3 { return Theme.meterRed }
-        if db >= -12 { return Theme.meterAmber }
-        return Theme.meterGreen
+        if db >= -3 { return Theme.device.meterRed.color }
+        if db >= -12 { return Theme.device.meterAmber.color }
+        return Theme.device.meterGreen.color
     }
 }
 
@@ -260,7 +254,7 @@ private struct MeterScale: View {
             ForEach(marks, id: \.self) { mark in
                 Text("\(Int(mark))")
                     .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(Theme.engraved)
+                    .foregroundStyle(Theme.device.engraving.color)
                     .fixedSize()
                     .position(x: labelX(mark, width: geometry.size.width), y: geometry.size.height / 2)
             }
@@ -317,7 +311,7 @@ private struct DevicePanel: View {
                 if model.inputs.isEmpty {
                     Label("Kein Spark verbunden", systemImage: "exclamationmark.triangle.fill")
                         .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(Theme.engraved)
+                        .foregroundStyle(Theme.device.engraving.color)
                         .lineLimit(1)
                         .help("Die App nimmt nur von einem Spark über USB auf. Verbinde den Spark und schalte ihn ein.")
                 } else {
@@ -378,7 +372,7 @@ private struct DevicePanel: View {
     private func warning(_ text: String, help: String) -> some View {
         Label(text, systemImage: "exclamationmark.triangle.fill")
             .font(.system(size: 10, weight: .semibold))
-            .foregroundStyle(Theme.engraved)
+            .foregroundStyle(Theme.device.engraving.color)
             .lineLimit(1)
             .help(help)
             .accessibilityLabel(help)
@@ -398,7 +392,7 @@ private struct MetronomePanel: View {
                 Button(action: model.toggleClick) {
                     Image(systemName: "metronome.fill")
                 }
-                .buttonStyle(DeckKeyStyle(isOn: model.metronome.clickEnabled))
+                .buttonStyle(.hardwareKey(model.metronome.clickEnabled ? .on : .normal))
                 .help("Klick an oder aus (N). Er ist nur beim Abspielen und Aufnehmen zu hören.")
                 .accessibilityLabel(model.metronome.clickEnabled ? "Klick ausschalten" : "Klick einschalten")
                 .accessibilityHint("Der Klick ist nur beim Abspielen und Aufnehmen zu hören.")
@@ -417,7 +411,7 @@ private struct MetronomePanel: View {
             }
             HStack(spacing: 6) {
                 Button("Tap", action: model.tap)
-                    .buttonStyle(DeckKeyStyle())
+                    .buttonStyle(.hardwareKey())
                     .disabled(model.phase != .idle)
                     .help("Tempo eintippen (T)")
                     .accessibilityLabel("Tempo eintippen")
@@ -434,7 +428,7 @@ private struct MetronomePanel: View {
                 } label: {
                     Image(systemName: "slider.horizontal.3")
                 }
-                .buttonStyle(DeckKeyStyle())
+                .buttonStyle(.hardwareKey())
                 .help("Einzähler, Lautstärke und Klickausgang")
                 .accessibilityLabel("Metronom-Einstellungen")
                 .popover(isPresented: $showDetails) { MetronomeDetails().padding(14).frame(width: 300) }
@@ -457,7 +451,7 @@ private struct MetronomePanel: View {
         return HStack(spacing: 2) {
             ForEach(0..<min(beatsPerBar, 4), id: \.self) { index in
                 Circle()
-                    .fill(current == index ? Theme.meterAmber : Theme.meterOff)
+                    .fill(current == index ? Theme.device.meterAmber.color : Theme.device.meterOff.color)
                     .frame(width: 6, height: 6)
             }
         }

@@ -1,4 +1,5 @@
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// The controls of the unit in focus: its model, on and off, and every parameter.
@@ -20,13 +21,13 @@ struct UnitPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: 14)
-                    .fill(Theme.faceGradient)
+                    .fill(Theme.device.faceGradient)
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(
                         LinearGradient(colors: [.white.opacity(0.16), .black.opacity(0.5)], startPoint: .top,
                                        endPoint: .bottom)))
                     .overlay(alignment: .top) {
-                        Capsule().fill(Theme.accent(place)).frame(height: 3).padding(.horizontal, 18)
-                            .shadow(color: Theme.accent(place).opacity(0.7), radius: 4)
+                        Capsule().fill(place.color).frame(height: 3).padding(.horizontal, 18)
+                            .shadow(color: place.color.opacity(0.7), radius: 4)
                     }
                     .shadow(color: .black.opacity(0.5), radius: 10, y: 5)
             )
@@ -36,26 +37,26 @@ struct UnitPanel: View {
     private func header(index: Int, place: ChainPlace, effect: SparkPreset.Effect, info: ModelInfo) -> some View {
         HStack(alignment: .top, spacing: 14) {
             VStack(alignment: .leading, spacing: 5) {
-                PanelLabel(place.title, color: Theme.accent(place))
+                PanelLabel(place.title, color: place.color)
                 ModelPicker(index: index, place: place, current: info)
                 Text(info.summary)
                     .font(.system(size: 12))
-                    .foregroundStyle(Theme.label)
+                    .foregroundStyle(Theme.device.label.color)
                     .lineLimit(2)
                 if let inspiration = info.inspiration {
                     Text("Vorbild: \(inspiration)")
                         .font(.system(size: 11))
-                        .foregroundStyle(Theme.labelDim)
+                        .foregroundStyle(Theme.device.labelDim.color)
                 }
             }
             Spacer(minLength: 8)
             VStack(spacing: 6) {
-                LED(isOn: effect.isOn, color: Theme.accent(place), size: 11)
+                LampDot(color: place.swatch, isOn: effect.isOn, size: 11)
                 Footswitch(isOn: effect.isOn, label: "\(place.title) an oder aus", size: 38,
                            isEnabled: !editor.isLocked) {
                     editor.setOn(place: index, !effect.isOn)
                 }
-                PanelLabel(effect.isOn ? "An" : "Aus", color: effect.isOn ? Theme.amber : Theme.labelDim)
+                PanelLabel(effect.isOn ? "An" : "Aus", color: effect.isOn ? Theme.device.amber.color : Theme.device.labelDim.color)
             }
         }
     }
@@ -72,7 +73,7 @@ private struct ModelPicker: View {
         if ModelCatalog.models(for: place).count < 2 {
             Text(current.name)
                 .font(.system(size: 22, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.amber)
+                .foregroundStyle(Theme.device.amber.color)
         } else {
             menu
         }
@@ -95,10 +96,10 @@ private struct ModelPicker: View {
             HStack(spacing: 6) {
                 Text(current.name)
                     .font(.system(size: 22, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.amber)
+                    .foregroundStyle(Theme.device.amber.color)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(Theme.amberDim)
+                    .foregroundStyle(Theme.device.amberDim.color)
             }
         }
         .menuStyle(.button)
@@ -142,7 +143,7 @@ private struct ParameterGrid: View {
         if visible.isEmpty {
             Text("Dieses Modell hat keine einstellbaren Regler.")
                 .font(.callout)
-                .foregroundStyle(Theme.labelDim)
+                .foregroundStyle(Theme.device.labelDim.color)
         }
     }
 
@@ -152,19 +153,19 @@ private struct ParameterGrid: View {
         switch parameterInfo.kind {
         case .toggle(let off, let on):
             LeverSwitch(name: parameterInfo.name, isOn: parameter.value >= 0.5, off: off, on: on,
-                        accent: Theme.accent(place), isEnabled: !editor.isLocked) {
+                        accent: place.color, isEnabled: !editor.isLocked) {
                 editor.setParameter(place: index, index: parameter.index, value: parameter.value >= 0.5 ? 0 : 1)
             }
         case .selector(let options):
-            rotary(parameter, parameterInfo, mode: .steps(options), start: start)
+            rotary(parameter, parameterInfo, mode: .steps(options.map(\.value)), start: start)
         default:
             rotary(parameter, parameterInfo, mode: .continuous, start: start)
         }
     }
 
-    private func rotary(_ parameter: SparkPreset.Parameter, _ parameterInfo: ParameterInfo, mode: RotaryControl.Mode,
+    private func rotary(_ parameter: SparkPreset.Parameter, _ parameterInfo: ParameterInfo, mode: Knob.Mode,
                         start: Float?) -> some View {
-        RotaryControl(name: parameterInfo.name, value: parameter.value, mode: mode, accent: Theme.accent(place),
+        Knob(name: parameterInfo.name, value: parameter.value, mode: mode, accent: place.color,
                       size: 58, startValue: start, isEnabled: !editor.isLocked,
                       display: parameterInfo.display,
                       onBegin: { editor.beginGesture() },

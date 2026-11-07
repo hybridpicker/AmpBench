@@ -1,5 +1,6 @@
 import AppKit
 import SparkCore
+import SparkDesign
 import SwiftUI
 
 /// Launch options. `--library` points the whole app at another folder, with its own settings, for testing.

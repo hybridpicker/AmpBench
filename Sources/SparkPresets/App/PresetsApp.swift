@@ -4,24 +4,34 @@ import SwiftUI
 
 @main
 struct PresetsApp: App {
-    @StateObject private var model = PresetsModel()
+    @MainActor static let sharedModel = PresetsModel()
+    @StateObject private var model = PresetsApp.sharedModel
+
+    init() {
+        if Snapshot.isActive { Snapshot.openWindowIfNeeded() }
+    }
 
     var body: some Scene {
         Window("Spark Presets", id: "main") {
-            ContentView()
-                .environmentObject(model)
-                .environmentObject(model.link)
-                .environmentObject(model.editor)
-                .frame(minWidth: 900, minHeight: 600)
-                .task {
-                    Snapshot.prepare()
-                    model.start(bluetooth: !Snapshot.isOffline)
-                    await Snapshot.run(model)
-                    await LiveSelfTest.run(model)
-                }
+            Self.root(model)
         }
         .defaultSize(width: 1180, height: 780)
         .commands { PresetCommands(model: model) }
+    }
+
+    /// The window's content, also for the window the snapshot opens itself.
+    @MainActor static func root(_ model: PresetsModel) -> some View {
+        ContentView()
+            .environmentObject(model)
+            .environmentObject(model.link)
+            .environmentObject(model.editor)
+            .frame(minWidth: 900, minHeight: 600)
+            .task {
+                Snapshot.prepare()
+                model.start(bluetooth: !Snapshot.isOffline)
+                await Snapshot.run(model)
+                await LiveSelfTest.run(model)
+            }
     }
 }
 

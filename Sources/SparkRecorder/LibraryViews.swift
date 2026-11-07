@@ -1,5 +1,6 @@
 import Charts
 import SparkCore
+import SparkDesign
 import SwiftUI
 
 /// The lower part of the window: library on the left, the selected recording on the right.
@@ -204,7 +205,7 @@ struct RecordingsPane: View {
             TableColumn("Stück") { recording in
                 HStack(spacing: 3) {
                     if model.isBestTake(recording) {
-                        Image(systemName: "crown.fill").foregroundStyle(Theme.loopEdge).accessibilityLabel("Bester Take")
+                        Image(systemName: "crown.fill").foregroundStyle(Theme.desk.loopEdge.color).accessibilityLabel("Bester Take")
                     }
                     Text(model.pieceName(recording.pieceID)).lineLimit(1)
                 }
@@ -261,7 +262,7 @@ private struct NameCell: View {
             case .missing:
                 Image(systemName: "questionmark.folder").foregroundStyle(.secondary).accessibilityLabel("Datei fehlt")
             case .damaged:
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.meterAmber).accessibilityLabel("Datei beschädigt")
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.device.meterAmber.color).accessibilityLabel("Datei beschädigt")
             case .ok:
                 EmptyView()
             }
@@ -274,7 +275,7 @@ private struct NameCell: View {
                     .font(.system(size: 9, weight: .bold))
                     .padding(.horizontal, 4)
                     .padding(.vertical, 1)
-                    .background(Capsule().fill(Theme.loop))
+                    .background(Capsule().fill(Theme.desk.loopFill.color))
             }
             if recording.recoveredAfterInterruption {
                 Image(systemName: "bandage").foregroundStyle(.secondary)
@@ -356,7 +357,7 @@ private struct PieceRow: View {
                         model.toggleBestTake(take.id)
                     } label: {
                         Image(systemName: model.isBestTake(take) ? "crown.fill" : "crown")
-                            .foregroundStyle(model.isBestTake(take) ? Theme.loopEdge : Color.secondary)
+                            .foregroundStyle(model.isBestTake(take) ? Theme.desk.loopEdge.color : Color.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Als besten Take markieren")
@@ -374,7 +375,7 @@ private struct PieceRow: View {
                     model.setCurrentPiece(isCurrent ? nil : piece.id)
                 } label: {
                     Image(systemName: isCurrent ? "largecircle.fill.circle" : "circle")
-                        .foregroundStyle(isCurrent ? Theme.loopEdge : Color.secondary)
+                        .foregroundStyle(isCurrent ? Theme.desk.loopEdge.color : Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .help(isCurrent ? "Neue Aufnahmen landen in diesem Stück. Klick hebt das auf." : "Neue Aufnahmen in dieses Stück legen")
@@ -490,7 +491,7 @@ private struct StatsPane: View {
                 y: .value("Minuten", day.minutes),
                 width: .ratio(0.7)
             )
-            .foregroundStyle(Theme.chartBar)
+            .foregroundStyle(Theme.desk.chartBar.color)
             .cornerRadius(3)
             .accessibilityLabel(day.date.formatted(date: .abbreviated, time: .omitted))
             .accessibilityValue("\(Int(day.minutes.rounded())) Minuten")
@@ -527,7 +528,7 @@ private struct StatsPane: View {
                     Text(item.name).lineLimit(1).truncationMode(.middle).frame(width: 130, alignment: .leading)
                     GeometryReader { geometry in
                         UnevenRoundedRectangle(bottomTrailingRadius: 3, topTrailingRadius: 3)
-                            .fill(Theme.chartBar)
+                            .fill(Theme.desk.chartBar.color)
                             .frame(width: max(geometry.size.width * CGFloat(item.minutes / maximum), 1), height: 12)
                             .frame(maxHeight: .infinity)
                     }
@@ -611,7 +612,7 @@ private struct DetailsSection: View {
                         model.setRating(star, for: recording.id)
                     } label: {
                         Image(systemName: star <= recording.rating ? "star.fill" : "star")
-                            .foregroundStyle(star <= recording.rating ? Theme.loopEdge : Color.secondary)
+                            .foregroundStyle(star <= recording.rating ? Theme.desk.loopEdge.color : Color.secondary)
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(star) Sterne")
@@ -789,11 +790,11 @@ private struct EditSection: View {
                 if let after = edit.peakAfterGain(originalPeakDB: recording.peakDB) {
                     Label("Spitze nach Bearbeitung: \(dbText(after))", systemImage: after > 0 ? "exclamationmark.triangle.fill" : "gauge.with.dots.needle.33percent")
                         .font(.callout)
-                        .foregroundStyle(after > 0 ? Theme.meterRed : Color.secondary)
+                        .foregroundStyle(after > 0 ? Theme.device.meterRed.color : Color.secondary)
                     if after > 0 {
                         Text("Das übersteuert beim Export. Senke den Pegel.")
                             .font(.callout)
-                            .foregroundStyle(Theme.meterRed)
+                            .foregroundStyle(Theme.device.meterRed.color)
                     }
                 }
             }

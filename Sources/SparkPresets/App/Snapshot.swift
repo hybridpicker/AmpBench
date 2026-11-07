@@ -1,5 +1,6 @@
 import AppKit
 import SparkControl
+import SwiftUI
 
 /// Pictures of the app's own window for checking the design, without screen recording permission and without
 /// ever seeing anything but this window. Only runs when started with `--snapshot`:
@@ -23,6 +24,27 @@ enum Snapshot {
     static var isOffline: Bool { arguments["offline"] != nil }
     /// Window pictures skip the sidebar's translucent material, so it gets a plain background then.
     static let isActive = CommandLine.arguments.contains("--snapshot")
+
+    /// Started from a shell while the installed app runs, SwiftUI opens no window of its own. The snapshot then
+    /// opens one with the same content.
+    nonisolated static func openWindowIfNeeded() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            MainActor.assumeIsolated {
+                NSApp.activate(ignoringOtherApps: true)
+                guard !NSApp.windows.contains(where: \.isVisible) else { return }
+                let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
+                                      styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                                      backing: .buffered, defer: false)
+                let host = NSHostingView(rootView: PresetsApp.root(PresetsApp.sharedModel))
+                host.sceneBridgingOptions = [.toolbars, .title]
+                window.contentView = host
+                window.title = "Spark Presets"
+                window.isReleasedWhenClosed = false
+                window.center()
+                window.makeKeyAndOrderFront(nil)
+            }
+        }
+    }
 
     static func prepare() {
         switch arguments["appearance"] {

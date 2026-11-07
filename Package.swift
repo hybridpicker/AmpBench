@@ -14,7 +14,9 @@ let package = Package(
         .target(name: "CSparkRT", path: "Sources/CSparkRT"),
         // Everything without UI: capture, library, repair, edits, playback, export.
         .target(name: "SparkCore", dependencies: ["CSparkRT"], path: "Sources/SparkCore"),
-        .executableTarget(name: "SparkRecorder", dependencies: ["SparkCore"], path: "Sources/SparkRecorder"),
+        // The shared look of both apps: colors, keys, lamps, displays, knobs, pedals. Only SwiftUI and AppKit.
+        .target(name: "SparkDesign", path: "Sources/SparkDesign"),
+        .executableTarget(name: "SparkRecorder", dependencies: ["SparkCore", "SparkDesign"], path: "Sources/SparkRecorder"),
         // The amp's Bluetooth control protocol: framing, 7-bit packing, parsing. No Bluetooth code.
         .target(name: "SparkControl", path: "Sources/SparkControl"),
         // Experimental test tool: finds the amp over Bluetooth LE, reads presets and switches them.
@@ -24,10 +26,11 @@ let package = Package(
                                            "-Xlinker", "\(root)/Resources/SparkProbe-Info.plist"])]),
         // Spark Presets: a separate app that switches, saves and stores the amp's presets over Bluetooth LE.
         .executableTarget(
-            name: "SparkPresets", dependencies: ["SparkControl"], path: "Sources/SparkPresets",
+            name: "SparkPresets", dependencies: ["SparkControl", "SparkDesign"], path: "Sources/SparkPresets",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/SparkPresets-Info.plist"])]),
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),
         .testTarget(name: "SparkControlTests", dependencies: ["SparkControl"], path: "Tests/SparkControlTests"),
+        .testTarget(name: "SparkDesignTests", dependencies: ["SparkDesign"], path: "Tests/SparkDesignTests"),
     ]
 )

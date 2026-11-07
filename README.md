@@ -301,9 +301,9 @@ Bluetooth devices, and it makes no network connections. The Spark app on the pho
 amp takes only one control connection. For the same reason Spark Presets and `spark-probe` cannot talk to the amp at
 the same time: whichever starts second keeps searching.
 
-The pedals, the amp and their controls are drawn by the app (`Sources/SparkPresets/Design`) in its own style, after
-the app icon: dark device fronts, amber lamps, knurled knobs. They stay dark in light and dark mode, like hardware,
-and text on them keeps a contrast of at least 4.5 to 1. Animations are small and stop with "Reduce motion".
+The pedals, the amp and their controls come from the shared design module (see [Design](#design-gestaltung)). They
+stay dark in light and dark mode, like hardware, and text on them keeps a contrast of at least 4.5 to 1. Animations
+are small and stop with "Reduce motion".
 
 Two options help with checking the app. `--live-selftest <log>` edits a copy of slot 1 on the temporary place
 through the same code the window uses, reads back what the amp plays after every step and compares, then switches
@@ -313,12 +313,20 @@ change, on and off, a fast knob turn, a model change and its undo, BPM, and A/B 
 `--offline`, `--appearance light|dark`, `--size 900x600`, `--open template:Lead` and `--focus delay` (the sidebar's
 translucent material is missing from these pictures).
 
+## Design (Gestaltung)
+
+Both apps speak one design language, "Spark Studio": the instrument stays dark, the desk follows the system, keys
+instead of buttons and lamps instead of icons. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and
+the building blocks of `Sources/SparkDesign`, which both apps use. New views use those blocks; a new color or button
+style goes into SparkDesign and DESIGN.md first.
+
 ## Project layout
 
 ```
 Sources/CSparkRT       Realtime capture and click (C)
 Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
 Sources/SparkRecorder  The app (SwiftUI)
+Sources/SparkDesign    The shared design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
 Sources/SparkControl   The amp's Bluetooth control protocol, the model catalog and the preset library, without
                        Bluetooth code
 Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
@@ -326,6 +334,7 @@ Sources/SparkPresets   Spark Presets, the preset editor (SwiftUI, CoreBluetooth)
                        Library
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets
+Tests/SparkDesignTests Contrast of every text color against its backgrounds
 Tools/make-icon.swift  Draws the app icons
 ```
 
