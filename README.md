@@ -266,8 +266,14 @@ on the amp.
 
 A separate app to edit the amp's presets, keep them on the Mac and switch them.
 
-- **Am Verstärker**: the four slots in the sidebar. Selecting one opens it in the editor, the play button or
-  `⌘1` – `⌘4` switches to it, and a press of the preset button on the amp shows up at once.
+- **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4`, switches the amp to it and opens it in the
+  editor, like the preset button on the amp. A speaker marks what plays. Clicking a preset on the Mac plays it on
+  the amp's temporary place, which never touches a slot, and a new preset plays at once. Clicking quickly through
+  the list sends only the last one. When the amp's own preset button is pressed, the app follows, unless the editor
+  holds unsaved changes.
+- **Load meter**: a row of amber segments in the display fills while a preset travels to or from the amp, chunk by
+  chunk as the amp confirms or sends them ("LÄDT 9/17"). A switch between slots, a single message, shows a short
+  sweep. With "Reduce motion" the sweep is left out.
 - **Editor**: the signal chain as a row of pedals with the amp head in the middle. A click on a unit shows all its
   controls below: the model, chosen from the catalog, on and off, and every parameter as a knob, a switch or a
   selector. Knobs turn by dragging (`⌥` for fine steps), with the scroll wheel or the arrow keys (`⇧` for big steps),
@@ -286,13 +292,14 @@ A separate app to edit the amp's presets, keep them on the Mac and switch them.
   storing, the app checks the slot as soon as the amp is back and says what it holds.
 - **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
   description and BPM.
-- **Auf dem Mac**: presets as files, searchable by name and model. "Ausprobieren" (`⌘T`) plays a saved preset
-  without overwriting a slot. Rename with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
+- **Auf dem Mac**: presets as files, searchable by name and model. Rename with `⌘E`, `⌘⌫` moves the file to the
+  Trash and the banner brings it back.
 
 Presets are readable JSON files in `~/Music/Spark Presets/`, one per preset. Files placed there show up when the window
 comes to the front. The app only scans for devices that offer the Spark control service, so it never sees other
 Bluetooth devices, and it makes no network connections. The Spark app on the phone must be disconnected, because the
-amp takes only one control connection.
+amp takes only one control connection. For the same reason Spark Presets and `spark-probe` cannot talk to the amp at
+the same time: whichever starts second keeps searching.
 
 The pedals, the amp and their controls are drawn by the app (`Sources/SparkPresets/Design`) in its own style, after
 the app icon: dark device fronts, amber lamps, knurled knobs. They stay dark in light and dark mode, like hardware,
@@ -300,8 +307,9 @@ and text on them keeps a contrast of at least 4.5 to 1. Animations are small and
 
 Two options help with checking the app. `--live-selftest <log>` edits a copy of slot 1 on the temporary place
 through the same code the window uses, reads back what the amp plays after every step and compares, then switches
-back to slot 1. On the Spark MINI all of its ten checks passed: a first change, on and off, a fast knob turn, a model
-change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes a picture of the app's own window, with
+back to slot 1. It starts by clicking two slots quickly, so a slot switch and the first change must arrive in order,
+and it writes every message sent and received to the log. On the Spark MINI all of its ten checks passed: a first
+change, on and off, a fast knob turn, a model change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes a picture of the app's own window, with
 `--offline`, `--appearance light|dark`, `--size 900x600`, `--open template:Lead` and `--focus delay` (the sidebar's
 translucent material is missing from these pictures).
 
