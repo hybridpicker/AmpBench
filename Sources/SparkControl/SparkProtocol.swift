@@ -22,12 +22,20 @@ public enum SparkProtocol {
 
     public enum Sub {
         public static let preset: UInt8 = 0x01
+        /// Sets one parameter of an effect. The amp reports its own knob turns as `parameterChanged` instead.
+        public static let parameter: UInt8 = 0x04
+        /// Replaces an effect model, in both directions.
         public static let changeEffect: UInt8 = 0x06
         public static let presetNumber: UInt8 = 0x10
         public static let ampName: UInt8 = 0x11
         public static let effectOnOff: UInt8 = 0x15
         public static let firmware: UInt8 = 0x2F
-        public static let parameter: UInt8 = 0x37
+        /// The amp reports a parameter changed on the amp itself.
+        public static let parameterChanged: UInt8 = 0x37
+        /// The amp reports a long press of its preset button, which asks to store.
+        public static let storeRequest: UInt8 = 0x27
+        /// The amp reports a tapped tempo.
+        public static let tapTempo: UInt8 = 0x63
         public static let hardwarePreset: UInt8 = 0x38
         /// Repeated many times a second with a float, -1 without signal. Probably the tuner's reading.
         public static let tunerPitch: UInt8 = 0x64
@@ -163,6 +171,9 @@ public enum SparkProtocol {
         private var pending: (command: UInt8, sub: UInt8, sequence: UInt8, data: [UInt8], ok: Bool)?
 
         public init() {}
+
+        /// True while a chunk or a multi-chunk message is only partly received.
+        public var isInsideChunk: Bool { current != nil || pending != nil }
 
         public func feed(_ bytes: [UInt8]) -> [Message] {
             var messages: [Message] = []

@@ -37,11 +37,16 @@ public struct SparkPreset: Codable, Equatable, Sendable {
     public var icon: String
     public var bpm: Float
     public var effects: [Effect]
-    /// The bytes after the effects, one byte so far. Sent back unchanged.
+    /// The bytes after the effects. Stored slots send two floats and a checksum byte, the playing preset only the
+    /// checksum. `encode` recomputes the checksum, everything else goes back unchanged.
     public var trailer: [UInt8]
 
+    /// The trailer the amp's stored presets carry: loudness 9990 (meaning not set), extra gain 0.5, checksum.
+    public static let standardTrailer: [UInt8] = [0xCA, 0x46, 0x1C, 0x18, 0x00, 0xCA, 0x3F, 0x00, 0x00, 0x00, 0x00]
+
     public init(uuid: String = UUID().uuidString, name: String, version: String = "0.7", description: String = "",
-                icon: String = "icon.png", bpm: Float = 120, effects: [Effect], trailer: [UInt8] = [0x00]) {
+                icon: String = "icon.png", bpm: Float = 120, effects: [Effect],
+                trailer: [UInt8] = SparkPreset.standardTrailer) {
         self.uuid = uuid
         self.name = name
         self.version = version
@@ -84,10 +89,47 @@ public struct SparkPreset: Codable, Equatable, Sendable {
         trailer = reader.rest()
     }
 
-    /// The payload for a preset message, behind the two bytes of `place`.
+    /// The payload for a preset message, behind the two bytes of `place`. The trailer's last byte is the checksum:
+    /// the sum of all bytes after `place`, modulo 256. It is recomputed, so an edited preset stays consistent. A
+    /// preset read from the amp keeps its bytes exactly, because its checksum already matches.
     public func encode(place: SparkPresetPlace) -> [UInt8] {
+        var data = place.bytes + body()
+        if hasChecksum {
+            data[data.count - 1] = Self.checksum(of: data.dropFirst(2).dropLast())
+        }
+        return data
+    }
+
+    /// Whether the trailer ends in a checksum byte: zero or more floats, then exactly one byte.
+    public var hasChecksum: Bool {
+        var reader = SparkReader(trailer)
+        while trailer.count - reader.position > 1 {
+            guard (try? reader.float()) != nil else { return false }
+        }
+        return trailer.count - reader.position == 1
+    }
+
+    /// The floats in the trailer: loudness and extra gain on stored presets, none on the playing one.
+    public var trailerFloats: [Float] {
+        var reader = SparkReader(trailer)
+        var floats: [Float] = []
+        while let value = try? reader.float() { floats.append(value) }
+        return floats
+    }
+
+    /// The checksum the amp writes at the end of a preset.
+    public static func checksum<C: Collection>(of bytes: C) -> UInt8 where C.Element == UInt8 {
+        UInt8(bytes.reduce(0) { ($0 + Int($1)) & 0xFF })
+    }
+
+    /// Whether the checksum byte as stored matches the content, for checking presets read from the amp.
+    public var checksumMatches: Bool {
+        guard hasChecksum, let stored = trailer.last else { return false }
+        return Self.checksum(of: body().dropLast()) == stored
+    }
+
+    private func body() -> [UInt8] {
         var writer = SparkWriter()
-        writer.bytes(place.bytes)
         writer.string(uuid)
         writer.string(name)
         writer.string(version)
@@ -106,6 +148,13 @@ public struct SparkPreset: Codable, Equatable, Sendable {
         }
         writer.bytes(trailer)
         return writer.data
+    }
+}
+
+public extension SparkPreset {
+    /// Index of the effect with this model id, if the preset has it.
+    func effectIndex(named name: String) -> Int? {
+        effects.firstIndex { $0.name == name }
     }
 }
 
@@ -142,7 +191,7 @@ public enum SparkDecodeError: Error, CustomStringConvertible {
 
 public struct SparkReader {
     private let data: [UInt8]
-    public private(set) var position = 0
+    public internal(set) var position = 0
 
     public init(_ data: [UInt8]) { self.data = data }
 

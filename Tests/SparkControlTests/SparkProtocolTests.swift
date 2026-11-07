@@ -117,6 +117,12 @@ enum Synthetic {
         bytes += string("icon.png") + float(120) + [0x92]
         bytes += string("bias.noisegate") + [0xC2, 0x91, 0x00, 0x91] + float(0.1)
         bytes += string("Twin") + [0xC3, 0x92, 0x00, 0x91] + float(0.5) + [0x01, 0x91] + float(0.25)
-        return bytes + [0x00]
+        // Loudness not set, extra gain 0.5, then the checksum over everything after the place.
+        bytes += float(9990) + float(0.5)
+        return bytes + [checksum(bytes.dropFirst(2))]
+    }
+
+    static func checksum(_ bytes: ArraySlice<UInt8>) -> UInt8 {
+        UInt8(bytes.reduce(0) { ($0 + Int($1)) % 256 })
     }
 }

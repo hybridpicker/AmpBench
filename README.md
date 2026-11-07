@@ -166,26 +166,71 @@ swift build --product spark-probe
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
 .build/debug/spark-probe try 3         # play a renamed copy of stored preset 3 without storing it
-.build/debug/spark-probe store-test 4 backup.json  # store a renamed copy in slot 4, then put the original back
+.build/debug/spark-probe store-test 4 backup.json        # store a renamed copy in slot 4, then put the original back
+.build/debug/spark-probe persist-test store 4 backup.json  # leave a renamed copy in slot 4 …
+.build/debug/spark-probe persist-test check 4 backup.json  # … and after switching the amp off and on, check it
+.build/debug/spark-probe live 4 script.txt  # play a copy of slot 4 without storing it and run live changes on it
 ```
 
-`--raw` also prints every byte, `--no-header` sends without the block header. The Spark app on the phone must be
-disconnected, because the amp takes only one control connection. macOS asks once for Bluetooth access for the terminal
-app. The tool shows only devices with "Spark" in their name and only counts the others.
+A `live` script has one command per line: `param <place> <index> <value>`, `toggle <place> on|off`,
+`model <place> <model id>`, `sweep <place> <index> <from> <to> <steps> <ms>`, `wait <seconds>`, `read`, `resend`,
+`say <text>` and `raw <command> <sub> <hex bytes>`. A place is 1 to 7 or a model id. After `read`, the probe compares
+what the amp plays with what the script sent. The comments in `Sources/SparkProbe/LiveScript.swift` have the details.
 
-The protocol is not documented by Positive Grid and follows community reverse engineering (Paul Hamshere's Spark
-projects, SparkBox, Ignitron). On a Spark MINI with firmware 1.11.2.75 these are confirmed: service `FFC0` with `FFC1`
-(write) and `FFC2` (notify), the 16-byte block header, 7-bit packing, XOR checksums, reading firmware, name, preset
-number and whole presets, which arrive in 16 to 17 chunks and take a few seconds. The amp keeps sending `03 64` at times,
-probably the tuner, which the tool hides. Switching presets (`01 38`, acknowledged with `04 38`) works, and the amp
-reports a press of its preset button as `03 38` with the new slot. It sometimes ignores a request, so the tool asks a
-second time.
+`--raw` also prints every byte, `--no-header` sends without the block header, `--no-input` leaves the input byte out
+of live changes. The Spark app on the phone and Spark Presets must be disconnected, because the amp takes only one
+control connection. macOS asks once for Bluetooth access for the terminal app. The tool shows only devices with
+"Spark" in their name and only counts the others.
 
-Sending a preset (`01 01`) works the way the amp sends its own: chunks of 25 bytes, each in a Bluetooth write of its own
-with its own block header, because the amp refuses longer writes. It confirms every chunk with `05 01` and the whole
-preset with `04 01`. Sent to place `7F` and followed by a switch to `7F`, a preset plays without being stored. Sent to a
-slot and followed by a switch to that slot, it is stored there. Every preset read from the amp encodes back to exactly
-the same bytes. Whether a stored preset survives switching the amp off has not been checked yet.
+### What is checked on the amp
+
+Positive Grid does not document the protocol. This follows community reverse engineering (see [Sources](#sources)),
+and every line below was checked with `spark-probe` on a Spark MINI with firmware 1.11.2.75.
+
+| Message | What it does | On the Spark MINI |
+|---|---|---|
+| Service `FFC0`, write `FFC1`, notify `FFC2` | Control channel | Confirmed |
+| Block header `01 FE 00 00 53 FE <len> 00…`, chunks `F0 01 <seq> <xor> <cmd> <sub> <7-bit data> F7` | Framing | Confirmed |
+| `02 2F`, `02 11`, `02 10`, `02 01` | Read firmware, name, preset number, a preset (`00 <slot>`, or `01 00` for the playing one) | Confirmed |
+| `01 01` | Send a preset in chunks of 25 bytes, one Bluetooth write each. `05 01` per chunk, `04 01` at the end | Confirmed |
+| `01 38` | Switch preset, `7F` is the temporary one. Ack `04 38` | Confirmed |
+| `01 04` | Set a parameter: `len A0+len <model id>`, index, `CA` float, input byte `00`. No ack | Confirmed and heard, with and without the input byte |
+| `01 15` | Effect on or off: model id, `C2`/`C3`, `00`. Ack `04 15` | Confirmed by reading back |
+| `01 06` | Change a model: old id, new id, `00`. Ack `04 06` | Confirmed by reading back. The amp loads its own start values for the new model |
+| `03 38` | The amp's preset button | Confirmed |
+| `03 37`, `03 15` | The amp reports parameter changes and on/off | Seen only as echoes of the probe's own changes, see below. The MINI's guitar and music volume knobs report nothing |
+| `03 71` | Sent by the amp now and then, probably power and battery | Seen, not decoded |
+| `03 64`, `03 65` | Probably tuner reading and tuner on/off | Seen, not checked |
+
+More findings:
+
+- **Stored presets survive switching the amp off.** A copy stored in slot 4 was still there after switching off and on.
+- **The temporary preset ends with the connection.** After the control connection closes, the amp plays the stored
+  preset that was selected last. A stored slot that was selected stays selected.
+- **The preset's end holds a checksum.** After the effects come, on stored slots, two floats (loudness, 9990 meaning
+  not set, and extra gain, 0.5) and a byte that is the sum of all bytes after the two place bytes, modulo 256. The
+  playing preset has only the checksum. Every one of the 5 presets read matched this rule. `SparkPreset.encode`
+  recomputes the byte, so an edited preset stays consistent, and a preset read from the amp still encodes back to
+  exactly the same bytes. An earlier version sent renamed copies with a stale checksum, and the amp played them anyway.
+- **The amp keeps two parameters in step with on and off itself:** parameter 2 of the noise gate and parameter 7 of
+  the reverb. It also adds reverb parameter 7 when a stored preset without it is played on `7F`.
+- **Speed:** 30 parameter changes in a row without any pause arrived. The last value is what plays.
+- **Echoes:** In one session, after a fast series of changes, the amp started to answer every parameter change with
+  `03 37` and an on/off change with `03 15` instead of `04 15`. A second request for the same change then got no
+  answer at all. This did not happen again in a fresh session with the same steps, so its cause is unknown. Both
+  forms count as a confirmation, and an answer that stays out is checked by reading the playing preset back.
+- The amp sometimes ignores a request, so every request is sent a second time when no answer comes.
+
+### Sources
+
+Only the facts of the protocol were taken from these projects, no code. Byte layouts were rewritten and then checked
+on the amp.
+
+- Paul Hamshere: [Spark](https://github.com/paulhamsh/Spark), SparkIO, Spark-Parser (Apache-2.0), and
+  [Spark-Bluetooth-Message-Format](https://github.com/paulhamsh/Spark-Bluetooth-Message-Format) (no license, read only)
+- [Ignitron](https://github.com/stangreg/Ignitron) (BSD-3-Clause)
+- [SparkBox](https://github.com/paulhamsh/SparkBox) and kindling-control-spark-amps (GPL-3.0, read only)
+- soundshed-app and spark-web (MIT)
 
 ## Spark Presets
 
