@@ -152,13 +152,42 @@ Off by default. While on, the input stays open and the display says "HÖRT MIT".
 and never reach the disk on their own. "Das eben war gut" saves them. Turning it off, losing the device, closing the
 window or quitting erases the buffer.
 
+## Amp control over Bluetooth (experimental)
+
+The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side offers only audio and volume keys.
+`spark-probe` is a test tool for that control channel. It is separate from the app, which still makes no Bluetooth or
+network connections.
+
+```bash
+swift build --product spark-probe
+.build/debug/spark-probe scan          # look for the amp
+.build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
+.build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
+.build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
+```
+
+`--raw` also prints every byte, `--no-header` sends without the block header. The Spark app on the phone must be
+disconnected, because the amp takes only one control connection. macOS asks once for Bluetooth access for the terminal
+app. The tool shows only devices with "Spark" in their name and only counts the others.
+
+The protocol is not documented by Positive Grid and follows community reverse engineering (Paul Hamshere's Spark
+projects, SparkBox, Ignitron). On a Spark MINI with firmware 1.11.2.75 these are confirmed: service `FFC0` with `FFC1`
+(write) and `FFC2` (notify), the 16-byte block header, 7-bit packing, XOR checksums, reading firmware, name, preset
+number and whole presets, which arrive in 16 to 17 chunks and take a few seconds. The amp keeps sending `03 64` at times,
+probably the tuner, which the tool hides. Switching presets (`01 38`, acknowledged with `04 38`) works, and the amp
+reports a press of its preset button as `03 38` with the new slot. It sometimes ignores a request, so the tool asks a
+second time. Turning a knob on the amp sent nothing in one test.
+
 ## Project layout
 
 ```
 Sources/CSparkRT       Realtime capture and click (C)
 Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
 Sources/SparkRecorder  The app (SwiftUI)
+Sources/SparkControl   The amp's Bluetooth control protocol, without Bluetooth code
+Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
+Tests/SparkControlTests Protocol tests with made-up presets
 Tools/make-icon.swift  Draws the app icon
 ```
 
