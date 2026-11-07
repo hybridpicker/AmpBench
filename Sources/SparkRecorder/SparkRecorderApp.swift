@@ -331,12 +331,17 @@ private struct ShortcutsSheet: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Tastaturkürzel").font(.title2.weight(.semibold))
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+        SheetPanel("Tastaturkürzel") {
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 5) {
                 ForEach(rows, id: \.0) { row in
                     GridRow {
-                        Text(row.0).font(.system(.body, design: .monospaced).weight(.semibold))
+                        HStack(spacing: 4) {
+                            ForEach(row.0.components(separatedBy: "  "), id: \.self) { Keycap($0) }
+                        }
+                        .padding(4)
+                        .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.device.faceBottom))
+                        .gridColumnAlignment(.trailing)
+                        .accessibilityLabel(row.0)
                         Text(row.1)
                     }
                     .accessibilityElement(children: .combine)
@@ -352,8 +357,7 @@ private struct ShortcutsSheet: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
-        .frame(width: 480)
+        .frame(width: 500)
     }
 }
 
@@ -361,8 +365,7 @@ private struct LatencySheet: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Klick-Latenz messen").font(.title2.weight(.semibold))
+        SheetPanel("Klick-Latenz messen") {
             Text("Damit die Takte auf die Millisekunde stimmen, misst die App, wie lange ein Klick von „\(model.clickOutput?.name ?? "–")“ bis in die Aufnahme von „\(model.selectedInput?.name ?? "–")“ braucht. Der Amp verzögert die Gitarre intern, und das melden die Geräte nicht.")
                 .fixedSize(horizontal: false, vertical: true)
             Text("Steck dafür ein Kabel vom Kopfhörerausgang in den Gitarreneingang des Amps, mit 3,5-mm-Klinke am Mac und 6,3-mm-Klinke am Amp. Ohne Kabel geht auch ein Kopfhörer direkt auf dem Tonabnehmer, bei abgedämpften Saiten. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.")
@@ -382,7 +385,6 @@ private struct LatencySheet: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
         .frame(width: 460)
     }
 }
@@ -391,8 +393,7 @@ private struct LoopbackSheet: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Rückkopplung messen").font(.title2.weight(.semibold))
+        SheetPanel("Rückkopplung messen") {
             Text("Die App spielt rund drei Sekunden lang leise Klicks über „\(model.effectiveOutput?.name ?? "–")“ und misst, ob sie am Eingang „\(model.selectedInput?.name ?? "–")“ ankommen. Es wird nichts gespeichert.")
                 .fixedSize(horizontal: false, vertical: true)
             Text("Dreh die Gitarre vorher leise oder steck sie aus. Das Ergebnis gilt nur für diese beiden Geräte.")
@@ -408,7 +409,35 @@ private struct LoopbackSheet: View {
                 .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(20)
         .frame(width: 440)
+    }
+}
+
+/// A sheet with a front panel on top: its title engraved on a dark strip. The content stays system text.
+private struct SheetPanel<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    init(_ title: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Faceplate {
+                HStack {
+                    PanelLabel(title, size: 10, isAccessible: true)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+                .frame(height: 36)
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                content
+            }
+            .padding(20)
+        }
     }
 }

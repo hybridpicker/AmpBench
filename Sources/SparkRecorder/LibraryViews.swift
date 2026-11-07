@@ -7,32 +7,44 @@ import SwiftUI
 struct LibraryArea: View {
     @EnvironmentObject private var model: AppModel
 
+    @FocusState private var searchFocused: Bool
+
     var body: some View {
         HSplitView {
             VStack(spacing: 0) {
-                HStack {
-                    Picker("Ansicht", selection: $model.tab) {
-                        ForEach(LibraryTab.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 280)
-                    .accessibilityLabel("Ansicht der Bibliothek")
-                    Spacer()
-                    CurrentPiecePicker()
+                HStack(spacing: 12) {
+                    SegmentTabs("Ansicht der Bibliothek", selection: $model.tab,
+                                options: LibraryTab.allCases.map { ($0, $0.rawValue) })
+                    Spacer(minLength: 8)
                     if let progress = model.exportProgress {
                         ProgressView(value: progress) { Text("Export").font(.caption) }
-                            .frame(width: 120)
+                            .frame(width: 110)
                     }
+                    CurrentPiecePicker()
+                    TextField("Suchen", text: $model.query.search)
+                        .textFieldStyle(.roundedBorder)
+                        .focused($searchFocused)
+                        .frame(minWidth: 100, maxWidth: 180)
+                        .accessibilityLabel("Aufnahmen suchen")
+                        .onChange(of: model.query.search) { if !model.query.search.isEmpty { model.tab = .recordings } }
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
+                .padding(.horizontal, 14)
+                .frame(height: 44)
+                .background(
+                    // ⌘F focuses the search without taking a key from the shortcuts.
+                    Button("") { searchFocused = true }
+                        .keyboardShortcut("f", modifiers: .command)
+                        .hidden()
+                        .accessibilityHidden(true)
+                )
                 Divider()
                 switch model.tab {
                 case .recordings: RecordingsPane()
                 case .pieces: PiecesPane()
                 case .stats: StatsPane()
                 }
+                Divider()
+                LibraryStatusLine()
             }
             .frame(minWidth: 560, maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
@@ -49,14 +61,14 @@ private struct CurrentPiecePicker: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            PanelLabel("Neue Aufnahmen in")
+            DeskCaption("Neue Aufnahmen in").fixedSize()
             Picker("Neue Aufnahmen in", selection: Binding(get: { model.currentPieceID }, set: { model.setCurrentPiece($0) })) {
                 Text("Kein Stück").tag(UUID?.none)
                 ForEach(model.pieces) { Text($0.name).tag(UUID?.some($0.id)) }
             }
             .labelsHidden()
             .controlSize(.small)
-            .frame(maxWidth: 170)
+            .frame(minWidth: 100, maxWidth: 170)
             .accessibilityLabel("Stück für neue Aufnahmen")
             Button {
                 model.beginNewPiece()
@@ -74,7 +86,6 @@ private struct CurrentPiecePicker: View {
 
 struct RecordingsPane: View {
     @EnvironmentObject private var model: AppModel
-    @FocusState private var searchFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -89,22 +100,10 @@ struct RecordingsPane: View {
                 table
             }
         }
-        .background(
-            // ⌘F focuses the search without taking a key from the shortcuts.
-            Button("") { searchFocused = true }
-                .keyboardShortcut("f", modifiers: .command)
-                .hidden()
-                .accessibilityHidden(true)
-        )
     }
 
     private var filterBar: some View {
         HStack(spacing: 8) {
-            TextField("Suchen", text: $model.query.search)
-                .textFieldStyle(.roundedBorder)
-                .focused($searchFocused)
-                .frame(minWidth: 130)
-                .accessibilityLabel("Aufnahmen suchen")
             Toggle(isOn: $model.query.onlyFavorites) {
                 Image(systemName: "heart.fill")
             }
@@ -165,6 +164,7 @@ struct RecordingsPane: View {
             .disabled(model.isRecording || model.selection.isEmpty)
             .help("Markierte Aufnahmen in den Papierkorb legen (⌘⌫). Lässt sich mit ⌘Z rückgängig machen.")
             .accessibilityLabel("Markierte Aufnahmen in den Papierkorb legen")
+            Spacer(minLength: 0)
         }
         .controlSize(.small)
         .padding(.horizontal, 10)
@@ -183,16 +183,15 @@ struct RecordingsPane: View {
             .width(min: 150, ideal: 240)
             TableColumn("Datum", value: \.createdAt) { recording in
                 Text(recording.createdAt, format: .dateTime.day(.twoDigits).month(.twoDigits).year(.twoDigits).hour().minute())
-                    .monospacedDigit()
+                    .font(Theme.Fonts.mono(12))
             }
             .width(min: 100, ideal: 118)
             TableColumn("Dauer", value: \.duration) { recording in
-                Text(TimeText.clock(recording.duration)).monospacedDigit()
+                Text(TimeText.clock(recording.duration)).font(Theme.Fonts.mono(12))
             }
             .width(min: 44, ideal: 52)
             TableColumn("Bewertung", value: \.rating) { recording in
-                Text(String(repeating: "★", count: recording.rating) + String(repeating: "☆", count: 5 - min(recording.rating, 5)))
-                    .foregroundStyle(recording.rating > 0 ? Color.primary : Color.secondary)
+                Stars(rating: recording.rating)
                     .accessibilityLabel("\(recording.rating) von 5 Sternen")
             }
             .width(min: 66, ideal: 72)
@@ -205,7 +204,7 @@ struct RecordingsPane: View {
             TableColumn("Stück") { recording in
                 HStack(spacing: 3) {
                     if model.isBestTake(recording) {
-                        Image(systemName: "crown.fill").foregroundStyle(Theme.desk.loopEdge.color).accessibilityLabel("Bester Take")
+                        Image(systemName: "crown.fill").foregroundStyle(Theme.desk.amber.color).accessibilityLabel("Bester Take")
                     }
                     Text(model.pieceName(recording.pieceID)).lineLimit(1)
                 }
@@ -220,6 +219,7 @@ struct RecordingsPane: View {
                 model.togglePlay()
             }
         }
+        .amberSelection()
         .onChange(of: model.selection) { model.selectionChanged() }
     }
 
@@ -262,7 +262,7 @@ private struct NameCell: View {
             case .missing:
                 Image(systemName: "questionmark.folder").foregroundStyle(.secondary).accessibilityLabel("Datei fehlt")
             case .damaged:
-                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.device.meterAmber.color).accessibilityLabel("Datei beschädigt")
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Theme.desk.amber).accessibilityLabel("Datei beschädigt")
             case .ok:
                 EmptyView()
             }
@@ -271,11 +271,7 @@ private struct NameCell: View {
                 .truncationMode(.middle)
                 .foregroundStyle(recording.health == .ok ? Color.primary : Color.secondary)
             if recording.status == .open {
-                Text("Offen")
-                    .font(.system(size: 9, weight: .bold))
-                    .padding(.horizontal, 4)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Theme.desk.loopFill.color))
+                Pill("Offen")
             }
             if recording.recoveredAfterInterruption {
                 Image(systemName: "bandage").foregroundStyle(.secondary)
@@ -283,6 +279,54 @@ private struct NameCell: View {
                     .accessibilityLabel("Nach einer Unterbrechung repariert")
             }
         }
+    }
+}
+
+/// A practice time, such as "1 Std. 56 Min." or "4,5 Min.".
+func minutesText(_ minutes: Double) -> String {
+    if minutes >= 60 {
+        return "\(Int(minutes / 60)) Std. \(Int(minutes) % 60) Min."
+}
+    return minutes < 10 && minutes > 0 ? String(format: "%.1f Min.", minutes).replacingOccurrences(of: ".", with: ",", range: nil).replacingOccurrences(of: ",0 ", with: " ").replacingOccurrences(of: "Min,", with: "Min.") : "\(Int(minutes)) Min."
+}
+
+
+/// Five stars, the given number of them amber.
+private struct Stars: View {
+    let rating: Int
+
+    var body: some View {
+        let filled = min(max(rating, 0), 5)
+        (Text(String(repeating: "★", count: filled)).foregroundColor(Theme.desk.star.color)
+         + Text(String(repeating: "★", count: 5 - filled)).foregroundColor(Color(nsColor: .quaternaryLabelColor)))
+            .font(.system(size: 12))
+            .tracking(1)
+    }
+}
+
+/// Below the library: how many recordings, how many open, how much was practiced, and where the shortcuts are.
+private struct LibraryStatusLine: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        let count = model.recordings.count
+        let open = model.recordings.filter { $0.status == .open }.count
+        let since = PracticeStats.minutesPerDay(model.practiceLog, days: 30).first?.date
+        let minutes = PracticeStats.totalMinutes(model.practiceLog, since: since)
+        HStack {
+            Text("\(count) \(count == 1 ? "Aufnahme" : "Aufnahmen") · \(open) offen · \(minutesText(minutes)) in 30 Tagen")
+                .lineLimit(1)
+            Spacer(minLength: 8)
+            Button("⌘/ Tastenkürzel") { model.showShortcuts = true }
+                .buttonStyle(.plain)
+                .font(Theme.Fonts.mono(11))
+                .help("Zeigt alle Tastenkürzel (⌘/)")
+        }
+        .font(.system(size: 11))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 14)
+        .frame(height: 28)
+        .accessibilityElement(children: .contain)
     }
 }
 
@@ -357,7 +401,7 @@ private struct PieceRow: View {
                         model.toggleBestTake(take.id)
                     } label: {
                         Image(systemName: model.isBestTake(take) ? "crown.fill" : "crown")
-                            .foregroundStyle(model.isBestTake(take) ? Theme.desk.loopEdge.color : Color.secondary)
+                            .foregroundStyle(model.isBestTake(take) ? Theme.desk.amber.color : Color.secondary)
                     }
                     .buttonStyle(.plain)
                     .help("Als besten Take markieren")
@@ -375,7 +419,7 @@ private struct PieceRow: View {
                     model.setCurrentPiece(isCurrent ? nil : piece.id)
                 } label: {
                     Image(systemName: isCurrent ? "largecircle.fill.circle" : "circle")
-                        .foregroundStyle(isCurrent ? Theme.desk.loopEdge.color : Color.secondary)
+                        .foregroundStyle(isCurrent ? Theme.desk.amber.color : Color.secondary)
                 }
                 .buttonStyle(.plain)
                 .help(isCurrent ? "Neue Aufnahmen landen in diesem Stück. Klick hebt das auf." : "Neue Aufnahmen in dieses Stück legen")
@@ -439,20 +483,12 @@ private struct StatsPane: View {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text(minutesText(total)).font(.system(size: 28, weight: .semibold).monospacedDigit())
+                        Text(minutesText(total)).font(Theme.Fonts.title(28).monospacedDigit())
                         Text("aufgenommen in den letzten \(days) Tagen").font(.callout).foregroundStyle(.secondary)
                     }
                     .accessibilityElement(children: .combine)
                     Spacer()
-                    Picker("Zeitraum", selection: $days) {
-                        Text("7 Tage").tag(7)
-                        Text("30 Tage").tag(30)
-                        Text("90 Tage").tag(90)
-                    }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .frame(width: 200)
-                    .accessibilityLabel("Zeitraum")
+                    SegmentTabs("Zeitraum", selection: $days, options: [(7, "7 Tage"), (30, "30 Tage"), (90, "90 Tage")])
                 }
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -477,13 +513,6 @@ private struct StatsPane: View {
         }
     }
 
-    private func minutesText(_ minutes: Double) -> String {
-        if minutes >= 60 {
-            return "\(Int(minutes / 60)) Std. \(Int(minutes) % 60) Min."
-        }
-        return minutes < 10 && minutes > 0 ? String(format: "%.1f Min.", minutes).replacingOccurrences(of: ".", with: ",", range: nil).replacingOccurrences(of: ",0 ", with: " ").replacingOccurrences(of: "Min,", with: "Min.") : "\(Int(minutes)) Min."
-    }
-
     private var dayChart: some View {
         Chart(range) { day in
             BarMark(
@@ -491,7 +520,7 @@ private struct StatsPane: View {
                 y: .value("Minuten", day.minutes),
                 width: .ratio(0.7)
             )
-            .foregroundStyle(Theme.desk.chartBar.color)
+            .foregroundStyle(Calendar.current.isDateInToday(day.date) ? Theme.desk.chartToday.color : Theme.desk.chartBar.color)
             .cornerRadius(3)
             .accessibilityLabel(day.date.formatted(date: .abbreviated, time: .omitted))
             .accessibilityValue("\(Int(day.minutes.rounded())) Minuten")
@@ -556,15 +585,13 @@ struct InspectorPane: View {
                                        description: Text(model.selection.count == 2 ? "Mit „Vergleichen“ hörst du sie direkt nacheinander." : "Das Kontextmenü gilt für alle markierten Aufnahmen."))
             } else if let recording = model.current {
                 VStack(spacing: 0) {
-                    Picker("Bereich", selection: $section) {
-                        Text("Details").tag(0)
-                        Text("Bearbeiten").tag(1)
-                        Text("Marker").tag(2)
+                    HStack {
+                        SegmentTabs("Bereich des Inspektors", selection: $section,
+                                    options: [(0, "Details"), (1, "Bearbeiten"), (2, "Marker")])
+                        Spacer(minLength: 0)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .padding(8)
-                    .accessibilityLabel("Bereich des Inspektors")
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
                     Divider()
                     ScrollView {
                         Group {
@@ -574,7 +601,7 @@ struct InspectorPane: View {
                             default: MarkerSection(recording: recording)
                             }
                         }
-                        .padding(10)
+                        .padding(14)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
@@ -597,7 +624,7 @@ private struct DetailsSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                PanelLabel("Titel, auch der Dateiname")
+                DeskCaption("Titel, auch der Dateiname")
                 TextField("Titel", text: $name)
                     .textFieldStyle(.roundedBorder)
                     .focused($nameFocused)
@@ -611,8 +638,9 @@ private struct DetailsSection: View {
                     Button {
                         model.setRating(star, for: recording.id)
                     } label: {
-                        Image(systemName: star <= recording.rating ? "star.fill" : "star")
-                            .foregroundStyle(star <= recording.rating ? Theme.desk.loopEdge.color : Color.secondary)
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(star <= recording.rating ? Theme.desk.star.color : Color(nsColor: .quaternaryLabelColor))
                     }
                     .buttonStyle(.plain)
                     .accessibilityLabel("\(star) Sterne")
@@ -631,7 +659,7 @@ private struct DetailsSection: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                PanelLabel("Stück")
+                DeskCaption("Stück")
                 HStack(spacing: 6) {
                     Picker("Stück", selection: Binding(get: { recording.pieceID }, set: { model.assign([recording.id], toPiece: $0) })) {
                         Text("Kein Stück").tag(UUID?.none)
@@ -661,7 +689,7 @@ private struct DetailsSection: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                PanelLabel("Tags, durch Kommas getrennt")
+                DeskCaption("Tags, durch Kommas getrennt")
                 TextField("Tags", text: $tags)
                     .textFieldStyle(.roundedBorder)
                     .focused($tagsFocused)
@@ -671,7 +699,7 @@ private struct DetailsSection: View {
             }
 
             VStack(alignment: .leading, spacing: 3) {
-                PanelLabel("Notiz")
+                DeskCaption("Notiz")
                 TextEditor(text: model.binding(recording.id, \.note, default: ""))
                     .font(.body)
                     .frame(minHeight: 60, maxHeight: 110)
@@ -681,7 +709,7 @@ private struct DetailsSection: View {
 
             Divider()
 
-            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 4) {
                 if let punch = recording.punch {
                     row("Neu", AppModel.barsText(punch.bars))
                 }
@@ -689,26 +717,30 @@ private struct DetailsSection: View {
                     row("Raster", "\(Int(grid.bpm)) BPM, \(grid.beatsPerBar)/4")
                 }
                 row("Datum", recording.createdAt.formatted(date: .abbreviated, time: .standard))
-                row("Dauer", TimeText.clock(recording.duration, tenths: true))
+                row("Dauer", TimeText.clock(recording.duration, tenths: true), mono: true)
                 row("Quelle", QualityText.source(recording.source))
                 if let device = recording.source?.deviceName { row("Gerät", device) }
                 row("Datei", fileText)
                 if let peak = recording.peakDB {
-                    row("Spitze", String(format: "%.1f dBFS", peak).replacingOccurrences(of: ".", with: ","))
+                    row("Spitze", String(format: "%.1f dBFS", peak).replacingOccurrences(of: ".", with: ","), mono: true)
                 }
             }
-            .font(.callout)
+            .font(.system(size: 12))
 
-            HStack {
+            HStack(spacing: 8) {
                 Button("Im Finder zeigen") { model.reveal(recording.id) }
-                    .controlSize(.small)
+                    .buttonStyle(.hardwareKey(keycap: "⇧⌘R", size: .small))
+                    .fixedSize()
                 Button("Umbenennen …") { model.beginRename(recording.id) }
-                    .controlSize(.small)
+                    .buttonStyle(.hardwareKey(keycap: "⌘E", size: .small))
+                    .fixedSize()
                 if let source = recording.punch?.sourceID, model.recordings.contains(where: { $0.id == source }) {
                     Button("Zum Original") { model.select(source) }
-                        .controlSize(.small)
+                        .buttonStyle(.hardwareKey(size: .small))
+                        .fixedSize()
                 }
             }
+            .padding(.top, 2)
         }
         .onAppear {
             name = recording.name
@@ -726,10 +758,10 @@ private struct DetailsSection: View {
                                 sampleRate: recording.sampleRate, channels: recording.channels)
     }
 
-    private func row(_ label: String, _ value: String) -> some View {
+    private func row(_ label: String, _ value: String, mono: Bool = false) -> some View {
         GridRow {
-            Text(label).foregroundStyle(.secondary)
-            Text(value).textSelection(.enabled).lineLimit(2)
+            Text(label).fontWeight(.semibold).foregroundStyle(.secondary)
+            Text(value).font(mono ? Theme.Fonts.mono(12) : nil).textSelection(.enabled).lineLimit(2)
         }
     }
 
@@ -758,7 +790,7 @@ private struct EditSection: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 4) {
-                PanelLabel("Zuschnitt")
+                DeskCaption("Zuschnitt")
                 HStack {
                     Button("Anfang = Abspielposition", action: model.setTrimStartToPlayhead).controlSize(.small)
                     Text(TimeText.clock(edit.trimStart, tenths: true)).monospacedDigit().font(.callout)
@@ -773,7 +805,7 @@ private struct EditSection: View {
             seconds("Ausblenden", value: edit.fadeOut, set: set(\.fadeOut))
 
             VStack(alignment: .leading, spacing: 4) {
-                PanelLabel("Pegel")
+                DeskCaption("Pegel")
                 HStack {
                     Slider(value: Binding(get: { edit.gainDB }, set: { value in set(\.gainDB)((value * 2).rounded() / 2) }), in: -24...24)
                         .controlSize(.small)
@@ -807,7 +839,7 @@ private struct EditSection: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 4) {
-                PanelLabel("Export")
+                DeskCaption("Export")
                 HStack {
                     Button("WAV, 24 Bit …") { model.export(.wav24, id: recording.id) }
                     Menu("AAC …") {
@@ -825,7 +857,7 @@ private struct EditSection: View {
 
     private func seconds(_ label: String, value: Double, set: @escaping (Double) -> Void) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            PanelLabel(label)
+            DeskCaption(label)
             HStack {
                 Slider(value: Binding(get: { value }, set: { set(($0 * 10).rounded() / 10) }), in: 0...10)
                     .controlSize(.small)

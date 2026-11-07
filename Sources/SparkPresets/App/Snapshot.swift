@@ -1,5 +1,6 @@
 import AppKit
 import SparkControl
+import SparkDesign
 import SwiftUI
 
 /// Pictures of the app's own window for checking the design, without screen recording permission and without
@@ -94,15 +95,16 @@ enum Snapshot {
 
     /// Draws the window's content into a PNG. Translucent materials, such as the sidebar's, are left out.
     static func write(to url: URL) {
-        guard let window = NSApp.windows.first(where: { $0.isVisible }), let view = window.contentView?.superview
-            ?? window.contentView, let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+        guard let window = NSApp.windows.first(where: { $0.isVisible }),
+              let view = window.contentView?.superview ?? window.contentView, let data = WindowPicture.png(of: view) else {
             FileHandle.standardError.write(Data("No window to draw.\n".utf8))
             return
         }
-        view.cacheDisplay(in: view.bounds, to: representation)
-        if let data = representation.representation(using: .png, properties: [:]) {
-            try? data.write(to: url)
+        do {
+            try data.write(to: url)
             print("Snapshot written to \(url.path)")
+        } catch {
+            FileHandle.standardError.write(Data("Could not write the snapshot.\n".utf8))
         }
     }
 }

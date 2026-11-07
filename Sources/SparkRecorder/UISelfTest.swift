@@ -3,6 +3,7 @@ import AppKit
 import ApplicationServices
 import CoreAudio
 import SparkCore
+import SparkDesign
 import SwiftUI
 
 /// Drives the running app from inside, with real key events and real audio over BlackHole.
@@ -71,13 +72,11 @@ final class UISelfTest {
 
     private func snapshot(_ name: String) async {
         await wait(0.25)
-        guard let view = window?.contentView, let representation = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+        guard let view = window?.contentView, let data = WindowPicture.png(of: view) else {
             note("NOTE no window for snapshot \(name)")
             return
         }
-        view.cacheDisplay(in: view.bounds, to: representation)
-        try? representation.representation(using: .png, properties: [:])?
-            .write(to: output.appendingPathComponent("\(name).png"))
+        try? data.write(to: output.appendingPathComponent("\(name).png"))
     }
 
     /// Posts a real key event. It takes the same path as a key press, through the event monitor and menus.
@@ -1190,5 +1189,36 @@ final class UISelfTest {
             await snapshot("pieces-\(suffix)")
         }
         model.tab = .recordings
+
+        // The smallest window must not cut anything off.
+        if let window, let frame = Optional(window.frame) {
+            window.setContentSize(window.contentMinSize)
+            for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+                NSApp.appearance = NSAppearance(named: appearance)
+                await snapshot("smallest-\(suffix)")
+            }
+            window.setFrame(frame, display: true)
+        }
+
+        // The deck while counting in and recording, from the test device only.
+        guard model.selectedInput.map({ $0.name.contains("BlackHole") || $0.name == InputPolicy.testDeviceName }) == true else {
+            note("NOTE no test input, so no recording pictures")
+            return
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        model.updateMetronome { $0.countInBars = 1; $0.bpm = 100 }
+        model.toggleRecord()
+        if await waitUntil(timeout: 3, { if case .countIn = model.phase { return true } else { return false } }) {
+            await snapshot("countin-dark")
+        }
+        if await waitUntil(timeout: 8, { model.isRecording }) {
+            await wait(1.5)
+            model.addMarker()
+            await snapshot("recording-dark")
+            NSApp.appearance = NSAppearance(named: .aqua)
+            await snapshot("recording-light")
+            model.toggleRecord()
+        }
+        model.updateMetronome { $0.countInBars = 0 }
     }
 }

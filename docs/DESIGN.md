@@ -111,6 +111,32 @@ App-specific glue stays in the apps and only maps their data onto these blocks, 
 `Sources/SparkPresets/Design/ChainColors.swift` (chain colors as swatches) and `LoadMeter.swift` (the transfer meter,
 a variant of `LEDSegments`).
 
+## Spark Recorder
+
+- **Deck:** one front with four engraved modules. AUFNAHME: the record key (84 pt) and a display with state, lamp,
+  "R · AUFNAHME", the time (34 mono), and below it bar and beat or a hint, with the device name when there is room.
+  PEGEL: lamps ÜBERSTEUERT (click resets) and KEIN SIGNAL, the LED meter with scale, source and file, and the key
+  "Eingang prüfen". SPARK: one lamp for the connection, input and output as `DevicePopup`, Retro as `DeviceToggle`
+  with the buffer length or the key "Das eben war gut". KLICK: beat dots and the lamp "AN · N" (a click switches it),
+  BPM in a `DisplayStepper`, the time signature, Tap, the count-in and "⋯" for the details.
+- **Recording:** the key glows and shows a stop square or the count-in beat, the display gets a red edge, the state
+  turns red, the time white, and the lamp pulses unless "Reduce motion" is on.
+- **Waveform:** a ruler on top with bar numbers, or seconds for takes without bars, the same above the comparison
+  and above a recording in progress. Loop area with handles A and B, markers with their names.
+- **Transport:** keys with keycaps, the time in amber, an engraved line, TEMPO as `DeviceSlider`, TON as
+  `DisplayStepper`, and for an open take Behalten (main key), Verwerfen (red text), Nochmal. The bar controls of a take
+  with bars are a second row on the same front.
+- **Library:** `SegmentTabs`, the piece for new recordings and the search in one header; mono dates and durations,
+  amber stars, "Offen" as a pill, amber selection; a status line with recordings, open takes, practice time of the
+  last 30 days and "⌘/ Tastenkürzel". The inspector has `SegmentTabs`, system fields with `DeskCaption`, a two-column
+  grid of facts and keys at the bottom. Statistics: bars in the wave color, today in amber.
+- **Sheets:** the shortcut and measuring sheets carry their title engraved on a front strip; their text stays system
+  text. The shortcut list shows each key as a keycap.
+- The connection warnings that used to be extra lines ("Spark ohne Eingang", "Ausgabe bei Aufnahme gesperrt") are now
+  the SPARK lamp ("Ohne Eingang", "Ausgabe gesperrt", amber) with the full explanation as tooltip and for VoiceOver,
+  because the module has room for exactly three rows. The count-in choice has no engraving beside it, its values name
+  themselves ("Kein Einzähler", "1 Takt einzählen").
+
 ## Where the apps differ from the canvas, and why
 
 The canvas "Spark Apps Design" is intent, not a pixel specification. These differences are deliberate:
@@ -126,6 +152,6 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
   key (shift is ignored) and `⌘E` renames in both apps, so these keys carry no keycap. Shortcuts were not changed.
 - **List selection** needs AppKit: SwiftUI cannot recolor the selection of a `List` or `Table` on macOS, so
   `.amberSelection()` turns the table's own highlight off and draws the amber tint and bar beneath the rows.
-- **Window pictures** made with `cacheDisplay` (both apps' snapshot modes) leave out AppKit-drawn controls, such as
-  system pop-up buttons and segmented controls, and translucent materials. They appear as blank boxes in those pictures,
-  not in the app.
+- **Window pictures** (`WindowPicture`, used by both apps' snapshot modes) are drawn with `cacheDisplay`, which
+  leaves the window background transparent, so it is painted first. Translucent materials, such as the sidebar's,
+  are missing from these pictures, not from the app.
