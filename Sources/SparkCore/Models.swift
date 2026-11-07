@@ -80,13 +80,16 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     /// The bars of the take, when it was recorded with the metronome.
     public var grid: BeatGrid?
     public var punch: PunchInfo?
+    /// The sound the take was recorded with, when the preset editor knew it. Its settings are in a snapshot file.
+    public var preset: PresetStamp?
 
     public init(
         id: UUID = UUID(), fileName: String, createdAt: Date, duration: Double, sampleRate: Double, channels: Int,
         fileBits: Int, fileSize: Int64 = 0, inode: UInt64 = 0, source: SourceFormat? = nil, status: TakeStatus = .open,
         rating: Int = 0, favorite: Bool = false, tags: [String] = [], note: String = "", markers: [Marker] = [],
         pieceID: UUID? = nil, edit: EditList = EditList(), peakDB: Double? = nil, health: FileHealth = .ok,
-        recoveredAfterInterruption: Bool = false, grid: BeatGrid? = nil, punch: PunchInfo? = nil
+        recoveredAfterInterruption: Bool = false, grid: BeatGrid? = nil, punch: PunchInfo? = nil,
+        preset: PresetStamp? = nil
     ) {
         self.id = id
         self.fileName = fileName
@@ -111,6 +114,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         self.recoveredAfterInterruption = recoveredAfterInterruption
         self.grid = grid
         self.punch = punch
+        self.preset = preset
     }
 
     /// Missing fields get defaults, so a file written by an older or newer version still loads.
@@ -139,6 +143,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         recoveredAfterInterruption = try c.decodeIfPresent(Bool.self, forKey: .recoveredAfterInterruption) ?? false
         grid = try c.decodeIfPresent(BeatGrid.self, forKey: .grid)
         punch = try c.decodeIfPresent(PunchInfo.self, forKey: .punch)
+        preset = try c.decodeIfPresent(PresetStamp.self, forKey: .preset)
     }
 
     public var name: String { (fileName as NSString).deletingPathExtension }
@@ -154,18 +159,28 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     public var statusRank: Int { status == .open ? 0 : 1 }
 }
 
-/// A piece or exercise that groups several takes.
+/// A piece or exercise that groups several takes. It is also what Spark Presets calls a song.
 public struct Piece: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     public var name: String
     public var createdAt: Date
     public var bestTakeID: UUID?
+    /// The sound of the whole piece, when its parts do not have their own.
+    public var preset: PresetLink?
+    /// Intro, verse, solo and so on, in playing order, each with its own sound if it has one.
+    public var parts: [PiecePart]
+    /// The key as written by the player, such as "A-Moll".
+    public var key: String?
 
-    public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil) {
+    public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil,
+                preset: PresetLink? = nil, parts: [PiecePart] = [], key: String? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.bestTakeID = bestTakeID
+        self.preset = preset
+        self.parts = parts
+        self.key = key
     }
 
     public init(from decoder: Decoder) throws {
@@ -174,6 +189,9 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         name = try c.decode(String.self, forKey: .name)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date(timeIntervalSince1970: 0)
         bestTakeID = try c.decodeIfPresent(UUID.self, forKey: .bestTakeID)
+        preset = try c.decodeIfPresent(PresetLink.self, forKey: .preset)
+        parts = try c.decodeIfPresent([PiecePart].self, forKey: .parts) ?? []
+        key = try c.decodeIfPresent(String.self, forKey: .key)
     }
 }
 
