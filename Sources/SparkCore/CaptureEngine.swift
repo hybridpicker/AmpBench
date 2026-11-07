@@ -1,0 +1,405 @@
+import AudioToolbox
+import CSparkRT
+import CoreAudio
+import Foundation
+
+public enum CaptureError: LocalizedError {
+    case noAudioUnit
+    case coreAudio(step: String, status: OSStatus)
+    case noInputFormat
+    case notOpen
+    case alreadyRecording
+
+    public var errorDescription: String? {
+        switch self {
+        case .noAudioUnit: return "Der Audioeingang konnte nicht geöffnet werden."
+        case .coreAudio(let step, let status): return "\(step) ist fehlgeschlagen (Fehler \(status))."
+        case .noInputFormat: return "Das Gerät liefert kein nutzbares Eingangssignal."
+        case .notOpen: return "Der Audioeingang ist nicht geöffnet."
+        case .alreadyRecording: return "Es läuft bereits eine Aufnahme."
+        }
+    }
+}
+
+public struct RecordingResult: Sendable {
+    public let url: URL
+    public let frames: Int64
+    public let seconds: Double
+    public let peak: Float
+    public let droppedFrames: Int64
+    public let clippedBlocks: UInt32
+    public let writeError: OSStatus?
+    /// False when bins were lost and the waveform must be computed from the file.
+    public let overviewComplete: Bool
+    /// False when the writer could not be closed, so the header stays open until the next start repairs it.
+    public let finalized: Bool
+}
+
+public enum CaptureInterruption: Sendable {
+    case deviceLost
+    case sampleRateChanged
+}
+
+/// Records one input device through AUHAL.
+///
+/// The input can stay open without a file for level checks and the retro buffer, and a file can be attached at any
+/// moment. All methods belong on the main thread. The realtime path lives in `CSparkRT`.
+public final class CaptureEngine {
+    public static let overviewBinFrames: UInt32 = 256
+    private static let retroMarginSeconds = 5.0
+
+    private var unit: AudioUnit?
+    private var capture: OpaquePointer?
+    private var file: ExtAudioFileRef?
+    private var url: URL?
+    private var deviceID: AudioDeviceID?
+    private var restoreRate: Double?
+    private var listeners: [(AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
+    private var syncTimer: DispatchSourceTimer?
+    private var syncDescriptor: Int32 = -1
+
+    public private(set) var sampleRate: Double = 0
+    public private(set) var channels: Int = 0
+    public private(set) var retroCapacitySeconds: Double = 0
+
+    /// Called on the main queue when the running input can no longer deliver audio.
+    public var onInterrupted: ((CaptureInterruption) -> Void)?
+
+    public init() {}
+
+    deinit {
+        close()
+    }
+
+    public var isOpen: Bool { unit != nil }
+    public var isRecording: Bool { file != nil }
+
+    // MARK: Opening the input
+
+    public func open(device: InputDevice, retroSeconds: Double = 0) throws {
+        close()
+        deviceID = device.id
+        if device.maxRate > device.currentRate, AudioDevices.setRate(device.maxRate, on: device.id) {
+            restoreRate = device.currentRate
+        }
+        do {
+            try startUnit(deviceID: device.id, retroSeconds: retroSeconds)
+            watchDevice(device.id)
+        } catch {
+            close()
+            throw error
+        }
+    }
+
+    private func startUnit(deviceID: AudioDeviceID, retroSeconds: Double) throws {
+        var description = AudioComponentDescription(
+            componentType: kAudioUnitType_Output,
+            componentSubType: kAudioUnitSubType_HALOutput,
+            componentManufacturer: kAudioUnitManufacturer_Apple,
+            componentFlags: 0,
+            componentFlagsMask: 0
+        )
+        guard let component = AudioComponentFindNext(nil, &description) else { throw CaptureError.noAudioUnit }
+        var newUnit: AudioUnit?
+        try check("Öffnen des Audioeingangs", AudioComponentInstanceNew(component, &newUnit))
+        guard let unit = newUnit else { throw CaptureError.noAudioUnit }
+        self.unit = unit
+
+        // Bus 1 is the hardware input and bus 0 the hardware output. Only the input is used.
+        var enabled: UInt32 = 1
+        var disabled: UInt32 = 0
+        let flagSize = UInt32(MemoryLayout<UInt32>.size)
+        try check("Aktivieren des Eingangs", AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enabled, flagSize))
+        try check("Deaktivieren des Ausgangs", AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &disabled, flagSize))
+
+        var device = deviceID
+        try check("Auswählen des Geräts", AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
+            &device, UInt32(MemoryLayout<AudioDeviceID>.size)))
+
+        var hardware = AudioStreamBasicDescription()
+        var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
+        try check("Lesen des Geräteformats", AudioUnitGetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &hardware, &formatSize))
+        guard hardware.mChannelsPerFrame > 0, hardware.mSampleRate > 0 else { throw CaptureError.noInputFormat }
+
+        var client = Self.clientFormat(rate: hardware.mSampleRate, channels: hardware.mChannelsPerFrame)
+        try check("Setzen des Aufnahmeformats", AudioUnitSetProperty(
+            unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1,
+            &client, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)))
+
+        try check("Initialisieren des Audioeingangs", AudioUnitInitialize(unit))
+
+        var maxFrames: UInt32 = 0
+        var maxFramesSize = flagSize
+        try check("Lesen der Puffergröße", AudioUnitGetProperty(
+            unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, &maxFramesSize))
+
+        let retroFrames = UInt64(max(retroSeconds, 0) * hardware.mSampleRate)
+        let margin = UInt64(Self.retroMarginSeconds * hardware.mSampleRate)
+        let newCapture = spark_capture_create(
+            hardware.mChannelsPerFrame, max(maxFrames, 8192), hardware.mSampleRate, retroFrames, margin,
+            Self.overviewBinFrames)
+        spark_capture_set_unit(newCapture, unit)
+        capture = newCapture
+
+        var callback = AURenderCallbackStruct(
+            inputProc: spark_capture_input_callback,
+            inputProcRefCon: UnsafeMutableRawPointer(newCapture)
+        )
+        try check("Registrieren der Aufnahme", AudioUnitSetProperty(
+            unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
+            &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size)))
+
+        sampleRate = hardware.mSampleRate
+        channels = Int(hardware.mChannelsPerFrame)
+        retroCapacitySeconds = retroSeconds
+        try check("Starten des Eingangs", AudioOutputUnitStart(unit))
+    }
+
+    static func clientFormat(rate: Double, channels: UInt32) -> AudioStreamBasicDescription {
+        let bytesPerFrame = channels * UInt32(MemoryLayout<Float>.size)
+        return AudioStreamBasicDescription(
+            mSampleRate: rate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagsNativeFloatPacked,
+            mBytesPerPacket: bytesPerFrame,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: bytesPerFrame,
+            mChannelsPerFrame: channels,
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
+    }
+
+    private func watchDevice(_ device: AudioDeviceID) {
+        addListener(device, kAudioDevicePropertyDeviceIsAlive) { [weak self] in
+            guard let self, !AudioDevices.isAlive(device) else { return }
+            self.onInterrupted?(.deviceLost)
+        }
+        // A pulled USB cable can also just remove the device from the system.
+        addListener(AudioObjectID(kAudioObjectSystemObject), kAudioHardwarePropertyDevices) { [weak self] in
+            guard let self, !AudioDevices.exists(device) else { return }
+            self.onInterrupted?(.deviceLost)
+        }
+        let rate = sampleRate
+        addListener(device, kAudioDevicePropertyNominalSampleRate) { [weak self] in
+            guard let self, AudioDevices.currentRate(of: device) != rate else { return }
+            self.onInterrupted?(.sampleRateChanged)
+        }
+    }
+
+    private func addListener(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector,
+                             _ handler: @escaping () -> Void) {
+        var address = AudioDevices.address(selector)
+        let listener: AudioObjectPropertyListenerBlock = { _, _ in handler() }
+        if AudioObjectAddPropertyListenerBlock(object, &address, .main, listener) == noErr {
+            listeners.append((object, address, listener))
+        }
+    }
+
+    /// Stops the input, finalizing a running recording first.
+    public func close() {
+        _ = stopRecording()
+        for (object, address, listener) in listeners {
+            var address = address
+            AudioObjectRemovePropertyListenerBlock(object, &address, .main, listener)
+        }
+        listeners = []
+        if let unit {
+            AudioOutputUnitStop(unit)
+            AudioUnitUninitialize(unit)
+            AudioComponentInstanceDispose(unit)
+        }
+        unit = nil
+        if let capture { spark_capture_destroy(capture) }
+        capture = nil
+        sampleRate = 0
+        channels = 0
+        retroCapacitySeconds = 0
+        if let restoreRate, let deviceID { AudioDevices.setRate(restoreRate, on: deviceID) }
+        restoreRate = nil
+        deviceID = nil
+    }
+
+    // MARK: Recording
+
+    /// Starts writing a 24-bit WAV file. With a gate time, the file begins at exactly that moment of the input.
+    ///
+    /// Files are always 24 bits so a 16-bit source stays lossless and later processing has headroom. This adds no
+    /// detail beyond what the source delivers, so the UI reports the source format separately.
+    public func startRecording(to destination: URL, gateHostTime: UInt64 = 0) throws {
+        guard let capture else { throw CaptureError.notOpen }
+        guard file == nil else { throw CaptureError.alreadyRecording }
+
+        let channelCount = UInt32(channels)
+        var fileFormat = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked,
+            mBytesPerPacket: channelCount * 3,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: channelCount * 3,
+            mChannelsPerFrame: channelCount,
+            mBitsPerChannel: 24,
+            mReserved: 0
+        )
+        var newFile: ExtAudioFileRef?
+        try check("Anlegen der Datei", ExtAudioFileCreateWithURL(
+            destination as CFURL, kAudioFileWAVEType, &fileFormat, nil, AudioFileFlags.eraseFile.rawValue, &newFile))
+        guard let newFile else { throw CaptureError.noInputFormat }
+        do {
+            var client = Self.clientFormat(rate: sampleRate, channels: channelCount)
+            try check("Setzen des Dateiformats", ExtAudioFileSetProperty(
+                newFile, kExtAudioFileProperty_ClientDataFormat,
+                UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client))
+            // The first call allocates the async buffers, which must not happen on the realtime thread.
+            try check("Vorbereiten der Datei", ExtAudioFileWriteAsync(newFile, 0, nil))
+        } catch {
+            ExtAudioFileDispose(newFile)
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
+
+        file = newFile
+        url = destination
+        spark_capture_attach_file(capture, newFile, gateHostTime)
+        startPeriodicSync(destination)
+    }
+
+    /// Pushes written audio to the disk regularly, off the audio thread, so a power loss costs only seconds.
+    private func startPeriodicSync(_ destination: URL) {
+        syncDescriptor = Darwin.open(destination.path, O_RDONLY)
+        guard syncDescriptor >= 0 else { return }
+        let descriptor = syncDescriptor
+        let timer = DispatchSource.makeTimerSource(queue: .global(qos: .utility))
+        timer.schedule(deadline: .now() + 5, repeating: 5)
+        timer.setEventHandler { _ = fsync(descriptor) }
+        timer.setCancelHandler { Darwin.close(descriptor) }
+        timer.resume()
+        syncTimer = timer
+        syncDescriptor = -1
+    }
+
+    @discardableResult
+    public func stopRecording() -> RecordingResult? {
+        guard let capture, let file, let destination = url else { return nil }
+        syncTimer?.cancel()
+        syncTimer = nil
+
+        let detached = spark_capture_detach_file(capture)
+        let frames = spark_capture_file_frames(capture)
+        let dropped = spark_capture_dropped_frames(capture)
+        let writeStatus = spark_capture_write_status(capture)
+        let result = RecordingResult(
+            url: destination,
+            frames: frames,
+            seconds: sampleRate > 0 ? Double(frames) / sampleRate : 0,
+            peak: spark_capture_file_peak(capture),
+            droppedFrames: dropped,
+            clippedBlocks: spark_capture_clipped_blocks(capture),
+            writeError: writeStatus == noErr ? nil : writeStatus,
+            overviewComplete: spark_capture_dropped_bins(capture) == 0,
+            finalized: detached
+        )
+        // Disposing flushes the queue and finalizes the header. If the audio thread could still be using the file,
+        // leaving it open is the safe choice: the header gets repaired on the next start.
+        if detached { ExtAudioFileDispose(file) }
+        self.file = nil
+        url = nil
+        return result
+    }
+
+    // MARK: Observing
+
+    public var recordedFrames: Int64 { capture.map { spark_capture_file_frames($0) } ?? 0 }
+    public var recordedSeconds: Double { sampleRate > 0 ? Double(recordedFrames) / sampleRate : 0 }
+    public var droppedFrames: Int64 { capture.map { spark_capture_dropped_frames($0) } ?? 0 }
+    public var callbackCount: UInt64 { capture.map { spark_capture_callback_count($0) } ?? 0 }
+
+    public func takeLevel() -> Float { capture.map { spark_capture_take_level($0) } ?? 0 }
+    public func takeClip() -> Bool { capture.map { spark_capture_take_clip($0) } ?? false }
+
+    /// Waveform bins written since the previous call, as min/max pairs.
+    public func readOverview() -> [Float] {
+        guard let capture else { return [] }
+        var bins = [Float](repeating: 0, count: 8192 * 2)
+        let count = bins.withUnsafeMutableBufferPointer {
+            spark_capture_read_overview(capture, $0.baseAddress!, 8192)
+        }
+        bins.removeLast(bins.count - Int(count) * 2)
+        return bins
+    }
+
+    // MARK: Retro buffer
+
+    public var retroAvailableSeconds: Double {
+        guard let capture, sampleRate > 0 else { return 0 }
+        return Double(spark_capture_retro_available_frames(capture)) / sampleRate
+    }
+
+    /// Copies the most recent audio out of memory, for writing on a background thread.
+    public func copyRetro(seconds: Double) -> (samples: [Float], sampleRate: Double, channels: Int)? {
+        guard let capture, sampleRate > 0, channels > 0 else { return nil }
+        let wanted = min(UInt64(seconds * sampleRate), spark_capture_retro_available_frames(capture))
+        guard wanted > 0 else { return nil }
+        var samples = [Float](repeating: 0, count: Int(wanted) * channels)
+        let copied = samples.withUnsafeMutableBufferPointer {
+            spark_capture_retro_copy_latest(capture, $0.baseAddress!, wanted)
+        }
+        samples.removeLast(samples.count - Int(copied) * channels)
+        return (samples, sampleRate, channels)
+    }
+
+    private func check(_ step: String, _ status: OSStatus) throws {
+        guard status == noErr else { throw CaptureError.coreAudio(step: step, status: status) }
+    }
+}
+
+extension OpaquePointer: @unchecked Sendable {}
+
+/// Writes interleaved float samples to a 24-bit WAV file on a normal thread. Used for saving the retro buffer.
+public enum WAVWriter {
+    public static func write(samples: [Float], sampleRate: Double, channels: Int, to url: URL) throws {
+        let channelCount = UInt32(channels)
+        var fileFormat = AudioStreamBasicDescription(
+            mSampleRate: sampleRate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kLinearPCMFormatFlagIsSignedInteger | kLinearPCMFormatFlagIsPacked,
+            mBytesPerPacket: channelCount * 3,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: channelCount * 3,
+            mChannelsPerFrame: channelCount,
+            mBitsPerChannel: 24,
+            mReserved: 0
+        )
+        var created: ExtAudioFileRef?
+        let status = ExtAudioFileCreateWithURL(url as CFURL, kAudioFileWAVEType, &fileFormat, nil,
+                                               AudioFileFlags.eraseFile.rawValue, &created)
+        guard status == noErr, let file = created else {
+            throw CaptureError.coreAudio(step: "Anlegen der Datei", status: status)
+        }
+        defer { ExtAudioFileDispose(file) }
+        var client = CaptureEngine.clientFormat(rate: sampleRate, channels: channelCount)
+        let formatStatus = ExtAudioFileSetProperty(file, kExtAudioFileProperty_ClientDataFormat,
+                                                   UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client)
+        guard formatStatus == noErr else {
+            throw CaptureError.coreAudio(step: "Setzen des Dateiformats", status: formatStatus)
+        }
+        var samples = samples
+        let frames = UInt32(samples.count / channels)
+        let writeStatus = samples.withUnsafeMutableBytes { bytes -> OSStatus in
+            var list = AudioBufferList(
+                mNumberBuffers: 1,
+                mBuffers: AudioBuffer(mNumberChannels: channelCount, mDataByteSize: UInt32(bytes.count),
+                                      mData: bytes.baseAddress)
+            )
+            return ExtAudioFileWrite(file, frames, &list)
+        }
+        guard writeStatus == noErr else {
+            throw CaptureError.coreAudio(step: "Schreiben der Datei", status: writeStatus)
+        }
+    }
+}
