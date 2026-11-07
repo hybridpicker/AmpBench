@@ -14,7 +14,7 @@ final class CaptureRealtimeTests: XCTestCase {
 
     private func makeCapture(channels: UInt32 = 1, retroFrames: UInt64 = 0, margin: UInt64 = 0,
                              binFrames: UInt32 = 256) -> OpaquePointer {
-        spark_capture_create(channels, 8192, rate, retroFrames, margin, binFrames)
+        spark_capture_create(channels, 8192, rate, retroFrames, margin, binFrames, nil)
     }
 
     private func makeFile(_ url: URL, channels: UInt32 = 1) throws -> ExtAudioFileRef {
@@ -66,7 +66,7 @@ final class CaptureRealtimeTests: XCTestCase {
         defer { spark_capture_destroy(capture) }
         let url = folder.file("a.wav")
         let file = try makeFile(url)
-        spark_capture_attach_file(capture, file, 0)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
         let samples = Synthetic.sine(seconds: 0.5, amplitude: 0.25)
         var position = 0
         while position < samples.count {
@@ -91,7 +91,7 @@ final class CaptureRealtimeTests: XCTestCase {
         let capture = makeCapture()
         defer { spark_capture_destroy(capture) }
         let file = try makeFile(folder.file("a.wav"))
-        spark_capture_attach_file(capture, file, 0)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
         spark_capture_process(capture, [0.5, 0.5], 2, 0)
         XCTAssertTrue(spark_capture_detach_file(capture))
         spark_capture_process(capture, [0.9, 0.9], 2, 0)
@@ -106,8 +106,7 @@ final class CaptureRealtimeTests: XCTestCase {
         let file = try makeFile(folder.file("a.wav"))
         let ticksPerFrame = AudioGetHostClockFrequency() / rate
         let start: UInt64 = 1_000_000_000
-        let gate = start + UInt64(ticksPerFrame * 700)
-        spark_capture_attach_file(capture, file, gate)
+        spark_capture_attach_file(capture, file, 700)
 
         let block = [Float](repeating: 0.1, count: 512)
         spark_capture_process(capture, block, 512, start)
@@ -118,6 +117,7 @@ final class CaptureRealtimeTests: XCTestCase {
 
         spark_capture_process(capture, block, 512, start + UInt64(ticksPerFrame * 1024))
         XCTAssertEqual(spark_capture_file_frames(capture), 512 - 188 + 512)
+        XCTAssertEqual(spark_capture_file_first_frame(capture), 700)
         XCTAssertTrue(spark_capture_detach_file(capture))
         ExtAudioFileDispose(file)
     }
@@ -126,7 +126,7 @@ final class CaptureRealtimeTests: XCTestCase {
         let capture = makeCapture(binFrames: 100)
         defer { spark_capture_destroy(capture) }
         let file = try makeFile(folder.file("a.wav"))
-        spark_capture_attach_file(capture, file, 0)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
         var samples = [Float](repeating: 0.1, count: 250)
         samples[150] = -0.8
         spark_capture_process(capture, samples, 250, 0)
@@ -146,13 +146,13 @@ final class CaptureRealtimeTests: XCTestCase {
         let capture = makeCapture()
         defer { spark_capture_destroy(capture) }
         var file = try makeFile(folder.file("a.wav"))
-        spark_capture_attach_file(capture, file, 0)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
         spark_capture_process(capture, [0.9, 0.9], 2, 0)
         XCTAssertTrue(spark_capture_detach_file(capture))
         ExtAudioFileDispose(file)
 
         file = try makeFile(folder.file("b.wav"))
-        spark_capture_attach_file(capture, file, 0)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
         XCTAssertEqual(spark_capture_file_frames(capture), 0)
         XCTAssertEqual(spark_capture_file_peak(capture), 0)
         XCTAssertTrue(spark_capture_detach_file(capture))
@@ -236,7 +236,7 @@ final class ClickRealtimeTests: XCTestCase {
         while position < frames {
             let count = min(block, frames - position)
             out.withUnsafeMutableBufferPointer {
-                spark_click_render(click, $0.baseAddress! + position, UInt32(count))
+                spark_click_render(click, $0.baseAddress! + position, UInt32(count), 0)
             }
             position += count
         }
@@ -244,7 +244,7 @@ final class ClickRealtimeTests: XCTestCase {
     }
 
     func testBeatsLandOnExactFrames() {
-        let click = spark_click_create(rate)
+        let click = spark_click_create(rate, nil)
         defer { spark_click_destroy(click) }
         spark_click_set_tempo(click, 120, 4, 1)
         // A sine starts at zero, so the first audible sample of a click is one frame after its start.
@@ -252,8 +252,8 @@ final class ClickRealtimeTests: XCTestCase {
     }
 
     func testBlockSizeDoesNotShiftBeats() {
-        let first = spark_click_create(rate)
-        let second = spark_click_create(rate)
+        let first = spark_click_create(rate, nil)
+        let second = spark_click_create(rate, nil)
         defer {
             spark_click_destroy(first)
             spark_click_destroy(second)
@@ -264,7 +264,7 @@ final class ClickRealtimeTests: XCTestCase {
     }
 
     func testFirstBeatOfBarIsAccented() {
-        let click = spark_click_create(rate)
+        let click = spark_click_create(rate, nil)
         defer { spark_click_destroy(click) }
         spark_click_set_tempo(click, 120, 3, 1)
         let samples = render(click, frames: 96_000)
@@ -273,18 +273,18 @@ final class ClickRealtimeTests: XCTestCase {
         XCTAssertGreaterThan(peak(around: 72_000), peak(around: 48_000) * 1.2, "beat 4 starts the next 3/4 bar")
     }
 
-    func testMuteSilencesFromFrameButBeatsKeepCounting() {
-        let click = spark_click_create(rate)
+    func testMuteSilencesFromBeatButBeatsKeepCounting() {
+        let click = spark_click_create(rate, nil)
         defer { spark_click_destroy(click) }
         spark_click_set_tempo(click, 120, 4, 1)
-        spark_click_set_mute_from(click, 48_000)
+        spark_click_set_mute_from_beat(click, 2)
         let samples = render(click, frames: 96_000)
         XCTAssertEqual(onsets(samples), [1, 24_001])
         XCTAssertEqual(spark_click_beat_count(click), 4)
     }
 
     func testVolumeScalesTheClick() {
-        let click = spark_click_create(rate)
+        let click = spark_click_create(rate, nil)
         defer { spark_click_destroy(click) }
         spark_click_set_tempo(click, 120, 4, 0.1)
         XCTAssertLessThanOrEqual(render(click, frames: 4000).map { abs($0) }.max()!, 0.1)

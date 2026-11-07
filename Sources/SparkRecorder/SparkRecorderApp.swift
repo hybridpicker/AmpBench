@@ -134,6 +134,7 @@ struct RootView: View {
         .frame(minWidth: 1120, maxWidth: .infinity, minHeight: 680, maxHeight: .infinity)
         .sheet(isPresented: $model.showShortcuts) { ShortcutsSheet() }
         .sheet(isPresented: $model.showLoopbackInfo) { LoopbackSheet() }
+        .sheet(isPresented: $model.showLatencyInfo) { LatencySheet() }
         .alert("Aufnahme umbenennen", isPresented: Binding(
             get: { model.renameTarget != nil },
             set: { if !$0 { model.renameTarget = nil } }
@@ -226,6 +227,8 @@ struct AppCommands: Commands {
             Button("Rückkopplung messen …") { model.showLoopbackInfo = true }
                 .disabled(!model.canMeasureLoopback)
             Button("Messungen vergessen", action: model.forgetLoopbackMeasurements)
+            Button("Klick-Latenz messen …") { model.showLatencyInfo = true }
+                .disabled(!model.canMeasureLatency)
         }
         CommandMenu("Wiedergabe") {
             Button("Abspielen oder anhalten  (Leertaste)", action: model.togglePlay)
@@ -350,6 +353,36 @@ private struct ShortcutsSheet: View {
         }
         .padding(20)
         .frame(width: 480)
+    }
+}
+
+private struct LatencySheet: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Klick-Latenz messen").font(.title2.weight(.semibold))
+            Text("Damit die Takte auf die Millisekunde stimmen, misst die App, wie lange ein Klick von „\(model.clickOutput?.name ?? "–")“ bis in die Aufnahme von „\(model.selectedInput?.name ?? "–")“ braucht. Der Amp verzögert die Gitarre intern, und das melden die Geräte nicht.")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Steck dafür ein Kabel vom Kopfhörerausgang des Klick-Ausgangs in den Gitarreneingang des Amps. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.")
+                .fixedSize(horizontal: false, vertical: true)
+            Text("Das Ergebnis gilt für genau diese beiden Geräte und für Aufnahmen, die danach entstehen.")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            HStack {
+                Spacer()
+                Button("Abbrechen", role: .cancel) { model.showLatencyInfo = false }
+                    .keyboardShortcut(.cancelAction)
+                Button("Messen") {
+                    model.showLatencyInfo = false
+                    model.measureLatency()
+                }
+                .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(20)
+        .frame(width: 460)
     }
 }
 

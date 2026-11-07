@@ -309,14 +309,88 @@ final class AudioPathTests: XCTestCase {
         XCTAssertTrue(measurement.outputReachesInput, "BlackHole loops output to input by design")
     }
 
+    /// The whole chain on real streams: a click on the input's clock goes out through BlackHole and comes straight
+    /// back in, which a device with no latency of its own does at the same frame. Every beat must then land on the
+    /// grid the app computes for the file, the way a note played exactly on the click would.
+    func testLoopedClickLandsOnTheGrid() throws {
+        let capture = CaptureEngine(inputPolicy: .testDevices)
+        try requireMicrophone(capture)
+        try capture.open(device: input)
+        defer { capture.close() }
+        wait(0.2)
+        let clock = try XCTUnwrap(capture.clock)
+        let click = ClickEngine()
+        let settings = MetronomeSettings(bpm: 150, beatsPerBar: 4, volume: 0.5, countInBars: 1)
+        try click.start(device: output.id, settings: settings, clock: clock)
+        defer { click.stop() }
+        var anchor: Double?
+        for _ in 0..<200 where anchor == nil {
+            anchor = click.anchorFrame
+            wait(0.005)
+        }
+        let anchorFrame = try XCTUnwrap(anchor, "the click must place beat 0")
+        let rate = capture.sampleRate
+        let gate = ClickTiming.gateFrame(anchorFrame: anchorFrame, beatsBefore: settings.countInBeats, bpm: settings.bpm,
+                                         inputRate: rate, preRoll: 0.15)
+        let url = folder.file("looped-click.wav")
+        try capture.startRecording(to: url, gateFrame: gate)
+        wait(settings.countInSeconds + 4)
+        let fileFirst = try XCTUnwrap(capture.fileFirstFrame)
+        let latency = ClickLatency(output: click.reportedOutputLatency, input: capture.reportedInputLatency)
+        click.stop()
+        _ = try XCTUnwrap(capture.stopRecording())
+        XCTAssertEqual(click.lateBeats, 0)
+
+        let grid = BeatGrid(
+            bpm: settings.bpm, beatsPerBar: settings.beatsPerBar,
+            offset: ClickTiming.gridOffset(anchorFrame: anchorFrame, beatsBefore: settings.countInBeats,
+                                           bpm: settings.bpm, inputRate: rate, fileFirstFrame: fileFirst,
+                                           latency: latency))
+        XCTAssertEqual(fileFirst, gate, "the file starts at the gate")
+        XCTAssertEqual(grid.offset, 0.15, accuracy: 0.001)
+
+        let samples = try readAudio(url).samples
+        var onsets: [Double] = []
+        var quietFor = Int.max
+        for (index, sample) in samples.enumerated() {
+            if abs(sample) > 0.01 {
+                if quietFor > Int(0.05 * rate) { onsets.append(Double(index) / rate) }
+                quietFor = 0
+            } else if quietFor < Int.max {
+                quietFor += 1
+            }
+        }
+        XCTAssertGreaterThanOrEqual(onsets.count, 9, "about ten beats after the count-in")
+        for onset in onsets {
+            let index = try XCTUnwrap(grid.beatIndex(at: onset + 0.01))
+            let beatTime = grid.offset + Double(index) * grid.secondsPerBeat
+            XCTAssertEqual(onset, beatTime, accuracy: 0.0005, "beat \(index) is \((onset - beatTime) * 1000) ms off")
+        }
+    }
+
+    func testLatencyProbeMeasuresALoopWithoutDelay() async throws {
+        let (input, output) = (self.input!, self.output!)
+        guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+            throw XCTSkip("no microphone permission for the test process")
+        }
+        let result = try await MainActor.run {
+            Task { try await LatencyProbe.measure(input: input, output: output.id, beats: 8, bpm: 150,
+                                                  inputPolicy: .testDevices) }
+        }.value
+        XCTAssertEqual(result.detected, 8)
+        XCTAssertEqual(result.measured, result.reported, accuracy: 0.0005, "BlackHole adds no delay of its own")
+        XCTAssertLessThan(result.spread, 0.0005)
+    }
+
     func testGateStartsTheFileAtTheRequestedMoment() throws {
         let capture = CaptureEngine(inputPolicy: .testDevices)
         try requireMicrophone(capture)
         try capture.open(device: input)
         defer { capture.close() }
         let url = folder.file("gate.wav")
-        let gate = AudioGetCurrentHostTime() + UInt64(AudioGetHostClockFrequency() * 0.5)
-        try capture.startRecording(to: url, gateHostTime: gate)
+        wait(0.1)
+        let gate = capture.framesReceived + Int64(capture.sampleRate * 0.5)
+        try capture.startRecording(to: url, gateFrame: gate)
         wait(0.25)
         XCTAssertEqual(capture.recordedFrames, 0, "nothing before the gate")
         wait(0.75)

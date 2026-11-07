@@ -186,16 +186,31 @@ public enum AudioDevices {
         allDevices().contains(device)
     }
 
-    /// Host-clock ticks between handing audio to an output device and hearing it.
+    /// Frames between the moment Core Audio stamps on output audio and the moment the device plays it.
     public static func outputLatencyFrames(of device: AudioDeviceID) -> UInt32 {
-        var total: UInt32 = 0
-        for selector in [kAudioDevicePropertyLatency, kAudioDevicePropertySafetyOffset] {
-            var property = address(selector, kAudioObjectPropertyScopeOutput)
+        presentationLatencyFrames(of: device, scope: kAudioObjectPropertyScopeOutput)
+    }
+
+    /// Frames between the moment a sound reaches the device and the moment Core Audio stamps on that input.
+    public static func inputLatencyFrames(of device: AudioDeviceID) -> UInt32 {
+        presentationLatencyFrames(of: device, scope: kAudioObjectPropertyScopeInput)
+    }
+
+    /// The device latency plus the latency of its first stream in that direction, as Core Audio defines them.
+    ///
+    /// The safety offset is not part of it: the time stamps of the IO cycle already lie that far from "now", so
+    /// adding it would count it twice.
+    static func presentationLatencyFrames(of device: AudioDeviceID, scope: AudioObjectPropertyScope) -> UInt32 {
+        func value(_ object: AudioObjectID, _ selector: AudioObjectPropertySelector,
+                   _ scope: AudioObjectPropertyScope) -> UInt32 {
+            var property = address(selector, scope)
             var value: UInt32 = 0
             var size = UInt32(MemoryLayout<UInt32>.size)
-            if AudioObjectGetPropertyData(device, &property, 0, nil, &size, &value) == noErr { total += value }
+            return AudioObjectGetPropertyData(object, &property, 0, nil, &size, &value) == noErr ? value : 0
         }
-        return total
+        let streamLatency = streams(of: device, scope: scope).first
+            .map { value($0, kAudioStreamPropertyLatency, kAudioObjectPropertyScopeGlobal) } ?? 0
+        return value(device, kAudioDevicePropertyLatency, scope) + streamLatency
     }
 
     /// Spark devices known to the system that expose no input stream, so the UI can explain why they are missing.

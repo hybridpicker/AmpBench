@@ -10,6 +10,22 @@
 
 CF_ASSUME_NONNULL_BEGIN
 
+// MARK: - Input clock
+
+/// Where the input device's frames lie in host time. The capture callback publishes every block, and the click
+/// reads it to place its beats on input frames, so the two devices cannot drift apart even with separate clocks.
+typedef struct SparkClock SparkClock;
+
+SparkClock *spark_clock_create(double sample_rate);
+void spark_clock_destroy(SparkClock *clock);
+/// Records that input frame `frame` reached the driver at `host_time`. [RT]
+void spark_clock_publish(SparkClock *clock, int64_t frame, uint64_t host_time);
+/// The host time of an input frame, extrapolated from the latest block. False before the first block. [RT]
+bool spark_clock_host_time_of_frame(const SparkClock *clock, double frame, double *host_time);
+/// The input frame at a host time. False before the first block. [RT]
+bool spark_clock_frame_at_host_time(const SparkClock *clock, double host_time, double *frame);
+double spark_clock_sample_rate(const SparkClock *clock);
+
 // MARK: - Capture
 
 typedef struct SparkCapture SparkCapture;
@@ -19,8 +35,10 @@ typedef struct SparkCapture SparkCapture;
 
 /// `retro_frames` of 0 disables the in-memory ring buffer. The buffer is touched up front so the audio thread
 /// never takes a page fault on it.
+/// `clock` may be NULL. When given, every block is published to it, counted in the frames this capture received.
 SparkCapture *spark_capture_create(uint32_t channels, uint32_t capacity_frames, double sample_rate,
-                                   uint64_t retro_frames, uint64_t retro_margin_frames, uint32_t overview_bin_frames);
+                                   uint64_t retro_frames, uint64_t retro_margin_frames, uint32_t overview_bin_frames,
+                                   SparkClock *_Nullable clock);
 /// Zeroes the ring buffer before releasing it, so nothing heard stays readable in freed memory.
 void spark_capture_destroy(SparkCapture *capture);
 void spark_capture_set_unit(SparkCapture *capture, AudioUnit unit);
@@ -31,9 +49,13 @@ extern const AURenderCallback spark_capture_input_callback;
 /// The processing behind the input callback, callable with synthetic samples from tests. [RT]
 void spark_capture_process(SparkCapture *capture, const float *interleaved, uint32_t frames, uint64_t host_time);
 
-/// Starts writing to `file` at `gate_host_time`, or with the next block when it is 0. The file must already have
-/// its client format set and its async buffers prepared.
-void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, uint64_t gate_host_time);
+/// Means "start with the next block" for `spark_capture_attach_file`.
+#define SPARK_GATE_NONE (-1)
+
+/// Starts writing to `file` at input frame `gate_frame`, or with the next block for SPARK_GATE_NONE. A gate that has
+/// already passed starts with the next block too. The file must already have its client format set and its async
+/// buffers prepared.
+void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, int64_t gate_frame);
 /// Stops writing and waits for a callback in progress to finish. Returns false when the callback did not finish in
 /// time, in which case the file must not be disposed.
 bool spark_capture_detach_file(SparkCapture *capture);
@@ -47,8 +69,10 @@ OSStatus spark_capture_render_status(const SparkCapture *capture);
 
 float spark_capture_file_peak(const SparkCapture *capture);
 int64_t spark_capture_file_frames(const SparkCapture *capture);
-/// Host time of the first frame written to the file, or 0 before that or when the device gives no valid time.
-uint64_t spark_capture_file_first_host_time(const SparkCapture *capture);
+/// The input frame, counted like the clock, that became the first frame of the file. -1 before the first write.
+int64_t spark_capture_file_first_frame(const SparkCapture *capture);
+/// Input frames received since the capture was created.
+int64_t spark_capture_frames_received(const SparkCapture *capture);
 int64_t spark_capture_dropped_frames(const SparkCapture *capture);
 OSStatus spark_capture_write_status(const SparkCapture *capture);
 uint32_t spark_capture_clipped_blocks(const SparkCapture *capture);
@@ -65,23 +89,30 @@ uint64_t spark_capture_retro_copy_latest(const SparkCapture *capture, float *des
 
 typedef struct SparkClick SparkClick;
 
-SparkClick *spark_click_create(double sample_rate);
+/// Without a clock the beats follow the output's own frames. With one, they lie on frames of that input: beat 0 on
+/// the input frame that matches the first output block, and every further beat a whole interval of input frames
+/// later. Each block is placed by its host time, so neither device's clock error moves the beats against the input.
+/// The click does not own the clock, which must outlive it.
+SparkClick *spark_click_create(double sample_rate, SparkClock *_Nullable clock);
 void spark_click_destroy(SparkClick *click);
 
 /// Safe while running. A new tempo takes effect from the next beat.
 void spark_click_set_tempo(SparkClick *click, double bpm, uint32_t beats_per_bar, float volume);
-/// Mutes the click from the given output frame on. Pass -1 to never mute.
-void spark_click_set_mute_from(SparkClick *click, int64_t frame);
+/// Silences every beat from the given beat number on, also one still ringing. Pass -1 to never mute.
+void spark_click_set_mute_from_beat(SparkClick *click, int64_t beat);
 
 /// Output callback for an AUHAL unit with non-interleaved float buffers. Pass the SparkClick as its reference. [RT]
 extern const AURenderCallback spark_click_output_callback;
 
-/// The synthesis behind the output callback, callable from tests. [RT]
-void spark_click_render(SparkClick *click, float *mono, uint32_t frames);
+/// The synthesis behind the output callback, callable from tests. `host_time` is the output time of the first
+/// frame. A click with a clock stays silent while the host time or the clock is unknown. [RT]
+void spark_click_render(SparkClick *click, float *mono, uint32_t frames, uint64_t host_time);
 
-/// Host time of the first rendered block, or 0 before audio started.
-uint64_t spark_click_first_host_time(const SparkClick *click);
+/// The input frame of beat 0. False until the click has started on a clock.
+bool spark_click_anchor_frame(const SparkClick *click, double *frame);
 uint64_t spark_click_beat_count(const SparkClick *click);
+/// Beats that came too late to sound, for example after the output stalled. They still count.
+uint64_t spark_click_late_beats(const SparkClick *click);
 
 CF_ASSUME_NONNULL_END
 

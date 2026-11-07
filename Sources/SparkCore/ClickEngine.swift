@@ -49,10 +49,15 @@ public struct MetronomeSettings: Codable, Equatable, Sendable {
 ///
 /// The click has no path into the capture code, so it cannot be written to a file by the app. Whether it reaches
 /// the input through the outside world is what `FeedbackGuard` is for.
+///
+/// Started on an input's clock, its beats lie on input frames: beat 0 on `anchorFrame` and each further beat one
+/// interval of input frames later. The click and the input can then run on different devices with different
+/// clocks for any length of time without drifting apart, which is what the bars of a recording rest on.
 public final class ClickEngine {
     private var unit: AudioUnit?
     private var click: OpaquePointer?
-    private var deviceID: AudioDeviceID?
+    private var clock: InputClock?
+    public private(set) var deviceID: AudioDeviceID?
     public private(set) var sampleRate: Double = 0
 
     public init() {}
@@ -63,17 +68,33 @@ public final class ClickEngine {
 
     public var isRunning: Bool { unit != nil }
     public var beatCount: UInt64 { click.map { spark_click_beat_count($0) } ?? 0 }
+    public var lateBeats: UInt64 { click.map { spark_click_late_beats($0) } ?? 0 }
 
-    /// The moment the first beat becomes audible, in host time. Zero until the output has started.
-    public var firstBeatHostTime: UInt64 {
-        guard let click, let deviceID, sampleRate > 0 else { return 0 }
-        let first = spark_click_first_host_time(click)
-        guard first != 0 else { return 0 }
-        let latency = Double(AudioDevices.outputLatencyFrames(of: deviceID)) / sampleRate
-        return first + UInt64(latency * AudioGetHostClockFrequency())
+    /// The input frame of beat 0, counted like the clock the click started on. Nil until the output has started,
+    /// and always without a clock.
+    public var anchorFrame: Double? {
+        guard let click else { return nil }
+        var frame = 0.0
+        return spark_click_anchor_frame(click, &frame) ? frame : nil
     }
 
-    public func start(device: AudioDeviceID, settings: MetronomeSettings) throws {
+    /// Waits on the main thread until the output has placed beat 0. Nil when it does not start within a second.
+    public func waitForAnchor() async -> Double? {
+        for _ in 0..<200 {
+            if let anchorFrame { return anchorFrame }
+            guard isRunning else { return nil }
+            try? await Task.sleep(nanoseconds: 5_000_000)
+        }
+        return nil
+    }
+
+    /// The delay between handing the click to the output and hearing it, as the device reports it.
+    public var reportedOutputLatency: Double {
+        guard let deviceID, sampleRate > 0 else { return 0 }
+        return Double(AudioDevices.outputLatencyFrames(of: deviceID)) / sampleRate
+    }
+
+    public func start(device: AudioDeviceID, settings: MetronomeSettings, clock: InputClock? = nil) throws {
         stop()
         var description = AudioComponentDescription(
             componentType: kAudioUnitType_Output,
@@ -115,8 +136,9 @@ public final class ClickEngine {
                 unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0,
                 &client, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)))
 
-            let newClick = spark_click_create(hardware.mSampleRate)
+            let newClick = spark_click_create(hardware.mSampleRate, clock?.pointer)
             click = newClick
+            self.clock = clock
             sampleRate = hardware.mSampleRate
             deviceID = device
             spark_click_set_tempo(newClick, settings.bpm, UInt32(settings.beatsPerBar), settings.volume)
@@ -142,15 +164,15 @@ public final class ClickEngine {
     }
 
     /// Silences the click after the given number of beats from its start, used to end a count-in.
-    public func muteAfter(beats: Int, bpm: Double) {
-        guard let click, sampleRate > 0 else { return }
-        spark_click_set_mute_from(click, Int64(Double(beats) * 60 / bpm * sampleRate))
+    public func muteAfter(beats: Int) {
+        guard let click else { return }
+        spark_click_set_mute_from_beat(click, Int64(max(beats, 0)))
     }
 
     /// Silences the click or lets it sound. It keeps counting either way, so the bars stay valid.
     public func setMuted(_ muted: Bool) {
         guard let click else { return }
-        spark_click_set_mute_from(click, muted ? 0 : -1)
+        spark_click_set_mute_from_beat(click, muted ? 0 : -1)
     }
 
     public func stop() {
@@ -162,6 +184,8 @@ public final class ClickEngine {
         unit = nil
         if let click { spark_click_destroy(click) }
         click = nil
+        // Released only after the click, which reads it on the audio thread until the unit has stopped.
+        clock = nil
         deviceID = nil
         sampleRate = 0
     }

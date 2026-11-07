@@ -54,6 +54,8 @@ public final class CaptureEngine {
     private let inputPolicy: InputPolicy
     private var unit: AudioUnit?
     private var capture: OpaquePointer?
+    /// Where the input's frames lie in time, for placing the click on them. Replaced whenever the input opens.
+    public private(set) var clock: InputClock?
     private var file: ExtAudioFileRef?
     private var url: URL?
     private var deviceID: AudioDeviceID?
@@ -147,9 +149,11 @@ public final class CaptureEngine {
 
         let retroFrames = UInt64(max(retroSeconds, 0) * hardware.mSampleRate)
         let margin = UInt64(Self.retroMarginSeconds * hardware.mSampleRate)
+        let newClock = InputClock(sampleRate: hardware.mSampleRate)
+        clock = newClock
         let newCapture = spark_capture_create(
             hardware.mChannelsPerFrame, max(maxFrames, 8192), hardware.mSampleRate, retroFrames, margin,
-            Self.overviewBinFrames)
+            Self.overviewBinFrames, newClock.pointer)
         spark_capture_set_unit(newCapture, unit)
         capture = newCapture
 
@@ -226,6 +230,8 @@ public final class CaptureEngine {
         unit = nil
         if let capture { spark_capture_destroy(capture) }
         capture = nil
+        // A click may still hold the clock. It then keeps going on the last known timing until it stops.
+        clock = nil
         sampleRate = 0
         channels = 0
         retroCapacitySeconds = 0
@@ -236,11 +242,12 @@ public final class CaptureEngine {
 
     // MARK: Recording
 
-    /// Starts writing a 24-bit WAV file. With a gate time, the file begins at exactly that moment of the input.
+    /// Starts writing a 24-bit WAV file. With a gate, the file begins at exactly that input frame, counted like
+    /// `clock`; without one, or with one that has passed, it begins with the next block.
     ///
     /// Files are always 24 bits so a 16-bit source stays lossless and later processing has headroom. This adds no
     /// detail beyond what the source delivers, so the UI reports the source format separately.
-    public func startRecording(to destination: URL, gateHostTime: UInt64 = 0) throws {
+    public func startRecording(to destination: URL, gateFrame: Int64? = nil) throws {
         guard let capture else { throw CaptureError.notOpen }
         guard file == nil else { throw CaptureError.alreadyRecording }
 
@@ -275,7 +282,7 @@ public final class CaptureEngine {
 
         file = newFile
         url = destination
-        spark_capture_attach_file(capture, newFile, gateHostTime)
+        spark_capture_attach_file(capture, newFile, gateFrame.map { max($0, 0) } ?? Int64(SPARK_GATE_NONE))
         startPeriodicSync(destination)
     }
 
@@ -327,8 +334,19 @@ public final class CaptureEngine {
     public var recordedFrames: Int64 { capture.map { spark_capture_file_frames($0) } ?? 0 }
     public var recordedSeconds: Double { sampleRate > 0 ? Double(recordedFrames) / sampleRate : 0 }
     public var droppedFrames: Int64 { capture.map { spark_capture_dropped_frames($0) } ?? 0 }
-    /// When the first frame of the file was captured, in host time. Zero until it was written or when unknown.
-    public var firstFrameHostTime: UInt64 { capture.map { spark_capture_file_first_host_time($0) } ?? 0 }
+    /// The input frame, counted like `clock`, that is the first frame of the file. Nil until it was written.
+    public var fileFirstFrame: Int64? {
+        guard let capture else { return nil }
+        let frame = spark_capture_file_first_frame(capture)
+        return frame >= 0 ? frame : nil
+    }
+    /// The delay between a sound reaching the input device and its frames being stamped, as the device reports it.
+    public var reportedInputLatency: Double {
+        guard let deviceID, sampleRate > 0 else { return 0 }
+        return Double(AudioDevices.inputLatencyFrames(of: deviceID)) / sampleRate
+    }
+    /// Input frames received since the input opened, counted like `clock`.
+    public var framesReceived: Int64 { capture.map { spark_capture_frames_received($0) } ?? 0 }
     public var callbackCount: UInt64 { capture.map { spark_capture_callback_count($0) } ?? 0 }
 
     public func takeLevel() -> Float { capture.map { spark_capture_take_level($0) } ?? 0 }
@@ -371,6 +389,36 @@ public final class CaptureEngine {
 }
 
 extension OpaquePointer: @unchecked Sendable {}
+
+/// Owns the realtime clock shared by an input and a click. Either may outlive the other, so both hold this object.
+public final class InputClock: @unchecked Sendable {
+    let pointer: OpaquePointer
+    public let sampleRate: Double
+
+    public init(sampleRate: Double) {
+        self.sampleRate = sampleRate
+        pointer = spark_clock_create(sampleRate)
+    }
+
+    deinit {
+        spark_clock_destroy(pointer)
+    }
+
+    /// For tests that drive the realtime code by hand.
+    public func publish(frame: Int64, hostTime: UInt64) {
+        spark_clock_publish(pointer, frame, hostTime)
+    }
+
+    public func hostTime(ofFrame frame: Double) -> Double? {
+        var host = 0.0
+        return spark_clock_host_time_of_frame(pointer, frame, &host) ? host : nil
+    }
+
+    public func frame(atHostTime host: Double) -> Double? {
+        var frame = 0.0
+        return spark_clock_frame_at_host_time(pointer, host, &frame) ? frame : nil
+    }
+}
 
 /// Writes interleaved float samples to a 24-bit WAV file on a normal thread. Used for saving the retro buffer.
 public enum WAVWriter {

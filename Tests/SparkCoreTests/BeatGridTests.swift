@@ -182,40 +182,52 @@ final class BeatGridTests: XCTestCase {
 
     // MARK: Recording start time
 
-    func testFirstFrameTimeOfTheFileIsReported() throws {
-        let capture = spark_capture_create(1, 8_192, rate, 0, 0, 256)
+    func testFirstFrameOfTheFileIsReported() throws {
+        let capture = spark_capture_create(1, 8_192, rate, 0, 0, 256, nil)
         defer { spark_capture_destroy(capture) }
         let folder = try TemporaryFolder()
         let file = try openTestFile(folder.file("start.wav"))
         defer { ExtAudioFileDispose(file) }
         let block = [Float](repeating: 0.1, count: 512)
 
-        spark_capture_attach_file(capture, file, 0)
-        XCTAssertEqual(spark_capture_file_first_host_time(capture), 0, "unknown until the first block")
         spark_capture_process(capture, block, 512, 1_000_000)
+        spark_capture_attach_file(capture, file, Int64(SPARK_GATE_NONE))
+        XCTAssertEqual(spark_capture_file_first_frame(capture), -1, "unknown until the first block")
         spark_capture_process(capture, block, 512, 2_000_000)
-        XCTAssertEqual(spark_capture_file_first_host_time(capture), 1_000_000, "later blocks must not move it")
+        spark_capture_process(capture, block, 512, 3_000_000)
+        XCTAssertEqual(spark_capture_file_first_frame(capture), 512, "the file starts with the block after attaching")
+        XCTAssertEqual(spark_capture_frames_received(capture), 1536)
         XCTAssertTrue(spark_capture_detach_file(capture))
     }
 
-    func testFirstFrameTimeHonorsTheGate() throws {
-        let capture = spark_capture_create(1, 8_192, rate, 0, 0, 256)
+    func testFirstFrameHonorsTheGate() throws {
+        let capture = spark_capture_create(1, 8_192, rate, 0, 0, 256, nil)
         defer { spark_capture_destroy(capture) }
         let folder = try TemporaryFolder()
         let file = try openTestFile(folder.file("gate.wav"))
         defer { ExtAudioFileDispose(file) }
         let block = [Float](repeating: 0.1, count: 512)
-        let ticksPerFrame = AudioGetHostClockFrequency() / rate
-        let blockStart: UInt64 = 1_000_000
-        let gate = blockStart + UInt64(100 * ticksPerFrame)
 
-        spark_capture_attach_file(capture, file, gate)
-        spark_capture_process(capture, block, 512, blockStart)
-        // The gate falls between two frames here, so the rounding of the host clock decides on one frame.
-        XCTAssertTrue((412...413).contains(spark_capture_file_frames(capture)), "\(spark_capture_file_frames(capture))")
-        let first = spark_capture_file_first_host_time(capture)
-        XCTAssertLessThanOrEqual(abs(Int64(first) - Int64(gate)), Int64(ticksPerFrame) + 1,
-                                 "the file starts inside the block, at the gate")
+        spark_capture_attach_file(capture, file, 100)
+        spark_capture_process(capture, block, 512, 1_000_000)
+        XCTAssertEqual(spark_capture_file_frames(capture), 412, "the file starts inside the block, at the gate")
+        XCTAssertEqual(spark_capture_file_first_frame(capture), 100)
+        XCTAssertTrue(spark_capture_detach_file(capture))
+    }
+
+    func testAGateThatHasPassedStartsWithTheNextBlock() throws {
+        let capture = spark_capture_create(1, 8_192, rate, 0, 0, 256, nil)
+        defer { spark_capture_destroy(capture) }
+        let folder = try TemporaryFolder()
+        let file = try openTestFile(folder.file("late.wav"))
+        defer { ExtAudioFileDispose(file) }
+        let block = [Float](repeating: 0.1, count: 512)
+
+        spark_capture_process(capture, block, 512, 1_000_000)
+        spark_capture_attach_file(capture, file, 100)
+        spark_capture_process(capture, block, 512, 2_000_000)
+        XCTAssertEqual(spark_capture_file_first_frame(capture), 512, "the real start is reported, not the gate")
+        XCTAssertEqual(spark_capture_file_frames(capture), 512)
         XCTAssertTrue(spark_capture_detach_file(capture))
     }
 

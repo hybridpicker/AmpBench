@@ -493,10 +493,29 @@ private struct MetronomeDetails: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            if model.clickOutput != nil {
+                Stepper(value: Binding(get: { model.currentLatencyCorrection * 1000 },
+                                       set: { model.setLatencyCorrection($0 / 1000) }),
+                        in: -100...300, step: 0.5) {
+                    Text(String(format: "Ausgleich %+.1f ms", model.currentLatencyCorrection * 1000))
+                        .monospacedDigit()
+                }
+                Text(latencyExplanation)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Latenz mit Kabel messen …") { model.showLatencyInfo = true }
+                    .disabled(!model.canMeasureLatency)
+            }
             Text("Der Klick landet nie durch die App in der Datei. Ausgänge desselben Geräts werden übersprungen, bis eine Messung zeigt, dass sie nicht am Eingang ankommen.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+
+    private var latencyExplanation: String {
+        let reported = model.currentReportedLatency.map { String(format: "%.1f ms", $0 * 1000) } ?? "unbekannt"
+        return "Die Geräte melden \(reported) vom Klick bis in die Datei, das gleicht die App immer aus. Der Ausgleich kommt für das, was der Amp intern verzögert, dazu. Er gilt für neue Aufnahmen mit diesem Klick-Ausgang."
     }
 }

@@ -87,8 +87,24 @@ runs on its own unit on the click output. A count-in always sounds, even with th
 
 A recording with a count-in or with the click switched on knows its bars. The window shows the current bar and beat
 while recording, and the waveform shows bar lines, also afterwards. Tempo and meter stay fixed during a recording, because
-the bars rest on them. The bar positions come from the moments the click and the file really started. Delays of the
-devices themselves are not measured.
+the bars rest on them.
+
+## Timing of click and bars
+
+The bars are meant to be as exact as in a DAW, well under a millisecond on the app's side:
+
+- The click runs on the input's clock. Its beats lie on input frames, and every output block is placed by its host
+  time stamp, so click and input never drift apart, even on two devices with separate clocks and for any length of
+  take. The file and the count-in gate are counted in the same input frames, so bar 1 lies exactly where it should.
+- The latencies the devices report are added: output latency of the click device and input latency of the amp,
+  each as device plus stream latency. The safety offset is already part of Core Audio's time stamps and is not added.
+- What the amp does inside, in its converters and effects, no device reports. "Aufnahme → Klick-Latenz messen" plays
+  clicks through a cable from the click output into the amp's guitar input, the way a played note travels, and
+  measures where they land in a temporary file. It refuses a result when the clicks are missing or spread more than
+  2 ms. The result counts for exactly that pair of devices and for recordings made afterwards. It can also be set by
+  hand in the metronome details, in steps of 0.5 ms.
+
+On the BlackHole loop test, every beat lands within one sample of the grid.
 
 Dragging over the waveform of such a take selects whole bars, and `⌥` selects freely. The bar controls below the transport
 loop the chosen bars or record them again. Recording bars again counts in at the tempo and meter of the take, stops by

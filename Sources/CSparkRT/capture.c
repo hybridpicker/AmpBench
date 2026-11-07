@@ -1,6 +1,5 @@
 #include "SparkRT.h"
 
-#include <CoreAudio/HostTime.h>
 #include <math.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -14,10 +13,12 @@ struct SparkCapture {
     uint32_t channels;
     uint32_t capacity_frames;
     float *scratch;
-    double ticks_per_frame;
+    SparkClock *_Nullable clock;
 
     _Atomic(ExtAudioFileRef) file;
-    _Atomic uint64_t gate_host_time;
+    _Atomic int64_t gate_frame;
+    /// Frames received so far. Written by the audio thread only.
+    _Atomic int64_t frames_received;
     atomic_bool busy;
 
     _Atomic uint32_t level_bits;
@@ -27,7 +28,7 @@ struct SparkCapture {
 
     _Atomic uint32_t file_peak_bits;
     _Atomic int64_t file_frames;
-    _Atomic uint64_t file_first_host_time;
+    _Atomic int64_t file_first_frame;
     _Atomic int64_t dropped_frames;
     _Atomic OSStatus write_status;
     _Atomic uint32_t clipped_blocks;
@@ -73,12 +74,16 @@ static inline void atomic_store_max(_Atomic uint32_t *target, float value) {
 }
 
 SparkCapture *spark_capture_create(uint32_t channels, uint32_t capacity_frames, double sample_rate,
-                                   uint64_t retro_frames, uint64_t retro_margin_frames, uint32_t overview_bin_frames) {
+                                   uint64_t retro_frames, uint64_t retro_margin_frames, uint32_t overview_bin_frames,
+                                   SparkClock *_Nullable clock) {
+    (void)sample_rate;
     SparkCapture *capture = calloc(1, sizeof(SparkCapture));
     capture->channels = channels;
     capture->capacity_frames = capacity_frames;
     capture->scratch = calloc((size_t)capacity_frames * channels, sizeof(float));
-    capture->ticks_per_frame = AudioGetHostClockFrequency() / sample_rate;
+    capture->clock = clock;
+    atomic_store(&capture->gate_frame, SPARK_GATE_NONE);
+    atomic_store(&capture->file_first_frame, -1);
     capture->bin_frames = overview_bin_frames > 0 ? overview_bin_frames : 256;
     capture->bin_min = 1;
     capture->bin_max = -1;
@@ -164,6 +169,9 @@ static inline void write_to_file(SparkCapture *capture, ExtAudioFileRef file, co
 void spark_capture_process(SparkCapture *capture, const float *interleaved, uint32_t frames, uint64_t host_time) {
     uint32_t channels = capture->channels;
     atomic_fetch_add_explicit(&capture->callback_count, 1, memory_order_relaxed);
+    int64_t block_frame = atomic_load_explicit(&capture->frames_received, memory_order_relaxed);
+    // Counted in received frames rather than the device's sample time, because those are what the file holds.
+    if (capture->clock) spark_clock_publish(capture->clock, block_frame, host_time);
 
     float block_peak = 0;
     uint32_t sample_count = frames * channels;
@@ -194,27 +202,24 @@ void spark_capture_process(SparkCapture *capture, const float *interleaved, uint
     if (file) {
         uint32_t offset = 0;
         bool write = true;
-        uint64_t gate = atomic_load_explicit(&capture->gate_host_time, memory_order_acquire);
-        if (gate != 0) {
-            if (host_time != 0 && host_time < gate) {
-                double frames_until_gate = (double)(gate - host_time) / capture->ticks_per_frame;
-                if (frames_until_gate >= frames) {
-                    write = false;
-                } else {
-                    offset = (uint32_t)frames_until_gate;
-                }
+        int64_t gate = atomic_load_explicit(&capture->gate_frame, memory_order_acquire);
+        if (gate != SPARK_GATE_NONE) {
+            if (gate >= block_frame + (int64_t)frames) {
+                write = false;
+            } else if (gate > block_frame) {
+                offset = (uint32_t)(gate - block_frame);
             }
-            if (write) atomic_store_explicit(&capture->gate_host_time, 0, memory_order_release);
+            if (write) atomic_store_explicit(&capture->gate_frame, SPARK_GATE_NONE, memory_order_release);
         }
         if (write) {
-            if (host_time != 0 && atomic_load_explicit(&capture->file_frames, memory_order_relaxed) == 0) {
-                uint64_t first = host_time + (uint64_t)((double)offset * capture->ticks_per_frame);
-                atomic_store_explicit(&capture->file_first_host_time, first, memory_order_relaxed);
+            if (atomic_load_explicit(&capture->file_first_frame, memory_order_relaxed) < 0) {
+                atomic_store_explicit(&capture->file_first_frame, block_frame + offset, memory_order_release);
             }
             write_to_file(capture, file, interleaved + offset * channels, frames - offset);
         }
     }
     atomic_store(&capture->busy, false);
+    atomic_store_explicit(&capture->frames_received, block_frame + frames, memory_order_release);
 }
 
 static OSStatus input_callback(void *ref, AudioUnitRenderActionFlags *flags, const AudioTimeStamp *time_stamp,
@@ -243,11 +248,11 @@ static OSStatus input_callback(void *ref, AudioUnitRenderActionFlags *flags, con
 
 const AURenderCallback spark_capture_input_callback = input_callback;
 
-void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, uint64_t gate_host_time) {
+void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, int64_t gate_frame) {
     // No file is attached here, so the audio thread does not touch any of the file state.
     atomic_store(&capture->file_peak_bits, 0);
     atomic_store(&capture->file_frames, 0);
-    atomic_store(&capture->file_first_host_time, 0);
+    atomic_store(&capture->file_first_frame, -1);
     atomic_store(&capture->dropped_frames, 0);
     atomic_store(&capture->write_status, noErr);
     atomic_store(&capture->clipped_blocks, 0);
@@ -256,7 +261,7 @@ void spark_capture_attach_file(SparkCapture *capture, ExtAudioFileRef file, uint
     capture->bin_min = 1;
     capture->bin_max = -1;
     atomic_store(&capture->overview_tail, atomic_load(&capture->overview_head));
-    atomic_store(&capture->gate_host_time, gate_host_time);
+    atomic_store(&capture->gate_frame, gate_frame < 0 ? SPARK_GATE_NONE : gate_frame);
     atomic_store(&capture->file, file);
 }
 
@@ -300,8 +305,12 @@ int64_t spark_capture_dropped_frames(const SparkCapture *capture) {
     return atomic_load_explicit(&capture->dropped_frames, memory_order_relaxed);
 }
 
-uint64_t spark_capture_file_first_host_time(const SparkCapture *capture) {
-    return atomic_load_explicit(&capture->file_first_host_time, memory_order_relaxed);
+int64_t spark_capture_file_first_frame(const SparkCapture *capture) {
+    return atomic_load_explicit(&capture->file_first_frame, memory_order_acquire);
+}
+
+int64_t spark_capture_frames_received(const SparkCapture *capture) {
+    return atomic_load_explicit(&capture->frames_received, memory_order_acquire);
 }
 
 OSStatus spark_capture_write_status(const SparkCapture *capture) {

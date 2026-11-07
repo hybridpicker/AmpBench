@@ -168,6 +168,7 @@ final class AppModel: ObservableObject {
     @Published var renameTarget: UUID?
     @Published var renameText = ""
     @Published var showLoopbackInfo = false
+    @Published var showLatencyInfo = false
     @Published private(set) var isMeasuring = false
     /// The recordings a new piece will hold while its name is being asked for. Nil when nothing is being asked.
     @Published var newPieceTargets: Set<UUID>?
@@ -184,6 +185,9 @@ final class AppModel: ObservableObject {
     private let recordingFlag = RecordingFlag()
     private let journalQueue = DispatchQueue(label: "local.sparkrecorder.journal", qos: .utility)
     private var measuredClean: Set<String>
+    /// Seconds per pair of input and click output that the devices do not report. Measured or set by hand.
+    @Published private(set) var latencyCorrections: [String: Double]
+    private static let latencyCorrectionsKey = "clickLatencyCorrections"
     private var saveTask: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
     private var analysisTask: Task<Void, Never>?
@@ -200,7 +204,10 @@ final class AppModel: ObservableObject {
     private var pendingPunch: PunchRequest?
     private var activePunch: PunchRequest?
     private var punchStopAt: Double?
-    private var countInEndsAt: UInt64 = 0
+    /// Beats the running click plays before bar 1, which is the count-in.
+    private var activeCountInBeats = 0
+    /// The delays the bars of the running recording are corrected by.
+    private var activeLatency = ClickLatency()
     private var bannerUndoAction: (@MainActor (AppModel) -> Void)?
     private var peakHoldAge = 0.0
     private var monitorStartedAt = Date()
@@ -229,6 +236,7 @@ final class AppModel: ObservableObject {
         retroMinutes = defaults.object(forKey: "retroMinutes") as? Double ?? 5
         autoLevelDefault = defaults.object(forKey: "autoLevel") as? Bool ?? true
         measuredClean = Set(defaults.stringArray(forKey: "measuredCleanPairs") ?? [])
+        latencyCorrections = defaults.dictionary(forKey: Self.latencyCorrectionsKey) as? [String: Double] ?? [:]
         if let data = defaults.data(forKey: "metronome"),
            let saved = try? JSONDecoder().decode(MetronomeSettings.self, from: data) {
             metronome = saved
@@ -734,13 +742,13 @@ final class AppModel: ObservableObject {
                 clickSettings.beatsPerBar = punch.grid.beatsPerBar
                 clickSettings.countInBars = max(metronome.countInBars, 1)
             }
-            var gate: UInt64 = 0
+            var gate: Int64?
             var beats = 0
             if clickSettings.countInBars > 0 {
                 beats = clickSettings.countInBeats
                 gate = await prepareCountIn(settings: clickSettings)
-                if gate == 0 { beats = 0 }
-                if gate == 0, punch != nil {
+                if gate == nil { beats = 0 }
+                if gate == nil, punch != nil {
                     // Without a count-in nobody can come in on the right bar, so nothing gets recorded.
                     store.removeJournal()
                     if !isMonitoring && !isRetroOn { capture.close() }
@@ -758,8 +766,7 @@ final class AppModel: ObservableObject {
                 return
             }
 
-            let preRoll = UInt64(Self.countInPreRoll * AudioGetHostClockFrequency())
-            try capture.startRecording(to: url, gateHostTime: gate == 0 ? 0 : gate - preRoll)
+            try capture.startRecording(to: url, gateFrame: gate)
             activeFile = url
             activeJournal = journal
             activeSource = source
@@ -772,7 +779,7 @@ final class AppModel: ObservableObject {
             meter.droppedFrames = 0
             signalMonitor.reset()
             lastBannerForSignal = .ok
-            countInEndsAt = gate
+            activeCountInBeats = beats
             activePunch = punch
             activePunchBars = punch?.bars
             activeGrid = nil
@@ -794,33 +801,30 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Starts the click for a count-in and returns the moment the recording begins, or 0 when no click is possible.
-    private func prepareCountIn(settings: MetronomeSettings) async -> UInt64 {
+    /// Starts the click for a count-in and returns the input frame the recording begins at, or nil when no click
+    /// is possible.
+    private func prepareCountIn(settings: MetronomeSettings) async -> Int64? {
         guard let output = clickOutput else {
             show(.warning, "Kein sicherer Ausgang für den Klick gefunden. Die Aufnahme startet ohne Einzähler.")
-            return 0
+            return nil
         }
         do {
             click.stop()
-            try click.start(device: output.id, settings: settings)
+            try startClick(on: output, settings: settings)
             // Without the click switched on it falls silent after the count-in but keeps counting the bars.
-            if !settings.clickEnabled { click.muteAfter(beats: settings.countInBeats, bpm: settings.bpm) }
-            activeClickSettings = settings
-            isClickRunning = true
-            for _ in 0..<100 {
-                let first = click.firstBeatHostTime
-                if first != 0 {
-                    return first + UInt64(settings.countInSeconds * AudioGetHostClockFrequency())
-                }
-                try await Task.sleep(nanoseconds: 5_000_000)
+            if !settings.clickEnabled { click.muteAfter(beats: settings.countInBeats) }
+            if let anchor = await click.waitForAnchor() {
+                return ClickTiming.gateFrame(anchorFrame: anchor, beatsBefore: settings.countInBeats, bpm: settings.bpm,
+                                             inputRate: capture.sampleRate, preRoll: Self.countInPreRoll)
             }
+            show(.warning, "Der Klick ist nicht angelaufen. Die Aufnahme startet ohne Einzähler.")
         } catch {
             show(.warning, "Der Klick konnte nicht starten: \(error.localizedDescription) Die Aufnahme startet ohne Einzähler.")
         }
         click.stop()
         isClickRunning = false
         activeClickSettings = nil
-        return 0
+        return nil
     }
 
     private func startClickForRecording(settings: MetronomeSettings) {
@@ -829,28 +833,29 @@ final class AppModel: ObservableObject {
             return
         }
         do {
-            try click.start(device: output.id, settings: settings)
-            activeClickSettings = settings
-            isClickRunning = true
+            try startClick(on: output, settings: settings)
         } catch {
             show(.warning, "Der Klick konnte nicht starten: \(error.localizedDescription)")
         }
     }
 
-    /// Works out where the bars lie in the file, from the moments the click and the file really started.
+    /// Starts the click on the input's clock, so its beats lie on input frames and cannot drift from the file.
+    private func startClick(on output: OutputDevice, settings: MetronomeSettings) throws {
+        guard let clock = capture.clock else { throw CaptureError.notOpen }
+        try click.start(device: output.id, settings: settings, clock: clock)
+        activeClickSettings = settings
+        activeLatency = ClickLatency(output: click.reportedOutputLatency, input: capture.reportedInputLatency,
+                                     correction: latencyCorrection(output: output))
+        isClickRunning = true
+    }
+
+    /// Works out where the bars lie in the file, from the input frames the click and the file are placed on.
     private func resolveGrid() {
-        guard activeGrid == nil, click.isRunning, let settings = activeClickSettings, capture.recordedFrames > 0 else { return }
-        let fileStart = capture.firstFrameHostTime
-        let downbeat = countInEndsAt != 0 ? countInEndsAt : click.firstBeatHostTime
-        let offset: Double
-        if fileStart != 0, downbeat != 0 {
-            offset = (Double(downbeat) - Double(fileStart)) / AudioGetHostClockFrequency()
-        } else if countInEndsAt != 0 {
-            // The device gives no valid times. The file then starts as planned, one pre-roll before the first bar.
-            offset = Self.countInPreRoll
-        } else {
-            return
-        }
+        guard activeGrid == nil, click.isRunning, let settings = activeClickSettings,
+              let fileFirst = capture.fileFirstFrame, let anchor = click.anchorFrame else { return }
+        let offset = ClickTiming.gridOffset(anchorFrame: anchor, beatsBefore: activeCountInBeats, bpm: settings.bpm,
+                                            inputRate: capture.sampleRate, fileFirstFrame: fileFirst,
+                                            latency: activeLatency)
         let grid = BeatGrid(bpm: settings.bpm, beatsPerBar: settings.beatsPerBar, offset: offset,
                             firstBar: activePunch?.bars.lowerBound ?? 1)
         activeGrid = grid
@@ -892,7 +897,8 @@ final class AppModel: ObservableObject {
         activePunch = nil
         activePunchBars = nil
         punchStopAt = nil
-        countInEndsAt = 0
+        activeCountInBeats = 0
+        activeLatency = ClickLatency()
         meter.beat = 0
         applyPlaybackClick()
         // Keep the input open only for features that still need it. A buffer turned off during the take ends here.
@@ -1853,7 +1859,7 @@ final class AppModel: ObservableObject {
                 // The running click stays, silent or not: the bars of the recording are counted from it.
                 if case .countIn = phase {
                     click.setMuted(false)
-                    if !isOn { click.muteAfter(beats: settings.countInBeats, bpm: settings.bpm) }
+                    if !isOn { click.muteAfter(beats: settings.countInBeats) }
                 } else {
                     click.setMuted(!isOn)
                 }
@@ -1917,5 +1923,68 @@ final class AppModel: ObservableObject {
         defaults.removeObject(forKey: "measuredCleanPairs")
         objectWillChange.send()
         show(.info, "Alle Messungen wurden vergessen. Ausgaben auf dasselbe Gerät sind wieder gesperrt.")
+    }
+
+    // MARK: Click latency
+
+    var canMeasureLatency: Bool {
+        !isRecording && !isMeasuring && selectedInput != nil && clickOutput != nil && !isListening
+    }
+
+    private func latencyKey(output: OutputDevice) -> String? {
+        guard let input = selectedInput else { return nil }
+        return FeedbackGuard.pairKey(input: input.identity, output: output.identity)
+    }
+
+    func latencyCorrection(output: OutputDevice) -> Double {
+        latencyKey(output: output).flatMap { latencyCorrections[$0] } ?? 0
+    }
+
+    /// The correction for the input and click output in use now, in seconds.
+    var currentLatencyCorrection: Double {
+        clickOutput.map(latencyCorrection(output:)) ?? 0
+    }
+
+    /// The delay the devices report for the input and click output in use now, in seconds.
+    var currentReportedLatency: Double? {
+        guard let input = selectedInput, let output = clickOutput else { return nil }
+        let inputRate = AudioDevices.currentRate(of: input.id)
+        let outputRate = AudioDevices.currentRate(of: output.id)
+        guard inputRate > 0, outputRate > 0 else { return nil }
+        return Double(AudioDevices.inputLatencyFrames(of: input.id)) / inputRate
+            + Double(AudioDevices.outputLatencyFrames(of: output.id)) / outputRate
+    }
+
+    /// Sets the correction by hand. The bars of later recordings move by it; earlier ones stay as they are.
+    func setLatencyCorrection(_ seconds: Double) {
+        guard let output = clickOutput, let key = latencyKey(output: output) else { return }
+        let clamped = min(max(seconds, -0.1), 0.3)
+        if abs(clamped) < 0.00005 {
+            latencyCorrections.removeValue(forKey: key)
+        } else {
+            latencyCorrections[key] = clamped
+        }
+        defaults.set(latencyCorrections, forKey: Self.latencyCorrectionsKey)
+    }
+
+    /// Plays clicks into the input through a cable and measures how late they arrive in a file.
+    func measureLatency() {
+        guard canMeasureLatency, let input = selectedInput, let output = clickOutput else { return }
+        isMeasuring = true
+        pausePlayhead()
+        Task {
+            defer { isMeasuring = false }
+            guard await requestMicrophone() else { return }
+            do {
+                let result = try await LatencyProbe.measure(input: input, output: output.id, inputPolicy: inputPolicy)
+                setLatencyCorrection(result.correction)
+                let text = String(
+                    format: "Gemessen: %.1f ms vom Klick bis in die Datei, davon %.1f ms nicht von den Geräten gemeldet. Streuung %.1f ms über %d Klicks. Die Takte neuer Aufnahmen liegen jetzt darauf. Zieh das Kabel wieder ab.",
+                    result.measured * 1000, result.correction * 1000, result.spread * 1000, result.detected)
+                show(.info, text, sticky: true)
+            } catch {
+                show(.error, "Die Latenzmessung ist fehlgeschlagen: \(error.localizedDescription)", sticky: true)
+            }
+        }
     }
 }
