@@ -147,7 +147,7 @@ public enum SparkProtocol {
 
     // MARK: Parsing
 
-    public struct Message: Equatable {
+    public struct Message: Equatable, Sendable {
         public var command: UInt8
         public var sub: UInt8
         public var sequence: UInt8

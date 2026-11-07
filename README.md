@@ -11,8 +11,9 @@ Everything stays on this Mac. The app makes no network connections and has no te
 ## Build and run
 
 ```bash
-./build.sh            # builds "build/Spark Recorder.app"
-./build.sh --install  # also copies it to /Applications and adds it to the Dock
+./build.sh                    # builds "build/Spark Recorder.app" and "build/Spark Presets.app"
+./build.sh --install          # also copies them to /Applications and adds them to the Dock
+./build.sh --install presets  # only Spark Presets ("recorder" for only Spark Recorder)
 ```
 
 Requires macOS 14 or later and the Swift toolchain from Xcode. There are no external dependencies. The build signs with
@@ -155,8 +156,8 @@ window or quitting erases the buffer.
 ## Amp control over Bluetooth (experimental)
 
 The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side offers only audio and volume keys.
-`spark-probe` is a test tool for that control channel. It is separate from the app, which still makes no Bluetooth or
-network connections.
+`spark-probe` is a test tool for that control channel, and [Spark Presets](#spark-presets) is the app built on it.
+Spark Recorder itself still makes no Bluetooth or network connections.
 
 ```bash
 swift build --product spark-probe
@@ -164,6 +165,8 @@ swift build --product spark-probe
 .build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
+.build/debug/spark-probe try 3         # play a renamed copy of stored preset 3 without storing it
+.build/debug/spark-probe store-test 4 backup.json  # store a renamed copy in slot 4, then put the original back
 ```
 
 `--raw` also prints every byte, `--no-header` sends without the block header. The Spark app on the phone must be
@@ -176,7 +179,31 @@ projects, SparkBox, Ignitron). On a Spark MINI with firmware 1.11.2.75 these are
 number and whole presets, which arrive in 16 to 17 chunks and take a few seconds. The amp keeps sending `03 64` at times,
 probably the tuner, which the tool hides. Switching presets (`01 38`, acknowledged with `04 38`) works, and the amp
 reports a press of its preset button as `03 38` with the new slot. It sometimes ignores a request, so the tool asks a
-second time. Turning a knob on the amp sent nothing in one test.
+second time.
+
+Sending a preset (`01 01`) works the way the amp sends its own: chunks of 25 bytes, each in a Bluetooth write of its own
+with its own block header, because the amp refuses longer writes. It confirms every chunk with `05 01` and the whole
+preset with `04 01`. Sent to place `7F` and followed by a switch to `7F`, a preset plays without being stored. Sent to a
+slot and followed by a switch to that slot, it is stored there. Every preset read from the amp encodes back to exactly
+the same bytes. Whether a stored preset survives switching the amp off has not been checked yet.
+
+## Spark Presets
+
+A separate app for the amp's presets, similar to what the Spark app does on a tablet:
+
+- **Am Verstärker**: the four slots with name and signal chain. A click or `⌘1` – `⌘4` switches, and a press of the
+  preset button on the amp shows up at once.
+- **Auf dem Mac**: a library of presets. `⌘S` saves the selected slot. A preset with the same settings is not saved
+  twice. Rename with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
+- **Ausprobieren** (`⌘T`) plays a saved preset without overwriting a slot. Switching to any slot ends it.
+- **Auf Platz speichern** asks first, then reads the slot fresh from the amp and saves it on the Mac as a backup,
+  stores the preset, switches to it and reads it back to check it arrived unchanged.
+
+Presets are readable JSON files in `~/Music/Spark Presets/`, one per preset. Files placed there show up when the window
+comes to the front. The app only scans for devices that offer the Spark control service, so it never sees other
+Bluetooth devices, and it makes no network connections. The Spark app on the phone must be disconnected, because the
+amp takes only one control connection. Effect parameters are shown by number, as the amp reports them, because their
+names are not part of the protocol.
 
 ## Project layout
 
@@ -184,11 +211,12 @@ second time. Turning a knob on the amp sent nothing in one test.
 Sources/CSparkRT       Realtime capture and click (C)
 Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
 Sources/SparkRecorder  The app (SwiftUI)
-Sources/SparkControl   The amp's Bluetooth control protocol, without Bluetooth code
+Sources/SparkControl   The amp's Bluetooth control protocol and the preset library, without Bluetooth code
 Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
+Sources/SparkPresets   Spark Presets, the preset app (SwiftUI, CoreBluetooth)
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
-Tests/SparkControlTests Protocol tests with made-up presets
-Tools/make-icon.swift  Draws the app icon
+Tests/SparkControlTests Protocol and library tests with made-up presets
+Tools/make-icon.swift  Draws the app icons
 ```
 
 ## Tests

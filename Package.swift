@@ -2,8 +2,8 @@
 import Foundation
 import PackageDescription
 
-// The probe talks Bluetooth, and macOS wants a usage description for that even in a command-line tool, so its
-// Info.plist is linked into the binary.
+// The probe and Spark Presets talk Bluetooth, and macOS wants a usage description for that even in a bare binary, so
+// their Info.plist is linked into it. The app bundle carries the same file.
 let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().path
 
 let package = Package(
@@ -22,6 +22,11 @@ let package = Package(
             name: "spark-probe", dependencies: ["SparkControl"], path: "Sources/SparkProbe",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/SparkProbe-Info.plist"])]),
+        // Spark Presets: a separate app that switches, saves and stores the amp's presets over Bluetooth LE.
+        .executableTarget(
+            name: "SparkPresets", dependencies: ["SparkControl"], path: "Sources/SparkPresets",
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
+                                           "-Xlinker", "\(root)/Resources/SparkPresets-Info.plist"])]),
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),
         .testTarget(name: "SparkControlTests", dependencies: ["SparkControl"], path: "Tests/SparkControlTests"),
     ]

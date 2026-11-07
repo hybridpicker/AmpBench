@@ -1,5 +1,6 @@
-// Draws the app icon: a dark studio-device faceplate with a glowing record key and a waveform that peaks in a spark.
-// Usage: swift Tools/make-icon.swift <output.icns>
+// Draws the app icons: a dark studio-device faceplate with a glowing record key and a waveform that peaks in a spark,
+// or for Spark Presets the same faceplate with a preset knob and four lamps.
+// Usage: swift Tools/make-icon.swift <output.icns> [presets]
 import AppKit
 import CoreGraphics
 import Foundation
@@ -57,6 +58,10 @@ func draw(size: Int) -> CGImage {
     context.restoreGState()
 
     let center = CGPoint(x: 512, y: 512)
+    if variant == "presets" {
+        drawPresetKnob(context, center: center)
+        return context.makeImage()!
+    }
 
     // Machined ring around the key.
     context.saveGState()
@@ -136,6 +141,80 @@ func draw(size: Int) -> CGImage {
     return context.makeImage()!
 }
 
+/// The preset knob: a machined ring, a knurled knob pointing at the second of four lamps, that lamp lit.
+func drawPresetKnob(_ context: CGContext, center: CGPoint) {
+    context.saveGState()
+    context.addPath(circle(center, 300))
+    context.clip()
+    linear(context, [color(0.32, 0.33, 0.36), color(0.05, 0.05, 0.06)],
+           from: CGPoint(x: 512, y: 812), to: CGPoint(x: 512, y: 212))
+    context.restoreGState()
+    context.saveGState()
+    context.addPath(circle(center, 276))
+    context.clip()
+    linear(context, [color(0.05, 0.05, 0.06), color(0.2, 0.2, 0.22)],
+           from: CGPoint(x: 512, y: 788), to: CGPoint(x: 512, y: 236))
+    context.restoreGState()
+
+    // Four lamps on the ring, at the knob's four positions. The second one is on.
+    let angles: [CGFloat] = [135, 45, -45, -135].map { $0 * .pi / 180 }
+    for (index, angle) in angles.enumerated() {
+        let lamp = CGPoint(x: center.x + cos(angle) * 248, y: center.y + sin(angle) * 248)
+        context.saveGState()
+        if index == 1 {
+            context.setShadow(offset: .zero, blur: 40, color: color(1, 0.62, 0.16, 1))
+            context.addPath(circle(lamp, 22))
+            context.setFillColor(color(1, 0.78, 0.36))
+        } else {
+            context.addPath(circle(lamp, 18))
+            context.setFillColor(color(0.24, 0.2, 0.16))
+        }
+        context.fillPath()
+        context.restoreGState()
+    }
+
+    // The knob, with a soft shadow and a knurled edge.
+    context.saveGState()
+    context.setShadow(offset: CGSize(width: 0, height: -12), blur: 30, color: color(0, 0, 0, 0.7))
+    context.addPath(circle(center, 196))
+    context.setFillColor(color(0.12, 0.12, 0.13))
+    context.fillPath()
+    context.restoreGState()
+    context.saveGState()
+    context.addPath(circle(center, 196))
+    context.clip()
+    linear(context, [color(0.42, 0.43, 0.46), color(0.1, 0.1, 0.11)],
+           from: CGPoint(x: 512, y: 708), to: CGPoint(x: 512, y: 316))
+    context.setStrokeColor(color(0, 0, 0, 0.35))
+    context.setLineWidth(6)
+    for step in 0..<48 {
+        let angle = CGFloat(step) / 48 * 2 * .pi
+        context.move(to: CGPoint(x: center.x + cos(angle) * 176, y: center.y + sin(angle) * 176))
+        context.addLine(to: CGPoint(x: center.x + cos(angle) * 200, y: center.y + sin(angle) * 200))
+    }
+    context.strokePath()
+    context.restoreGState()
+    context.saveGState()
+    context.addPath(circle(center, 160))
+    context.clip()
+    linear(context, [color(0.3, 0.31, 0.34), color(0.14, 0.14, 0.15)],
+           from: CGPoint(x: 512, y: 672), to: CGPoint(x: 512, y: 352))
+    radial(context, [color(1, 1, 1, 0.14), color(1, 1, 1, 0)], center: CGPoint(x: 470, y: 620), radius: 200)
+    context.restoreGState()
+
+    // The pointer, glowing like the lamp it points at.
+    let pointer = angles[1]
+    context.saveGState()
+    context.setShadow(offset: .zero, blur: 24, color: color(1, 0.7, 0.3, 0.9))
+    context.setStrokeColor(color(1, 0.88, 0.62))
+    context.setLineWidth(30)
+    context.setLineCap(.round)
+    context.move(to: CGPoint(x: center.x + cos(pointer) * 40, y: center.y + sin(pointer) * 40))
+    context.addLine(to: CGPoint(x: center.x + cos(pointer) * 134, y: center.y + sin(pointer) * 134))
+    context.strokePath()
+    context.restoreGState()
+}
+
 func writePNG(_ image: CGImage, to url: URL) throws {
     let representation = NSBitmapImageRep(cgImage: image)
     guard let data = representation.representation(using: .png, properties: [:]) else {
@@ -144,10 +223,11 @@ func writePNG(_ image: CGImage, to url: URL) throws {
     try data.write(to: url)
 }
 
-guard CommandLine.arguments.count == 2 else {
-    print("usage: make-icon.swift <output.icns>")
+guard (2...3).contains(CommandLine.arguments.count) else {
+    print("usage: make-icon.swift <output.icns> [presets]")
     exit(64)
 }
+let variant = CommandLine.arguments.count == 3 ? CommandLine.arguments[2] : "recorder"
 let output = URL(fileURLWithPath: CommandLine.arguments[1])
 let workspace = FileManager.default.temporaryDirectory.appendingPathComponent("spark-icon-\(UUID().uuidString)", isDirectory: true)
 let iconset = workspace.appendingPathComponent("AppIcon.iconset", isDirectory: true)

@@ -1,8 +1,9 @@
 #!/bin/zsh
-# Builds "build/Spark Recorder.app".
+# Builds "build/Spark Recorder.app" and "build/Spark Presets.app".
 #
-#   ./build.sh            builds the app
-#   ./build.sh --install  also copies it to /Applications and adds it to the Dock
+#   ./build.sh                    builds both apps
+#   ./build.sh --install          also copies them to /Applications and adds them to the Dock
+#   ./build.sh [--install] presets  only Spark Presets, "recorder" only Spark Recorder
 #
 # Signs with an Apple Development certificate if there is one, because macOS then keeps the microphone permission
 # across rebuilds. Without one it falls back to an ad-hoc signature, and macOS may ask again after every build.
@@ -11,30 +12,56 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+install=""
+apps=()
+for argument in "$@"; do
+    case "$argument" in
+        --install) install=1 ;;
+        recorder|presets) apps+=("$argument") ;;
+        *) echo "usage: ./build.sh [--install] [recorder] [presets]" >&2; exit 64 ;;
+    esac
+done
+(( ${#apps} )) || apps=(recorder presets)
+
 icon="Resources/AppIcon.icns"
 if [[ ! -f "$icon" || "Tools/make-icon.swift" -nt "$icon" ]]; then
     swift Tools/make-icon.swift "$icon"
 fi
+presets_icon="Resources/PresetsIcon.icns"
+if [[ ! -f "$presets_icon" || "Tools/make-icon.swift" -nt "$presets_icon" ]]; then
+    swift Tools/make-icon.swift "$presets_icon" presets
+fi
 
-swift build -c release
-
-app="build/Spark Recorder.app"
-rm -rf "$app"
-mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp "$(swift build -c release --show-bin-path)/SparkRecorder" "$app/Contents/MacOS/SparkRecorder"
-cp Resources/Info.plist "$app/Contents/Info.plist"
-cp "$icon" "$app/Contents/Resources/AppIcon.icns"
+(( ${apps[(Ie)recorder]} )) && swift build -c release --product SparkRecorder
+(( ${apps[(Ie)presets]} )) && swift build -c release --product SparkPresets
+bin_path="$(swift build -c release --show-bin-path)"
 
 identity="${SPARK_SIGN_IDENTITY:-}"
 if [[ -z "$identity" ]]; then
     identity="$(security find-identity -v -p codesigning | awk '/Apple Development/ { print $2; exit }')"
 fi
-codesign --force --sign "${identity:--}" "$app"
-echo "Built $app"
 
-if [[ "${1:-}" == "--install" ]]; then
-    target="/Applications/Spark Recorder.app"
-    # An installed copy that is running keeps the old code, so ask it to quit. It finalizes a recording when it does.
+# make_app <app name> <executable> <Info.plist> <icon>
+make_app() {
+    local app="build/$1.app"
+    rm -rf "$app"
+    mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+    cp "$bin_path/$2" "$app/Contents/MacOS/$2"
+    cp "$3" "$app/Contents/Info.plist"
+    cp "$4" "$app/Contents/Resources/AppIcon.icns"
+    codesign --force --sign "${identity:--}" "$app"
+    echo "Built $app"
+}
+
+(( ${apps[(Ie)recorder]} )) && make_app "Spark Recorder" SparkRecorder Resources/Info.plist "$icon"
+(( ${apps[(Ie)presets]} )) && make_app "Spark Presets" SparkPresets Resources/SparkPresets-Info.plist "$presets_icon"
+
+# install_app <app name>
+install_app() {
+    local app="build/$1.app"
+    local target="/Applications/$1.app"
+    # An installed copy that is running keeps the old code, so ask it to quit. Spark Recorder finalizes a recording
+    # when it does.
     # Other running copies, such as one started from the build folder, are left alone.
     if pgrep -f "^$target/Contents/MacOS/" >/dev/null; then
         osascript -e "tell application \"$target\" to quit" || true
@@ -47,18 +74,20 @@ if [[ "${1:-}" == "--install" ]]; then
 
     # Keeps one Dock icon: an entry pointing elsewhere, such as at the build folder, moves to the installed app and
     # stays in its place. Without any entry, one is added at the end.
-    installed_url="file:///Applications/Spark%20Recorder.app/"
-    dock_folder="$(mktemp -d -t spark-dock)"
-    dock_copy="$dock_folder/dock.plist"
+    local encoded="${1// /%20}.app"
+    local installed_url="file:///Applications/$encoded/"
+    local dock_folder="$(mktemp -d -t spark-dock)"
+    local dock_copy="$dock_folder/dock.plist"
     defaults export com.apple.dock "$dock_copy"
-    buddy=/usr/libexec/PlistBuddy
-    found=""
-    changed=""
-    count="$(plutil -extract persistent-apps raw "$dock_copy" 2>/dev/null || echo 0)"
+    local buddy=/usr/libexec/PlistBuddy
+    local found=""
+    local changed=""
+    local count="$(plutil -extract persistent-apps raw "$dock_copy" 2>/dev/null || echo 0)"
+    local index url
     for (( index = 0; index < count; index++ )); do
         # Spacers have no file, so a missing value only skips that entry.
         url="$($buddy -c "Print :persistent-apps:${index}:tile-data:file-data:_CFURLString" "$dock_copy" 2>/dev/null || true)"
-        if [[ "$url" == *"Spark%20Recorder.app"* ]]; then
+        if [[ "$url" == *"$encoded"* ]]; then
             found=1
             if [[ "$url" != "$installed_url" ]]; then
                 $buddy -c "Set :persistent-apps:${index}:tile-data:file-data:_CFURLString $installed_url" \
@@ -82,4 +111,10 @@ if [[ "${1:-}" == "--install" ]]; then
         echo "Already in the Dock"
     fi
     rm -rf "$dock_folder"
+}
+
+if [[ -n "$install" ]]; then
+    (( ${apps[(Ie)recorder]} )) && install_app "Spark Recorder"
+    (( ${apps[(Ie)presets]} )) && install_app "Spark Presets"
 fi
+exit 0
