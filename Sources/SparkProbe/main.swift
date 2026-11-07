@@ -12,6 +12,7 @@ let usage = """
     commands:
       scan            look for Spark amps for 10 seconds
       info            connect, list services, read firmware, name and the presets
+      backup <folder> write the four stored presets to JSON files in a folder
       preset <1-4>    switch to a stored preset, like the preset button on the amp
       try <1-4>       send a copy of a stored preset, renamed, to play without storing it
       store-test <1-4> <backup.json>
@@ -24,6 +25,10 @@ let usage = """
       live <1-4> <script|->
                       play a copy of a stored preset without storing it and run a script of live changes on it,
                       see Sources/SparkProbe/LiveScript.swift
+      catalog-check [place [first-id [count]]]
+                      on the temporary place, try up to count (8) models per place, or of one place (gate,
+                      compressor, drive, amp, modulation, delay, reverb) from first-id on, and print what the amp
+                      accepts and chooses. Stops when the amp echoes instead of acknowledging
       watch [secs]    connect and print what the amp sends, default 30 seconds
 
     options:
@@ -37,6 +42,8 @@ let usage = """
 enum Mode {
     case scan, info, watch(Double), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
     case persistStore(UInt8, String), persistCheck(UInt8, String), live(UInt8, [String])
+    case catalogCheck([ChainPlace], String?, Int)
+    case backup(String)
 }
 
 func fail(_ text: String) -> Never {
@@ -70,6 +77,17 @@ func parseMode(_ arguments: [String]) -> Mode {
         guard let slot = slotArgument(arguments[2]) else { break }
         if second == "store" { return .persistStore(slot, arguments[3]) }
         if second == "check" { return .persistCheck(slot, arguments[3]) }
+    case ("backup", 2):
+        return .backup(second!)
+    case ("catalog-check", 1):
+        return .catalogCheck(ChainPlace.allCases, nil, 8)
+    case ("catalog-check", 2...4):
+        let names: [String: ChainPlace] = ["gate": .gate, "compressor": .compressor, "drive": .drive, "amp": .amp,
+                                           "modulation": .modulation, "delay": .delay, "reverb": .reverb]
+        guard let place = names[second!] else { break }
+        let count = arguments.count == 4 ? Int(arguments[3]) : 8
+        guard let count, count > 0 else { break }
+        return .catalogCheck([place], arguments.count >= 3 ? arguments[2] : nil, count)
     case ("live", 3):
         guard let slot = slotArgument(second) else { break }
         let source = arguments[2]
@@ -118,6 +136,9 @@ Task { @MainActor in
         case .persistStore(let slot, let path): try await Commands.persistStore(link, slot: slot, backup: path)
         case .persistCheck(let slot, let path): try await Commands.persistCheck(link, slot: slot, backup: path)
         case .live(let slot, let lines): try await LiveScript.run(link, slot: slot, lines: lines, input: input)
+        case .backup(let folder): try await Commands.backup(link, folder: folder)
+        case .catalogCheck(let places, let first, let count):
+            try await CatalogCheck.run(link, places: places, from: first, count: count)
         }
         log("\nDone. \(link.hiddenTuner) tuner reading(s) hidden.")
     } catch {

@@ -170,6 +170,8 @@ swift build --product spark-probe
 .build/debug/spark-probe persist-test store 4 backup.json  # leave a renamed copy in slot 4 …
 .build/debug/spark-probe persist-test check 4 backup.json  # … and after switching the amp off and on, check it
 .build/debug/spark-probe live 4 script.txt  # play a copy of slot 4 without storing it and run live changes on it
+.build/debug/spark-probe backup folder      # write the four stored presets to JSON files
+.build/debug/spark-probe catalog-check amp Twin 8  # try 8 amp models from "Twin" on, on the temporary preset
 ```
 
 A `live` script has one command per line: `param <place> <index> <value>`, `toggle <place> on|off`,
@@ -220,6 +222,32 @@ More findings:
   answer at all. This did not happen again in a fresh session with the same steps, so its cause is unknown. Both
   forms count as a confirmation, and an answer that stays out is checked by reading the playing preset back.
 - The amp sometimes ignores a request, so every request is sent a second time when no answer comes.
+- **Too many model changes in a row made the amp hang.** About 40 model changes within two minutes, with no pause
+  between them, first brought the echoes above and then silence. The amp no longer reacted to its power button,
+  while its Bluetooth still took connections. Unplugging USB, holding POWER for more than 10 seconds and switching it
+  on again brought it back, with all four stored presets unchanged. In batches of 8 with a second between changes and
+  a new connection per batch, the remaining 34 changes went through without a single echo. `catalog-check` therefore works in
+  such batches and stops at the first echo, and Spark Presets spaces out model changes.
+
+### Model catalog
+
+`Sources/SparkControl/Catalog` describes every amp and effect model: its place in the chain, a name and a short
+description written for this project, the device it is modeled after as a neutral hint, and what each parameter is
+(knob, switch, selector with its values). Names and descriptions are this project's own, not those of the official
+app. A model id the catalog does not know still works, with numbered knobs, and so do parameters beyond the ones the
+catalog names.
+
+`spark-probe catalog-check` checked the catalog on the Spark MINI: it chose every model on the temporary preset and
+read back what the amp played. All 68 freely available models were accepted: 1 noise gate, 5 compressors, 10 drives,
+33 amps, 12 modulation effects, 6 delays and the reverb with 9 types. `Models+Defaults.swift` holds the values the
+amp chose for each, which the editor uses as start values, and their number is the number of parameters the amp
+gives the model. Three models have more parameters than the community sources name (vibrato 3, mini vibe 4, square
+tremolo 4), and they appear numbered. The models of the paid Jimi Hendrix add-on are in the catalog but hidden, and
+the five that were tried were refused, because the add-on is not unlocked on this amp.
+
+Not confirmed: the order of reverb parameters 2 to 5 is disputed between sources. The catalog follows the two that
+agree (low cut, high cut, density, length). A listening test changed the sound for both 3 and 5 but could not tell
+which is which.
 
 ### Sources
 
@@ -231,6 +259,8 @@ on the amp.
 - [Ignitron](https://github.com/stangreg/Ignitron) (BSD-3-Clause)
 - [SparkBox](https://github.com/paulhamsh/SparkBox) and kindling-control-spark-amps (GPL-3.0, read only)
 - soundshed-app and spark-web (MIT)
+- For the catalog also [PGSparkLite](https://github.com/richtamblyn/PGSparkLite) (Apache-2.0) and SparklingTones
+  (MIT). Positive Grid's own pages were not copied.
 
 ## Spark Presets
 
@@ -256,7 +286,8 @@ names are not part of the protocol.
 Sources/CSparkRT       Realtime capture and click (C)
 Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
 Sources/SparkRecorder  The app (SwiftUI)
-Sources/SparkControl   The amp's Bluetooth control protocol and the preset library, without Bluetooth code
+Sources/SparkControl   The amp's Bluetooth control protocol, the model catalog and the preset library, without
+                       Bluetooth code
 Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
 Sources/SparkPresets   Spark Presets, the preset app (SwiftUI, CoreBluetooth)
 Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals

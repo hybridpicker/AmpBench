@@ -17,6 +17,16 @@ enum Commands {
         for slot in UInt8(0)...3 { _ = try await link.readPreset(slot) }
     }
 
+    /// Reads the four stored presets and writes each to a JSON file of its own in `folder`.
+    static func backup(_ link: ProbeLink, folder: String) async throws {
+        try FileManager.default.createDirectory(atPath: folder, withIntermediateDirectories: true)
+        for slot in UInt8(0)...3 {
+            let preset = try await link.readPreset(slot).preset
+            let name = preset.name.map { "/:\\".contains($0) ? "-" : String($0) }.joined()
+            try writeBackup(preset, to: (folder as NSString).appendingPathComponent("Platz \(slot + 1) - \(name).json"))
+        }
+    }
+
     static func currentSlot(_ link: ProbeLink) async throws -> UInt8? {
         let header = link.header
         let message = try await link.request("current preset number", answer: SparkProtocol.Sub.presetNumber) {
