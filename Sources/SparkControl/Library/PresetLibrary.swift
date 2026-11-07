@@ -1,42 +1,5 @@
 import Foundation
 
-/// A preset saved on the Mac, with where it came from.
-public struct PresetFile: Codable, Equatable, Sendable {
-    public static let currentFormat = 1
-
-    public var format: Int
-    public var savedAt: Date
-    /// Where it came from, such as "Platz 2 · Spark MINI".
-    public var origin: String
-    /// True for the copy made automatically before a slot was overwritten.
-    public var isBackup: Bool
-    public var preset: SparkPreset
-
-    public init(savedAt: Date = Date(), origin: String, isBackup: Bool = false, preset: SparkPreset) {
-        format = Self.currentFormat
-        self.savedAt = savedAt
-        self.origin = origin
-        self.isBackup = isBackup
-        self.preset = preset
-    }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        format = try c.decodeIfPresent(Int.self, forKey: .format) ?? Self.currentFormat
-        savedAt = try c.decodeIfPresent(Date.self, forKey: .savedAt) ?? Date(timeIntervalSince1970: 0)
-        origin = try c.decodeIfPresent(String.self, forKey: .origin) ?? ""
-        isBackup = try c.decodeIfPresent(Bool.self, forKey: .isBackup) ?? false
-        preset = try c.decode(SparkPreset.self, forKey: .preset)
-    }
-}
-
-public struct SavedPreset: Identifiable, Equatable, Sendable {
-    public var url: URL
-    public var file: PresetFile
-    public var id: URL { url }
-    public var name: String { file.preset.name }
-}
-
 public enum PresetLibraryError: LocalizedError {
     case emptyName
     case nameTooLong(Int)
