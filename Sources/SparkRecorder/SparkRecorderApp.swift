@@ -314,7 +314,7 @@ private struct ShortcutsSheet: View {
         ("L", "Schleife: erst A, dann B, dann aus"),
         ("M", "Marker setzen, auch während der Aufnahme"),
         ("K", "Take behalten"),
-        ("⌘⌫", "Take verwerfen (Papierkorb)"),
+        ("⌫  ⌘⌫", "Take verwerfen (Papierkorb)"),
         ("⌘Z", "Rückgängig"),
         ("←  →", "5 Sekunden springen, mit ⇧ 1 Sekunde"),
         ("-  +", "Langsamer oder schneller"),

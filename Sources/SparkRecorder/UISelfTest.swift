@@ -316,6 +316,8 @@ final class UISelfTest {
             await press("k", keyCode: 40)
             check(model.phase == phaseBefore, "typing R in a text field does not start a recording")
             check(model.query.search.lowercased().contains("r"), "the letter reaches the text field", detail: model.query.search)
+            await press("", keyCode: 51)
+            check(model.recordings.count == count, "⌫ in a text field does not discard anything")
             await pressCommandDelete()
             check(model.recordings.count == count, "⌘⌫ in a text field does not discard anything")
             check(model.query.search.isEmpty, "⌘⌫ in a text field edits the text", detail: model.query.search)
@@ -341,16 +343,27 @@ final class UISelfTest {
             await wait(0.3)
             check(model.recordings.contains { $0.id == target.id }, "undo brings the take back")
             check(FileManager.default.fileExists(atPath: url.path), "file is back in the folder")
+
+            // Delete and forward delete do the same as ⌘⌫.
+            for keyCode: UInt16 in [51, 117] {
+                model.select(target.id)
+                await wait(0.2)
+                await press("", keyCode: keyCode)
+                await wait(0.2)
+                check(!model.recordings.contains { $0.id == target.id }, "key \(keyCode) discards the selected take")
+                check(!FileManager.default.fileExists(atPath: url.path), "key \(keyCode) moves the file out of the folder")
+                window?.undoManager?.undo()
+                await wait(0.3)
+                check(model.recordings.contains { $0.id == target.id }, "undo brings the take back after key \(keyCode)")
+            }
         }
 
-        // Single keys can never delete.
+        // No letter can delete.
         let before = model.recordings.count
         for letter in "abcdefghijklmnopqstuvwxyz" where !"r".contains(letter) {
             await press(String(letter))
         }
-        await press("", keyCode: 51)
-        await press("", keyCode: 117)
-        check(model.recordings.count == before, "no single key removes a recording")
+        check(model.recordings.count == before, "no letter removes a recording")
         // Undo what the letters above switched on.
         model.clearLoop()
         if model.playhead.isPlaying { await press(" ", keyCode: 49) }

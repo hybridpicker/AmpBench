@@ -2,7 +2,7 @@ import AppKit
 import SparkCore
 
 /// Handles the single-key shortcuts. They run ahead of the normal key handling so a focused table cannot swallow
-/// them, and they step aside whenever text is being typed. None of them can delete anything.
+/// them, and they step aside whenever text is being typed. Only Delete removes anything, and only to the Trash, undoably.
 @MainActor
 final class KeyRouter {
     private var monitor: Any?
@@ -80,6 +80,10 @@ final class KeyRouter {
             return true
         case 124:
             model.nudge(by: modifiers.contains(.shift) ? 1 : 5)
+            return true
+        case 51, 117:
+            // Delete and forward delete move the selected takes to the Trash, like ⌘⌫. ⌘Z brings them back.
+            model.discard()
             return true
         default:
             break

@@ -28,7 +28,7 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 | `L` | Loop: first press sets A, second sets B, third removes it |
 | `M` | Marker, also during a recording |
 | `K` | Keep the take |
-| `⌘⌫` | Discard the take: it goes to the Trash, and `⌘Z` brings it back |
+| `⌫` / `⌘⌫` | Discard the selected takes: they go to the Trash, and `⌘Z` brings them back. Not while recording or typing |
 | `←` `→` | Jump 5 seconds, with `⇧` 1 second |
 | `-` `+` | Slower or faster |
 | `0` | Reset tempo and pitch |
@@ -40,7 +40,7 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 | `⌘F` / `⌘E` | Search / rename |
 | `Esc` | Leave a text field |
 
-Single keys do nothing while you type in a text field, and no single key can delete anything. `⌘/` shows this list.
+Single keys do nothing while you type in a text field. Only `⌫` removes anything, and only to the Trash, undoably. `⌘/` shows this list.
 
 ## Where things are
 
