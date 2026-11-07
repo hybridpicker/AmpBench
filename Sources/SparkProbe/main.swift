@@ -14,6 +14,10 @@ let usage = """
       scan            look for Spark amps for 10 seconds
       info            connect, list services, read firmware, name and the presets
       preset <1-4>    switch to a stored preset, like the preset button on the amp
+      try <1-4>       send a copy of a stored preset, renamed, to play without storing it
+      store-test <1-4> <backup.json>
+                      back up a stored preset, store a renamed copy in its slot, read it back, then put the
+                      original back and check it is byte for byte the same
       watch [secs]    connect and print what the amp sends, default 30 seconds
 
     options:
@@ -24,7 +28,7 @@ let usage = """
     """
 
 enum Mode {
-    case scan, info, watch(TimeInterval), preset(UInt8)
+    case scan, info, watch(TimeInterval), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
 }
 
 struct Options {
@@ -52,6 +56,11 @@ func parseOptions() -> Options {
         mode = .watch(TimeInterval(seconds)!)
     case ("preset", let number?) where UInt8(number).map({ (1...4).contains($0) }) == true:
         mode = .preset(UInt8(number)! - 1)
+    case ("store-test", let number?) where UInt8(number).map({ (1...4).contains($0) }) == true
+        && arguments.count == 3:
+        mode = .storeTest(UInt8(number)! - 1, arguments[2])
+    case ("try", let number?) where UInt8(number).map({ (1...4).contains($0) }) == true:
+        mode = .audition(UInt8(number)! - 1)
     default:
         FileHandle.standardError.write(Data((usage + "\n").utf8))
         exit(64)
@@ -71,8 +80,10 @@ func finish(_ code: Int32, after delay: TimeInterval = 0.3) {
 final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     private struct Step {
         var label: String
-        var build: (UInt8) -> [UInt8]
+        var build: (UInt8) -> [[UInt8]]
         var answer: UInt8
+        /// The command of the answer, or nil for a response or an acknowledgement.
+        var answerCommand: UInt8? = nil
         var attempt = 1
     }
 
@@ -86,7 +97,10 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     private var ignored = Set<UUID>()
     private let parser = SparkProtocol.Parser()
     private var steps: [Step] = []
-    private var waitingFor: (sub: UInt8, token: Int)?
+    private var waitingFor: (sub: UInt8, command: UInt8?, token: Int)?
+    private var auditionName: String?
+    private var original: (preset: SparkPreset, payload: [UInt8])?
+    private var storeStage = 0
     private var token = 0
     private var sequence: UInt8 = 0
     private var hiddenStatus = 0
@@ -237,29 +251,41 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             break
         case .info:
             steps = [
-                Step(label: "firmware", build: { SparkProtocol.getFirmware(sequence: $0, header: header) },
+                Step(label: "firmware", build: { [SparkProtocol.getFirmware(sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.firmware),
-                Step(label: "amp name", build: { SparkProtocol.getAmpName(sequence: $0, header: header) },
+                Step(label: "amp name", build: { [SparkProtocol.getAmpName(sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.ampName),
                 Step(label: "current preset number",
-                     build: { SparkProtocol.getPresetNumber(sequence: $0, header: header) },
+                     build: { [SparkProtocol.getPresetNumber(sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.presetNumber),
                 Step(label: "preset playing now",
-                     build: { SparkProtocol.getPreset(slot: nil, sequence: $0, header: header) },
+                     build: { [SparkProtocol.getPreset(slot: nil, sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.preset),
             ]
             for slot in UInt8(0)...3 {
                 steps.append(Step(label: "stored preset \(slot + 1)",
-                                  build: { SparkProtocol.getPreset(slot: slot, sequence: $0, header: header) },
+                                  build: { [SparkProtocol.getPreset(slot: slot, sequence: $0, header: header)] },
                                   answer: SparkProtocol.Sub.preset))
             }
+        case .storeTest(let slot, _):
+            steps = [
+                Step(label: "read stored preset \(slot + 1)",
+                     build: { [SparkProtocol.getPreset(slot: slot, sequence: $0, header: header)] },
+                     answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.response),
+            ]
+        case .audition(let slot):
+            steps = [
+                Step(label: "read stored preset \(slot + 1)",
+                     build: { [SparkProtocol.getPreset(slot: slot, sequence: $0, header: header)] },
+                     answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.response),
+            ]
         case .preset(let slot):
             steps = [
                 Step(label: "switch to preset \(slot + 1)",
-                     build: { SparkProtocol.changeHardwarePreset(slot: slot, sequence: $0, header: header) },
+                     build: { [SparkProtocol.changeHardwarePreset(slot: slot, sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.hardwarePreset),
                 Step(label: "current preset number",
-                     build: { SparkProtocol.getPresetNumber(sequence: $0, header: header) },
+                     build: { [SparkProtocol.getPresetNumber(sequence: $0, header: header)] },
                      answer: SparkProtocol.Sub.presetNumber),
             ]
         case .watch(let seconds):
@@ -285,7 +311,7 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         sequence = (sequence + 1) & 0x7F
         log(step.attempt == 1 ? "→ \(step.label)" : "→ \(step.label), attempt \(step.attempt)")
         send(step.build(sequence))
-        waitingFor = (step.answer, 0)
+        waitingFor = (step.answer, step.answerCommand, 0)
         armTimeout()
     }
 
@@ -295,7 +321,7 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         guard let waiting = waitingFor else { return }
         token += 1
         let current = token
-        waitingFor = (waiting.sub, current)
+        waitingFor = (waiting.sub, waiting.command, current)
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [self] in
             guard waitingFor?.token == current else { return }
             waitingFor = nil
@@ -308,14 +334,19 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
         }
     }
 
-    private func send(_ bytes: [UInt8]) {
+    /// Writes every block on its own. A write longer than one Bluetooth packet is refused by the amp, so a block
+    /// that does not fit one packet is split further.
+    private func send(_ blocks: [[UInt8]]) {
         guard let peripheral, let characteristic = writeCharacteristic else { return }
         let type: CBCharacteristicWriteType = characteristic.properties.contains(.write)
             ? .withResponse : .withoutResponse
-        if options.raw { log("  sent \(bytes.hex)") }
-        let size = max(peripheral.maximumWriteValueLength(for: type), 20)
-        for start in stride(from: 0, to: bytes.count, by: size) {
-            peripheral.writeValue(Data(bytes[start..<min(start + size, bytes.count)]), for: characteristic, type: type)
+        let size = max(peripheral.maximumWriteValueLength(for: .withoutResponse), 20)
+        for block in blocks {
+            if options.raw { log("  sent \(block.hex)") }
+            for start in stride(from: 0, to: block.count, by: size) {
+                peripheral.writeValue(Data(block[start..<min(start + size, block.count)]), for: characteristic,
+                                      type: type)
+            }
         }
     }
 
@@ -336,8 +367,9 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             }
             report(message)
             if let waitingFor, waitingFor.sub == message.sub,
-               message.command == SparkProtocol.Command.response
-                || message.command == SparkProtocol.Command.acknowledge {
+               waitingFor.command.map({ $0 == message.command })
+                ?? (message.command == SparkProtocol.Command.response
+                    || message.command == SparkProtocol.Command.acknowledge) {
                 self.waitingFor = nil
                 next()
             }
@@ -369,11 +401,19 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             log("\(head) preset number: \(slotText(message.payload))")
         case Sub.hardwarePreset:
             log("\(head) amp switched preset: \(slotText(message.payload))")
+        case Sub.preset where message.command == 0x05:
+            log("\(head) chunk received")
         case Sub.preset:
             do {
                 let preset = try SparkPreset(payload: message.payload)
-                log("\(head) preset \"\(preset.name)\", slot byte \(preset.slot), \(String(format: "%.0f", preset.bpm)) "
-                    + "BPM, icon \(preset.icon)")
+                let place = SparkValues.place(message.payload)
+                let exact = preset.encode(place: .slot(0)).dropFirst(2) == message.payload.dropFirst(2)
+                log("\(head) preset \"\(preset.name)\", place \(place.hex), \(String(format: "%.0f", preset.bpm)) "
+                    + "BPM, \(message.payload.count) bytes, encodes back \(exact ? "exactly" : "DIFFERENTLY")")
+                if case .audition = options.mode { planAudition(after: preset) }
+                if case .storeTest(let slot, let path) = options.mode {
+                    planStoreTest(after: preset, payload: message.payload, slot: slot, backup: path)
+                }
                 for effect in preset.effects {
                     let values = effect.parameters.map { String(format: "%d=%.2f", $0.index, $0.value) }
                     log("      \(effect.isOn ? "on " : "off") \(effect.name)  \(values.joined(separator: " "))")
@@ -383,6 +423,78 @@ final class Probe: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
             }
         default:
             log("\(head) \(message.payload.hex)")
+        }
+    }
+
+    /// After reading the stored preset: send it renamed as a temporary preset, then read back what plays.
+    private func planAudition(after preset: SparkPreset) {
+        let header = options.header
+        if let expected = auditionName {
+            log(preset.name == expected
+                ? "  ✓ the amp plays the sent preset \"\(expected)\""
+                : "  ✗ the amp plays \"\(preset.name)\", not the sent \"\(expected)\"")
+            return
+        }
+        var copy = preset
+        copy.name = String((preset.name + " Test").prefix(31))
+        auditionName = copy.name
+        steps = [
+            Step(label: "send \"\(copy.name)\" to play without storing",
+                 build: { SparkProtocol.sendPreset(copy, to: .temporary, sequence: $0, header: header) },
+                 answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.acknowledge),
+            Step(label: "switch to the temporary preset",
+                 build: { [SparkProtocol.changeHardwarePreset(slot: 0x7F, sequence: $0, header: header)] },
+                 answer: SparkProtocol.Sub.hardwarePreset),
+            Step(label: "read the preset playing now",
+                 build: { [SparkProtocol.getPreset(slot: nil, sequence: $0, header: header)] },
+                 answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.response),
+        ]
+    }
+
+    private func planStoreTest(after preset: SparkPreset, payload: [UInt8], slot: UInt8, backup path: String) {
+        let header = options.header
+        let read = Step(label: "read stored preset \(slot + 1)",
+                        build: { [SparkProtocol.getPreset(slot: slot, sequence: $0, header: header)] },
+                        answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.response)
+        func store(_ preset: SparkPreset, _ label: String) -> [Step] {
+            [Step(label: label, build: { SparkProtocol.sendPreset(preset, to: .slot(slot), sequence: $0, header: header) },
+                  answer: SparkProtocol.Sub.preset, answerCommand: SparkProtocol.Command.acknowledge),
+             Step(label: "switch to preset \(slot + 1)",
+                  build: { [SparkProtocol.changeHardwarePreset(slot: slot, sequence: $0, header: header)] },
+                  answer: SparkProtocol.Sub.hardwarePreset)]
+        }
+        storeStage += 1
+        switch storeStage {
+        case 1:
+            do {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(preset).write(to: URL(fileURLWithPath: path), options: .withoutOverwriting)
+                log("  backup written to \(path)")
+            } catch {
+                log("  backup failed, nothing is stored: \(error.localizedDescription)")
+                steps = []
+                return
+            }
+            original = (preset, payload)
+            var copy = preset
+            copy.name = String((preset.name + " Test").prefix(31))
+            auditionName = copy.name
+            steps = store(copy, "store \"\(copy.name)\" in slot \(slot + 1)") + [read]
+        case 2:
+            log(preset.name == auditionName
+                ? "  ✓ slot \(slot + 1) now holds \"\(preset.name)\""
+                : "  ✗ slot \(slot + 1) holds \"\(preset.name)\", not \"\(auditionName ?? "")\"")
+            guard let original else { return }
+            steps = store(original.preset, "put the original \"\(original.preset.name)\" back") + [read]
+        default:
+            guard let original else { return }
+            log(payload == original.payload
+                ? "  ✓ slot \(slot + 1) is byte for byte the original again"
+                : "  ✗ slot \(slot + 1) differs from the original. The backup is in \(path)")
+            steps = [Step(label: "switch to preset 1",
+                          build: { [SparkProtocol.changeHardwarePreset(slot: 0, sequence: $0, header: header)] },
+                          answer: SparkProtocol.Sub.hardwarePreset)]
         }
     }
 

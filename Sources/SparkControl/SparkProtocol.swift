@@ -35,8 +35,8 @@ public enum SparkProtocol {
         public static let tuner: UInt8 = 0x65
     }
 
-    /// Raw data per chunk of a multi-chunk message.
-    static let chunkCapacity = 0x80
+    /// Raw data per chunk of a multi-chunk message. The Spark MINI uses 25 bytes in its own presets.
+    static let chunkCapacity = 0x19
 
     // MARK: 7-bit packing
 
@@ -74,29 +74,34 @@ public enum SparkProtocol {
     // MARK: Building messages
 
     /// Builds a message to the amp. A preset (`set`/`preset`) is split into numbered chunks, everything else is one
-    /// chunk. `header: false` leaves out the block header, for amps that turn out not to want it.
+    /// chunk. Each chunk gets its own block header, because the header holds the length in one byte. `header: false`
+    /// leaves the headers out, the way the amp sends.
     public static func frame(command: UInt8, sub: UInt8, payload: [UInt8], sequence: UInt8,
                              header: Bool = true) -> [UInt8] {
+        blocks(command: command, sub: sub, payload: payload, sequence: sequence, header: header).flatMap { $0 }
+    }
+
+    /// The same message as separate blocks, one chunk each. Each block goes to the amp in a write of its own.
+    public static func blocks(command: UInt8, sub: UInt8, payload: [UInt8], sequence: UInt8,
+                              header: Bool = true) -> [[UInt8]] {
         var chunks: [[UInt8]] = []
         if isMultiChunk(command: command, sub: sub) {
             let parts = stride(from: 0, to: max(payload.count, 1), by: chunkCapacity).map {
                 Array(payload[$0..<min($0 + chunkCapacity, payload.count)])
             }
             for (number, part) in parts.enumerated() {
-                chunks.append([UInt8(parts.count), UInt8(number), UInt8(part.count & 0xFF)] + part)
+                chunks.append([UInt8(parts.count), UInt8(number), UInt8(part.count)] + part)
             }
         } else {
             chunks = [payload]
         }
 
-        var body: [UInt8] = []
-        for raw in chunks {
+        return chunks.map { raw in
             let packed = pack7(raw)
             let checksum = packed.reduce(UInt8(0), ^)
-            body += [0xF0, 0x01, sequence & 0x7F, checksum, command, sub] + packed + [0xF7]
+            let chunk = [0xF0, 0x01, sequence & 0x7F, checksum, command, sub] + packed + [0xF7]
+            return header ? blockHeader(length: chunk.count + 16) + chunk : chunk
         }
-        guard header else { return body }
-        return blockHeader(length: body.count + 16) + body
     }
 
     static func blockHeader(length: Int) -> [UInt8] {
@@ -126,6 +131,13 @@ public enum SparkProtocol {
         let selector: [UInt8] = slot.map { [0x00, $0] } ?? [0x01, 0x00]
         return frame(command: Command.get, sub: Sub.preset, payload: selector + [UInt8](repeating: 0, count: 30),
                      sequence: sequence, header: header)
+    }
+
+    /// Sends a whole preset. `.temporary` plays it without storing it, `.slot` is meant to store it there.
+    public static func sendPreset(_ preset: SparkPreset, to place: SparkPresetPlace, sequence: UInt8,
+                                  header: Bool = true) -> [[UInt8]] {
+        blocks(command: Command.set, sub: Sub.preset, payload: preset.encode(place: place), sequence: sequence,
+               header: header)
     }
 
     /// Switches to stored preset `slot`, 0 to 3, like the preset button on the amp.

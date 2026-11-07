@@ -49,6 +49,48 @@ final class SparkProtocolTests: XCTestCase {
         XCTAssertEqual(decoded.effects[1].parameters.map(\.value), [0.5, 0.25])
     }
 
+    func testPresetEncodesBackToTheSameBytes() throws {
+        let payload = Synthetic.presetPayload()
+        let preset = try SparkPreset(payload: payload)
+        XCTAssertEqual(preset.encode(place: .slot(2)), payload)
+        XCTAssertEqual(Array(preset.encode(place: .temporary).prefix(2)), [0x00, 0x7F])
+        let json = try JSONEncoder().encode(preset)
+        XCTAssertEqual(try JSONDecoder().decode(SparkPreset.self, from: json), preset)
+    }
+
+    func testPresetIsSentInChunksOf25BytesWithAHeaderEach() throws {
+        let preset = try SparkPreset(payload: Synthetic.presetPayload())
+        let payload = preset.encode(place: .temporary)
+        let blocks = SparkProtocol.sendPreset(preset, to: .temporary, sequence: 3)
+        XCTAssertTrue(blocks.allSatisfy { $0.count == Int($0[6]) })
+        let bytes = blocks.flatMap { $0 }
+
+        var chunks: [[UInt8]] = []
+        var index = 0
+        while index < bytes.count {
+            XCTAssertEqual(Array(bytes[index..<(index + 6)]), [0x01, 0xFE, 0x00, 0x00, 0x53, 0xFE])
+            let length = Int(bytes[index + 6])
+            let chunk = Array(bytes[(index + 16)..<(index + length)])
+            XCTAssertEqual(chunk.first, 0xF0)
+            XCTAssertEqual(chunk.last, 0xF7)
+            chunks.append(SparkProtocol.unpack7(Array(chunk[6..<(chunk.count - 1)])))
+            index += length
+        }
+        let count = (payload.count + 24) / 25
+        XCTAssertEqual(chunks.count, count)
+        for (number, chunk) in chunks.enumerated() {
+            XCTAssertEqual(chunk[0], UInt8(count))
+            XCTAssertEqual(chunk[1], UInt8(number))
+            XCTAssertEqual(Int(chunk[2]), chunk.count - 3)
+            XCTAssertLessThanOrEqual(chunk.count - 3, 25)
+        }
+        XCTAssertEqual(chunks.flatMap { $0.dropFirst(3) }, payload)
+    }
+
+    func testAmpNameWithLengthPrefix() {
+        XCTAssertEqual(SparkValues.string([0x0A, 0xAA] + Array("Spark MINI".utf8)), "Spark MINI")
+    }
+
     func testBrokenPresetReportsWhere() {
         XCTAssertThrowsError(try SparkPreset(payload: [0x00, 0x01, 0x42])) { error in
             XCTAssertEqual("\(error)", "byte 2 is 0x42, expected a string")

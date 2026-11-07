@@ -1,21 +1,35 @@
 import Foundation
 
 /// A preset as the amp sends it. The encoding resembles MessagePack: strings, 32-bit floats, booleans, arrays.
-public struct SparkPreset: Equatable {
-    public struct Effect: Equatable {
-        public var name: String
-        public var isOn: Bool
-        /// Parameter number and value, the value from 0 to 1.
-        public var parameters: [(index: UInt8, value: Float)]
+///
+/// Everything the amp sends is kept, so `encode` writes back exactly the bytes that were read.
+public struct SparkPreset: Codable, Equatable, Sendable {
+    public struct Parameter: Codable, Equatable, Sendable {
+        public var index: UInt8
+        /// From 0 to 1.
+        public var value: Float
+        /// A type marker the amp sends before each value, 0x91 so far.
+        public var marker: UInt8
 
-        public static func == (lhs: Effect, rhs: Effect) -> Bool {
-            lhs.name == rhs.name && lhs.isOn == rhs.isOn
-                && lhs.parameters.map(\.index) == rhs.parameters.map(\.index)
-                && lhs.parameters.map(\.value) == rhs.parameters.map(\.value)
+        public init(index: UInt8, value: Float, marker: UInt8 = 0x91) {
+            self.index = index
+            self.value = value
+            self.marker = marker
         }
     }
 
-    public var slot: UInt8
+    public struct Effect: Codable, Equatable, Sendable {
+        public var name: String
+        public var isOn: Bool
+        public var parameters: [Parameter]
+
+        public init(name: String, isOn: Bool, parameters: [Parameter]) {
+            self.name = name
+            self.isOn = isOn
+            self.parameters = parameters
+        }
+    }
+
     public var uuid: String
     public var name: String
     public var version: String
@@ -23,11 +37,30 @@ public struct SparkPreset: Equatable {
     public var icon: String
     public var bpm: Float
     public var effects: [Effect]
+    /// The bytes after the effects, one byte so far. Sent back unchanged.
+    public var trailer: [UInt8]
 
+    public init(uuid: String = UUID().uuidString, name: String, version: String = "0.7", description: String = "",
+                icon: String = "icon.png", bpm: Float = 120, effects: [Effect], trailer: [UInt8] = [0x00]) {
+        self.uuid = uuid
+        self.name = name
+        self.version = version
+        self.description = description
+        self.icon = icon
+        self.bpm = bpm
+        self.effects = effects
+        self.trailer = trailer
+    }
+
+    /// Reads a preset message's payload. Its first two bytes say where the preset is, see `SparkPresetPlace`.
     public init(payload: [UInt8]) throws {
         var reader = SparkReader(payload)
         _ = try reader.byte()
-        slot = try reader.byte()
+        _ = try reader.byte()
+        try self.init(reader: &reader)
+    }
+
+    init(reader: inout SparkReader) throws {
         uuid = try reader.string()
         name = try reader.string()
         version = try reader.string()
@@ -40,13 +73,56 @@ public struct SparkPreset: Equatable {
             let name = try reader.string()
             let isOn = try reader.bool()
             let parameterCount = try reader.arrayCount()
-            var parameters: [(UInt8, Float)] = []
+            var parameters: [Parameter] = []
             for _ in 0..<parameterCount {
                 let index = try reader.byte()
-                _ = try reader.byte()  // a type marker, 0x91 so far
-                parameters.append((index, try reader.float()))
+                let marker = try reader.byte()
+                parameters.append(Parameter(index: index, value: try reader.float(), marker: marker))
             }
             effects.append(Effect(name: name, isOn: isOn, parameters: parameters))
+        }
+        trailer = reader.rest()
+    }
+
+    /// The payload for a preset message, behind the two bytes of `place`.
+    public func encode(place: SparkPresetPlace) -> [UInt8] {
+        var writer = SparkWriter()
+        writer.bytes(place.bytes)
+        writer.string(uuid)
+        writer.string(name)
+        writer.string(version)
+        writer.string(description)
+        writer.string(icon)
+        writer.float(bpm)
+        writer.array(effects.count)
+        for effect in effects {
+            writer.string(effect.name)
+            writer.bool(effect.isOn)
+            writer.array(effect.parameters.count)
+            for parameter in effect.parameters {
+                writer.bytes([parameter.index, parameter.marker])
+                writer.float(parameter.value)
+            }
+        }
+        writer.bytes(trailer)
+        return writer.data
+    }
+}
+
+/// Where a preset is, as the first two bytes of a preset message.
+public enum SparkPresetPlace: Equatable, Sendable {
+    /// One of the four stored presets, 0 to 3.
+    case slot(UInt8)
+    /// What the amp plays now, in requests for it.
+    case playing
+    /// Played at once without being stored, in presets sent to the amp.
+    case temporary
+
+    public var bytes: [UInt8] {
+        switch self {
+        case .slot(let slot): [0x00, slot]
+        case .playing: [0x01, 0x00]
+        case .temporary: [0x00, 0x7F]
         }
     }
 }
@@ -84,13 +160,15 @@ public struct SparkReader {
         return Array(data[position..<(position + count)])
     }
 
-    /// A short string (`A0+n`), a longer one (`D9 n`), or a short one behind an extra length byte.
+    mutating func rest() -> [UInt8] {
+        defer { position = data.count }
+        return Array(data[min(position, data.count)...])
+    }
+
+    /// A short string (`A0+n`) or a longer one (`D9 n`).
     public mutating func string() throws -> String {
         let start = position
-        var marker = try byte()
-        if (0x00...0x7F).contains(marker), position < data.count, (0xA0...0xBF).contains(data[position]) {
-            marker = try byte()
-        }
+        let marker = try byte()
         let length: Int
         switch marker {
         case 0xA0...0xBF: length = Int(marker - 0xA0)
@@ -127,6 +205,34 @@ public struct SparkReader {
     }
 }
 
+struct SparkWriter {
+    private(set) var data: [UInt8] = []
+
+    mutating func bytes(_ bytes: [UInt8]) { data += bytes }
+
+    /// Short strings as `A0+n`, from 32 bytes on as `D9 n`, the way the amp writes them. Longer than 255 bytes is
+    /// cut at a character boundary.
+    mutating func string(_ text: String) {
+        var bytes = Array(text.utf8)
+        if bytes.count > 255 {
+            var cut = String(text.prefix(255))
+            while cut.utf8.count > 255 { cut.removeLast() }
+            bytes = Array(cut.utf8)
+        }
+        data += bytes.count < 32 ? [0xA0 + UInt8(bytes.count)] : [0xD9, UInt8(bytes.count)]
+        data += bytes
+    }
+
+    mutating func float(_ value: Float) {
+        let raw = value.bitPattern
+        data += [0xCA, UInt8(raw >> 24), UInt8(raw >> 16 & 0xFF), UInt8(raw >> 8 & 0xFF), UInt8(raw & 0xFF)]
+    }
+
+    mutating func bool(_ value: Bool) { data.append(value ? 0xC3 : 0xC2) }
+
+    mutating func array(_ count: Int) { data.append(0x90 + UInt8(min(count, 15))) }
+}
+
 public enum SparkValues {
     /// The firmware version: `CE` and four bytes.
     public static func firmware(_ payload: [UInt8]) -> String? {
@@ -134,8 +240,11 @@ public enum SparkValues {
         return payload[1...4].map(String.init).joined(separator: ".")
     }
 
+    /// A string, also with the extra length byte in front that the amp puts before its name.
     public static func string(_ payload: [UInt8]) -> String? {
-        var reader = SparkReader(payload)
+        var bytes = payload
+        if bytes.count >= 2, bytes[0] < 0x80, (0xA0...0xBF).contains(bytes[1]) { bytes.removeFirst() }
+        var reader = SparkReader(bytes)
         return try? reader.string()
     }
 
@@ -143,4 +252,7 @@ public enum SparkValues {
     public static func slot(_ payload: [UInt8]) -> UInt8? {
         payload.count >= 2 ? payload[1] : nil
     }
+
+    /// Where a received preset is: its first two bytes.
+    public static func place(_ payload: [UInt8]) -> [UInt8] { Array(payload.prefix(2)) }
 }
