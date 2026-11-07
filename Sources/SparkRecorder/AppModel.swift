@@ -1454,6 +1454,11 @@ final class AppModel: ObservableObject {
             show(.info, "Markiere zuerst die Aufnahme, die in den Papierkorb soll.")
             return
         }
+        // The focus moves on to the next take when the one in focus goes, or when nothing is in focus and everything
+        // marked goes. A take in focus that stays keeps the focus and keeps playing.
+        let losesFocus = currentID.map(targets.contains)
+            ?? (!selection.isEmpty && selection.isSubset(of: targets))
+        let order = visibleRecordings.map(\.id)
         if targets.contains(currentID ?? UUID()) || compareIDs.contains(where: targets.contains) {
             pausePlayhead()
             playback.unload()
@@ -1472,6 +1477,16 @@ final class AppModel: ObservableObject {
         }
         guard !entries.isEmpty else { return }
         scheduleSave()
+        let removed = Set(entries.map(\.recording.id))
+        selection.subtract(removed)
+        if losesFocus {
+            // Selected and loaded, never played: playback stopped with the removed take and stays stopped.
+            if let next = RemovalTargets.nextFocus(in: order, removing: removed) {
+                select(next)
+            } else {
+                selection = []
+            }
+        }
         let label = entries.count == 1 ? "„\(entries[0].recording.name)“ liegt im Papierkorb." : "\(entries.count) Aufnahmen liegen im Papierkorb."
         show(.info, label, canUndo: true)
         lastTrashed = entries
@@ -1494,7 +1509,13 @@ final class AppModel: ObservableObject {
         }
         guard !restored.isEmpty else { return }
         scheduleSave()
-        if restored.count == 1, let id = restored.first { select(id) }
+        // What comes back is in focus again, as it was before it went.
+        if restored.count == 1, let id = restored.first {
+            select(id)
+        } else if let first = visibleRecordings.first(where: { restored.contains($0.id) }) {
+            selection = Set(restored)
+            load(first.id)
+        }
         banner = nil
         announce("Wiederhergestellt")
         let ids = Set(restored)

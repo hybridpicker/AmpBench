@@ -333,8 +333,14 @@ final class UISelfTest {
         // Discard goes to the real Trash and comes back.
         if let target = second {
             let url = model.store.url(of: target)
+            let order = model.visibleRecordings.map(\.id)
+            let expectedNext = RemovalTargets.nextFocus(in: order, removing: [target.id])
             await pressCommandDelete()
             check(!model.recordings.contains { $0.id == target.id }, "⌘⌫ discards the selected take")
+            check(expectedNext != nil && model.currentID == expectedNext, "the next take is in focus after discarding",
+                  detail: "\(String(describing: model.currentID))")
+            check(model.selection == Set([expectedNext].compactMap { $0 }), "the next take is marked after discarding")
+            check(!model.playhead.isPlaying, "the next take is not played by itself")
             check(!FileManager.default.fileExists(atPath: url.path), "file left the folder")
             let trashPath = model.store.document.trashed.last?.trashPath ?? ""
             check(trashPath.contains(".Trash") && FileManager.default.fileExists(atPath: trashPath), "file is in the Trash")
@@ -342,6 +348,7 @@ final class UISelfTest {
             window?.undoManager?.undo()
             await wait(0.3)
             check(model.recordings.contains { $0.id == target.id }, "undo brings the take back")
+            check(model.currentID == target.id, "the take brought back is in focus again")
             check(FileManager.default.fileExists(atPath: url.path), "file is back in the folder")
 
             // Delete and forward delete do the same as ⌘⌫.
@@ -680,6 +687,19 @@ final class UISelfTest {
             model.undoLastDiscard()
             await wait(0.3)
             check(model.recordings.contains { $0.id == visible.id }, "the banner's undo brings it back")
+        }
+        // Removing another row from its menu leaves the take in focus where it is.
+        if model.recordings.count >= 2 {
+            let kept = model.recordings[0].id
+            let other = model.recordings[1].id
+            model.select(kept)
+            await wait(0.2)
+            model.discard([other])
+            await wait(0.2)
+            check(model.currentID == kept && model.selection == [kept], "removing another row keeps the focus")
+            window?.undoManager?.undo()
+            await wait(0.3)
+            check(model.recordings.contains { $0.id == other }, "undo brings the other row back")
         }
 
         model.addPiece(named: "Etüde")

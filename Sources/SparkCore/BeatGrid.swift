@@ -122,4 +122,13 @@ public enum RemovalTargets {
         if !selection.isEmpty { return selection }
         return Set([current].compactMap { $0 })
     }
+
+    /// The take that gets the focus once `removed` has left the list, so the next one is ready without a click: the
+    /// first row after the last removed one, otherwise the nearest row before it. Nil when nothing is left, or when
+    /// none of the removed takes is in the list.
+    public static func nextFocus(in order: [UUID], removing removed: Set<UUID>) -> UUID? {
+        guard let last = order.lastIndex(where: removed.contains) else { return nil }
+        if let after = order[(last + 1)...].first(where: { !removed.contains($0) }) { return after }
+        return order[..<last].last(where: { !removed.contains($0) })
+    }
 }

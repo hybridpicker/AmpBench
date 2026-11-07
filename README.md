@@ -28,7 +28,7 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 | `L` | Loop: first press sets A, second sets B, third removes it |
 | `M` | Marker, also during a recording |
 | `K` | Keep the take |
-| `⌫` / `⌘⌫` | Discard the selected takes: they go to the Trash, and `⌘Z` brings them back. Not while recording or typing |
+| `⌫` / `⌘⌫` | Discard the selected takes: they go to the Trash, the next take in the list is in focus, and `⌘Z` brings them back. Not while recording or typing |
 | `←` `→` | Jump 5 seconds, with `⇧` 1 second |
 | `-` `+` | Slower or faster |
 | `0` | Reset tempo and pitch |

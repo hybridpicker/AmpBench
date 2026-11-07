@@ -180,6 +180,31 @@ final class BeatGridTests: XCTestCase {
         XCTAssertTrue(RemovalTargets.resolve(menuIDs: [], selection: [], current: nil).isEmpty)
     }
 
+    func testAfterRemovingTheNextRowGetsTheFocus() {
+        let ids = (0..<4).map { _ in UUID() }
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[1]]), ids[2])
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[0]]), ids[1])
+    }
+
+    func testAfterRemovingTheLastRowTheOneBeforeGetsTheFocus() {
+        let ids = (0..<3).map { _ in UUID() }
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[2]]), ids[1])
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[1], ids[2]]), ids[0])
+    }
+
+    func testAfterRemovingSeveralRowsTheRowAfterTheLastOneGetsTheFocus() {
+        let ids = (0..<5).map { _ in UUID() }
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[0], ids[2]]), ids[3])
+        XCTAssertEqual(RemovalTargets.nextFocus(in: ids, removing: [ids[1], ids[4]]), ids[3])
+    }
+
+    func testNothingGetsTheFocusWhenNothingIsLeft() {
+        let ids = (0..<2).map { _ in UUID() }
+        XCTAssertNil(RemovalTargets.nextFocus(in: ids, removing: Set(ids)))
+        XCTAssertNil(RemovalTargets.nextFocus(in: [], removing: [UUID()]))
+        XCTAssertNil(RemovalTargets.nextFocus(in: ids, removing: [UUID()]), "a take outside the list moves nothing")
+    }
+
     // MARK: Recording start time
 
     func testFirstFrameOfTheFileIsReported() throws {
