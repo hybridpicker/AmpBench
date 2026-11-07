@@ -10,11 +10,11 @@ ist, und wird mit jeder Stufe fortgeschrieben. Am Ende ersetzt es den Prompt und
 | Stufe | Inhalt | Stand |
 |---|---|---|
 | 0 | Datenmodell, Tastaturmodell, Layout, dieses Dokument | fertig, nur Code ohne Verhalten |
-| 1 | Ein Bundle, zwei Fenster | gebaut und mit Selbsttests geprüft; Test am Amp offen |
+| 1 | Ein Bundle, zwei Fenster | fertig, am Amp vom Nutzer geprüft (2026-11-07) |
 | 2 | Ein Fenster, zwei Bereiche | offen |
 | 3 | Stücke = Songs, gemeinsamer Ordner, alte Apps entfernen | offen |
 
-Am Gerät ist für Studio noch nichts geprüft. Die beiden alten Apps verhalten sich unverändert.
+Stufe 1 ist am Spark MINI geprüft (siehe unten). Die beiden alten Apps verhalten sich unverändert.
 
 ## Architektur (Ziel)
 
@@ -68,10 +68,17 @@ Geprüft (nur gebaut und mit Testordnern, kein Gerät):
 - Presets-Bild aus Studio = Bild aus der App, bis auf die Uhrzeit der erfundenen Sicherung.
 - `--menu-dump`: in keinem Fenster eine Taste doppelt; ⌘N nur im Presets-Fenster wirksam (zweimal geprüft).
 
-Offen in Stufe 1:
-- Am Amp (mit getrennter Handy-App): Presets-Fenster verbindet, Plätze lesen, Preset nur auf 7F senden, Trennen und
-  Verbinden über das Menü; Aufnahme vom Spark-USB-Eingang läuft weiter, während Bluetooth getrennt wird.
-- Von Hand: ⌘E/⌘⌫/⇧⌘R und Einzeltasten mit echter Tastatur in beiden Fenstern.
+Am Gerät geprüft (2026-11-07, vom Nutzer mit „Spark Studio.app“ aus dem Build-Ordner, Spark MINI):
+- Aufnahme im Aufnahme-Fenster, Presets im Presets-Fenster, „Verstärker → Trennen“ und die Kürzel mit echter
+  Tastatur: alles wie erwartet.
+- Der Menüpunkt „Trennen“ war ganz unten im Menü Verstärker schwer zu finden. Für Stufe 2 vorgesehen: klarerer Name
+  und die Taste „Verbinden/Trennen“ im Deck.
+
+Noch nicht eigens geprüft: Bluetooth trennen, während eine Aufnahme läuft. Beide Teile haben keine gemeinsame
+Verbindung im Code (die Aufnahme kennt den Link nicht), ein Test dafür kommt mit Stufe 2, wenn der Take beim Start den
+Preset-Stand vom Link holt.
+
+Offen:
 - Studio hat eigene Einstellungen (Bundle `local.sparkstudio`): Eingang, Klick, Fensterlage beginnen neu. Übernahme
   der Recorder-Einstellungen gehört zur Migration in Stufe 3.
 
