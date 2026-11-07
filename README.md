@@ -309,9 +309,12 @@ Two options help with checking the app. `--live-selftest <log>` edits a copy of 
 through the same code the window uses, reads back what the amp plays after every step and compares, then switches
 back to slot 1. It starts by clicking two slots quickly, so a slot switch and the first change must arrive in order,
 and it writes every message sent and received to the log. On the Spark MINI all of its ten checks passed: a first
-change, on and off, a fast knob turn, a model change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes a picture of the app's own window, with
-`--offline`, `--appearance light|dark`, `--size 900x600`, `--open template:Lead` and `--focus delay` (the sidebar's
-translucent material is missing from these pictures).
+change, on and off, a fast knob turn, a model change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes
+a picture of the app's own window, with `--offline`, `--appearance light|dark`, `--size 900x600`,
+`--open template:Lead` (or `saved:<file name>`, `slot:<1-4>`, `empty`), `--focus delay`, `--delay 2` and `--quit`.
+`--library <folder>` uses a test folder instead of `~/Music/Spark Presets` and fills an empty one with the templates,
+so pictures never show your own presets. These pictures draw the sidebar as a plain list, because the system
+sidebar's text does not appear in a picture taken this way.
 
 ## Design (Gestaltung)
 
@@ -319,6 +322,25 @@ Both apps speak one design language, "Spark Studio": the instrument stays dark, 
 instead of buttons and lamps instead of icons. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and
 the building blocks of `Sources/SparkDesign`, which both apps use. New views use those blocks; a new color or button
 style goes into SparkDesign and DESIGN.md first.
+
+| | |
+| --- | --- |
+| ![Spark Recorder, dark](docs/pictures/recorder-dark.png) | ![Spark Recorder, light](docs/pictures/recorder-light.png) |
+| ![Spark Recorder while recording](docs/pictures/recorder-recording-dark.png) | ![Spark Recorder at its smallest size](docs/pictures/recorder-smallest-light.png) |
+| ![Spark Presets, dark](docs/pictures/presets-dark.png) | ![Spark Presets, light](docs/pictures/presets-light.png) |
+
+The pictures come from the apps' own snapshot modes, with a test library of synthetic takes and made-up presets:
+
+```bash
+.build/debug/SparkRecorder --library /tmp/spark-pictures --ui-selftest pictures /tmp/spark-pictures-out
+.build/debug/SparkPresets --offline --library /tmp/spark-presets --appearance dark --size 1180x780 \
+    --open saved:Lead --focus delay --snapshot /tmp/presets-dark.png --quit
+```
+
+The Recorder's `pictures` scenario also shows the count-in, a running recording (from the test device only) and
+the smallest window, 1120 × 680. Spark Presets' smallest window is 900 × 600
+([picture](docs/pictures/presets-smallest-dark.png)). `swift test` checks the contrast of every text color of the
+design against its backgrounds, at least 4.5 : 1.
 
 ## Project layout
 

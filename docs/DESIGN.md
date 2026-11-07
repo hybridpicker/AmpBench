@@ -181,3 +181,19 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 - **Window pictures** (`WindowPicture`, used by both apps' snapshot modes) are drawn with `cacheDisplay`, which
   leaves the window background transparent, so it is painted first. Translucent materials, such as the sidebar's,
   are missing from these pictures, not from the app.
+
+## Checks
+
+- `swift test` runs `Tests/SparkDesignTests`, which computes the contrast of every text color on the device, keys,
+  nameplates, amp and pills against each background it is drawn on and fails below 4.5 : 1; lines and bars on the
+  desk must reach 3 : 1.
+- Smallest windows: Spark Recorder 1120 × 680, Spark Presets 900 × 600. The Recorder's `pictures` self-test and the
+  Presets snapshot at `--size 900x600` show both; nothing may be cut off there. Where room runs short, the design
+  gives way in a fixed order: the device name in the recording display, then the lamps of the Presets header move
+  below the name, then the pedal row shrinks to two thirds.
+- "Reduce motion" stops the pulsing of the record key and its lamp, the press movement of keys and footswitches and
+  the sweep of the transfer meter.
+- VoiceOver: every block names itself. Keys and popups carry their label and value, knobs, sliders and steppers are
+  adjustable, lamps read their word, switches report on or off, decoration (engraving next to a labeled control,
+  lamp dots, keycaps) is hidden.
+- Pictures for review: `docs/pictures/`, made as the README describes, never from a real library.
