@@ -187,6 +187,7 @@ public final class LibraryStore {
         do {
             document = try readDocument(at: documentURL)
             try checkSchema()
+            try upgradeSchema()
             return .loaded
         } catch LibraryError.newerSchema(let version) {
             throw LibraryError.newerSchema(version)
@@ -200,6 +201,35 @@ public final class LibraryStore {
             document = LibraryDocument()
             return .startedOver(keptAs: keptAs)
         }
+    }
+
+    /// Name of the copy kept before an older library is first saved in the current schema.
+    public static func schemaBackupName(from version: Int) -> String {
+        "Bibliothek.vor-Schema-\(LibraryDocument.currentSchema).aus-\(version).json"
+    }
+
+    /// An older library keeps a copy of its file as it was, then counts as current. Nothing in it is rewritten until
+    /// the next save, and the copy is never touched again.
+    private func upgradeSchema() throws {
+        let version = document.schemaVersion
+        guard version < LibraryDocument.currentSchema, !isReadOnly else { return }
+        let copy = folder.appendingPathComponent(Self.schemaBackupName(from: version))
+        if !fileManager.fileExists(atPath: copy.path) {
+            try fileManager.copyItem(at: documentURL, to: copy)
+        }
+        document.schemaVersion = LibraryDocument.currentSchema
+    }
+
+    // MARK: Pieces as songs
+
+    public func updatePiece(_ id: UUID, _ change: (inout Piece) -> Void) {
+        guard let index = document.pieces.firstIndex(where: { $0.id == id }) else { return }
+        change(&document.pieces[index])
+    }
+
+    /// Practice time of a piece, from the practice log: discarded takes still count.
+    public func practiceSeconds(ofPiece pieceID: UUID) -> Double {
+        document.practiceLog.filter { $0.pieceID == pieceID }.reduce(0) { $0 + $1.seconds }
     }
 
     private func checkSchema() throws {

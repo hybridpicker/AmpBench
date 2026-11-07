@@ -159,12 +159,18 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     public var statusRank: Int { status == .open ? 0 : 1 }
 }
 
-/// A piece or exercise that groups several takes. It is also what Spark Presets calls a song.
+/// A piece, song or exercise: its takes, and what it takes to play it (artist, tempo, key, notes, parts with their
+/// sounds). Spark Studio's "Stück" and Spark Presets' planned "Song" are this one thing.
 public struct Piece: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
+    /// The title.
     public var name: String
     public var createdAt: Date
     public var bestTakeID: UUID?
+    public var artist: String
+    /// The piece's tempo, when it has one. "Ins Metronom" sets the click to it.
+    public var bpm: Double?
+    public var notes: String
     /// The sound of the whole piece, when its parts do not have their own.
     public var preset: PresetLink?
     /// Intro, verse, solo and so on, in playing order, each with its own sound if it has one.
@@ -172,12 +178,16 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
     /// The key as written by the player, such as "A-Moll".
     public var key: String?
 
-    public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil,
-                preset: PresetLink? = nil, parts: [PiecePart] = [], key: String? = nil) {
+    public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil, artist: String = "",
+                bpm: Double? = nil, notes: String = "", preset: PresetLink? = nil, parts: [PiecePart] = [],
+                key: String? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.bestTakeID = bestTakeID
+        self.artist = artist
+        self.bpm = bpm
+        self.notes = notes
         self.preset = preset
         self.parts = parts
         self.key = key
@@ -189,6 +199,9 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         name = try c.decode(String.self, forKey: .name)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date(timeIntervalSince1970: 0)
         bestTakeID = try c.decodeIfPresent(UUID.self, forKey: .bestTakeID)
+        artist = try c.decodeIfPresent(String.self, forKey: .artist) ?? ""
+        bpm = try c.decodeIfPresent(Double.self, forKey: .bpm)
+        notes = try c.decodeIfPresent(String.self, forKey: .notes) ?? ""
         preset = try c.decodeIfPresent(PresetLink.self, forKey: .preset)
         parts = try c.decodeIfPresent([PiecePart].self, forKey: .parts) ?? []
         key = try c.decodeIfPresent(String.self, forKey: .key)
@@ -224,7 +237,9 @@ public struct TrashedRecording: Codable, Equatable, Sendable {
 }
 
 public struct LibraryDocument: Codable, Equatable, Sendable {
-    public static let currentSchema = 1
+    /// 2: pieces are songs too (artist, tempo, key, notes, parts with sounds) and takes keep their sound. A version
+    /// that knows only 1 opens a library of 2 read-only, so it can never save it without these fields.
+    public static let currentSchema = 2
 
     public var schemaVersion: Int
     public var recordings: [Recording]

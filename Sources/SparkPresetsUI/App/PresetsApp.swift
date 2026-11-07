@@ -2,38 +2,22 @@ import AppKit
 import SparkControl
 import SwiftUI
 
-/// Started by the SparkPresets executable.
-public struct PresetsApp: App {
-    @MainActor static let sharedModel = PresetsModel(folder: Snapshot.libraryFolder ?? PresetLibrary.defaultFolder)
-    @StateObject private var model = PresetsApp.sharedModel
-
-    public init() {
-        if Snapshot.isActive { Snapshot.openWindowIfNeeded() }
-    }
-
-    public var body: some Scene {
-        Window("Spark Presets", id: "main") {
-            Self.root(model)
-        }
-        .defaultSize(width: 1180, height: 780)
-        .commands { PresetCommands(model: model) }
-    }
-
-    /// The window's content, also for the window the snapshot opens itself and for Spark Studio's area.
-    @MainActor static func root(_ model: PresetsModel, minimumSize: Bool = true) -> some View {
+/// Spark Studio's area "Presets": sidebar and editor, and what starts with them.
+@MainActor
+enum PresetsContent {
+    static func root(_ model: PresetsModel) -> some View {
         ContentView()
             .environmentObject(model)
             .environmentObject(model.link)
             .environmentObject(model.editor)
-            .frame(minWidth: minimumSize ? 900 : nil, minHeight: minimumSize ? 600 : nil)
             .task { await startOnce(model) }
     }
 
-    @MainActor private static var started = false
+    private static var started = false
 
     /// Bluetooth, the snapshot and the live self-test start when the content first appears, and only then: Spark
     /// Studio shows the content again on every switch to its area, and must not reconnect after "Trennen".
-    @MainActor private static func startOnce(_ model: PresetsModel) async {
+    private static func startOnce(_ model: PresetsModel) async {
         guard !started else { return }
         started = true
         Snapshot.prepare()
@@ -45,11 +29,9 @@ public struct PresetsApp: App {
 
 struct PresetCommands: Commands {
     @ObservedObject var model: PresetsModel
-    /// False in Spark Studio while the Aufnahme window is in front: Presets' own keys rest, the keys both apps use
-    /// go to the recorder, and undo goes to the window in front.
+    /// False while Spark Studio shows another area: Presets' own keys rest, the keys both areas use go to it, and
+    /// undo goes to the responder chain.
     var isActive = true
-    /// True in Spark Studio, which connects only on request and can disconnect again.
-    var managesConnection = false
 
     private var editor: EditorModel { model.editor }
 
@@ -130,13 +112,12 @@ struct PresetCommands: Commands {
             Button("Verstärker neu lesen") { model.reloadAmp() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: .command)))
                 .disabled(!model.canUseAmp || !isActive)
-            if managesConnection {
-                Divider()
-                if model.link.wanted {
-                    Button("Vom Verstärker trennen") { model.link.stop() }
-                } else {
-                    Button("Mit dem Verstärker verbinden") { model.start(bluetooth: true) }
-                }
+            // Studio connects only on request and can disconnect again, for the Spark app on the phone.
+            Divider()
+            if model.link.wanted {
+                Button("Vom Verstärker trennen") { model.link.stop() }
+            } else {
+                Button("Mit dem Verstärker verbinden") { model.start(bluetooth: true) }
             }
         }
         CommandMenu("Kette") {

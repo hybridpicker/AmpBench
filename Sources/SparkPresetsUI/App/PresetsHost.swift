@@ -31,11 +31,13 @@ public final class PresetsHost: ObservableObject {
         }
         model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder)
         changes = model.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
+        // The pieces' sounds name saved presets, so the library is read at once. Bluetooth waits.
+        model.reloadLibrary()
     }
 
     /// Sidebar and editor: the area "Presets". It starts Bluetooth the first time it shows.
     public var content: AnyView {
-        AnyView(PresetsApp.root(model, minimumSize: false).environment(\.managesConnection, true))
+        AnyView(PresetsContent.root(model))
     }
 
     /// True when the launch asks for the presets at once: a picture, an opened preset or the live self-test.
@@ -109,6 +111,31 @@ public final class PresetsHost: ObservableObject {
         model.openCopy(file.preset)
     }
 
+    /// A saved preset to choose as a sound: its stable id, its file name in the presets folder and its name.
+    public struct Choice: Sendable {
+        public let id: String?
+        public let fileName: String
+        public let name: String
+    }
+
+    /// The saved presets, backups left out, by name.
+    public var choices: [Choice] {
+        model.items.filter { !$0.file.isBackup }.map {
+            Choice(id: $0.file.id, fileName: $0.url.lastPathComponent, name: $0.name)
+        }
+    }
+
+    /// Plays a saved preset on the temporary place 7F, found by its id, or by its file name for older files.
+    public func play(presetID: String?, fileName: String?, report: @escaping @MainActor (String?) -> Void) {
+        let item = model.items.first { $0.file.id != nil && $0.file.id == presetID }
+            ?? model.items.first { $0.url.lastPathComponent == fileName }
+        guard let item else {
+            report("Dieses Preset ist nicht mehr auf dem Mac. Wähle einen anderen Sound.")
+            return
+        }
+        model.tryOut(item.file.preset, report: report)
+    }
+
     /// Name and tempo of the preset in the editor.
     public var openPreset: (name: String, bpm: Double)? {
         model.editor.preset.map { ($0.name, Double($0.bpm)) }
@@ -122,22 +149,6 @@ public final class PresetsHost: ObservableObject {
     /// Called with name and tempo of every preset opened in the editor.
     public func onPresetOpened(_ handler: @escaping @MainActor (String, Double) -> Void) {
         model.editor.onOpen = { preset in handler(preset.name, Double(preset.bpm)) }
-    }
-
-    /// The window of the app and of the snapshot: SwiftUI content in an AppKit window, with the toolbar bridged so the
-    /// search field and the sidebar button appear.
-    static func makeWindow(for model: PresetsModel, title: String) -> NSWindow {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
-                              backing: .buffered, defer: false)
-        let host = NSHostingView(rootView: PresetsApp.root(model))
-        host.sceneBridgingOptions = [.toolbars, .title]
-        window.contentView = host
-        window.title = title
-        window.isReleasedWhenClosed = false
-        window.tabbingMode = .disallowed
-        window.contentMinSize = NSSize(width: 900, height: 600)
-        return window
     }
 }
 
@@ -153,6 +164,6 @@ public struct PresetMenus: Commands {
     }
 
     public var body: some Commands {
-        PresetCommands(model: model, isActive: isActive, managesConnection: true)
+        PresetCommands(model: model, isActive: isActive)
     }
 }

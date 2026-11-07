@@ -68,7 +68,7 @@ final class UISelfTest {
         return condition()
     }
 
-    private var window: NSWindow? { AppDelegate.mainWindow }
+    private var window: NSWindow? { RecorderSession.mainWindow }
 
     private func snapshot(_ name: String) async {
         await wait(0.25)
@@ -1187,6 +1187,17 @@ final class UISelfTest {
     private func pictureScenario() async {
         useTestDevices()
         let piece = model.store.addPiece(named: "Blues in A")
+        if let id = piece?.id {
+            // A song with its parts, shown open in the pieces' picture.
+            model.store.updatePiece(id) {
+                $0.artist = "Übungsband"
+                $0.bpm = 96
+                $0.key = "A-Dur"
+                $0.notes = "Solo erst ab Takt 13, vorher nur Akkorde."
+                $0.parts = [PiecePart(name: "Intro"), PiecePart(name: "Strophe"), PiecePart(name: "Solo")]
+            }
+            model.expandedPieces = [id]
+        }
         let names = ["Blues in A, Take 1", "Blues in A, Take 2", "Tonleiter E-Moll", "Akkordwechsel langsam", "Solo Ideen"]
         for (index, name) in names.enumerated() {
             let url = model.store.folder.appendingPathComponent("\(name).wav")

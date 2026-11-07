@@ -9,21 +9,21 @@
         <string>de</string>
     </array>
     <key>CFBundleDisplayName</key>
-    <string>Spark Recorder</string>
+    <string>Spark Studio</string>
     <key>CFBundleExecutable</key>
-    <string>SparkRecorder</string>
+    <string>SparkStudio</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>local.sparkrecorder</string>
+    <string>local.sparkstudio</string>
     <key>CFBundleName</key>
-    <string>Spark Recorder</string>
+    <string>Spark Studio</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
     <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>1</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key>
@@ -31,6 +31,8 @@
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Spark Recorder nimmt das Signal des gewählten Audioeingangs auf und speichert es nur lokal auf diesem Mac. Der Eingang ist nur offen, wenn du aufnimmst, ihn prüfst oder die Retro-Aufnahme einschaltest.</string>
+    <string>Spark Studio nimmt das Signal des gewählten Audioeingangs auf und speichert es nur lokal auf diesem Mac. Der Eingang ist nur offen, wenn du aufnimmst, ihn prüfst oder die Retro-Aufnahme einschaltest.</string>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Spark Studio verbindet sich per Bluetooth mit deinem Spark-Verstärker, wenn du die Presets öffnest oder „Verbinden“ drückst, um Presets umzuschalten, zu sichern und zu speichern. Die App sucht nur nach Spark-Verstärkern und sendet nichts ins Internet.</string>
 </dict>
 </plist>

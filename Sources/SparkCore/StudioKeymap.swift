@@ -118,7 +118,6 @@ public enum StudioKeymap {
         StudioShortcut("e", .command, .presets, "Preset umbenennen", when: "Preset gewählt"),
         StudioShortcut("delete", .command, .presets, "Preset in den Papierkorb", when: "Preset gewählt"),
         StudioShortcut("r", [.command, .shift], .presets, "Preset im Finder zeigen"),
-        StudioShortcut("f", .command, .presets, "Presets suchen"),
         StudioShortcut("b", .command, .presets, "Mit gespeichertem Stand vergleichen (A/B)", when: "geändert"),
         StudioShortcut("l", [.command, .shift], .presets, "Änderungen live hören an oder aus"),
         StudioShortcut("r", .command, .presets, "Verstärker neu lesen", when: "Bluetooth verbunden"),

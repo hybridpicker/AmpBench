@@ -107,6 +107,8 @@ final class AppModel: ObservableObject {
     @Published var sortOrder = [KeyPathComparator(\Recording.createdAt, order: .reverse)]
     @Published var selection = Set<UUID>()
     @Published var tab = LibraryTab.recordings
+    /// Pieces shown open in the list. Kept here, so Spark Studio's switch of areas does not close them.
+    @Published var expandedPieces = Set<UUID>()
     @Published private(set) var libraryIsUsable = true
 
     // MARK: Devices
@@ -166,7 +168,8 @@ final class AppModel: ObservableObject {
 
     @Published var banner: Banner?
     @Published private(set) var exportProgress: Double?
-    @Published var showShortcuts = false
+    /// Shows Spark Studio's list of shortcuts.
+    var showShortcuts: (@MainActor () -> Void)?
     @Published var renameTarget: UUID?
     @Published var renameText = ""
     @Published var showLoopbackInfo = false
@@ -217,6 +220,10 @@ final class AppModel: ObservableObject {
     var soundActions: SoundActions?
     /// Called after the metronome's tempo was changed by hand, so Spark Studio can offer it to the preset.
     var onTempoChanged: (@MainActor (Double) -> Void)?
+    /// Spark Studio's saved presets, for the sounds of pieces and their parts. Nil without the presets.
+    var presetChoices: (@MainActor () -> [PresetLink])?
+    /// Plays a piece's or part's sound on the amp's temporary place.
+    var playPreset: (@MainActor (PresetLink) -> Void)?
     private var peakHoldAge = 0.0
     private var monitorStartedAt = Date()
     private var diskCheckAge = 0.0
@@ -1830,6 +1837,24 @@ final class AppModel: ObservableObject {
 
     func takes(of pieceID: UUID) -> [Recording] {
         recordings.filter { $0.pieceID == pieceID }.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    // MARK: Pieces as songs
+
+    func updatePiece(_ id: UUID, _ change: (inout Piece) -> Void) {
+        store.updatePiece(id, change)
+        scheduleSave()
+    }
+
+    /// Recorded time of a piece, discarded takes included.
+    func practiceSeconds(of pieceID: UUID) -> Double {
+        practiceLog.filter { $0.pieceID == pieceID }.reduce(0) { $0 + $1.seconds }
+    }
+
+    /// Sets the click to the piece's tempo. Like any tempo set by hand, Spark Studio offers it to the open preset.
+    func useTempo(of piece: Piece) {
+        guard let bpm = piece.bpm else { return }
+        updateMetronome { $0.bpm = bpm }
     }
 
     func pieceName(_ id: UUID?) -> String {

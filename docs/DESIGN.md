@@ -1,8 +1,9 @@
 # Spark Studio – the design language
 
-Spark Recorder and Spark Presets share one look. This document is the only place where design decisions are written
-down. The values live in code once, in `Sources/SparkDesign/Theme.swift`; both apps use the building blocks of
-`Sources/SparkDesign` and draw nothing of their own that one of these blocks already draws.
+Spark Studio has one look, in the deck and in every area. This document is the only place where design decisions are
+written down. The values live in code once, in `Sources/SparkDesign/Theme.swift`; every area uses the building blocks
+of `Sources/SparkDesign` and draws nothing of its own that one of these blocks already draws. The areas were the apps
+Spark Recorder and Spark Presets, so the two sections below still carry their names.
 
 > **The rule:** new views use the building blocks of SparkDesign. A new color or a new button style goes into
 > SparkDesign and this document first, then into the app.
@@ -112,7 +113,7 @@ App-specific glue stays in the apps and only maps their data onto these blocks, 
 `Sources/SparkPresetsUI/Design/ChainColors.swift` (chain colors as swatches) and `LoadMeter.swift` (the transfer meter,
 a variant of `LEDSegments`).
 
-## Spark Recorder
+## Spark Recorder: the deck and the area Aufnahme
 
 - **Deck:** one front with four engraved modules. AUFNAHME: the record key (84 pt) and a display with state, lamp,
   "R · AUFNAHME", the time (34 mono), and below it bar and beat or a hint, with the device name when there is room.
@@ -138,7 +139,7 @@ a variant of `LEDSegments`).
   because the module has room for exactly three rows. The count-in choice has no engraving beside it, its values name
   themselves ("Kein Einzähler", "1 Takt einzählen").
 
-## Spark Presets
+## Spark Presets: the area Presets
 
 - **Title bar:** the system's sidebar toggle, the title, and the search on the right of the toolbar.
 - **Sidebar:** "Am Verstärker" with four round slot keys (dark with the number in dim amber; the playing slot lit
@@ -193,8 +194,10 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 - `swift test` runs `Tests/SparkDesignTests`, which computes the contrast of every text color on the device, keys,
   nameplates, amp and pills against each background it is drawn on and fails below 4.5 : 1; lines and bars on the
   desk must reach 3 : 1.
-- Smallest windows: Spark Recorder 1120 × 680, Spark Presets 900 × 600. The Recorder's `pictures` self-test and the
-  Presets snapshot at `--size 900x600` show both; nothing may be cut off there. Where room runs short, the design
+- Smallest window: 1120 × 720 for Spark Studio, the deck's 122 pt included; the area Presets gets 1120 × 598. The
+  `pictures` self-test and the snapshot at `--size 1120x720` show both areas there; nothing may be cut off. At that
+  size the editor's board scrolls: the last row of the unit panel (such as the delay's tempo switch) is reached by
+  scrolling, it is not cut. A taller minimum would no longer fit 800 pt screens with the Dock. Where room runs short, the design
   gives way in a fixed order: the device name in the recording display, then the lamps of the Presets header move
   below the name, then the pedal row shrinks to two thirds.
 - "Reduce motion" stops the pulsing of the record key and its lamp, the press movement of keys and footswitches and

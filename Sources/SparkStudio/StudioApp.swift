@@ -47,6 +47,8 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
         studio.makeWindow()
         // Bluetooth stays off until the area Presets first shows, unless a test asks for it right away.
         if PresetsHost.isRequestedAtLaunch { studio.area = .presets }
+        // First, so that a message of the recorder's start, such as a repaired take, replaces it and is not hidden.
+        if let message = StudioLaunch.takeoverMessage { studio.recorder.inform(message) }
         // As in Spark Recorder: recovery of an interrupted take, then the window, then the self-test.
         studio.recorder.applicationDidFinishLaunching(notification)
         MenuDump.startIfRequested(studio)

@@ -29,18 +29,25 @@ struct LaunchOptions {
     }()
 }
 
+/// The recorder's part of an app's life: the model, the window that shows the deck, starting and ending. Spark Studio
+/// makes the window and hands it over with `adopt`; the self-test, the key router and "the window closed while
+/// recording" refer to it.
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class RecorderSession: NSObject, NSWindowDelegate {
     static var model: AppModel?
     private(set) static var mainWindow: NSWindow?
-    /// The one instance, whether it is the app's delegate (Spark Recorder) or a helper of Spark Studio.
-    private(set) static weak var shared: AppDelegate?
-    /// "Spark Recorder" in the app, "Aufnahme" in Spark Studio.
-    static var windowTitle = "Spark Recorder"
 
-    override init() {
-        super.init()
-        Self.shared = self
+    /// The model for the launch options. `folder` replaces the default library folder; a test library given with
+    /// `--library` still wins.
+    static func makeModel(folder: URL? = nil) -> AppModel {
+        let options = LaunchOptions.current
+        let defaults = options.isTestLibrary
+            ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
+            : .standard
+        let library = options.isTestLibrary ? options.folder : folder ?? options.folder
+        let model = AppModel(folder: library, defaults: defaults, inputPolicy: options.inputPolicy)
+        Self.model = model
+        return model
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -56,42 +63,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         UISelfTest.startIfRequested(model: model)
     }
 
-    /// The app makes its window itself: it has to be there on every launch, and SwiftUI's own window scene did not
-    /// open reliably. The content is still SwiftUI.
     func showMainWindow() {
-        guard let model = Self.model else { return }
-        if let window = Self.mainWindow {
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-        let content = RootView().recorderEnvironment(model)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1180, height: 780),
-                              styleMask: [.titled, .closable, .miniaturizable, .resizable],
-                              backing: .buffered, defer: false)
-        window.title = Self.windowTitle
-        window.isReleasedWhenClosed = false
-        window.tabbingMode = .disallowed
-        window.contentMinSize = NSSize(width: 1120, height: 680)
-        window.contentView = NSHostingView(rootView: content)
-        window.delegate = self
-        window.center()
-        window.setFrameAutosaveName("SparkRecorderMain")
-        Self.mainWindow = window
-        window.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
+        Self.mainWindow?.makeKeyAndOrderFront(nil)
     }
 
-    /// Spark Studio's window takes the place of the recorder's own: the self-test, the key router and "the window
-    /// closed while recording" then all refer to it.
     func adopt(_ window: NSWindow) {
         Self.mainWindow = window
         window.delegate = self
-    }
-
-    /// A click on the Dock icon brings the window back after it was closed.
-    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !flag { showMainWindow() }
-        return true
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -101,55 +79,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Self.model?.windowClosed()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        !(Self.model?.isRecording ?? false)
-    }
-
     func applicationWillTerminate(_ notification: Notification) {
         Self.model?.shutdown()
-    }
-}
-
-/// Started by the SparkRecorder executable after its headless commands.
-public struct SparkRecorderApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
-    @StateObject private var model: AppModel
-    private let keyRouter: KeyRouter
-
-    @MainActor
-    public init() {
-        let model = Self.makeModel()
-        _model = StateObject(wrappedValue: model)
-        keyRouter = KeyRouter(model: model)
-    }
-
-    /// The model for the launch options, also used by Spark Studio.
-    @MainActor
-    static func makeModel() -> AppModel {
-        let options = LaunchOptions.current
-        let defaults = options.isTestLibrary
-            ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
-            : .standard
-        let model = AppModel(folder: options.folder, defaults: defaults, inputPolicy: options.inputPolicy)
-        AppDelegate.model = model
-        return model
-    }
-
-    public var body: some Scene {
-        // The window comes from the app delegate. This scene only carries the menus.
-        Settings { EmptyView() }
-            .commands { AppCommands(model: model) }
-    }
-}
-
-struct RootView: View {
-    var body: some View {
-        VStack(spacing: 0) {
-            DeckView()
-            RecorderWorkspace()
-        }
-        .frame(minWidth: 1120, maxWidth: .infinity, minHeight: 680, maxHeight: .infinity)
-        .recorderPresentations()
     }
 }
 
@@ -175,7 +106,6 @@ private struct RecorderPresentations: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-        .sheet(isPresented: $model.showShortcuts) { ShortcutsSheet() }
         .sheet(isPresented: $model.showLoopbackInfo) { LoopbackSheet() }
         .sheet(isPresented: $model.showLatencyInfo) { LatencySheet() }
         .alert("Aufnahme umbenennen", isPresented: Binding(
@@ -214,31 +144,14 @@ private struct RecorderPresentations: ViewModifier {
 
 struct AppCommands: Commands {
     @ObservedObject var model: AppModel
-    /// False in Spark Studio while the Presets window is in front: the keys both apps use then belong to Presets.
+    /// False while Spark Studio shows another area: the keys both areas use then belong to it.
     var isActive = true
-    /// False in Spark Studio, which brings its own File menu and window items.
-    var isStandalone = true
 
     var body: some Commands {
-        if isStandalone {
-            CommandGroup(replacing: .newItem) {}
-            CommandGroup(before: .windowList) {
-                Button("Spark Recorder zeigen") { AppDelegate.shared?.showMainWindow() }
-                    .keyboardShortcut("0", modifiers: .command)
-            }
-        }
         CommandGroup(replacing: .appSettings) {}
-        if isStandalone {
-            CommandGroup(replacing: .help) {
-                Button("Tastaturkürzel") {
-                    AppDelegate.shared?.showMainWindow()
-                    model.showShortcuts = true
-                }
-                .keyboardShortcut("/", modifiers: .command)
-            }
-        }
-        // Spark Studio replaces the undo group for Presets, which drops groups placed after it.
-        CommandGroup(after: isStandalone ? .undoRedo : .pasteboard) {
+        // After the pasteboard group: Spark Studio replaces the undo group for Presets, which drops groups placed
+        // after it.
+        CommandGroup(after: .pasteboard) {
             Divider()
             Button("In den Papierkorb legen", action: discardOrEditText)
                 .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
@@ -364,61 +277,6 @@ struct AppCommands: Commands {
 }
 
 // MARK: - Sheets
-
-private struct ShortcutsSheet: View {
-    @EnvironmentObject private var model: AppModel
-
-    private let rows: [(String, String)] = [
-        ("R", "Aufnahme starten oder stoppen, auch „Nochmal“"),
-        ("Leertaste", "Abspielen oder anhalten. Während der Aufnahme: stoppen und sofort anhören"),
-        ("L", "Schleife: erst A, dann B, dann aus"),
-        ("M", "Marker setzen, auch während der Aufnahme"),
-        ("K", "Take behalten"),
-        ("⌫  ⌘⌫", "Take verwerfen (Papierkorb)"),
-        ("⌘Z", "Rückgängig"),
-        ("←  →", "5 Sekunden springen, mit ⇧ 1 Sekunde"),
-        ("-  +", "Langsamer oder schneller"),
-        ("0", "Tempo und Tonhöhe zurücksetzen"),
-        ("1 – 5", "Bewerten"),
-        ("F", "Favorit"),
-        ("B", "Beim Vergleich zum anderen Take wechseln"),
-        ("N", "Klick an oder aus, zu hören beim Abspielen und Aufnehmen"),
-        ("T", "Tempo eintippen"),
-        ("G", "Retro-Puffer speichern"),
-        ("⌘F", "Suchen"),
-        ("⌘E", "Umbenennen"),
-    ]
-
-    var body: some View {
-        SheetPanel("Tastaturkürzel") {
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 5) {
-                ForEach(rows, id: \.0) { row in
-                    GridRow {
-                        HStack(spacing: 4) {
-                            ForEach(row.0.components(separatedBy: "  "), id: \.self) { Keycap($0) }
-                        }
-                        .padding(4)
-                        .background(RoundedRectangle(cornerRadius: Theme.Radius.key).fill(Theme.device.faceBottom))
-                        .gridColumnAlignment(.trailing)
-                        .accessibilityLabel(row.0)
-                        Text(row.1)
-                    }
-                    .accessibilityElement(children: .combine)
-                }
-            }
-            Text("Einzelne Tasten wirken nicht, solange du in ein Textfeld schreibst. Keine einzelne Taste kann etwas löschen.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack {
-                Spacer()
-                Button("Schließen") { model.showShortcuts = false }
-                    .keyboardShortcut(.defaultAction)
-            }
-        }
-        .frame(width: 500)
-    }
-}
 
 private struct LatencySheet: View {
     @EnvironmentObject private var model: AppModel

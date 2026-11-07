@@ -3,13 +3,14 @@ import SparkControl
 import SparkDesign
 import SwiftUI
 
-/// Pictures of the app's own window for checking the design, without screen recording permission and without
-/// ever seeing anything but this window. Only runs when started with `--snapshot`:
+/// Pictures of Spark Studio's own window with the area Presets, for checking the design, without screen recording
+/// permission and without ever seeing anything but this window. Only runs when started with `--snapshot`:
 ///
-///     SparkPresets --offline --appearance dark --size 900x600 --open template:Crunch --focus drive \
-///                  --snapshot /tmp/shot.png [--delay 2] [--quit]
+///     SparkStudio --library /tmp/test --offline --appearance dark --size 1180x780 --open template:Crunch \
+///                 --focus drive --snapshot /tmp/shot.png [--delay 2] [--quit]
 ///
-/// `--offline` leaves Bluetooth off, `--library <test folder>` uses a folder of made-up presets. `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
+/// `--offline` leaves Bluetooth off, `--library <test folder>` keeps made-up presets in its subfolder "Presets".
+/// `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
 @MainActor
 enum Snapshot {
     static var arguments: [String: String] {
@@ -23,16 +24,11 @@ enum Snapshot {
     }
 
     static var isOffline: Bool { arguments["offline"] != nil }
-    /// The window to size and draw. Spark Studio sets it, because there the first visible window is the recorder's.
+    /// The window to size and draw, set by Spark Studio.
     static weak var window: NSWindow?
     private static var target: NSWindow? { window ?? NSApp.windows.first(where: { $0.isVisible }) }
-    /// `--library <folder>` keeps presets in a test folder instead of `~/Music/Spark Presets`, so pictures never show
-    /// one's own presets. A new, empty test folder gets the templates as made-up presets and one backup.
-    static var libraryFolder: URL? {
-        guard let path = arguments["library"], !path.isEmpty else { return nil }
-        return seededTestFolder(URL(fileURLWithPath: path, isDirectory: true))
-    }
-
+    /// A test folder for presets, so pictures never show one's own presets. A new, empty one gets the templates as
+    /// made-up presets and one backup.
     static func seededTestFolder(_ folder: URL) -> URL {
         let library = PresetLibrary(folder: folder)
         try? library.reload()
@@ -48,20 +44,6 @@ enum Snapshot {
     }
     /// Window pictures skip the sidebar's translucent material, so it gets a plain background then.
     static let isActive = CommandLine.arguments.contains("--snapshot")
-
-    /// Started from a shell while the installed app runs, SwiftUI opens no window of its own. The snapshot then
-    /// opens one with the same content.
-    nonisolated static func openWindowIfNeeded() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            MainActor.assumeIsolated {
-                NSApp.activate(ignoringOtherApps: true)
-                guard !NSApp.windows.contains(where: \.isVisible) else { return }
-                let window = PresetsHost.makeWindow(for: PresetsApp.sharedModel, title: "Spark Presets")
-                window.center()
-                window.makeKeyAndOrderFront(nil)
-            }
-        }
-    }
 
     static func prepare() {
         switch arguments["appearance"] {
@@ -111,8 +93,8 @@ enum Snapshot {
 
     /// Draws the window's content into a PNG. Translucent materials, such as the sidebar's, are left out.
     static func write(to url: URL) {
-        guard let window = target,
-              let view = window.contentView?.superview ?? window.contentView, let data = WindowPicture.png(of: view) else {
+        // The content only, like the recorder's pictures: the toolbar's translucent material would come out white.
+        guard let window = target, let view = window.contentView, let data = WindowPicture.png(of: view) else {
             FileHandle.standardError.write(Data("No window to draw.\n".utf8))
             return
         }

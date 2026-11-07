@@ -317,7 +317,7 @@ private struct LibraryStatusLine: View {
             Text("\(count) \(count == 1 ? "Aufnahme" : "Aufnahmen") · \(open) offen · \(minutesText(minutes)) in 30 Tagen")
                 .lineLimit(1)
             Spacer(minLength: 8)
-            Button("⌘/ Tastenkürzel") { model.showShortcuts = true }
+            Button("⌘/ Tastenkürzel") { model.showShortcuts?() }
                 .buttonStyle(.plain)
                 .font(Theme.Fonts.mono(11))
                 .help("Zeigt alle Tastenkürzel (⌘/)")
@@ -377,17 +377,21 @@ private struct PiecesPane: View {
 private struct PieceRow: View {
     @EnvironmentObject private var model: AppModel
     let piece: Piece
-    @State private var isExpanded = false
     @State private var title = ""
     @FocusState private var titleFocused: Bool
 
     private var isCurrent: Bool { model.currentPieceID == piece.id }
 
     private var takes: [Recording] { model.takes(of: piece.id) }
-    private var minutes: Double { takes.reduce(0) { $0 + $1.duration } / 60 }
 
     var body: some View {
-        DisclosureGroup(isExpanded: $isExpanded) {
+        DisclosureGroup(isExpanded: Binding(
+            get: { model.expandedPieces.contains(piece.id) },
+            set: { open in if open { model.expandedPieces.insert(piece.id) } else { model.expandedPieces.remove(piece.id) } }
+        )) {
+            SongDetails(piece: piece)
+                .padding(.vertical, 6)
+            DeskCaption("Takes")
             if takes.isEmpty {
                 Text("Noch keine Takes").foregroundStyle(.secondary)
             }
@@ -433,11 +437,18 @@ private struct PieceRow: View {
                     .onChange(of: titleFocused) { if !titleFocused { commitTitle() } }
                     .help("Klicken und tippen ändert den Titel")
                     .accessibilityLabel("Titel des Stücks")
-                Text("\(takes.count) \(takes.count == 1 ? "Take" : "Takes"), \(TimeText.clock(minutes * 60))")
+                if !summary.isEmpty {
+                    Text(summary)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Text("\(takes.count) \(takes.count == 1 ? "Take" : "Takes") · geübt \(TimeText.clock(model.practiceSeconds(of: piece.id)))")
                     .font(.callout.monospacedDigit())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .fixedSize()
+                    .help("Übungszeit aus allen Aufnahmen dieses Stücks, auch verworfenen")
                 Button("Takes zeigen") {
                     model.query = LibraryQuery()
                     model.query.piece = .piece(piece.id)
@@ -458,8 +469,145 @@ private struct PieceRow: View {
         .onChange(of: piece.name) { if !titleFocused { title = piece.name } }
     }
 
+    /// Artist, key and tempo, as far as they are known.
+    private var summary: String {
+        [piece.artist, piece.key ?? "", piece.bpm.map { "\(Int($0)) BPM" } ?? ""]
+            .filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
     private func commitTitle() {
         if !model.renamePiece(piece.id, to: title) { title = piece.name }
+    }
+}
+
+/// What it takes to play a piece: artist, tempo, key, notes, its sound and the sounds of its parts. The sounds come
+/// from Spark Studio's presets and play on the amp's temporary place.
+private struct SongDetails: View {
+    @EnvironmentObject private var model: AppModel
+    let piece: Piece
+
+    private var choices: [PresetLink] { model.presetChoices?() ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 6) {
+                GridRow {
+                    DeskCaption("Interpret")
+                    TextField("Interpret", text: binding(\.artist))
+                        .textFieldStyle(.roundedBorder)
+                        .accessibilityLabel("Interpret")
+                }
+                GridRow {
+                    DeskCaption("Tempo")
+                    HStack(spacing: 6) {
+                        TextField("BPM", value: binding(\.bpm), format: .number.precision(.fractionLength(0)))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 64)
+                            .accessibilityLabel("Tempo in BPM")
+                        Text("BPM").foregroundStyle(.secondary)
+                        Button("Ins Metronom") { model.useTempo(of: piece) }
+                            .controlSize(.small)
+                            .disabled(piece.bpm == nil || model.phase != .idle)
+                            .help("Stellt den Klick auf das Tempo dieses Stücks")
+                        DeskCaption("Tonart").padding(.leading, 8)
+                        TextField("Tonart", text: Binding(get: { piece.key ?? "" },
+                                                          set: { value in model.updatePiece(piece.id) { $0.key = value.isEmpty ? nil : value } }))
+                            .textFieldStyle(.roundedBorder)
+                            .frame(width: 90)
+                            .accessibilityLabel("Tonart")
+                    }
+                }
+                if model.presetChoices != nil {
+                    GridRow {
+                        DeskCaption("Sound")
+                        soundRow(selection: binding(\.preset), label: "Sound des Stücks")
+                    }
+                }
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                DeskCaption("Notizen")
+                TextEditor(text: binding(\.notes))
+                    .font(.body)
+                    .frame(minHeight: 44, maxHeight: 90)
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.quaternary))
+                    .accessibilityLabel("Notizen zum Stück")
+            }
+            parts
+        }
+    }
+
+    @ViewBuilder
+    private var parts: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            DeskCaption("Teile")
+            ForEach(piece.parts) { part in
+                HStack(spacing: 6) {
+                    TextField("Teil", text: Binding(get: { part.name }, set: { value in update(part.id) { $0.name = value } }))
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 120)
+                        .accessibilityLabel("Name des Teils")
+                    if model.presetChoices != nil {
+                        soundRow(selection: Binding(get: { part.preset }, set: { value in update(part.id) { $0.preset = value } }),
+                                 label: "Sound für \(part.name)")
+                    }
+                    Spacer(minLength: 0)
+                    Button {
+                        model.updatePiece(piece.id) { $0.parts.removeAll { $0.id == part.id } }
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.plain)
+                    .help("Teil entfernen")
+                    .accessibilityLabel("\(part.name) entfernen")
+                }
+            }
+            Button("Teil hinzufügen") {
+                let name = ["Intro", "Strophe", "Refrain", "Solo", "Outro"].first { name in
+                    !piece.parts.contains { $0.name == name }
+                } ?? "Teil \(piece.parts.count + 1)"
+                model.updatePiece(piece.id) { $0.parts.append(PiecePart(name: name)) }
+            }
+            .controlSize(.small)
+        }
+    }
+
+    /// A sound: the saved presets to choose from, and a key that plays the chosen one on the amp.
+    private func soundRow(selection: Binding<PresetLink?>, label: String) -> some View {
+        let current = selection.wrappedValue.map(resolve)
+        return HStack(spacing: 6) {
+            Picker(label, selection: Binding(get: { current }, set: { selection.wrappedValue = $0 })) {
+                Text("Kein Sound").tag(PresetLink?.none)
+                ForEach(choices, id: \.self) { Text($0.name).tag(PresetLink?.some($0)) }
+                if let current, !choices.contains(current) {
+                    Text("\(current.name) (fehlt)").tag(PresetLink?.some(current))
+                }
+            }
+            .labelsHidden()
+            .controlSize(.small)
+            .fixedSize()
+            .accessibilityLabel(label)
+            Button("Spielen") { current.map { model.playPreset?($0) } }
+                .controlSize(.small)
+                .disabled(current == nil || model.playPreset == nil)
+                .help("Spielt den Sound am Verstärker, auf dem vorübergehenden Platz. Kein Platz wird überschrieben.")
+        }
+    }
+
+    /// The same preset after a rename: found again by its id, then by its file.
+    private func resolve(_ link: PresetLink) -> PresetLink {
+        choices.first { $0.presetID != nil && $0.presetID == link.presetID }
+            ?? choices.first { $0.fileName != nil && $0.fileName == link.fileName }
+            ?? link
+    }
+
+    private func binding<Value>(_ keyPath: WritableKeyPath<Piece, Value>) -> Binding<Value> {
+        Binding(get: { piece[keyPath: keyPath] }, set: { value in model.updatePiece(piece.id) { $0[keyPath: keyPath] = value } })
+    }
+
+    private func update(_ partID: UUID, _ change: (inout PiecePart) -> Void) {
+        model.updatePiece(piece.id) { piece in
+            if let index = piece.parts.firstIndex(where: { $0.id == partID }) { change(&piece.parts[index]) }
+        }
     }
 }
 

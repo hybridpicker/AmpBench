@@ -12,11 +12,8 @@ final class KeyRouter {
     /// Lets the self-test act on the window while the screen is locked, when no window can become key.
     static var windowOverride: NSWindow?
     static var activeWindow: NSWindow? { NSApp.keyWindow ?? windowOverride }
-    /// Spark Studio has a second window whose keys must stay its own. Nil in Spark Recorder, which routes every
-    /// main window.
-    static var ownsWindow: ((NSWindow) -> Bool)?
-    /// Spark Studio's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil in
-    /// Spark Recorder, where every key acts.
+    /// Spark Studio's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil acts
+    /// on every key.
     static var allowsKey: (@MainActor (String) -> Bool)?
 
     init(model: AppModel) {
@@ -68,7 +65,6 @@ final class KeyRouter {
 
     func handle(_ event: NSEvent) -> Bool {
         guard let model else { return false }
-        if let ownsWindow = Self.ownsWindow, let window = Self.activeWindow, !ownsWindow(window) { return false }
         let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         guard modifiers.isDisjoint(with: [.command, .control, .option]) else { return false }
         if let window = Self.activeWindow, window.isMainWindow || window === Self.windowOverride,

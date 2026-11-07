@@ -46,7 +46,7 @@ final class PresetStampTests: XCTestCase {
         XCTAssertNil(document.pieces[0].preset)
         XCTAssertEqual(document.pieces[0].parts, [])
         XCTAssertNil(document.pieces[0].key)
-        XCTAssertEqual(document.schemaVersion, LibraryDocument.currentSchema)
+        XCTAssertEqual(document.schemaVersion, 1, "decoding keeps the version; the store raises it on load, see SongTests")
     }
 
     func testIncompleteStampAndPartsGetDefaults() throws {

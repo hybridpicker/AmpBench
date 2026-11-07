@@ -40,12 +40,13 @@ struct BannerAction {
 public final class RecorderHost {
     let model: AppModel
     private let keyRouter: KeyRouter
-    private let delegate: AppDelegate
+    private let session: RecorderSession
 
-    public init() {
-        model = SparkRecorderApp.makeModel()
+    /// `folder` is the recordings library; a test library given with `--library` still wins.
+    public init(folder: URL? = nil) {
+        model = RecorderSession.makeModel(folder: folder)
         keyRouter = KeyRouter(model: model)
-        delegate = AppDelegate()
+        session = RecorderSession()
     }
 
     /// The deck: recording, level, Spark, click. Set `\.deckBluetooth` on it to show the amp's connection.
@@ -64,23 +65,24 @@ public final class RecorderHost {
 
     /// The window that shows the deck. The self-test, the key router and "closed while recording" use it.
     public func adopt(_ window: NSWindow) {
-        delegate.adopt(window)
+        session.adopt(window)
     }
 
-    public var window: NSWindow? { AppDelegate.mainWindow }
+    public var window: NSWindow? { RecorderSession.mainWindow }
     public var isRecording: Bool { model.isRecording }
+    public var libraryFolder: URL { model.store.folder }
     public var hasBanner: Bool { model.banner != nil }
 
     /// Recovers an interrupted take, shows the window and starts the self-test when asked to, as the app does.
     public func applicationDidFinishLaunching(_ notification: Notification) {
-        delegate.applicationDidFinishLaunching(notification)
+        session.applicationDidFinishLaunching(notification)
     }
 
-    public func showWindow() { delegate.showMainWindow() }
+    public func showWindow() { session.showMainWindow() }
 
     /// Ends listening and finishes a running recording.
     public func applicationWillTerminate(_ notification: Notification) {
-        delegate.applicationWillTerminate(notification)
+        session.applicationWillTerminate(notification)
     }
 
     /// Given a key as typed ("r", " ", "left", "escape" …), true when single keys may act on it now.
@@ -99,12 +101,24 @@ public final class RecorderHost {
         model.soundActions = actions
     }
 
+    /// The saved presets to choose a piece's or part's sound from, and how to play one on the amp.
+    public func offerPresets(_ choices: @escaping @MainActor () -> [PresetLink],
+                             play: @escaping @MainActor (PresetLink) -> Void) {
+        model.presetChoices = choices
+        model.playPreset = play
+    }
+
     /// Called after the metronome's tempo was changed by hand.
     public func onTempoChanged(_ handler: @escaping @MainActor (Double) -> Void) {
         model.onTempoChanged = handler
     }
 
     public var tempo: Double { model.metronome.bpm }
+
+    /// What "⌘/ Tastenkürzel" in the library's status line does.
+    public func onShowShortcuts(_ handler: @escaping @MainActor () -> Void) {
+        model.showShortcuts = handler
+    }
 
     /// Sets the metronome from a preset, unless a recording is running (its bars rest on the tempo).
     public func setTempoFromPreset(_ bpm: Double) {
@@ -149,6 +163,6 @@ public struct RecorderMenus: Commands {
     }
 
     public var body: some Commands {
-        AppCommands(model: model, isActive: isActive, isStandalone: false)
+        AppCommands(model: model, isActive: isActive)
     }
 }

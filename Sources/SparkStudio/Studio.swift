@@ -34,8 +34,8 @@ enum StudioArea: String, CaseIterable, Identifiable {
 final class Studio: ObservableObject {
     static let shared = Studio()
 
-    let recorder = RecorderHost()
-    let presets = PresetsHost()
+    let recorder = RecorderHost(folder: StudioLaunch.folders?.recordings)
+    let presets = PresetsHost(folder: StudioLaunch.folders?.presets)
     @Published var area = StudioArea.recording {
         didSet {
             guard area != oldValue else { return }
@@ -55,7 +55,9 @@ final class Studio: ObservableObject {
         recorder.routeKeys { [weak self] key in
             self?.area == .recording || StudioKeymap.isSingleKeyEverywhere(key)
         }
+        recorder.onShowShortcuts { [weak self] in self?.showsShortcuts = true }
         connectTakesToSounds()
+        connectPiecesToPresets()
         connectTempo()
     }
 
@@ -127,6 +129,18 @@ final class Studio: ObservableObject {
                 self?.presets.open(snapshot: snapshot)
                 self?.show(.presets)
             }))
+    }
+
+    // MARK: Pieces and their sounds
+
+    private func connectPiecesToPresets() {
+        recorder.offerPresets({ [weak self] in
+            self?.presets.choices.map { PresetLink(presetID: $0.id, fileName: $0.fileName, name: $0.name) } ?? []
+        }, play: { [weak self] link in
+            self?.presets.play(presetID: link.presetID, fileName: link.fileName) { problem in
+                if let problem { self?.recorder.warn(problem) } else { self?.recorder.inform("„\(link.name)“ spielt am Verstärker, auf dem vorübergehenden Platz.") }
+            }
+        })
     }
 
     // MARK: Tempo, one source

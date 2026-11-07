@@ -35,7 +35,7 @@ public struct PresetStamp: Codable, Equatable, Sendable {
 ///
 /// It names the preset by its stable id (`PresetFile.id`) and, as a fallback for files without one, by its file name
 /// inside the presets folder. Never by an absolute path, so the presets folder can move.
-public struct PresetLink: Codable, Equatable, Sendable {
+public struct PresetLink: Codable, Hashable, Sendable {
     public var presetID: String?
     /// Relative to the presets folder.
     public var fileName: String?
@@ -57,7 +57,7 @@ public struct PresetLink: Codable, Equatable, Sendable {
 }
 
 /// A section of a piece, such as intro, verse or solo.
-public struct PiecePart: Codable, Identifiable, Equatable, Sendable {
+public struct PiecePart: Codable, Identifiable, Hashable, Sendable {
     public var id: UUID
     public var name: String
     public var preset: PresetLink?

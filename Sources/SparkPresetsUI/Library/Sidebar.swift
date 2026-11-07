@@ -15,18 +15,6 @@ enum ChainSummary {
     }
 }
 
-/// True in Spark Studio, which connects only on request and can disconnect again.
-private struct ManagesConnectionKey: EnvironmentKey {
-    static let defaultValue = false
-}
-
-extension EnvironmentValues {
-    var managesConnection: Bool {
-        get { self[ManagesConnectionKey.self] }
-        set { self[ManagesConnectionKey.self] = newValue }
-    }
-}
-
 /// Connects or disconnects, next to the connection's state, so it is found where one looks for it.
 private struct ConnectKey: View {
     @EnvironmentObject private var model: PresetsModel
@@ -45,7 +33,6 @@ private struct ConnectKey: View {
 }
 
 struct Sidebar: View {
-    @Environment(\.managesConnection) private var managesConnection
     @EnvironmentObject private var model: PresetsModel
     @EnvironmentObject private var link: SparkLink
 
@@ -93,7 +80,7 @@ struct Sidebar: View {
                 HStack(spacing: 8) {
                     ConnectionStatus()
                     Spacer(minLength: 4)
-                    if managesConnection { ConnectKey() }
+                    ConnectKey()
                     NewPresetMenu()
                 }
                 .padding(.horizontal, 14)

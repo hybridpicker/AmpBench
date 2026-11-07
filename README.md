@@ -1,82 +1,145 @@
-# Spark Recorder
+# Spark Studio
 
-A native macOS recorder for guitar practice: record, listen right away, decide, keep practicing, in a few seconds and
-without the mouse. It was built for the Positive Grid Spark Mini.
+A native macOS practice studio for the Positive Grid Spark MINI, in one window: record, listen right away, decide and keep
+practicing, in a few seconds and without the mouse; shape the amp's sounds in a preset editor; and keep with every take
+the sound it was played with.
 
 It only records from a USB device with "Spark" in its name. Without one it records nothing: no microphone, no other input
 and no automatic fallback. Pulling the cable closes the input, and plugging it back in starts nothing by itself.
 
-Everything stays on this Mac. The app makes no network connections and has no telemetry.
+Everything stays on this Mac. The app makes no network connections and has no telemetry. Its only other connection is
+Bluetooth LE to the amp, and only when asked for.
+
+![Spark Studio, area Aufnahme](docs/pictures/aufnahme-dark.png)
 
 ## Build and run
 
 ```bash
-./build.sh                    # builds "build/Spark Recorder.app", "build/Spark Presets.app" and "build/Spark Studio.app"
-./build.sh --install          # also copies them to /Applications and adds them to the Dock
-./build.sh --install studio   # only Spark Studio ("presets" or "recorder" for only that app)
+./build.sh            # builds "build/Spark Studio.app"
+./build.sh --install  # also copies it to /Applications and adds it to the Dock
 ```
 
 Requires macOS 14 or later and the Swift toolchain from Xcode. There are no external dependencies. The build signs with
 an Apple Development certificate if one exists, because macOS then keeps the microphone permission across rebuilds.
 Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the choice, and `-` forces ad-hoc.
 
+Spark Studio joins the former apps Spark Recorder and Spark Presets. Plan, decisions and what comes next are in
+[docs/STUDIO.md](docs/STUDIO.md).
+
+## The window
+
+- The **deck** stays on top: the record key with the display, the level, the Spark module (USB input, output, retro,
+  and the lamp "BT" for the amp's Bluetooth) and the click.
+- Below it the toolbar's tabs, or `⇧⌘1` and `⇧⌘2`, choose the **area**: **Aufnahme** (waveform, transport, library,
+  pieces, statistics) or **Presets** (the amp's slots, the presets on the Mac and the editor).
+- A running recording continues when the window closes. The Dock icon then shows REC and brings the window back.
+- **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the area Presets first
+  shows, with the key "Verbinden" at the foot of the presets' sidebar, with a click on the lamp "BT", or with
+  "Verstärker → Mit dem Verstärker verbinden". "Trennen" lets the Spark app on the phone take the amp again, because
+  the amp takes only one control connection.
+
 ## Keyboard
 
-| Key | Action |
-|---|---|
-| `R` | Start or stop recording, also "Nochmal" |
-| `Space` | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels |
-| `L` | Loop: first press sets A, second sets B, third removes it |
-| `M` | Marker, also during a recording |
-| `K` | Keep the take |
-| `⌫` / `⌘⌫` | Discard the selected takes: they go to the Trash, the next take in the list is in focus, and `⌘Z` brings them back. Not while recording or typing |
-| `←` `→` | Jump 5 seconds, with `⇧` 1 second |
-| `-` `+` | Slower or faster |
-| `0` | Reset tempo and pitch |
-| `1` – `5` | Rate |
-| `F` | Favorite |
-| `B` | Switch take while comparing |
-| `N` / `T` | Click on or off, heard only while playing or recording / tap tempo |
-| `G` | Save the retro buffer ("Das eben war gut") |
-| `⌘F` / `⌘E` | Search / rename |
-| `Esc` | Leave a text field |
+Single keys act only in the area Aufnahme, `R` and `Space` in both. None of them acts while you type in a text field,
+and only `⌫` removes anything, only to the Trash, undoably. `⌘/` shows every shortcut.
 
-Single keys do nothing while you type in a text field. Only `⌫` removes anything, and only to the Trash, undoably. `⌘/` shows this list.
+| Key | Where | Action |
+|---|---|---|
+| `R` | both | Start or stop recording, also "Nochmal" |
+| `Space` | both | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels |
+| `⇧⌘1` / `⇧⌘2` | both | Area Aufnahme / Presets |
+| `⌘Z` / `⇧⌘Z` | both | Undo / redo, in the area in front |
+| `⌘S` | both | Save the preset in the editor on the Mac |
+| `⌘1` – `⌘4` | both | Play slot 1 to 4 on the amp, while connected |
+| `⌘E` / `⌘⌫` / `⇧⌘R` | both | Rename / to the Trash / show in Finder: the take in Aufnahme, the preset in Presets |
+| `⌘F` | Aufnahme | Search the recordings |
+| `L` | Aufnahme | Loop: first press sets A, second sets B, third removes it |
+| `M` | Aufnahme | Marker, also during a recording |
+| `K` | Aufnahme | Keep the take |
+| `⌫` | Aufnahme | Discard the selected takes: they go to the Trash, the next take is in focus, and `⌘Z` brings them back. Not while recording |
+| `←` `→` | Aufnahme | Jump 5 seconds, with `⇧` 1 second |
+| `-` `+` / `0` | Aufnahme | Slower or faster / reset tempo and pitch |
+| `1` – `5` / `F` | Aufnahme | Rate / favorite |
+| `B` | Aufnahme | Switch take while comparing |
+| `N` / `T` | Aufnahme | Click on or off, heard only while playing or recording / tap tempo |
+| `G` | Aufnahme | Save the retro buffer ("Das eben war gut") |
+| `Esc` | Aufnahme | Leave a text field |
+| `⌘N` / `⇧⌘N` / `⌘D` | Presets | New preset / from a template / duplicate |
+| `⇧⌘S` | Presets | Save under a new name |
+| `⌥⌘1` – `⌥⌘4` | Presets | Store in slot 1 to 4 (asks first, backs up the slot, reads it back) |
+| `⌘B` / `⇧⌘L` / `⌘R` | Presets | Compare with the saved state / live changes on or off / read the amp again |
+| `⌃1` – `⌃7` / `⌃0` | Presets | Choose a unit of the chain / switch it on or off |
+| arrows | Presets | Turn the focused knob, `⇧` for big steps |
+
+The list is `Sources/SparkCore/StudioKeymap.swift`, and its tests make sure that no key does two things in one area.
 
 ## Where things are
 
 ```
-~/Music/Spark Recorder/
-  *.wav                  Recordings. They are the originals and are never rewritten.
-  Bibliothek.json        Metadata: names, ratings, tags, notes, takes, markers, edits. Plain, readable JSON.
-  Bibliothek.backup.json The previous version of that file.
-  Exporte/               Default folder for exports. It is not part of the library.
-  .wellenformen/         Waveform cache. Safe to delete, it is rebuilt when needed.
-  .aufnahme-laeuft.json  Exists only during a recording, for crash recovery.
+~/Music/Spark Studio/
+  Aufnahmen/
+    *.wav                  Recordings. They are the originals and are never rewritten.
+    Bibliothek.json        Metadata: names, ratings, tags, notes, takes, markers, edits, pieces. Plain, readable JSON.
+    Bibliothek.backup.json The previous version of that file.
+    Exporte/               Default folder for exports. It is not part of the library.
+    .wellenformen/         Waveform cache. Safe to delete, it is rebuilt when needed.
+    .presets/<take id>.json The sound each take was recorded with, as a preset file.
+    .aufnahme-laeuft.json  Exists only during a recording, for crash recovery.
+  Presets/
+    *.json                 Presets on the Mac, one readable JSON file each, and the backups of overwritten slots.
 ```
 
-Files placed in the folder are picked up on the next start or with "Ordner prüfen". Files renamed in the Finder keep
-their metadata. A missing file keeps its entry and is marked. Older recordings are adopted unchanged, with no gain and
-with an unknown source, because what happened to them before is not known.
+**At the first start** Spark Studio takes over the folders of the former apps, `~/Music/Spark Recorder` and
+`~/Music/Spark Presets`, by copying them. On APFS the copy is instant and takes no space until a file changes. The old
+folders stay exactly as they were and are never deleted. If Spark Recorder still runs, Studio says so and waits until
+the next start, so no recording can be split between two folders. Studio also takes over the former apps' settings,
+such as input and click. A library from before Spark Studio keeps a copy of its file as
+`Bibliothek.vor-Schema-2.aus-1.json` before it is first saved in the new format, which older versions only open
+read-only.
+
+Files placed in the recordings folder are picked up on the next start or with "Ordner prüfen". Files renamed in the
+Finder keep their metadata. A missing file keeps its entry and is marked. Older recordings are adopted unchanged, with no
+gain and with an unknown source, because what happened to them before is not known. Presets placed in the presets folder
+show up when the window comes to the front.
+
+## Every take knows its sound
+
+When a recording starts while the amp is connected, the take keeps what the amp plays: the preset in the editor when it
+plays live, a tried-out preset, or the stored slot. It is read from memory, never asked of the amp, so nothing can delay
+a recording, and a failing Bluetooth connection cannot end one. The inspector shows "Sound: Crunch, Platz 2". "Auf den
+Amp" plays it on the amp's temporary place, never in a slot, and "Im Editor öffnen" opens it as a new preset to save.
+Takes recorded with the same sound share its fingerprint, the SHA-256 of the effect chain.
+
+**One tempo.** Opening a preset sets the click to its tempo. Changing the click by hand asks whether the preset should
+get the new tempo too, with a key in the message; nothing is written into a preset without that.
+
+## Pieces and songs
+
+A piece is a song or an exercise. It collects its takes and its practice time, which counts discarded takes too, and it
+knows what it takes to play it: artist, tempo ("Ins Metronom" sets the click to it), key, notes, a sound, and parts such
+as intro, verse and solo, each with its own sound. "Spielen" plays a sound on the amp's temporary place. The dot in front
+of a piece chooses it for new recordings.
+
+![Pieces with their parts](docs/pictures/stuecke-dark.png)
 
 ## Recording safety
 
 - The input runs on its own AUHAL unit. The realtime code is in C (`Sources/CSparkRT`) and does not lock, allocate or
   block. Playback, analysis and the UI have no way to stall it.
 - Audio is written continuously. If the app crashes, the next start repairs the file's header and adds the take, with
-  its markers. Repair only changes size fields in the header, and the audio bytes stay as they were. A file that cannot
-  be repaired stays where it is and gets reported.
+  its markers and its sound. Repair only changes size fields in the header, and the audio bytes stay as they were. A
+  file that cannot be repaired stays where it is and gets reported.
 - A lost device or a sample rate changed by another app ends the recording safely and keeps what was recorded. If the
   input just stops delivering, the app warns but keeps the file open, in case the device returns.
 - Recordings stop safely when the disk is nearly full and just below the 4 GB limit of the WAV format.
-- A running recording continues when the window closes. The Dock icon then shows REC and brings the window back.
+- Only one app at a time uses the recordings library. Started a second time, Studio leaves it alone and says so.
 
 ## Feedback and the click
 
 Whether the amp's USB input also carries its USB output is not assumed. While recording, playback and click are blocked
-on outputs of the same hardware as the input. The click
-picks a safe output on its own. "Aufnahme → Rückkopplung messen" plays quiet clicks and checks whether they arrive at the
-input. Only a measurement can unlock a pair of devices, and it counts for exactly that pair.
+on outputs of the same hardware as the input. The click picks a safe output on its own. "Aufnahme → Rückkopplung messen"
+plays quiet clicks and checks whether they arrive at the input. Only a measurement can unlock a pair of devices, and it
+counts for exactly that pair.
 
 The click has no code path into the recording, so the app cannot write it to a file.
 
@@ -89,6 +152,11 @@ runs on its own unit on the click output. A count-in always sounds, even with th
 A recording with a count-in or with the click switched on knows its bars. The window shows the current bar and beat
 while recording, and the waveform shows bar lines, also afterwards. Tempo and meter stay fixed during a recording, because
 the bars rest on them.
+
+Dragging over the waveform of such a take selects whole bars, and `⌥` selects freely. The bar controls below the transport
+loop the chosen bars or record them again. Recording bars again counts in at the tempo and meter of the take, stops by
+itself shortly after the last bar and creates a recording of its own, such as "Take Takt 5-8.wav". It keeps the bar
+numbers and the piece of the take. The original stays as it is, and the two are not merged.
 
 ## Timing of click and bars
 
@@ -128,11 +196,6 @@ it, so for another click output, such as the built-in speakers, the same correct
 
 On the BlackHole loop test, every beat lands within one sample of the grid.
 
-Dragging over the waveform of such a take selects whole bars, and `⌥` selects freely. The bar controls below the transport
-loop the chosen bars or record them again. Recording bars again counts in at the tempo and meter of the take, stops by
-itself shortly after the last bar and creates a recording of its own, such as "Take Takt 5-8.wav". It keeps the bar
-numbers and the piece of the take. The original stays as it is, and the two are not merged.
-
 ## Audio quality
 
 - The device runs at its highest rate up to 192 kHz during a recording, and its previous rate comes back afterwards.
@@ -153,11 +216,48 @@ Off by default. While on, the input stays open and the display says "HÖRT MIT".
 and never reach the disk on their own. "Das eben war gut" saves them. Turning it off, losing the device, closing the
 window or quitting erases the buffer.
 
-## Amp control over Bluetooth (experimental)
+## The area Presets
+
+![Area Presets, light](docs/pictures/presets-light.png)
+
+- **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4`, switches the amp to it and opens it in the
+  editor, like the preset button on the amp. A speaker marks what plays. Clicking a preset on the Mac plays it on
+  the amp's temporary place, which never touches a slot, and a new preset plays at once. Clicking quickly through
+  the list sends only the last one. When the amp's own preset button is pressed, the app follows, unless the editor
+  holds unsaved changes.
+- **Load meter**: a row of amber segments in the display fills while a preset travels to or from the amp, chunk by
+  chunk as the amp confirms or sends them ("LÄDT 9/17"). A switch between slots, a single message, shows a short
+  sweep. With "Reduce motion" the sweep is left out.
+- **Editor**: the signal chain as a row of pedals with the amp head in the middle. A click on a unit shows all its
+  controls below: the model, chosen from the catalog, on and off, and every parameter as a knob, a switch or a
+  selector. Knobs turn by dragging (`⌥` for fine steps), with the scroll wheel or the arrow keys (`⇧` for big steps),
+  a double click goes back to the model's start value, and VoiceOver can adjust them. `⌃1` – `⌃7` choose a unit,
+  `⌃0` switches it.
+- **Live**: the first change sends the preset to the amp's temporary place, without touching a slot, and every change
+  after it is heard at once. Only the newest value of a knob is sent, one message at a time, and model changes are
+  spaced out, because a fast series of them once made the amp hang. After a lost connection the edited state goes
+  back to the amp. `⇧⌘L` turns live changes off.
+- **Undo, A/B, changed**: `⌘Z` and `⇧⌘Z` undo and redo, a whole knob turn being one step. `⌘B` plays the saved state
+  for comparing and back. The display says when something differs from the saved state, and switching to another
+  preset asks first.
+- **Saving**: `⌘S` saves on the Mac, into the preset's own file or as a new one, `⇧⌘S` under a new name. "Auf Platz N
+  speichern" (`⌥⌘1` – `⌥⌘4`) asks first, then reads the slot fresh from the amp and saves it on the Mac as a backup,
+  stores the preset, switches to it and reads it back to check it arrived unchanged. If the connection breaks while
+  storing, the app checks the slot as soon as the amp is back and says what it holds.
+- **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
+  description and BPM.
+- **Auf dem Mac**: presets as files, searchable by name and model. Rename with `⌘E`, `⌘⌫` moves the file to the
+  Trash and the banner brings it back.
+
+The app only scans for devices that offer the Spark control service, so it never sees other Bluetooth devices. The
+Spark app on the phone must be disconnected, because the amp takes only one control connection. For the same reason
+Spark Studio and `spark-probe` cannot talk to the amp at the same time: whichever starts second keeps searching.
+
+## Amp control over Bluetooth
 
 The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side offers only audio and volume keys.
-`spark-probe` is a test tool for that control channel, and [Spark Presets](#spark-presets) is the app built on it.
-Spark Recorder itself still makes no Bluetooth or network connections.
+`spark-probe` is a test tool for that control channel, and the area Presets is built on the same protocol in
+`Sources/SparkControl`.
 
 ```bash
 swift build --product spark-probe
@@ -180,7 +280,7 @@ A `live` script has one command per line: `param <place> <index> <value>`, `togg
 what the amp plays with what the script sent. The comments in `Sources/SparkProbe/LiveScript.swift` have the details.
 
 `--raw` also prints every byte, `--no-header` sends without the block header, `--no-input` leaves the input byte out
-of live changes. The Spark app on the phone and Spark Presets must be disconnected, because the amp takes only one
+of live changes. The Spark app on the phone and Spark Studio must be disconnected, because the amp takes only one
 control connection. macOS asks once for Bluetooth access for the terminal app. The tool shows only devices with
 "Spark" in their name and only counts the others.
 
@@ -226,8 +326,8 @@ More findings:
   between them, first brought the echoes above and then silence. The amp no longer reacted to its power button,
   while its Bluetooth still took connections. Unplugging USB, holding POWER for more than 10 seconds and switching it
   on again brought it back, with all four stored presets unchanged. In batches of 8 with a second between changes and
-  a new connection per batch, the remaining 34 changes went through without a single echo. `catalog-check` therefore works in
-  such batches and stops at the first echo, and Spark Presets spaces out model changes.
+  a new connection per batch, the remaining 34 changes went through without a single echo. `catalog-check` therefore
+  works in such batches and stops at the first echo, and the editor spaces out model changes.
 
 ### Model catalog
 
@@ -262,144 +362,53 @@ on the amp.
 - For the catalog also [PGSparkLite](https://github.com/richtamblyn/PGSparkLite) (Apache-2.0) and SparklingTones
   (MIT). Positive Grid's own pages were not copied.
 
-## Spark Presets
-
-A separate app to edit the amp's presets, keep them on the Mac and switch them.
-
-- **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4`, switches the amp to it and opens it in the
-  editor, like the preset button on the amp. A speaker marks what plays. Clicking a preset on the Mac plays it on
-  the amp's temporary place, which never touches a slot, and a new preset plays at once. Clicking quickly through
-  the list sends only the last one. When the amp's own preset button is pressed, the app follows, unless the editor
-  holds unsaved changes.
-- **Load meter**: a row of amber segments in the display fills while a preset travels to or from the amp, chunk by
-  chunk as the amp confirms or sends them ("LÄDT 9/17"). A switch between slots, a single message, shows a short
-  sweep. With "Reduce motion" the sweep is left out.
-- **Editor**: the signal chain as a row of pedals with the amp head in the middle. A click on a unit shows all its
-  controls below: the model, chosen from the catalog, on and off, and every parameter as a knob, a switch or a
-  selector. Knobs turn by dragging (`⌥` for fine steps), with the scroll wheel or the arrow keys (`⇧` for big steps),
-  a double click goes back to the model's start value, and VoiceOver can adjust them. `⌃1` – `⌃7` choose a unit,
-  `⌃0` switches it.
-- **Live**: the first change sends the preset to the amp's temporary place, without touching a slot, and every change
-  after it is heard at once. Only the newest value of a knob is sent, one message at a time, and model changes are
-  spaced out, because a fast series of them once made the amp hang. After a lost connection the edited state goes
-  back to the amp. `⇧⌘L` turns live changes off.
-- **Undo, A/B, changed**: `⌘Z` and `⇧⌘Z` undo and redo, a whole knob turn being one step. `⌘B` plays the saved state
-  for comparing and back. The display says when something differs from the saved state, and switching to another
-  preset asks first.
-- **Saving**: `⌘S` saves on the Mac, into the preset's own file or as a new one, `⇧⌘S` under a new name. "Auf Platz N
-  speichern" (`⌥⌘1` – `⌥⌘4`) asks first, then reads the slot fresh from the amp and saves it on the Mac as a backup,
-  stores the preset, switches to it and reads it back to check it arrived unchanged. If the connection breaks while
-  storing, the app checks the slot as soon as the amp is back and says what it holds.
-- **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
-  description and BPM.
-- **Auf dem Mac**: presets as files, searchable by name and model. Rename with `⌘E`, `⌘⌫` moves the file to the
-  Trash and the banner brings it back.
-
-Presets are readable JSON files in `~/Music/Spark Presets/`, one per preset. Files placed there show up when the window
-comes to the front. The app only scans for devices that offer the Spark control service, so it never sees other
-Bluetooth devices, and it makes no network connections. The Spark app on the phone must be disconnected, because the
-amp takes only one control connection. For the same reason Spark Presets and `spark-probe` cannot talk to the amp at
-the same time: whichever starts second keeps searching.
-
-The pedals, the amp and their controls come from the shared design module (see [Design](#design-gestaltung)). They
-stay dark in light and dark mode, like hardware, and text on them keeps a contrast of at least 4.5 to 1. Animations
-are small and stop with "Reduce motion".
-
-Two options help with checking the app. `--live-selftest <log>` edits a copy of slot 1 on the temporary place
-through the same code the window uses, reads back what the amp plays after every step and compares, then switches
-back to slot 1. It starts by clicking two slots quickly, so a slot switch and the first change must arrive in order,
-and it writes every message sent and received to the log. On the Spark MINI all of its ten checks passed: a first
-change, on and off, a fast knob turn, a model change and its undo, BPM, and A/B both ways. `--snapshot <png>` writes
-a picture of the app's own window, with `--offline`, `--appearance light|dark`, `--size 900x600`,
-`--open template:Lead` (or `saved:<file name>`, `slot:<1-4>`, `empty`), `--focus delay`, `--delay 2` and `--quit`.
-`--library <folder>` uses a test folder instead of `~/Music/Spark Presets` and fills an empty one with the templates,
-so pictures never show your own presets. These pictures draw the sidebar as a plain list, because the system
-sidebar's text does not appear in a picture taken this way.
-
-## Spark Studio
-
-Spark Recorder and Spark Presets in one window (plan and decisions: [docs/STUDIO.md](docs/STUDIO.md)):
-
-- The **deck** stays on top. Below it the toolbar's tabs, or `⇧⌘1` and `⇧⌘2`, choose the area: **Aufnahme**
-  (waveform, transport, library) or **Presets** (sidebar and editor). The Dock shows REC while recording, also with
-  the window closed.
-- **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the Presets area first
-  shows, with the key "Verbinden" at the foot of the presets' sidebar, with the lamp "BT" in the deck's SPARK module,
-  or with "Verstärker → Mit dem Verstärker verbinden". "Trennen" lets the Spark app on the phone take the amp again.
-- **Every take knows its sound.** When a recording starts while the amp is connected, the take keeps what the amp
-  plays: the preset in the editor when it plays live, a tried-out preset, or the stored slot. The inspector shows
-  "Sound: Crunch, Platz 2", "Auf den Amp" plays it on the temporary place (never a slot), and "Im Editor öffnen"
-  opens it as a new preset. The settings are a preset file in `.presets/<take id>.json` in the recordings folder.
-- **One tempo.** Opening a preset sets the metronome to its tempo. Changing the metronome by hand asks whether the
-  preset should get the new tempo too; nothing is written into a preset without that.
-- **Keys**: single keys act only in Aufnahme, `R` and `Space` everywhere (not while typing). `⌘E`, `⌘⌫`, `⇧⌘R` and
-  `⌘Z` act in the area in front. Presets' own keys (`⌘N`, `⌘D`, `⇧⌘S`, `⌥⌘1` – `⌥⌘4`, `⌘B`, `⇧⌘L`, `⌘R`,
-  `⌃0` – `⌃7`) work in Presets, `⌘S` and `⌘1` – `⌘4` in both. `⌘/` lists them all.
-- It uses the same folders as the two apps, `~/Music/Spark Recorder` and `~/Music/Spark Presets`. Its settings are its
-  own, and macOS asks again for the microphone and Bluetooth. Only one app holds the amp's Bluetooth connection, and
-  only one app at a time uses the recordings library: started second, Studio or Spark Recorder leaves it alone and
-  says that another instance is running.
-
-The self-tests of both apps run in Studio too, with the same options. A test library given with `--library <folder>`
-keeps the presets in its subfolder `Presets`, filled with made-up presets:
-
-```bash
-.build/debug/SparkStudio --library /tmp/studio-test --ui-selftest main /tmp/studio-results
-.build/debug/SparkStudio --library /tmp/studio-test --offline --ui-selftest sound /tmp/studio-results
-.build/debug/SparkStudio --library /tmp/studio-test --offline --open saved:Lead --snapshot /tmp/presets.png --quit
-.build/debug/SparkStudio --library /tmp/studio-test --offline --menu-dump /tmp/studio-menus.txt --quit
-```
-
-The `sound` scenario stamps a made-up sound on a take and lets an amp action fail during the recording, which must not
-end it. `--menu-dump` lists every menu item with its key and state, once with each area in front, and checks with a real
-key press that `⌘N` reaches Presets only while that area shows.
-
 ## Design (Gestaltung)
 
-Both apps speak one design language, "Spark Studio": the instrument stays dark, the desk follows the system, keys
-instead of buttons and lamps instead of icons. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and
-the building blocks of `Sources/SparkDesign`, which both apps use. New views use those blocks; a new color or button
-style goes into SparkDesign and DESIGN.md first.
+One design language: the instrument stays dark, the desk follows the system, keys instead of buttons and lamps instead
+of icons. [docs/DESIGN.md](docs/DESIGN.md) has the principles, every value and the building blocks of
+`Sources/SparkDesign`. New views use those blocks; a new color or button style goes into SparkDesign and DESIGN.md
+first. The icon (`Tools/make-icon.swift`) puts the record key into the amber ring of a control: recording and sound
+in one sign.
 
 | | |
 | --- | --- |
-| ![Spark Recorder, dark](docs/pictures/recorder-dark.png) | ![Spark Recorder, light](docs/pictures/recorder-light.png) |
-| ![Spark Recorder while recording](docs/pictures/recorder-recording-dark.png) | ![Spark Recorder at its smallest size](docs/pictures/recorder-smallest-light.png) |
-| ![Spark Presets, dark](docs/pictures/presets-dark.png) | ![Spark Presets, light](docs/pictures/presets-light.png) |
+| ![Aufnahme, dark](docs/pictures/aufnahme-dark.png) | ![Aufnahme, light](docs/pictures/aufnahme-light.png) |
+| ![While recording](docs/pictures/aufnahme-recording-dark.png) | ![At its smallest size](docs/pictures/aufnahme-smallest-light.png) |
+| ![Presets, dark](docs/pictures/presets-dark.png) | ![Presets, light](docs/pictures/presets-light.png) |
 
-The pictures come from the apps' own snapshot modes, with a test library of synthetic takes and made-up presets:
+The pictures come from the app's own snapshot modes, with a test library of synthetic takes and made-up presets:
 
 ```bash
-.build/debug/SparkRecorder --library /tmp/spark-pictures --ui-selftest pictures /tmp/spark-pictures-out
-.build/debug/SparkPresets --offline --library /tmp/spark-presets --appearance dark --size 1180x780 \
+.build/debug/SparkStudio --library /tmp/studio-pictures --ui-selftest pictures /tmp/studio-pictures-out
+.build/debug/SparkStudio --library /tmp/studio-presets --offline --appearance dark --size 1180x780 \
     --open saved:Lead --focus delay --snapshot /tmp/presets-dark.png --quit
 ```
 
-The Recorder's `pictures` scenario also shows the count-in, a running recording (from the test device only) and
-the smallest window, 1120 × 680. Spark Presets' smallest window is 900 × 600
-([picture](docs/pictures/presets-smallest-dark.png)). `swift test` checks the contrast of every text color of the
-design against its backgrounds, at least 4.5 : 1.
+The `pictures` scenario also shows the count-in, a running recording (from the test device only), a piece with its
+parts and the smallest window, 1120 × 720 ([Presets at that size](docs/pictures/presets-smallest-dark.png)). `swift
+test` checks the contrast of every text color of the design against its backgrounds, at least 4.5 : 1.
 
 ## Project layout
 
 ```
-Sources/CSparkRT       Realtime capture and click (C)
-Sources/SparkCore      Capture, library, repair, edits, playback, export, statistics (no UI)
-Sources/SparkRecorderUI Spark Recorder's window, menus, keys and self-test (SwiftUI)
-Sources/SparkRecorder  The Spark Recorder app: headless audio commands, then the window
-Sources/SparkDesign    The shared design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
-Sources/SparkControl   The amp's Bluetooth control protocol, the model catalog and the preset library, without
-                       Bluetooth code
-Sources/SparkProbe     spark-probe, the experimental Bluetooth test tool
-Sources/SparkPresetsUI Spark Presets' window, editor and Bluetooth link (SwiftUI, CoreBluetooth): App, Link, Model,
-                       Design, Editor, Library
-Sources/SparkPresets   The Spark Presets app, a thin shell
-Sources/SparkStudio    Spark Studio: both windows in one app, shared menus, Bluetooth on demand
-Tests/SparkCoreTests   Unit tests and audio tests with synthetic signals
+Sources/CSparkRT        Realtime capture and click (C)
+Sources/SparkCore       Capture, library, repair, edits, playback, export, statistics, Studio's folders and keymap
+                        (no UI)
+Sources/SparkDesign     The design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
+Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog and the preset library, without
+                        Bluetooth code
+Sources/SparkRecorderUI The deck and the area Aufnahme: window parts, menus, keys, self-test, headless audio commands
+Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
+Sources/SparkStudio     The app: one window, the areas, and what ties takes, sounds and tempo together
+Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
+Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets
-Tests/SparkDesignTests Contrast of every text color against its backgrounds
-Tools/make-icon.swift  Draws the app icons
+Tests/SparkDesignTests  Contrast of every text color against its backgrounds
+Tools/make-icon.swift   Draws the app icon
 ```
+
+A new area joins as a library with a host, like `RecorderHost` and `PresetsHost`, and a case in `StudioArea`
+(`Sources/SparkStudio/Studio.swift`); docs/STUDIO.md lists the steps.
 
 ## Tests
 
@@ -414,21 +423,27 @@ the microphone permission is missing.
 The audio engine refuses every input outside its policy. The default is Spark only, and tests use a policy that allows
 virtual test devices and nothing real, not even the amp.
 
-The app also has a self-test that drives its real window with key events. It only runs with a separate test library,
-which keeps it away from your recordings. A test library only hears BlackHole, and sound goes to a silent virtual output:
+The app also has self-tests that drive its real window. They only run with a separate test library, which keeps them
+away from your recordings and presets and skips taking over the old folders. A test library only hears BlackHole, sound
+goes to a silent virtual output, and the presets live in its subfolder `Presets`, filled with made-up presets:
 
 ```bash
-"build/Spark Recorder.app/Contents/MacOS/SparkRecorder" --library /tmp/spark-test --ui-selftest main /tmp/spark-results
+"build/Spark Studio.app/Contents/MacOS/SparkStudio" --library /tmp/studio-test --ui-selftest main /tmp/studio-results
 ```
 
-Other scenarios are `legacy`, `crash-start`, `crash-verify`, `realwindow` and `pictures`. Two more cover the Spark-only
-rule and take an extra option: `nospark` with `--test-input none`, and `reconnect` with `--test-input aggregate`.
+Other scenarios are `legacy`, `crash-start`, `crash-verify`, `realwindow`, `pictures` and `sound` (a take keeps a
+made-up sound, and an amp action that fails during the recording must not end it). Two more cover the Spark-only rule
+and take an extra option: `nospark` with `--test-input none`, and `reconnect` with `--test-input aggregate`.
+`--menu-dump <file>` lists every menu item with its key and state, once with each area in front, and checks with a real
+key press that a Presets key reaches Presets only while that area shows. `--live-selftest <log>` edits a copy of slot 1
+on the amp's temporary place and reads back after every step (needs the amp). On the Spark MINI all ten checks passed
+in Spark Presets, which ran the same code; in Studio it has not been run yet.
 
 These headless commands check the audio path without the UI:
 
 ```bash
-SparkRecorder --list
-SparkRecorder --record "Spark" 5 /tmp/test.wav
-SparkRecorder --play-tone "BlackHole" 5 1000 0.25
-SparkRecorder --inspect /tmp/test.wav
+SparkStudio --list
+SparkStudio --record "Spark" 5 /tmp/test.wav
+SparkStudio --play-tone "BlackHole" 5 1000 0.25
+SparkStudio --inspect /tmp/test.wav
 ```

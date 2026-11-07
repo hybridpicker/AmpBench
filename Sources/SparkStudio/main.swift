@@ -8,4 +8,6 @@ import SparkRecorderUI
 if let status = RecorderCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
     exit(status)
 }
+// The folder ~/Music/Spark Studio, taken over from the former apps at the first start.
+guard MainActor.assumeIsolated({ StudioLaunch.prepare() }) else { exit(1) }
 StudioApp.main()
