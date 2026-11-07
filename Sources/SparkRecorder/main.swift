@@ -1,6 +1,7 @@
 import AVFoundation
 import AppKit
 import SparkCore
+import SparkRecorderUI
 
 /// Headless commands for checking the audio path without the UI:
 ///   --list

@@ -98,13 +98,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 }
 
-struct SparkRecorderApp: App {
+/// Started by the SparkRecorder executable after its headless commands.
+public struct SparkRecorderApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
     @StateObject private var model: AppModel
     private let keyRouter: KeyRouter
 
     @MainActor
-    init() {
+    public init() {
         let options = LaunchOptions.current
         let defaults = options.isTestLibrary
             ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
@@ -115,7 +116,7 @@ struct SparkRecorderApp: App {
         keyRouter = KeyRouter(model: model)
     }
 
-    var body: some Scene {
+    public var body: some Scene {
         // The window comes from the app delegate. This scene only carries the menus.
         Settings { EmptyView() }
             .commands { AppCommands(model: model) }

@@ -2,16 +2,16 @@ import AppKit
 import SparkControl
 import SwiftUI
 
-@main
-struct PresetsApp: App {
+/// Started by the SparkPresets executable.
+public struct PresetsApp: App {
     @MainActor static let sharedModel = PresetsModel(folder: Snapshot.libraryFolder ?? PresetLibrary.defaultFolder)
     @StateObject private var model = PresetsApp.sharedModel
 
-    init() {
+    public init() {
         if Snapshot.isActive { Snapshot.openWindowIfNeeded() }
     }
 
-    var body: some Scene {
+    public var body: some Scene {
         Window("Spark Presets", id: "main") {
             Self.root(model)
         }
