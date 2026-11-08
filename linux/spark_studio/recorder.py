@@ -21,6 +21,7 @@ class RecorderModel(QObject):
     meter_changed = Signal()
     message = Signal(str, str)  # kind, text
     library_changed = Signal()
+    take_added = Signal(str)
     monitoring_changed = Signal(bool)
 
     def __init__(self, store: storemod.LibraryStore, engine: CaptureEngine | None = None,
@@ -207,6 +208,7 @@ class RecorderModel(QObject):
         except OSError as error:
             self.message.emit("error", f"Die Bibliothek konnte nicht gespeichert werden: {error}")
         self.library_changed.emit()
+        self.take_added.emit(recording["id"])
         self.message.emit("warning" if note else "success", note or f"Aufnahme gespeichert ({result.seconds:.1f} s).")
 
     def _device_lost(self) -> None:

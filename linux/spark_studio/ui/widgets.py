@@ -781,3 +781,100 @@ class SegmentTabs(QWidget):
                 p.drawRoundedRect(rect, 7, 7)
             p.setPen(c(theme.DESK_TEXT if i == self.index else theme.DESK_MUTED if i not in self.disabled else "#55555B"))
             p.drawText(rect, Qt.AlignCenter, self.names[i])
+
+
+class DeviceSlider(QWidget):
+    """A fader with an amber fill."""
+    changed = Signal(float)
+
+    def __init__(self, minimum: float, maximum: float, step: float, parent=None):
+        super().__init__(parent)
+        self.minimum, self.maximum, self.step, self.value = minimum, maximum, step, 1.0
+        self.setFixedHeight(24)
+        self.setMinimumWidth(90)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_value(self, value: float) -> None:
+        self.value = min(max(value, self.minimum), self.maximum)
+        self.update()
+
+    def _from_x(self, x: float) -> None:
+        ratio = min(max((x - 8) / max(self.width() - 16, 1), 0.0), 1.0)
+        raw = self.minimum + ratio * (self.maximum - self.minimum)
+        value = round(raw / self.step) * self.step
+        value = round(min(max(value, self.minimum), self.maximum), 4)
+        if value != self.value:
+            self.value = value
+            self.update()
+            self.changed.emit(value)
+
+    def mousePressEvent(self, event):
+        self._from_x(event.position().x())
+
+    def mouseMoveEvent(self, event):
+        self._from_x(event.position().x())
+
+    def wheelEvent(self, event):
+        self.set_value(self.value + (self.step if event.angleDelta().y() > 0 else -self.step))
+        self.changed.emit(self.value)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        y = self.height() / 2
+        ratio = (self.value - self.minimum) / (self.maximum - self.minimum)
+        x = 8 + ratio * (self.width() - 16)
+        p.setPen(Qt.NoPen)
+        p.setBrush(c("#0A0A0C"))
+        p.drawRoundedRect(QRectF(8, y - 3, self.width() - 16, 6), 3, 3)
+        p.setBrush(c(theme.AMBER))
+        p.drawRoundedRect(QRectF(8, y - 3, x - 8, 6), 3, 3)
+        p.setPen(QPen(c("#0A0A0C"), 1))
+        p.setBrush(c(theme.SWITCH_THUMB))
+        p.drawEllipse(QPointF(x, y), 8, 8)
+
+
+class DisplayStepper(QWidget):
+    """A number in a small display with arrows."""
+    changed = Signal(int)
+
+    def __init__(self, minimum: int, maximum: int, parent=None):
+        super().__init__(parent)
+        self.minimum, self.maximum, self.value = minimum, maximum, 0
+        self.setFixedSize(66, 28)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_value(self, value: int) -> None:
+        self.value = min(max(value, self.minimum), self.maximum)
+        self.update()
+
+    def _step(self, delta: int) -> None:
+        value = min(max(self.value + delta, self.minimum), self.maximum)
+        if value != self.value:
+            self.value = value
+            self.update()
+            self.changed.emit(value)
+
+    def mousePressEvent(self, event):
+        self._step(1 if event.position().x() > self.width() * 0.55 else -1)
+
+    def wheelEvent(self, event):
+        self._step(1 if event.angleDelta().y() > 0 else -1)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(c(theme.DISPLAY_EDGE), 1))
+        p.setBrush(c(theme.DISPLAY))
+        p.drawRoundedRect(r, 7, 7)
+        p.setFont(theme.mono(13, True))
+        p.setPen(c(theme.AMBER))
+        text = f"+{self.value}" if self.value > 0 else str(self.value)
+        p.drawText(QRectF(8, 0, 30, r.height()), Qt.AlignLeft | Qt.AlignVCenter, text)
+        p.setPen(QPen(c(theme.AMBER_DIM), 1.5, Qt.SolidLine, Qt.RoundCap))
+        x = r.right() - 14
+        p.drawLine(QPointF(x - 4, 11), QPointF(x, 7))
+        p.drawLine(QPointF(x, 7), QPointF(x + 4, 11))
+        p.drawLine(QPointF(x - 4, 17), QPointF(x, 21))
+        p.drawLine(QPointF(x, 21), QPointF(x + 4, 17))

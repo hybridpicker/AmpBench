@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from . import wav
+from . import trash as trashmod, wav
 
 SCHEMA = 2
 DOCUMENT, BACKUP, JOURNAL = "Bibliothek.json", "Bibliothek.backup.json", ".aufnahme-laeuft.json"
@@ -173,6 +173,40 @@ class LibraryStore:
         recording["fileSize"], recording["inode"] = stat.st_size, stat.st_ino
         self.document["recordings"].append(recording)
 
+    def update(self, take_id: str, change) -> None:
+        recording = self.recording(take_id)
+        if recording is not None:
+            change(recording)
+
+    def trash_recording(self, take_id: str) -> dict:
+        """Moves the take's file to the trash and keeps its metadata, so restoring brings back ratings and notes."""
+        recording = self.recording(take_id)
+        if recording is None:
+            raise StoreError("Die Aufnahme wurde nicht gefunden.")
+        path = self.url(recording)
+        mover = self._trash or trashmod.move
+        try:
+            moved = mover(path) if path.exists() else None
+        except OSError as error:
+            raise StoreError("Die Datei konnte nicht in den Papierkorb gelegt werden.") from error
+        entry = {"recording": recording, "trashPath": str(moved or ""), "trashedAt": iso(datetime.now(timezone.utc))}
+        self.document["recordings"] = [r for r in self.document["recordings"] if r["id"] != take_id]
+        self.document["trashed"].append(entry)
+        return entry
+
+    def restore_trashed(self, entry: dict) -> dict:
+        recording = entry["recording"]
+        destination = self.url(recording)
+        if entry.get("trashPath"):
+            try:
+                restored = trashmod.restore(Path(entry["trashPath"]), destination)
+            except (OSError, FileNotFoundError) as error:
+                raise StoreError("Die Datei liegt nicht mehr im Papierkorb.") from error
+            recording["fileName"] = restored.name
+        self.document["trashed"] = [t for t in self.document["trashed"] if t is not entry and t != entry]
+        self.document["recordings"].append(recording)
+        return recording
+
     def log_practice(self, date: datetime, seconds: float, piece_id: str | None) -> None:
         if seconds <= 0:
             return
@@ -253,13 +287,10 @@ class LibraryStore:
         return RecoveryOutcome("repaired", journal["fileName"], seconds)
 
     def _trash_file(self, path: Path) -> None:
-        if self._trash:
-            self._trash(path)
-            return
-        import subprocess
-        gio = shutil.which("gio")
-        if gio is None or subprocess.run([gio, "trash", str(path)], capture_output=True).returncode != 0:
-            raise StoreError("Der Papierkorb ist nicht erreichbar, die Datei bleibt wo sie ist.")
+        try:
+            (self._trash or trashmod.move)(path)
+        except OSError as error:
+            raise StoreError("Der Papierkorb ist nicht erreichbar, die Datei bleibt wo sie ist.") from error
 
 
 def auto_level_gain(peak_db: float | None) -> float:

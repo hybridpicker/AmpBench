@@ -9,11 +9,11 @@ import json
 import subprocess
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFileDialog, QFrame, QHBoxLayout, QHeaderView,
-                               QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QStackedWidget,
-                               QTableWidget, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
+                               QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QStackedWidget, QTextEdit,
+                               QToolButton, QVBoxLayout, QWidget)
 
 from .. import BUILD, VERSION, catalog, factory, protocol, recipe
 from ..editor import PresetEditor
@@ -23,6 +23,7 @@ from ..qtlink import QtLink
 from ..store import parse_iso
 from . import theme
 from .deck import Deck
+from .recordings import RecordingsPage
 from .sidebar import Sidebar
 from .theme import c
 from .widgets import (Display, DeviceSwitch, Engraving, Footswitch, Front, HardwareKey, Knob, LEDSegments, Lamp,
@@ -35,7 +36,9 @@ STATUS_TEXT = {
     "bluetooth_off": "Bluetooth aus", "unsupported": "Kein Bluetooth", "starting": "Starte …",
 }
 SHORTCUTS = [
-    ("R", "Aufnahme starten oder beenden"), ("Strg+1 – 4", "Platz am Verstärker spielen"), ("Strg+Z / Umschalt+Strg+Z", "Rückgängig / Wiederholen"),
+    ("R", "Aufnahme starten oder beenden"), ("Leertaste", "Abspielen oder anhalten, während der Aufnahme: beenden und abspielen"),
+    ("L / M", "Schleife A, B, löschen / Marker setzen"), ("K / Rücktaste", "Take behalten / in den Papierkorb"),
+    ("← →", "5 Sekunden springen, mit Umschalt 1 Sekunde"), ("- + 0", "Langsamer, schneller / Tempo und Ton zurücksetzen"), ("Strg+1 – 4", "Platz am Verstärker spielen"), ("Strg+Z / Umschalt+Strg+Z", "Rückgängig / Wiederholen"),
     ("Strg+S", "Preset sichern"), ("Umschalt+Strg+S", "Sichern unter neuem Namen"), ("Strg+N / Umschalt+Strg+N", "Neues Preset / aus Vorlage"),
     ("Strg+D", "Duplizieren"), ("Strg+Alt+1 – 4", "Auf Platz 1 bis 4 speichern"), ("Strg+B", "Mit dem gesicherten Stand vergleichen (A/B)"),
     ("Umschalt+Strg+L", "Live am Verstärker ein oder aus"), ("Strg+R", "Verstärker neu lesen"),
@@ -114,6 +117,20 @@ class Banner(QFrame):
             undo()
 
 
+class KeyRouter(QObject):
+    """Single keys, like the Mac app's KeyRouter: they act in the area Aufnahme, R and Space in both, and never while
+    a text field has the focus or a dialog is open."""
+
+    def __init__(self, window):
+        super().__init__(window)
+        self.window = window
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and isinstance(obj, QWidget) and obj.window() is self.window:
+            return self.window.handle_key(event)
+        return False
+
+
 class MainWindow(QMainWindow):
     def __init__(self, link: QtLink, library: PresetLibrary, auto_connect: bool = True, recorder=None):
         super().__init__()
@@ -126,6 +143,7 @@ class MainWindow(QMainWindow):
         self._bridge = _Bridge()
         self._loading = False
         self._library_stamp = None
+        self._recording_undo = None
         self.setWindowTitle("Spark Studio")
         self.resize(1280, 860)
         self.setMinimumSize(1120, 720)
@@ -139,7 +157,9 @@ class MainWindow(QMainWindow):
             self.recorder.start_library()
             self.recorder.refresh_devices()
             self._refresh_recorder()
-            self._refresh_takes()
+            self.recordings.refresh()
+        self._router = KeyRouter(self)
+        QApplication.instance().installEventFilter(self._router)
         if auto_connect:
             QTimer.singleShot(200, self.link.start)
 
@@ -166,8 +186,11 @@ class MainWindow(QMainWindow):
         column.addWidget(self.deck)
         self.stack = QStackedWidget()
         column.addWidget(self.stack, 1)
-        self.recording_page = self._build_recordings()
-        self.stack.addWidget(self.recording_page)
+        self.recording_banner = Banner()
+        column.insertWidget(column.indexOf(self.stack), self.recording_banner)
+        self.recordings = RecordingsPage(self.recorder)
+        self.recordings.message.connect(self._recording_message)
+        self.stack.addWidget(self.recordings)
         presets = QWidget()
         body = QHBoxLayout(presets)
         body.setContentsMargins(0, 0, 0, 0)
@@ -186,32 +209,6 @@ class MainWindow(QMainWindow):
         # The deck's controls keep the names the Presets code uses.
         self.lamp_connected, self.device_label = self.deck.connected_lamp, self.deck.amp_label
         self.firmware_label, self.connect_key = self.deck.firmware_label, self.deck.connect_key
-
-    def _build_recordings(self) -> QWidget:
-        page = QWidget()
-        v = QVBoxLayout(page)
-        v.setContentsMargins(0, 0, 0, 0)
-        v.setSpacing(0)
-        self.recording_banner = Banner()
-        v.addWidget(self.recording_banner)
-        self.takes = QTableWidget(0, 3)
-        self.takes.setHorizontalHeaderLabels(["Name", "Datum", "Dauer"])
-        self.takes.verticalHeader().hide()
-        self.takes.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.takes.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.takes.setShowGrid(False)
-        self.takes.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
-        self.takes.setStyleSheet(f"QTableWidget {{ background: {theme.DESK}; border: none; alternate-background-color: {theme.DESK_ALT}; }} "
-                                 f"QHeaderView::section {{ background: {theme.DESK}; color: {theme.DESK_MUTED}; border: none; "
-                                 f"border-bottom: 1px solid {theme.DESK_LINE}; padding: 8px; font-weight: bold; }} "
-                                 f"QTableWidget::item:selected {{ background: rgba(247,196,92,36); color: {theme.DESK_TEXT}; }}")
-        self.takes.setAlternatingRowColors(True)
-        v.addWidget(self.takes, 1)
-        self.takes_footer = QLabel("")
-        self.takes_footer.setContentsMargins(22, 8, 22, 8)
-        self.takes_footer.setStyleSheet(f"color: {theme.DESK_MUTED}; border-top: 1px solid {theme.DESK_LINE};")
-        v.addWidget(self.takes_footer)
-        return page
 
     def _build_editor(self) -> QWidget:
         page = QWidget()
@@ -406,7 +403,6 @@ class MainWindow(QMainWindow):
             r.devices_changed.connect(self._refresh_devices)
             r.meter_changed.connect(lambda: self.deck.show_levels(r))
             r.message.connect(self._say)
-            r.library_changed.connect(self._refresh_takes)
         sb = self.sidebar
         sb.slot_selected.connect(self._slot_clicked)
         sb.slot_played.connect(self._play_slot)
@@ -493,6 +489,41 @@ class MainWindow(QMainWindow):
         banner = self.recording_banner if self.stack.currentIndex() == 0 else self.banner
         banner.show_message(kind, text, undo)
 
+    def _recording_message(self, kind: str, text: str, undo) -> None:
+        self._recording_undo = undo
+        self.recording_banner.show_message(kind, text, undo)
+
+    def handle_key(self, event) -> bool:
+        key, mods = event.key(), event.modifiers()
+        if mods & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier):
+            return False
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QAbstractSpinBox, QTextEdit, QPlainTextEdit)):
+            return False
+        if QApplication.activeModalWidget() is not None or event.isAutoRepeat():
+            return False
+        if key == Qt.Key_R:
+            self.recorder.toggle()
+            return True
+        if key == Qt.Key_Space:
+            if isinstance(focus, QAbstractButton) and not self.recorder.is_recording:
+                return False
+            self.recordings.toggle_play()
+            return True
+        if self.stack.currentIndex() != 0:
+            return False
+        page, shift = self.recordings, bool(mods & Qt.ShiftModifier)
+        actions = {Qt.Key_L: page.toggle_loop, Qt.Key_M: page.add_marker, Qt.Key_K: page.keep,
+                   Qt.Key_Backspace: page.discard, Qt.Key_Delete: page.discard,
+                   Qt.Key_Left: lambda: page.jump(-1 if shift else -5), Qt.Key_Right: lambda: page.jump(1 if shift else 5),
+                   Qt.Key_Minus: lambda: page.nudge_tempo(-0.05), Qt.Key_Plus: lambda: page.nudge_tempo(0.05),
+                   Qt.Key_Equal: lambda: page.nudge_tempo(0.05), Qt.Key_0: page.reset_tempo_pitch}
+        handler = actions.get(key)
+        if handler is None:
+            return False
+        handler()
+        return True
+
     def _area(self, index: int) -> None:
         self.tabs.set_index(index)
         self.stack.setCurrentIndex(index)
@@ -503,32 +534,6 @@ class MainWindow(QMainWindow):
     def _refresh_devices(self) -> None:
         self.deck.show_devices(self.recorder)
         self._refresh_recorder()
-
-    def _refresh_takes(self) -> None:
-        recordings = sorted(self.recorder.store.document["recordings"], key=lambda r: r.get("createdAt", ""), reverse=True)
-        self.takes.setRowCount(len(recordings))
-        total = 0.0
-        for row, take in enumerate(recordings):
-            name = Path(take["fileName"]).stem + ("   · Offen" if take.get("status") == "open" else "")
-            seconds = float(take.get("duration", 0))
-            total += seconds
-            date = parse_iso(take.get("createdAt")).astimezone()
-            for column, text in enumerate((name, date.strftime("%d.%m.%y, %H:%M"), f"{int(seconds) // 60:02d}:{int(seconds) % 60:02d}")):
-                item = QTableWidgetItem(text)
-                if column:
-                    item.setFont(theme.mono(13))
-                self.takes.setItem(row, column, item)
-            self.takes.setRowHeight(row, 36)
-        self.takes_footer.setText(f"{len(recordings)} Aufnahmen · {int(total // 3600)} Std. {int(total // 60) % 60} Min.   "
-                                  "Wiedergabe, Wellenform und Bibliothek wie auf dem Mac folgen.")
-
-    def keyPressEvent(self, event):
-        """R starts and stops a recording, unless a text field wants the key."""
-        if self.recorder is not None and event.key() == Qt.Key_R and not event.modifiers():
-            self.recorder.toggle()
-            event.accept()
-            return
-        super().keyPressEvent(event)
 
     def _report(self, error: Exception) -> None:
         known = isinstance(error, (LinkError, LibraryError, recipe.RecipeError))
@@ -792,6 +797,12 @@ class MainWindow(QMainWindow):
         self._update_flags()
 
     def _undo(self) -> None:
+        if self.stack.currentIndex() == 0:
+            undo, self._recording_undo = self._recording_undo, None
+            if undo:
+                self.recording_banner.hide()
+                undo()
+            return
         if self.editor and not self.show_original:
             self._edited(self.editor.undo())
             self._refresh_editor()
@@ -1038,6 +1049,7 @@ class MainWindow(QMainWindow):
             return
         if self.recorder is not None:
             self.recorder.shutdown()
+        QApplication.instance().removeEventFilter(self._router)
         self.link.shutdown()
         super().closeEvent(event)
 

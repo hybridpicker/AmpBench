@@ -38,7 +38,11 @@ def window(app, tmp_path, monkeypatch):
     amp = FakeAmp()
     link = QtLink(lambda: amp)
     lib = PresetLibrary(tmp_path, trash=lambda p: p.unlink())
-    w = MainWindow(link, lib, auto_connect=True)
+    from spark_studio.demo_input import demo_devices, demo_engine
+    from spark_studio.recorder import RecorderModel
+    from spark_studio.store import LibraryStore
+    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    w = MainWindow(link, lib, auto_connect=True, recorder=recorder)
     w.show()
     w._area(1)
     wait_for(lambda: link.core.status == "connected" and all(link.core.slots) and not link.core.activity)
@@ -142,9 +146,52 @@ def test_record_a_take_through_the_window(app, tmp_path):
         wait_for(lambda: recorder.engine.meter.seconds > 0.5)
         assert w.deck.time_label.text() != "00:00,0"
         QTest.keyClick(w, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key_R)
-        wait_for(lambda: not recorder.is_recording and w.takes.rowCount() == 1)
+        wait_for(lambda: not recorder.is_recording and w.recordings.table.rowCount() == 1)
         take = recorder.store.document["recordings"][0]
         assert take["status"] == "open" and take["duration"] > 0.4
         assert not recorder.store.journal_path.exists()
+    finally:
+        w.close()
+
+
+def test_recording_page_review_keys_and_undo(app, tmp_path, monkeypatch):
+    from PySide6.QtCore import Qt
+    from spark_studio import trash
+    from spark_studio.demo_input import demo_devices, demo_engine
+    from spark_studio.recorder import RecorderModel
+    from spark_studio.store import LibraryStore
+    monkeypatch.setattr("spark_studio.trash.trash_root", lambda: tmp_path / "Trash")
+    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
+    w.show()
+    page = w.recordings
+    try:
+        for _ in range(2):
+            QTest.keyClick(w, Qt.Key_R)
+            wait_for(lambda: recorder.is_recording and recorder.engine.meter.seconds > 0.4)
+            QTest.keyClick(w, Qt.Key_R)
+            wait_for(lambda: not recorder.is_recording)
+            QTest.qWait(150)
+        wait_for(lambda: page.table.rowCount() == 2)
+        newest = page.recordings[0]
+        assert page.current_id == newest["id"], "the new take is in focus"
+        assert page.keep_key.isVisibleTo(page) and page.discard_key.isVisibleTo(page)
+        QTest.keyClick(w, Qt.Key_M)
+        assert len(recorder.store.recording(newest["id"])["markers"]) == 1
+        QTest.keyClick(w, Qt.Key_Plus)
+        assert page.player.tempo == pytest.approx(1.05)
+        QTest.keyClick(w, Qt.Key_0)
+        assert page.player.tempo == 1.0 and page.player.pitch == 0
+        QTest.keyClick(w, Qt.Key_K)
+        assert recorder.store.recording(newest["id"])["status"] == "kept" and not page.keep_key.isVisibleTo(page)
+        QTest.keyClick(w, Qt.Key_Backspace)
+        assert page.table.rowCount() == 1 and recorder.store.recording(newest["id"]) is None
+        w._undo()
+        assert page.table.rowCount() == 2 and recorder.store.recording(newest["id"])["status"] == "kept"
+        # single keys never act while a text field has the focus
+        w._area(1)
+        w.name_edit.setFocus()
+        QTest.keyClick(w.name_edit, Qt.Key_R)
+        assert not recorder.is_recording
     finally:
         w.close()

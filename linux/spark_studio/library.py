@@ -186,9 +186,9 @@ class PresetLibrary:
 
 
 def _trash(path: Path) -> None:
-    """Moves a file to the freedesktop trash with ``gio trash``; refuses to delete when that is not possible."""
-    import shutil
-    import subprocess
-    gio = shutil.which("gio")
-    if gio is None or subprocess.run([gio, "trash", str(path)], capture_output=True).returncode != 0:
-        raise LibraryError("Der Papierkorb ist nicht erreichbar, die Datei bleibt wo sie ist.")
+    """Moves a file to the freedesktop trash; refuses to delete when that is not possible."""
+    from . import trash
+    try:
+        trash.move(path)
+    except OSError as error:
+        raise LibraryError("Der Papierkorb ist nicht erreichbar, die Datei bleibt wo sie ist.") from error

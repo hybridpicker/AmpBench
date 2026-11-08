@@ -24,6 +24,7 @@ from typing import Callable
 from . import wav
 
 CHUNK_SECONDS = 0.02
+OVERVIEW_BIN = 0.05  # seconds per bin of the live waveform
 MIN_FREE_BYTES = 500 * 1024 * 1024
 MAX_FILE_BYTES = 3_900_000_000  # just below the 4 GB limit of the WAV format
 CLIP_LEVEL = 0.999
@@ -119,10 +120,15 @@ class Meter:
     last_data: float = 0.0
     quiet_since: float | None = None
     hold_time: float = 0.0
+    overview: list = field(default_factory=list)
+    _bin_peak: float = 0.0
+    _bin_frames: int = 0
 
     def reset_take(self) -> None:
         self.clipped = False
         self.seconds = 0.0
+        self.overview = []
+        self._bin_peak, self._bin_frames = 0.0, 0
 
 
 class CaptureEngine:
@@ -244,6 +250,11 @@ class CaptureEngine:
                     writer.write(_to_24_bit(data))
                     self._take_peak = max(self._take_peak, top)
                     meter.seconds = writer.frames / fmt.sample_rate
+                    meter._bin_peak = max(meter._bin_peak, top)
+                    meter._bin_frames += len(data) // frame_bytes
+                    if meter._bin_frames >= fmt.sample_rate * OVERVIEW_BIN:
+                        meter.overview.append(meter._bin_peak)
+                        meter._bin_peak, meter._bin_frames = 0.0, 0
                     if now - last_flush > 1.0:
                         writer.flush()
                         last_flush = now
