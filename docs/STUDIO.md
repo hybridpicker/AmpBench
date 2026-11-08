@@ -15,13 +15,16 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | 2 | Ein Fenster mit Bereichen, Sound am Take, ein Tempo | cc3ebb3 | offen |
 | 3 | Stücke = Songs, `~/Music/Spark Studio`, alte Apps entfernt, neues Icon | 3960ccd | offen |
 | – | Immer im Dark Mode, auf Wunsch des Nutzers | 6a85f45 | installiert, läuft |
+| – | Klangrezepte, KI-Katalog in `docs/ai`, Text für REACTOR | 7bd22b1, b530b84 | installiert (2026-11-08), kein Rezept am Amp gehört |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
 `~/Music/Spark Studio` angelegt und die alten Ordner übernommen; dass alle Aufnahmen und Presets dort angekommen sind,
 ist noch nicht bestätigt.
 
 Am Spark MINI noch zu prüfen: ein Take mit echtem Preset (Stempel, „Auf den Amp“, „Im Editor öffnen“), der
-Tempo-Abgleich, das Lämpchen „BT“ und „Spielen“ bei Stücken und Teilen.
+Tempo-Abgleich, das Lämpchen „BT“ und „Spielen“ bei Stücken und Teilen. Außerdem die vier Beispiel-Rezepte, die seit
+2026-11-08 in `~/Music/Spark Studio/Presets` liegen: erscheinen sie mit Zauberstab, klingen sie wie beschrieben, und
+wird ein gespeichertes Rezept zur normalen Preset-Datei.
 
 ## Aufbau
 
@@ -82,8 +85,8 @@ steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
 - REACTOR (eigene Produktlinie, laut Positive Grid nicht Spark-kompatibel, kein Dateiformat dokumentiert): Weg nur
   über Text. `--recipe-prompt` beschreibt ein Rezept oder Preset auf Englisch für „Text to Tone“
   (`SoundRecipe.toneDescription`).
-- Offen: Rezept aus dem Editor exportieren (bisher nur `--recipe-from`), ein Rezept am Spark MINI anhören, andere
-  Geräte der Spark-Familie (NEO und weitere) und REACTOR nicht geprüft.
+- Geprüft ist nur der Spark MINI. Andere Spark-Verstärker, Spark NEO und REACTOR sind nicht geprüft, offene Punkte
+  stehen unter „Offen und als Nächstes“.
 
 ## Datenmodell
 
@@ -137,6 +140,13 @@ Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der
 - `swift test`: alle Einheitentests mit synthetischen Daten, darunter Stempel, Journal, Schema 2, Ordner- und
   Einstellungsübernahme (auch „Spark Recorder läuft noch“), Fingerabdruck und Tastaturmodell. Ein Audio-Timing-Test
   (`testLoopStaysInsideItsRange`) schlägt im vollen Lauf unter Last gelegentlich fehl und besteht allein.
+  - Seit 2026-11-08 schlagen in `AudioPathTests` vier Prüfungen fehl, auch allein: Das Testsignal über BlackHole kommt
+    nicht an (gemessen 0 Hz statt 1000 Hz, das Abspielen endet nicht). SparkCore ist seit den Rezepten unverändert, am
+    Morgen desselben Tages lief alles durch. BlackHole 2ch stand dabei auf 192 kHz. Vermutlich die Audio-Umgebung des
+    Macs, nicht der Code; nicht weiter untersucht.
+- `SoundRecipeTests` und `ToneDescriptionTests`: Rezepte in beide Richtungen, alle Fehler auf einmal, Korrekturen
+  mit Hinweis, stabile uuid, Lesen im Presets-Ordner, Text für REACTOR. Sie prüfen auch, dass die Beispiele in
+  `docs/ai/examples` gültig sind und `docs/ai/spark-catalog.*` dem Katalog im Code entspricht.
 - UI-Selbsttest `main` im Studio-Fenster: dieselben Ergebnisse wie früher in Spark Recorder. 3 FAIL kommen aus dieser
   Testumgebung (das BlackHole-Testsignal kommt nicht an), einzelne VoiceOver-Prüfungen schlagen mal fehl, mal nicht.
 - Szenario `sound`: Stempel im Journal, Schnappschuss beim Start, „Auf den Amp“ scheitert mitten in der Aufnahme über
@@ -150,6 +160,11 @@ Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der
 ## Offen und als Nächstes
 
 - **Am Amp prüfen**, siehe Stand. `--live-selftest` lief bisher nur in Spark Presets, nicht in Studio.
+- **Klangrezepte:** im Editor „Als Rezept exportieren“ und „Text für REACTOR kopieren“ (bisher nur `--recipe-from`
+  und `--recipe-prompt` auf der Kommandozeile). Andere Spark-Verstärker mit ihren zusätzlichen Modellen in den
+  Katalog aufnehmen, sobald eines zum Prüfen da ist. REACTOR nimmt nur Text, solange Positive Grid kein Format oder
+  keine Schnittstelle veröffentlicht; ein Text-Rezept dort ausprobieren.
+- **Audio-Tests über BlackHole** wieder zum Laufen bringen, siehe Prüfungen.
 - **Trailer:** Ob Lautheit und Zusatzverstärkung im Trailer hörbar sind, ist nicht geprüft. Falls ja, gehören sie in
   den Fingerabdruck, und alte Stempel werden neu berechnet.
 - **Kleine Bildschirme:** 720 pt Inhalt plus Toolbar und Menüleiste passen knapp auf 800 pt hohe Bildschirme, mit Dock
