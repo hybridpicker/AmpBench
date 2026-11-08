@@ -55,6 +55,40 @@ final class PresetsModel: ObservableObject {
     /// The "Speichern unter" sheet, with the name to save under.
     @Published var saveAsName: String?
     @Published var showsTemplates = false
+    // KI-Sound: a description in words becomes a recipe over Ollama's cloud API.
+    @Published var showsAI = false
+    @Published var aiRequest = ""
+    @Published var aiModel: String = "gpt-oss:120b" {
+        didSet { if !aiModel.isEmpty { AISetting.save(AISetting.modelKey, aiModel) } }
+    }
+    @Published var aiAPIKey: String = "" {
+        didSet { AIKeyStore.save(aiAPIKey) }
+    }
+    /// Ollama Cloud counts as connected once an API key is stored.
+    var aiConnected: Bool { !aiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    /// True while the variants for a wish are being written.
+    @Published private(set) var aiIsGenerating = false
+    /// The sounds on offer, from the moment they are asked for, and the wish they answer.
+    @Published private(set) var aiOffers: [AIOffer] = []
+    @Published private(set) var aiAsked = ""
+    /// Why a request could not start or brought nothing back. Shows inside the sheet.
+    @Published private(set) var aiError: String?
+    @Published private(set) var aiModelChoices: [String] = []
+    /// The last wishes, newest first, kept on this Mac only.
+    @Published private(set) var aiHistory: [String] = []
+    /// Which offered sound plays on the amp now, which ones were heard, and why playing failed.
+    @Published private(set) var aiListening: Int?
+    @Published private(set) var aiHeard: Set<Int> = []
+    @Published private(set) var aiPlayNote: String?
+    private var aiTask: Task<Void, Never>?
+    private var aiOfferTasks: [Int: Task<Void, Never>] = [:]
+
+    func loadAIModels() {
+        guard aiModelChoices.isEmpty else { return }
+        Task { @MainActor [weak self] in
+            if let names = try? await OllamaCloud.availableModels() { self?.aiModelChoices = names }
+        }
+    }
     private var bannerTask: Task<Void, Never>?
     private var changes: Set<AnyCancellable> = []
     private var interrupted: InterruptedStore?
@@ -72,6 +106,18 @@ final class PresetsModel: ObservableObject {
         link.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
         editor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
         link.$slots.sink { [weak self] slots in self?.slotsChanged(slots) }.store(in: &changes)
+        // "qwen3:32b" was the first default but is not offered by the cloud.
+        let storedModel = AISetting.load(AISetting.modelKey, default: AISetting.defaultModel)
+        aiModel = storedModel == "qwen3:32b" ? AISetting.defaultModel : storedModel
+        // Earlier versions kept the key in the preferences file; move it into the Keychain and delete the copy.
+        let legacy = AISetting.load("AI Sound API Key", default: "")
+        if !legacy.isEmpty {
+            AIKeyStore.save(legacy)
+            UserDefaults.standard.removeObject(forKey: "AI Sound API Key")
+        }
+        AIKeyStore.bindToThisMac()
+        aiAPIKey = AIKeyStore.load()
+        aiHistory = UserDefaults.standard.stringArray(forKey: AISetting.historyKey) ?? []
     }
 
     func start(bluetooth: Bool = true) {
@@ -457,6 +503,243 @@ final class PresetsModel: ObservableObject {
         } else {
             NSWorkspace.shared.activateFileViewerSelecting([library.folder])
         }
+    }
+
+    // MARK: AI-Sound
+
+    private enum AISetting {
+        static let modelKey = "AI Sound Model"
+        static let historyKey = "AI Sound History"
+        static let defaultModel = "gpt-oss:120b"
+        static func load(_ key: String, default defaultValue: String) -> String {
+            let value = UserDefaults.standard.string(forKey: key) ?? ""
+            return value.isEmpty ? defaultValue : value
+        }
+        static func save(_ key: String, _ value: String) {
+            UserDefaults.standard.set(value, forKey: key)
+        }
+    }
+
+    /// One offered sound in the sheet, from the moment it is asked for until one is kept.
+    struct AIOffer: Identifiable {
+        enum State {
+            case writing
+            case ready(SoundRecipe)
+            case failed(String)
+        }
+
+        let id: Int
+        var state: State
+        /// The quick changes made to it so far, kept as tags when it is kept.
+        var adjustments: [SoundAI.Adjustment] = []
+        /// The quick change on its way, if one is.
+        var refining: SoundAI.Adjustment?
+        /// What the last quick change had to say, or why it failed.
+        var note: String?
+
+        var recipe: SoundRecipe? {
+            if case .ready(let recipe) = state { return recipe }
+            return nil
+        }
+    }
+
+    private var aiChat: SoundAI.Chat { SoundAI.ollama(model: aiModel, apiKey: aiAPIKey) }
+
+    private func updateOffer(_ id: Int, _ change: (inout AIOffer) -> Void) {
+        guard let index = aiOffers.firstIndex(where: { $0.id == id }) else { return }
+        change(&aiOffers[index])
+    }
+
+    /// Asks Ollama for a few sounds for the description. Each one shows as soon as it is written; nothing is saved
+    /// until one is kept. A wish with personal data in it is refused before anything is sent.
+    func generateAISound() {
+        guard aiConnected, !aiIsGenerating else { return }
+        let request: String
+        let stream: AsyncStream<SoundAI.VariantEvent>
+        do {
+            request = try SoundAI.checkedRequest(aiRequest)
+            stream = try SoundAI.variants(request: request, chat: aiChat)
+        } catch {
+            aiError = SoundAI.message(for: error)
+            return
+        }
+        cancelAI()
+        aiError = nil
+        aiAsked = request
+        aiListening = nil
+        aiHeard = []
+        aiPlayNote = nil
+        aiOffers = SoundAI.variantHints.indices.map { AIOffer(id: $0, state: .writing) }
+        aiIsGenerating = true
+        aiTask = Task { @MainActor [weak self] in
+            var remembered = false
+            for await event in stream {
+                guard let self else { return }
+                switch event {
+                case .ready(let index, let recipe):
+                    self.updateOffer(index) { $0.state = .ready(recipe) }
+                    if !remembered { remembered = true; self.rememberAIRequest(request) }
+                case .failed(let index, let error):
+                    let text = SoundAI.message(for: error) ?? "Abgebrochen."
+                    self.updateOffer(index) { $0.state = .failed(text) }
+                }
+            }
+            guard let self, !Task.isCancelled else { return }
+            self.aiTask = nil
+            self.aiIsGenerating = false
+            let writing = self.aiOffers.contains { offer in
+                if case .writing = offer.state { return true }
+                return false
+            }
+            guard !writing, self.aiOffers.allSatisfy({ $0.recipe == nil }) else { return }
+            // Nothing worked: back to the description, with the first reason.
+            let reasons = self.aiOffers.compactMap { offer -> String? in
+                if case .failed(let text) = offer.state { return text }
+                return nil
+            }
+            self.aiOffers = []
+            self.aiError = reasons.first ?? "Es kam kein Vorschlag zurück. Versuch es noch einmal."
+        }
+    }
+
+    /// Stops every request on its way. Sounds already offered stay; the ones still being written are dropped.
+    func cancelAI() {
+        aiTask?.cancel()
+        aiTask = nil
+        aiIsGenerating = false
+        for task in aiOfferTasks.values { task.cancel() }
+        aiOfferTasks = [:]
+        aiOffers = aiOffers.compactMap { offer in
+            var offer = offer
+            if case .writing = offer.state { return nil }
+            offer.refining = nil
+            return offer
+        }
+        if aiOffers.allSatisfy({ $0.recipe == nil }) { aiOffers = [] }
+    }
+
+    /// True while anything for the sheet is on its way to or from Ollama.
+    var aiIsBusy: Bool {
+        aiIsGenerating || aiOffers.contains { offer in
+            if case .writing = offer.state { return true }
+            return offer.refining != nil
+        }
+    }
+
+    /// Writes one variant again after it failed, different from the ones on offer.
+    func retryAIOffer(_ id: Int) {
+        guard SoundAI.variantHints.indices.contains(id), aiOfferTasks[id] == nil, !aiAsked.isEmpty else { return }
+        let others = aiOffers.filter { $0.id != id }.compactMap(\.recipe)
+        let request = aiAsked
+        let chat = aiChat
+        updateOffer(id) { $0.state = .writing; $0.note = nil; $0.adjustments = [] }
+        aiOfferTasks[id] = Task { @MainActor [weak self] in
+            do {
+                let recipe = try await SoundAI.generate(request: request, chat: chat, hint: SoundAI.variantHints[id],
+                                                        temperature: 0.6, avoid: others)
+                self?.updateOffer(id) { $0.state = .ready(recipe) }
+            } catch {
+                guard let text = SoundAI.message(for: error) else { return }
+                self?.updateOffer(id) { $0.state = .failed(text) }
+            }
+            self?.aiOfferTasks[id] = nil
+        }
+    }
+
+    /// Changes one offered sound with a follow-up request (wärmer, mehr Gain, …) instead of writing it anew. If it
+    /// plays on the amp, the changed sound plays right away.
+    func refineAIOffer(_ id: Int, _ adjustment: SoundAI.Adjustment) {
+        guard aiOfferTasks[id] == nil, let offer = aiOffers.first(where: { $0.id == id }),
+              let recipe = offer.recipe else { return }
+        let request = aiAsked
+        let chat = aiChat
+        updateOffer(id) { $0.refining = adjustment; $0.note = nil }
+        aiOfferTasks[id] = Task { @MainActor [weak self] in
+            do {
+                let result = try await SoundAI.refine(recipe, adjustment, request: request, chat: chat)
+                guard let self else { return }
+                self.updateOffer(id) {
+                    $0.state = .ready(result.recipe)
+                    $0.adjustments.append(adjustment)
+                    $0.note = result.note
+                    $0.refining = nil
+                }
+                self.aiOfferTasks[id] = nil
+                if self.aiListening == id { self.listenAISound(id) } else { self.aiHeard.remove(id) }
+            } catch {
+                let text = SoundAI.message(for: error)
+                self?.updateOffer(id) { $0.refining = nil; if let text { $0.note = text } }
+                self?.aiOfferTasks[id] = nil
+            }
+        }
+    }
+
+    /// Back from the offered sounds to the description.
+    func discardAIResults() {
+        cancelAI()
+        aiOffers = []
+        aiError = nil
+        aiListening = nil
+        aiHeard = []
+        aiPlayNote = nil
+    }
+
+    /// Plays an offered sound on the amp's temporary place. Nothing is saved; the library stays as it is.
+    func listenAISound(_ id: Int) {
+        guard let recipe = aiOffers.first(where: { $0.id == id })?.recipe else { return }
+        aiPlayNote = nil
+        do {
+            let preset = try recipe.preset().preset
+            tryOut(preset) { [weak self] problem in
+                guard let self else { return }
+                if let problem {
+                    self.aiPlayNote = problem
+                } else {
+                    self.aiListening = id
+                    self.aiHeard.insert(id)
+                }
+            }
+        } catch {
+            aiPlayNote = error.localizedDescription
+        }
+    }
+
+    /// Takes one of the offered sounds: into the library with the wish as its description, selected, playing.
+    func pickAISound(_ id: Int) {
+        guard let offer = aiOffers.first(where: { $0.id == id }), let recipe = offer.recipe else { return }
+        do {
+            try adopt(SoundAI.keepsake(recipe, request: aiAsked, adjustments: offer.adjustments))
+            cancelAI()
+            aiOffers = []
+            showsAI = false
+        } catch {
+            aiError = error.localizedDescription
+        }
+    }
+
+    private func rememberAIRequest(_ request: String) {
+        aiHistory = SoundAI.remember(request, in: aiHistory)
+        UserDefaults.standard.set(aiHistory, forKey: AISetting.historyKey)
+    }
+
+    func clearAIHistory() {
+        aiHistory = []
+        UserDefaults.standard.removeObject(forKey: AISetting.historyKey)
+    }
+
+    /// Writes the generated recipe into the library and selects it, so it opens in the editor and plays on the amp.
+    private func adopt(_ recipe: SoundRecipe) throws {
+        let url = try library.addRecipe(recipe)
+        reloadLibrary()
+        guard let item = items.first(where: { $0.url.lastPathComponent == url.lastPathComponent }) else {
+            throw SoundAI.Error.unreadable("Das Rezept ließ sich nicht als Preset lesen.")
+        }
+        select(.saved(item.url))
+        let verbunden = link.status == .connected
+        let play = verbunden ? " Es spielt am Verstärker." : " Verbinde den Verstärker, um es zu hören."
+        let note = recipe.notes.trimmingCharacters(in: .whitespacesAndNewlines)
+        let hint = note.isEmpty ? "" : " Hinweis: \(note)"
+        show(.info, "„\(recipe.name)“ ist bereit." + play + hint)
     }
 
     // MARK: Helpers

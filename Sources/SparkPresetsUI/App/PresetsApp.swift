@@ -43,6 +43,9 @@ struct PresetCommands: Commands {
             Button("Neues Preset aus Vorlage …") { model.showsTemplates = true }
                 .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .shift])))
                 .disabled(!isActive)
+            Button("KI-Sound aus Beschreibung …") { model.showsAI = true }
+                .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .option])))
+                .disabled(!isActive)
             Button("Duplizieren") { model.duplicateCurrent() }
                 .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
                 .disabled(editor.preset == nil || !isActive)

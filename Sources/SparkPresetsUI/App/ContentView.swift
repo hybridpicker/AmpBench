@@ -17,6 +17,7 @@ struct ContentView: View {
         .sheet(item: $model.renameTarget) { _ in RenameSheet() }
         .sheet(isPresented: saveAsShown) { SaveAsSheet() }
         .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }
+        .sheet(isPresented: Binding(get: { model.showsAI }, set: { model.showsAI = $0 })) { AISoundSheet() }
         .confirmationDialog(storeTitle, isPresented: storeDialogShown, presenting: model.storeRequest) { request in
             Button("Auf Platz \(request.slot + 1) speichern") { model.store(request) }
             Button("Abbrechen", role: .cancel) { model.storeRequest = nil }

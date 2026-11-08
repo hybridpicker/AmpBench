@@ -7,8 +7,9 @@ the sound it was played with.
 It only records from a USB device with "Spark" in its name. Without one it records nothing: no microphone, no other input
 and no automatic fallback. Pulling the cable closes the input, and plugging it back in starts nothing by itself.
 
-Everything stays on this Mac. The app makes no network connections and has no telemetry. Its only other connection is
-Bluetooth LE to the amp, and only when asked for.
+Everything stays on this Mac, and the app has no telemetry. Its connections are Bluetooth LE to the amp, and — only
+when you ask for a KI-Sound — one request to Ollama's cloud API to build a sound from a description. Both only when
+asked for.
 
 ![Spark Studio, area Aufnahme](docs/pictures/aufnahme-dark.png)
 
@@ -360,8 +361,15 @@ A **sound recipe** describes a sound by what it is: a model and settings for eac
 10, in a small JSON file. Claude or any other AI assistant can write one, and Spark Studio reads it from the presets
 folder like a preset, marked with a wand. [docs/ai/SOUND-GUIDE.md](docs/ai/SOUND-GUIDE.md) explains the format and how
 to choose models and values. [docs/ai/spark-catalog.json](docs/ai/spark-catalog.json) lists every model with its
-parameter keys and start values. In this repository the project skill `spark-sound` lets Claude Code build sounds on
-request.
+parameter keys and start values.
+
+In the Presets area, **KI-Sound** turns a description in your own words — „Blues für meine Tele“, „Sound wie U2 …“ —
+into such a recipe right in the app, over Ollama's cloud API, and plays it on the amp to try. You get three different
+suggestions, each shown as soon as it is ready; „wärmer“, „mehr Gain“, „weniger Hall“ and „heller“ adjust one of them
+with a follow-up request, and a request can be cancelled. Only the description leaves the Mac (a description with an
+e-mail address, phone number or key in it is refused), and the last wishes are kept on this Mac to pick again. It
+needs an Ollama API key (ollama.com/settings/keys), entered in the KI-Sound dialog and stored in the macOS Keychain. In
+this repository the project skill `spark-sound` lets Claude Code build sounds on request.
 
 ```bash
 swift run SparkStudio --recipe-check docs/ai/examples/texas-blues.json    # can Studio read it, and with which values

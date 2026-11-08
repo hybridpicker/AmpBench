@@ -218,6 +218,8 @@ private struct NewPresetMenu: View {
             Button("Leeres Preset") { model.newPreset() }
             Button("Aus Vorlage …") { model.showsTemplates = true }
             Divider()
+            Button("KI-Sound …") { model.showsAI = true }
+            Divider()
             Button("Aktuelles duplizieren") { model.duplicateCurrent() }.disabled(model.editor.preset == nil)
         } label: {
             Image(systemName: "plus")

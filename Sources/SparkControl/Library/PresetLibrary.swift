@@ -85,6 +85,17 @@ public final class PresetLibrary {
         return saved
     }
 
+    /// Writes a sound recipe into the folder under a free file name and returns the file. The library itself is not
+    /// reloaded here; the caller reloads to list it. The file stays a recipe (the wand) until it is saved in the
+    /// editor, which rewrites it as an ordinary preset.
+    @discardableResult
+    public func addRecipe(_ recipe: SoundRecipe) throws -> URL {
+        let base = Self.fileName(for: recipe.name)
+        let url = uniqueURL(base)
+        try recipe.jsonData().write(to: url, options: .atomic)
+        return url
+    }
+
     /// Renames the preset itself, the name the amp shows, and its file.
     @discardableResult
     public func rename(_ item: SavedPreset, to name: String) throws -> SavedPreset {

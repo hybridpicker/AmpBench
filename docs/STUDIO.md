@@ -16,6 +16,7 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | 3 | Stücke = Songs, `~/Music/Spark Studio`, alte Apps entfernt, neues Icon | 3960ccd | offen |
 | – | Immer im Dark Mode, auf Wunsch des Nutzers | 6a85f45 | installiert, läuft |
 | – | Klangrezepte, KI-Katalog in `docs/ai`, Text für REACTOR | 7bd22b1, b530b84 | installiert (2026-11-08), kein Rezept am Amp gehört |
+| – | KI-Sound im Bereich Presets: Beschreibung → Ollama Cloud API → drei Rezepte, Nachbessern, Verlauf | – | installiert (2026-11-08), nicht gegen die Cloud und nicht am Amp geprüft |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
 `~/Music/Spark Studio` angelegt und die alten Ordner übernommen; dass alle Aufnahmen und Presets dort angekommen sind,
@@ -82,6 +83,27 @@ steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
 - Anleitung, Katalog, Schema und Beispiele: `docs/ai`. Der Katalog dort wird mit `--catalog-export docs/ai` aus dem
   Code geschrieben, `SoundRecipeTests` schlägt fehl, wenn er hinterherhinkt.
 - Projekt-Skill `spark-sound` für Claude Code in diesem Repository.
+- KI-Sound in der App: Beschreibungstext an Ollama Cloud (`https://ollama.com/api/chat`), Antwort über denselben
+  `SoundRecipe`-Pfad geprüft und als Rezept geschrieben (`PresetLibrary.addRecipe`, `SoundAI`, `OllamaCloud`).
+  - Der Systemprompt trägt neben dem Katalog typische Signalketten von Gitarristen und Stilen, die Regel Songtempo →
+    Delay-Zeit, Hall nach Stil und drei gültige Beispiel-Rezepte (`SoundAIKnowledge.swift`). Tests prüfen, dass jede
+    Modell-ID darin im Katalog steht und jedes Beispiel ohne Warnung liest.
+  - Drei Varianten mit verschiedener Ausrichtung (originalgetreu, druckvoller, reduziert) laufen parallel und
+    erscheinen einzeln, sobald sie fertig sind (`SoundAI.variants`). Gleicht eine fertige Variante einer anderen
+    (gleicher Amp und gleicher Verzerrer), geht sie einmal mit der Bitte um einen anderen Amp zurück.
+  - Schnellknöpfe „wärmer“, „mehr Gain“, „weniger Hall“, „heller“ schicken das Rezept mit einer Folgeanfrage zurück
+    (`SoundAI.refine`). Die Antwort muss die Modelle behalten und sich in die verlangte Richtung bewegen, sonst geht
+    sie einmal zurück; klappt es dann noch nicht, dreht Studio den naheliegenden Regler selbst und sagt das an.
+  - Robust: Wiederholung bei Netzfehlern, 429 und 5xx (nach 1,5 s und 4 s), 120 s Zeitlimit je Anfrage, klare
+    Meldungen für falschen Schlüssel, unbekanntes Modell, Zeitlimit und Antworten ohne JSON. Abbrechen stoppt alle
+    Anfragen; das Schließen des Fensters auch.
+  - Verlauf der letzten 8 Wünsche in UserDefaults (`AI Sound History`), löschbar im Fenster. Ein behaltener Sound trägt
+    den Wunsch in der Beschreibung und die Tags „KI-Sound“ plus die gemachten Anpassungen.
+  - Datenschutz: Es gehen nur Regeln, Katalog, der Wunschtext und bei einer Folgeanfrage das Rezept selbst hinaus,
+    mit festem User-Agent `SparkStudio`. Ein Wunsch mit E-Mail-Adresse, Telefonnummer oder etwas Schlüsselartigem
+    wird vor dem Senden abgelehnt (deterministische Muster, `SoundAI.privacyProblem`), höchstens 200 Zeichen. Der
+    Schlüssel liegt im Schlüsselbund (nur dieser Mac, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`) und steht nur
+    im Authorization-Header. Netzverkehr nur auf Zuruf.
 - REACTOR (eigene Produktlinie, laut Positive Grid nicht Spark-kompatibel, kein Dateiformat dokumentiert): Weg nur
   über Text. `--recipe-prompt` beschreibt ein Rezept oder Preset auf Englisch für „Text to Tone“
   (`SoundRecipe.toneDescription`).
@@ -164,6 +186,10 @@ Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der
   und `--recipe-prompt` auf der Kommandozeile). Andere Spark-Verstärker mit ihren zusätzlichen Modellen in den
   Katalog aufnehmen, sobald eines zum Prüfen da ist. REACTOR nimmt nur Text, solange Positive Grid kein Format oder
   keine Schnittstelle veröffentlicht; ein Text-Rezept dort ausprobieren.
+- **KI-Sound:** läuft über die Ollama Cloud API; offen sind ein Test gegen die echte Cloud (alle Tests laufen mit
+  gefälschtem Chat), ob gpt-oss:120b die Beispiele und Schnellknöpfe gut befolgt, und der Nachbau im Linux-Port.
+  Am Amp ungeprüft: dass ein Delay mit sync = BPM als Viertel auf `bpm` kommt; darauf beruht die Regel
+  „punktierte Achtel = Songtempo × 4/3“ im Prompt.
 - **Audio-Tests über BlackHole** wieder zum Laufen bringen, siehe Prüfungen.
 - **Trailer:** Ob Lautheit und Zusatzverstärkung im Trailer hörbar sind, ist nicht geprüft. Falls ja, gehören sie in
   den Fingerabdruck, und alte Stempel werden neu berechnet.
