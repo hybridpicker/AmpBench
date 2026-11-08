@@ -99,25 +99,45 @@ class QtLink(QObject):
     def is_connected(self) -> bool:
         return self.core.status == "connected"
 
-    # Live changes: a queue that keeps only the newest value of a knob, drained at the amp's pace.
+    # Live changes: a queue that keeps only the newest value of a knob, drained at the amp's pace. Like the Mac app,
+    # the first change of a session sends the whole preset to the temporary place, with that change already in it.
 
-    def push_live(self, changes: list[editor.Change]) -> None:
-        if not changes:
-            return
-        self._loop.call_soon_threadsafe(self._enqueue, changes)
+    def push_live(self, changes: list[editor.Change], current: Preset) -> None:
+        if changes:
+            self._loop.call_soon_threadsafe(self._enqueue, changes, current)
 
-    def _enqueue(self, changes) -> None:
-        if not self.core.is_editing_live:
+    def play_now(self, preset: Preset) -> None:
+        """Plays this state on the amp: the whole preset goes through the queue."""
+        self._loop.call_soon_threadsafe(self._enqueue_whole, preset)
+
+    def play_slot(self, slot: int, done=None) -> None:
+        """Switches the amp to a stored preset; whatever waits in the queue is moot."""
+        self._loop.call_soon_threadsafe(self._queue.clear)
+        self.call(self.core.select(slot), done)
+
+    def _enqueue(self, changes, current) -> None:
+        if self.core.status != "connected":
             return
-        self._queue.push(changes)
+        if self.core.is_editing_live or any(c.kind == "whole" for c in self._queue.items):
+            self._queue.push(changes)
+        else:
+            self._queue.push([editor.Change("whole", preset=current.copy())])
+        self._start_pump()
+
+    def _enqueue_whole(self, preset) -> None:
+        if self.core.status != "connected":
+            return
+        self._queue.push([editor.Change("whole", preset=preset.copy())])
+        self._start_pump()
+
+    def _start_pump(self) -> None:
         if self._pump_task is None or self._pump_task.done():
             self._pump_task = asyncio.ensure_future(self._pump())
 
     async def _pump(self) -> None:
         while self._queue:
             change = self._queue.next()
-            if change is None or not self.core.is_editing_live:
-                self._queue.clear()
+            if change is None:
                 return
             wait = editor.wait_before(change, time.monotonic(), self._recent_models)
             if wait > 0:

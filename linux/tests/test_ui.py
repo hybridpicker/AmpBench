@@ -21,7 +21,7 @@ from spark_studio.ui.main_window import MainWindow  # noqa: E402
 def app():
     app = QApplication.instance() or QApplication([])
     app.setStyle("Fusion")
-    app.setStyleSheet(theme.STYLESHEET)
+    app.setStyleSheet(theme.stylesheet())
     return app
 
 
@@ -50,26 +50,46 @@ def window(app, tmp_path, monkeypatch):
 
 def test_slots_are_shown_and_open_in_the_editor(window):
     w, amp = window
-    assert "Crunch" in w.slot_list.item(1).text()
+    assert w.sidebar.rows[1].title == amp.slots[1].name
     w._slot_clicked(1)
+    wait_for(lambda: amp.active == 1)
     assert w.name_edit.text() == amp.slots[1].name
     assert len(w.pedals) == 7 and all(p.isVisibleTo(w) for p in w.pedals)
 
 
-def test_turning_a_knob_live_reaches_the_amp(window):
+def test_first_change_sends_the_whole_preset_then_single_parameters(window):
     w, amp = window
     w._slot_clicked(0)
-    w.live_button.click()
-    wait_for(lambda: w.link.core.is_editing_live)
+    wait_for(lambda: not w.link.core.is_editing_live and amp.active == 0)
     w._select_place(3)
-    knob = w.knob_row.itemAt(0).widget()
+    knob = w.field.knob_row.itemAt(0).widget()
     knob.gesture_started.emit()
     knob._set_from_user(0.9)
     knob.gesture_ended.emit()
-    wait_for(lambda: any(abs(v - 0.9) < 1e-6 for _, _, v in amp.parameters))
-    assert w.editor.is_modified
+    wait_for(lambda: w.link.core.is_editing_live)
+    assert amp.temporary is not None and abs(amp.temporary.effects[3].parameters[0].value - 0.9) < 1e-6
+    knob.gesture_started.emit()
+    knob._set_from_user(0.7)
+    knob.gesture_ended.emit()
+    wait_for(lambda: any(abs(v - 0.7) < 1e-6 for _, _, v in amp.parameters))
+    assert w.editor.is_modified and w.lamp_live.lit
+    w._undo()
     w._undo()
     assert not w.editor.is_modified
+
+
+def test_ab_comparison_plays_the_saved_state_and_locks_the_controls(window):
+    w, amp = window
+    w._slot_clicked(1)
+    w._toggle_place(5, True)
+    wait_for(lambda: w.link.core.is_editing_live)
+    assert w.editor.is_modified
+    w._toggle_comparison()
+    assert w.show_original and w.locked
+    wait_for(lambda: amp.temporary is not None and not amp.temporary.effects[5].is_on)
+    w._toggle_comparison()
+    wait_for(lambda: amp.temporary.effects[5].is_on)
+    assert not w.show_original
 
 
 def test_store_backs_up_the_old_preset_then_writes_and_verifies(window):
@@ -101,7 +121,6 @@ def test_model_change_updates_the_chain(window):
     w, _ = window
     w._new(None)
     w._select_place(3)
-    row = w.model_combo.findData("Plexi")
-    w._model_chosen(row)
+    w._model_chosen("Plexi")
     assert w.editor.current.effects[3].name == "Plexi"
     assert w.pedals[3].model_name == "Plexi Crunch"

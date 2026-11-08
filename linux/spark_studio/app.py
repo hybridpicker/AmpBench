@@ -41,7 +41,8 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("Spark Studio")
     app.setDesktopFileName("spark-studio")
     app.setStyle("Fusion")
-    app.setStyleSheet(theme.STYLESHEET)
+    app.setFont(theme.sans(13))
+    app.setStyleSheet(theme.stylesheet())
     icon = _find_icon()
     if icon:
         app.setWindowIcon(QIcon(str(icon)))
