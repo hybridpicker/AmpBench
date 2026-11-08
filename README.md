@@ -361,8 +361,12 @@ request.
 ```bash
 swift run SparkStudio --recipe-check docs/ai/examples/texas-blues.json    # can Studio read it, and with which values
 swift run SparkStudio --recipe-from "$HOME/Music/Spark Studio/Presets/Jazz.json"  # a saved preset as a recipe
+swift run SparkStudio --recipe-prompt docs/ai/examples/texas-blues.json   # the sound in English, e.g. for REACTOR
 swift run SparkStudio --catalog-export docs/ai                            # write the catalog files again
 ```
+
+Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format. Its "Text to Tone" takes the
+description from `--recipe-prompt`; the guide's section Devices has the details.
 
 A test fails when `docs/ai` falls behind the catalog, so a new model goes into `Sources/SparkControl/Catalog` and then
 through `--catalog-export`.

@@ -1,6 +1,6 @@
 ---
 name: spark-sound
-description: Build or change a guitar sound for the Positive Grid Spark amp as a sound recipe that Spark Studio reads. Use when the user asks for a sound, tone, preset or amp setting ("bau mir einen Blues-Sound", "mach das Preset wärmer", "Sound wie Song X"), or wants to adjust a saved preset.
+description: Build or change a guitar sound for the Positive Grid Spark amp as a sound recipe that Spark Studio reads, or describe one as text for REACTOR's Text to Tone. Use when the user asks for a sound, tone, preset or amp setting ("bau mir einen Blues-Sound", "mach das Preset wärmer", "Sound wie Song X"), or wants to adjust a saved preset.
 ---
 
 # Spark sound recipes
@@ -16,6 +16,10 @@ description: Build or change a guitar sound for the Positive Grid Spark amp as a
    there without asking; pick a new name instead. Studio picks it up when its window comes to the front.
 5. Tell the user, in their language, which amp and effects you chose and why, and which one or two knobs to turn first
    by ear. You cannot hear the result.
+
+For REACTOR: build and check the recipe the same way, then run
+`swift run SparkStudio --recipe-prompt <file>` and give the user that text to paste into the REACTOR app's Text to
+Tone. REACTOR cannot read recipe files; see the section Devices in the guide.
 
 Rules:
 - Avoid models with `"pack": true` unless the user says the add-on is unlocked.

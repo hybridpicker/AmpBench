@@ -171,3 +171,32 @@ final class SoundRecipeTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(CatalogReference.self, from: json), reference)
     }
 }
+
+/// The English description for devices that take a text prompt, such as REACTOR's Text to Tone.
+final class ToneDescriptionTests: XCTestCase {
+    func testTheDescriptionNamesModelsAndValues() throws {
+        var recipe = SoundRecipe(name: "Blues", description: "Pushed tweed", bpm: 96, notes: "Lower the drive first.",
+                                 chain: [
+            "drive": .init(model: "DistortionTS9", settings: ["drive": .number(3)]),
+            "amp": .init(model: "Bassman", settings: ["gain": .number(5)]),
+            "delay": .init(model: "DelayMono", on: false),
+            "reverb": .init(model: "bias.reverb", settings: ["type": .text("Saal weit"), "level": .number(2.5)]),
+        ])
+        let text = try recipe.toneDescription()
+        let lines = text.split(separator: "\n").map(String.init)
+        XCTAssertEqual(lines.first, "Guitar tone \u{201C}Blues: Pushed tweed\u{201D}, 96 BPM.")
+        XCTAssertTrue(lines.contains("Drive pedal: Ibanez TS9 style pedal, drive 3/10."), text)
+        // All five amp knobs, because another device does not know the Spark's start values.
+        XCTAssertTrue(lines.contains { $0.hasPrefix("Amp: Fender Bassman ’59 style amp, gain 5/10, treble ") && $0.contains("master ") }, text)
+        XCTAssertTrue(lines.contains("Reverb: large hall reverb, level 2.5/10."), text)
+        XCTAssertFalse(text.contains("Delay"), "Units that are off are left out.")
+        XCTAssertEqual(lines.last, "Notes: Lower the drive first.")
+        recipe.chain = ["delay": .init(model: "DelayMono", settings: ["sync": .flag(true)])]
+        XCTAssertTrue(try recipe.toneDescription().contains("Delay: Boss DD-3 style, synced to tempo."))
+    }
+
+    func testABrokenRecipeHasNoDescription() {
+        let recipe = SoundRecipe(name: "X", chain: ["amp": .init(model: "Nope")])
+        XCTAssertThrowsError(try recipe.toneDescription())
+    }
+}

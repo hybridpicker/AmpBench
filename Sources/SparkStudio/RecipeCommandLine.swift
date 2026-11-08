@@ -4,6 +4,7 @@ import SparkControl
 /// Headless commands for sound recipes and the catalog, so an AI assistant or a script can check its work:
 ///   --recipe-check <recipe.json>...         says whether Studio can read each recipe, and what it corrected
 ///   --recipe-from <preset.json> [out.json]  describes a saved preset as a recipe
+///   --recipe-prompt <recipe or preset.json> describes the sound in English, e.g. for REACTOR's Text to Tone
 ///   --catalog-export <folder>               writes spark-catalog.json and spark-catalog.md
 enum RecipeCommandLine {
     /// The exit status, or nil when the arguments are not one of these commands.
@@ -13,6 +14,7 @@ enum RecipeCommandLine {
         switch command {
         case "--recipe-check": return check(rest)
         case "--recipe-from": return describe(rest)
+        case "--recipe-prompt": return prompt(rest)
         case "--catalog-export": return export(rest)
         default: return nil
         }
@@ -74,6 +76,29 @@ enum RecipeCommandLine {
             } else {
                 FileHandle.standardOutput.write(data)
             }
+            return 0
+        } catch {
+            print("nicht möglich: \(error.localizedDescription)")
+            return 1
+        }
+    }
+
+    /// A recipe file, or a saved preset described as one.
+    private static func prompt(_ arguments: [String]) -> Int32 {
+        guard arguments.count == 1 else {
+            print("usage: --recipe-prompt <recipe or preset.json>")
+            return 64
+        }
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: arguments[0]))
+            let recipe: SoundRecipe
+            if let read = try SoundRecipe.decodeIfRecipe(data) {
+                recipe = read
+            } else {
+                let file = try PresetFile.read(data)
+                recipe = try SoundRecipe(preset: file.preset, tags: file.tags, notes: file.notes)
+            }
+            print(try recipe.toneDescription(), terminator: "")
             return 0
         } catch {
             print("nicht möglich: \(error.localizedDescription)")

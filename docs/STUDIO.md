@@ -79,8 +79,11 @@ steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
 - Anleitung, Katalog, Schema und Beispiele: `docs/ai`. Der Katalog dort wird mit `--catalog-export docs/ai` aus dem
   Code geschrieben, `SoundRecipeTests` schlägt fehl, wenn er hinterherhinkt.
 - Projekt-Skill `spark-sound` für Claude Code in diesem Repository.
+- REACTOR (eigene Produktlinie, laut Positive Grid nicht Spark-kompatibel, kein Dateiformat dokumentiert): Weg nur
+  über Text. `--recipe-prompt` beschreibt ein Rezept oder Preset auf Englisch für „Text to Tone“
+  (`SoundRecipe.toneDescription`).
 - Offen: Rezept aus dem Editor exportieren (bisher nur `--recipe-from`), ein Rezept am Spark MINI anhören, andere
-  Geräte der Spark-Familie (NEO und weitere) nicht geprüft.
+  Geräte der Spark-Familie (NEO und weitere) und REACTOR nicht geprüft.
 
 ## Datenmodell
 

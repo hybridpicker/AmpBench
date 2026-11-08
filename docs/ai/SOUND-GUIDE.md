@@ -143,9 +143,45 @@ These are starting points from general guitar practice, not measurements of the 
   MINI hang. Never ask the player to step through many presets quickly.
 - **Start values are from a Spark MINI.** They were read back from a Spark MINI with firmware 1.11.2.75. The models and
   their parameters are shared by the Spark family, but only the MINI was checked.
-- **Other Positive Grid devices.** The recipe names models and settings, not the bytes of one amp, so it is meant to work
-  on every Spark that knows these models. Spark Studio sends it to Spark amps over Bluetooth. Newer devices may know
-  models that are not in the catalog yet, and devices with another tone engine need a converter of their own. Neither
-  has been checked.
+- **Other devices** are covered in the next section.
 - **No personal data.** A recipe holds a sound, not people. Keep names of other players out of `notes` unless the
   player writes them.
+
+## Devices
+
+A recipe names models and settings, not the bytes of one amp. How it reaches a device depends on the device.
+
+| Device | How a recipe gets there | Checked |
+|---|---|---|
+| Spark MINI | Spark Studio over Bluetooth: play on the temporary place, store in a slot | Yes, firmware 1.11.2.75 |
+| Other Spark amps (Spark 40, GO, 2, LIVE) | Same way, if they know the model ids | No. Newer amps may know models the catalog lacks |
+| Spark NEO | Unknown | No |
+| REACTOR (50 and 100) | As text for its "Text to Tone", see below | No |
+
+### REACTOR
+
+REACTOR is Positive Grid's combo amp with "Amp Intelligence". Its tones come from the REACTOR app, which builds them
+from text, a photo or audio. Positive Grid calls it a separate product line, not compatible with Spark. As of
+2026-11-08 its product page names no preset file format, no import or export and no interface for other software.
+Spark Studio can therefore not send a recipe to it. The only open route is text, and a description travels well.
+
+```bash
+"/Applications/Spark Studio.app/Contents/MacOS/SparkStudio" --recipe-prompt docs/ai/examples/texas-blues.json
+```
+
+```text
+Guitar tone “Texas Blues: Edge-of-breakup combo pushed by a mid drive”, 96 BPM.
+Drive pedal: Ibanez TS9 style pedal, drive 3/10, tone 5.5/10, level 7/10.
+Amp: Fender Bassman ’59 style amp, gain 5/10, treble 6/10, middle 6.5/10, bass 4.5/10, master 7/10.
+Reverb: room reverb, level 2.5/10, length 4/10.
+Notes: ...
+```
+
+Paste that into the app's Text to Tone and refine there by typing, such as "less bass". The command also takes a saved
+preset file, so every sound in Spark Studio can be described this way. The result is REACTOR's own reading of the
+description, not a copy: it chooses from its own amp models, and its knobs are not calibrated like the Spark's. An
+assistant writing for REACTOR should name the real amp and pedals the sound is modeled after, give the amp's five
+knobs, and describe the character in words. It can skip the Spark model ids.
+
+What REACTOR sends to Positive Grid when it analyzes a photo or a recording is not stated on the product page. Use
+only your own material there.
