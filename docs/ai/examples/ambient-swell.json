@@ -1,0 +1,16 @@
+{
+  "format": "spark-sound-recipe",
+  "version": 1,
+  "name": "Ambient Swell",
+  "description": "Wide clean with tape echo and a long hall",
+  "bpm": 72,
+  "tags": ["Ambient", "Clean"],
+  "notes": "Play with the volume knob for swells. Echo follows the tempo. If the reverb washes out chords, lower reverb.level first, then reverb.length.",
+  "chain": {
+    "compressor": { "model": "BlueComp", "settings": { "level": 5, "sustain": 6 } },
+    "amp": { "model": "94MatchDCV2", "settings": { "gain": 3.5, "treble": 5, "middle": 4.5, "bass": 4.5, "master": 7 } },
+    "modulation": { "model": "UniVibe", "settings": { "speed": 2, "mode": "Chorus", "intensity": 4 } },
+    "delay": { "model": "DelayRe201", "settings": { "sustain": 4.5, "level": 4, "tone": 4, "sync": true } },
+    "reverb": { "model": "bias.reverb", "settings": { "level": 5, "length": 8.5, "damping": 4, "type": "Saal weit" } }
+  }
+}

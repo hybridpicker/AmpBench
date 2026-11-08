@@ -5,6 +5,10 @@ import SparkRecorderUI
 // --play-tone, --inspect; the recorder's self-test starts this executable with --play-tone). The test options of
 // both apps work too (--library, --ui-selftest, --dark, --offline, --snapshot, --open, --size, --appearance,
 // --live-selftest), plus --menu-dump.
+// Sound recipes and the catalog: --recipe-check, --recipe-from, --catalog-export.
+if let status = RecipeCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
+    exit(status)
+}
 if let status = RecorderCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
     exit(status)
 }

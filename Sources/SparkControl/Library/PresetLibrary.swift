@@ -43,8 +43,14 @@ public final class PresetLibrary {
         var unreadable: [String] = []
         let decoder = Self.makeDecoder()
         for url in urls {
-            if let data = try? Data(contentsOf: url), let file = try? decoder.decode(PresetFile.self, from: data) {
+            guard let data = try? Data(contentsOf: url) else {
+                unreadable.append(url.lastPathComponent)
+                continue
+            }
+            if let file = try? decoder.decode(PresetFile.self, from: data) {
                 items.append(SavedPreset(url: url, file: file))
+            } else if let recipe = Self.recipeFile(data, url: url) {
+                items.append(SavedPreset(url: url, file: recipe, isRecipe: true))
             } else {
                 unreadable.append(url.lastPathComponent)
             }
@@ -86,6 +92,7 @@ public final class PresetLibrary {
         guard !trimmed.isEmpty else { throw PresetLibraryError.emptyName }
         guard trimmed.utf8.count <= Self.nameLimit else { throw PresetLibraryError.nameTooLong(Self.nameLimit) }
         var renamed = item
+        renamed.isRecipe = false
         renamed.file.preset.name = trimmed
         let wanted = Self.fileName(for: trimmed)
         if wanted != item.url.deletingPathExtension().lastPathComponent {
@@ -104,6 +111,7 @@ public final class PresetLibrary {
         guard !trimmed.isEmpty else { throw PresetLibraryError.emptyName }
         guard trimmed.utf8.count <= Self.nameLimit else { throw PresetLibraryError.nameTooLong(Self.nameLimit) }
         var updated = item
+        updated.isRecipe = false
         updated.file.preset = preset
         updated.file.savedAt = date
         let wanted = Self.fileName(for: preset.name)
@@ -128,6 +136,16 @@ public final class PresetLibrary {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
         try encoder.encode(item.file).write(to: item.url, options: .atomic)
+    }
+
+    /// A sound recipe in the folder as a preset file. Saving it in the editor writes it as an ordinary preset file.
+    /// Nil when it is no recipe or has a problem; `SparkStudio --recipe-check` says which.
+    static func recipeFile(_ data: Data, url: URL) -> PresetFile? {
+        guard let recipe = try? SoundRecipe.decodeIfRecipe(data),
+              let conversion = try? recipe.preset(identity: data) else { return nil }
+        let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
+        return PresetFile(id: nil, savedAt: date, origin: "Rezept", tags: PresetFile.normalized(recipe.tags),
+                          notes: recipe.notes, preset: conversion.preset)
     }
 
     static func makeDecoder() -> JSONDecoder {

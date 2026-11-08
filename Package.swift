@@ -24,7 +24,7 @@ let package = Package(
         .target(name: "SparkPresetsUI", dependencies: ["SparkControl", "SparkDesign"], path: "Sources/SparkPresetsUI"),
         // Spark Studio: the one window with the deck and the areas, and what ties them together.
         .executableTarget(
-            name: "SparkStudio", dependencies: ["SparkCore", "SparkDesign", "SparkRecorderUI", "SparkPresetsUI"],
+            name: "SparkStudio", dependencies: ["SparkCore", "SparkControl", "SparkDesign", "SparkRecorderUI", "SparkPresetsUI"],
             path: "Sources/SparkStudio",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/Info.plist"])]),

@@ -179,7 +179,7 @@ private struct LibraryRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            Image(systemName: item.file.isBackup ? "clock" : "folder")
+            Image(systemName: item.file.isBackup ? "clock" : item.isRecipe ? "wand.and.stars" : "folder")
                 .font(.system(size: 12))
                 .foregroundStyle(Color(nsColor: .secondaryLabelColor))
                 .frame(width: 22)

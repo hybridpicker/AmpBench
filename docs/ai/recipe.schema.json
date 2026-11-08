@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "spark-sound-recipe-1",
+  "title": "Spark sound recipe, version 1",
+  "description": "A guitar sound for Positive Grid Spark amps, described by model and settings. Model ids and parameter keys are in spark-catalog.json. Spark Studio checks the parts this schema cannot, such as which keys a model has: SparkStudio --recipe-check <file>.",
+  "type": "object",
+  "required": ["format", "version", "name", "chain"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": "spark-sound-recipe" },
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "description": "At most 31 bytes; umlauts count twice. The amp shows it." },
+    "description": { "type": "string" },
+    "bpm": { "type": "number", "minimum": 40, "maximum": 250, "default": 120, "description": "Tempo for delays and effects with sync on." },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "notes": { "type": "string", "description": "Why the sound is set up this way and what to adjust by ear." },
+    "chain": {
+      "type": "object",
+      "description": "A place left out is switched off.",
+      "additionalProperties": false,
+      "properties": {
+        "gate": { "$ref": "#/$defs/unit" },
+        "compressor": { "$ref": "#/$defs/unit" },
+        "drive": { "$ref": "#/$defs/unit" },
+        "amp": { "$ref": "#/$defs/unit" },
+        "modulation": { "$ref": "#/$defs/unit" },
+        "delay": { "$ref": "#/$defs/unit" },
+        "reverb": { "$ref": "#/$defs/unit" }
+      }
+    }
+  },
+  "$defs": {
+    "unit": {
+      "type": "object",
+      "required": ["model"],
+      "additionalProperties": false,
+      "properties": {
+        "model": { "type": "string", "description": "A model id from spark-catalog.json for this place, exact spelling." },
+        "on": { "type": "boolean", "default": true },
+        "settings": {
+          "type": "object",
+          "description": "Parameter key to value. Knobs: 0 to 10. Switches: true/false or the off/on label. Choices: an option label. A key left out keeps the amp's start value.",
+          "additionalProperties": { "type": ["number", "boolean", "string"] }
+        }
+      }
+    }
+  }
+}

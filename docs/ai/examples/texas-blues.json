@@ -1,0 +1,18 @@
+{
+  "format": "spark-sound-recipe",
+  "version": 1,
+  "name": "Texas Blues",
+  "description": "Edge-of-breakup combo pushed by a mid drive",
+  "bpm": 96,
+  "tags": ["Blues", "Crunch"],
+  "notes": "Tweed combo just breaking up, the mid drive adds push rather than gain. Too fizzy: lower drive.drive to 2. Too clean on the neck pickup: raise amp.gain to 6.",
+  "chain": {
+    "gate": { "model": "bias.noisegate", "on": false },
+    "compressor": { "model": "BlueComp", "on": false },
+    "drive": { "model": "DistortionTS9", "on": true, "settings": { "drive": 3, "tone": 5.5, "level": 7 } },
+    "amp": { "model": "Bassman", "settings": { "gain": 5, "treble": 6, "middle": 6.5, "bass": 4.5, "master": 7 } },
+    "modulation": { "model": "ChorusAnalog", "on": false },
+    "delay": { "model": "DelayMono", "on": false },
+    "reverb": { "model": "bias.reverb", "settings": { "level": 2.5, "length": 4, "type": "Raum B" } }
+  }
+}

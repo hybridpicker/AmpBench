@@ -1,0 +1,15 @@
+{
+  "format": "spark-sound-recipe",
+  "version": 1,
+  "name": "Modern Metal Rhythm",
+  "description": "Tight high gain, boosted, gated",
+  "bpm": 140,
+  "tags": ["Metal", "Rhythm"],
+  "notes": "The booster tightens the low end instead of adding gain, the gate keeps palm-mute stops clean. Muddy: lower amp.bass before amp.gain.",
+  "chain": {
+    "gate": { "model": "bias.noisegate", "settings": { "threshold": 4, "decay": 3 } },
+    "drive": { "model": "DistortionTS9", "settings": { "drive": 0.5, "tone": 6, "level": 8 } },
+    "amp": { "model": "6505Plus", "settings": { "gain": 6.5, "treble": 6, "middle": 5, "bass": 5, "master": 6.5 } },
+    "reverb": { "model": "bias.reverb", "on": false }
+  }
+}

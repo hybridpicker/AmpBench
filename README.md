@@ -349,6 +349,24 @@ The order of reverb parameters 2 to 5 is disputed between sources. The catalog f
 high cut, density, length), and a listening test confirmed it: with everything else at its maximum, parameter 3 at 0
 made the reverb dull but still long, parameter 5 at 0 made it short.
 
+### Sound recipes and AI assistants
+
+A **sound recipe** describes a sound by what it is: a model and settings for each place of the chain, knobs from 0 to
+10, in a small JSON file. Claude or any other AI assistant can write one, and Spark Studio reads it from the presets
+folder like a preset, marked with a wand. [docs/ai/SOUND-GUIDE.md](docs/ai/SOUND-GUIDE.md) explains the format and how
+to choose models and values. [docs/ai/spark-catalog.json](docs/ai/spark-catalog.json) lists every model with its
+parameter keys and start values. In this repository the project skill `spark-sound` lets Claude Code build sounds on
+request.
+
+```bash
+swift run SparkStudio --recipe-check docs/ai/examples/texas-blues.json    # can Studio read it, and with which values
+swift run SparkStudio --recipe-from "$HOME/Music/Spark Studio/Presets/Jazz.json"  # a saved preset as a recipe
+swift run SparkStudio --catalog-export docs/ai                            # write the catalog files again
+```
+
+A test fails when `docs/ai` falls behind the catalog, so a new model goes into `Sources/SparkControl/Catalog` and then
+through `--catalog-export`.
+
 ### Sources
 
 Only the facts of the protocol were taken from these projects, no code. Byte layouts were rewritten and then checked

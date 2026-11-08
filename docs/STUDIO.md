@@ -68,6 +68,20 @@ Für eine weitere App, etwa ein Stimmgerät oder Setlists:
 4. Ein Scope in `StudioKeymap` mit allen Tasten des Bereichs. `StudioKeymapTests` meldet jede Doppelbelegung.
 5. Einzeltasten bleiben dem Bereich Aufnahme vorbehalten, außer R und Leertaste.
 
+## Klangrezepte für KI-Assistenten
+
+Ein Klangrezept (`"format": "spark-sound-recipe"`) beschreibt einen Sound geräteneutral: Modell und Werte je Platz,
+Regler 0–10, Parameter über feste englische Schlüssel (`ParameterInfo.key`). `PresetLibrary` liest Rezepte im Ordner
+Presets wie Presets (`SavedPreset.isRecipe`, Zauberstab in der Seitenleiste); erst Speichern schreibt sie als
+Preset-Datei. Die uuid kommt aus dem SHA-256 der Datei, bleibt also beim erneuten Lesen gleich. Ein fehlerhaftes Rezept
+steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
+
+- Anleitung, Katalog, Schema und Beispiele: `docs/ai`. Der Katalog dort wird mit `--catalog-export docs/ai` aus dem
+  Code geschrieben, `SoundRecipeTests` schlägt fehl, wenn er hinterherhinkt.
+- Projekt-Skill `spark-sound` für Claude Code in diesem Repository.
+- Offen: Rezept aus dem Editor exportieren (bisher nur `--recipe-from`), ein Rezept am Spark MINI anhören, andere
+  Geräte der Spark-Familie (NEO und weitere) nicht geprüft.
+
 ## Datenmodell
 
 - **Sound am Take:** `Recording.preset: PresetStamp?` mit `slot` (1–4, nil = vorübergehend gespielt), `name`,

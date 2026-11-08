@@ -65,6 +65,14 @@ public struct PresetFile: Codable, Equatable, Sendable {
 public struct SavedPreset: Identifiable, Equatable, Sendable {
     public var url: URL
     public var file: PresetFile
+    /// Read from a sound recipe. The file is written as a preset file only when it is saved.
+    public var isRecipe: Bool
     public var id: URL { url }
+
+    public init(url: URL, file: PresetFile, isRecipe: Bool = false) {
+        self.url = url
+        self.file = file
+        self.isRecipe = isRecipe
+    }
     public var name: String { file.preset.name }
 }

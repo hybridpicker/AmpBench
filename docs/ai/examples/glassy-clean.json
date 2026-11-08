@@ -1,0 +1,16 @@
+{
+  "format": "spark-sound-recipe",
+  "version": 1,
+  "name": "Glassy Clean",
+  "description": "Clean with chorus, short echo and a plate",
+  "bpm": 100,
+  "tags": ["Clean", "Pop"],
+  "notes": "Lots of headroom, compression evens out arpeggios. Echo on the beat quarter, so it follows the preset's tempo.",
+  "chain": {
+    "compressor": { "model": "BBEOpticalComp", "settings": { "level": 6, "compression": 4 } },
+    "amp": { "model": "Twin", "settings": { "gain": 3, "treble": 6, "middle": 4.5, "bass": 5, "master": 7 } },
+    "modulation": { "model": "ChorusAnalog", "settings": { "effect": 4, "rate": 3, "depth": 4.5, "tone": 6 } },
+    "delay": { "model": "DelayMono", "settings": { "effect": 2.5, "feedback": 2.5, "sync": true } },
+    "reverb": { "model": "bias.reverb", "settings": { "level": 3.5, "length": 5.5, "type": "Platte kurz" } }
+  }
+}
