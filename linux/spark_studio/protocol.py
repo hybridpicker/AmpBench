@@ -7,6 +7,8 @@ reference: change both together. A message is one or more chunks
 from __future__ import annotations
 
 import copy
+import hashlib
+import json
 import struct
 import uuid as uuidlib
 from dataclasses import dataclass, field
@@ -601,3 +603,27 @@ def apply_event(preset: Preset, event: Event) -> bool:
         preset.effects[place].name = event.new
         return True
     return False
+
+
+def _swift_number(value: float) -> str:
+    """A 32-bit float the way Swift's JSONEncoder prints it: shortest digits, no ".0" on whole numbers."""
+    short = f32_repr(value)
+    if short == int(short) and abs(short) < 1e15:
+        return str(int(short))
+    return repr(short)
+
+
+def canonical_effects(preset: Preset) -> str:
+    """The effect chain as compact JSON with sorted keys, exactly the bytes the Mac app fingerprints."""
+    effects = []
+    for effect in preset.effects:
+        parameters = ",".join(
+            f'{{"index":{p.index},"marker":{p.marker},"value":{_swift_number(p.value)}}}' for p in effect.parameters)
+        name = json.dumps(effect.name, ensure_ascii=False).replace("/", "/")
+        effects.append(f'{{"isOn":{"true" if effect.is_on else "false"},"name":{name},"parameters":[{parameters}]}}')
+    return "[" + ",".join(effects) + "]"
+
+
+def fingerprint(preset: Preset) -> str:
+    """SHA-256 of the effect chain in lowercase hex: the sound of a take. Name, BPM, uuid and trailer do not count."""
+    return hashlib.sha256(canonical_effects(preset).encode("utf-8")).hexdigest()

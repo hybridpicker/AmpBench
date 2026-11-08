@@ -184,3 +184,28 @@ def test_library_reads_mac_files_and_recipes(tmp_path):
     lib.reload()
     assert not lib.unreadable
     assert any(i.is_recipe for i in lib.items) and any(i.name == "Jazz" or "Jazz" in i.name for i in lib.items)
+
+
+# SHA-256 of the effect chains as `SparkStudio --fingerprint` prints them on the Mac.
+MAC_FINGERPRINTS = {
+    "Jazz.json": "cf5899f677e80a86a9cc79052d91ebe04e0e8e30740c3e0113779408dfc283b2",
+    "Platz 1 - Jazz.json": "cf5899f677e80a86a9cc79052d91ebe04e0e8e30740c3e0113779408dfc283b2",
+    "Platz 2 - Fusion Sound.json": "9e95c1faafbac5339717503f476c5245f376f7b62c46d46623a3a9d543d978a6",
+    "Platz 3 - SOLO.json": "1522f6382c5356109773656ac264464b8be8d1c9db498501834c48ecb9a74600",
+    "Platz 4 - CUSTOM.json": "d7d0b74f8182dec6b930bc7afd07ee4e79dfe967431688460d437660890aab3d",
+}
+
+
+@pytest.mark.parametrize("name,expected", sorted(MAC_FINGERPRINTS.items()))
+def test_fingerprint_equals_the_mac_apps(name, expected):
+    data = json.loads((FIXTURES / name).read_text())
+    assert protocol.fingerprint(Preset.from_json(data["preset"] if "preset" in data else data)) == expected
+
+
+def test_fingerprint_ignores_name_bpm_and_trailer():
+    a = factory.empty("A")
+    b = a.copy()
+    b.name, b.bpm, b.trailer = "B", 90.0, bytes([0xCA, 0, 0, 0, 0, 0])
+    assert protocol.fingerprint(a) == protocol.fingerprint(b)
+    b.effects[3].parameters[0].value = 0.123
+    assert protocol.fingerprint(a) != protocol.fingerprint(b)

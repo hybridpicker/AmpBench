@@ -11,7 +11,7 @@ from typing import Callable
 
 from PySide6.QtCore import QObject, QSettings, QTimer, Signal
 
-from . import capture, store as storemod
+from . import capture, protocol, store as storemod
 from .capture import CaptureEngine, InputDevice
 
 
@@ -39,6 +39,8 @@ class RecorderModel(QObject):
         self.active_start: datetime | None = None
         self.active_source: dict | None = None
         self.auto_level = True
+        self.current_piece_id: str | None = None
+        self.sound_provider = None  # () -> (preset, slot or None, origin) or None
         self.engine.on_lost = lambda: QTimer.singleShot(0, self._device_lost)
         self.engine.on_limit = lambda: QTimer.singleShot(0, lambda: self.stop("Die Aufnahme hat die Grenze des WAV-Formats erreicht und wurde sicher beendet."))
         self._timer = QTimer(self)
@@ -102,6 +104,23 @@ class RecorderModel(QObject):
     def is_recording(self) -> bool:
         return self.phase == "recording"
 
+    def _stamp_sound(self, take_id: str, now: datetime) -> dict | None:
+        """The sound the take is recorded with, read from memory only, so nothing can delay a recording."""
+        if self.sound_provider is None:
+            return None
+        try:
+            heard = self.sound_provider()
+            if heard is None:
+                return None
+            preset, slot, origin = heard
+            storemod.write_snapshot(self.store, take_id, preset, origin)
+            stamp = {"name": preset.name, "stampedAt": storemod.iso(now), "sha256": protocol.fingerprint(preset)}
+            if slot is not None:
+                stamp["slot"] = slot + 1
+            return stamp
+        except Exception:  # a missing sound must never stop a recording
+            return None
+
     def _source_format(self, device: InputDevice) -> dict:
         return {"deviceName": device.title, "bits": device.bits, "sampleRate": device.rate, "channels": device.channels}
 
@@ -159,6 +178,11 @@ class RecorderModel(QObject):
             take_id = storemod.new_id()
             journal = {"fileName": path.name, "startedAt": storemod.iso(now), "source": source, "takeID": take_id,
                        "markers": []}
+            if self.current_piece_id and storemod.piece(self.store, self.current_piece_id):
+                journal["pieceID"] = self.current_piece_id
+            stamp = self._stamp_sound(take_id, now)
+            if stamp:
+                journal["preset"] = stamp
             self.store.write_journal(journal)
             self.engine.start_recording(path)
         except (OSError, RuntimeError) as error:

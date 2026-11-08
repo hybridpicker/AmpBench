@@ -195,3 +195,63 @@ def test_recording_page_review_keys_and_undo(app, tmp_path, monkeypatch):
         assert not recorder.is_recording
     finally:
         w.close()
+
+
+def test_library_views_rate_search_pieces_and_sound(app, tmp_path, monkeypatch):
+    from PySide6.QtCore import Qt
+    from spark_studio import factory, protocol, store as storemod
+    from spark_studio.demo_input import demo_devices, demo_engine
+    from spark_studio.recorder import RecorderModel
+    from spark_studio.store import LibraryStore
+    monkeypatch.setattr("spark_studio.trash.trash_root", lambda: tmp_path / "Trash")
+    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    amp = FakeAmp()
+    w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=True, recorder=recorder)
+    w.show()
+    page = w.recordings
+    try:
+        wait_for(lambda: w.link.core.status == "connected" and all(w.link.core.slots) and not w.link.core.activity)
+        w._slot_clicked(1)
+        wait_for(lambda: w.link.core.active_slot == 1)
+        w._area(0)
+        QTest.keyClick(w, Qt.Key_R)
+        wait_for(lambda: recorder.is_recording and recorder.engine.meter.seconds > 0.4)
+        QTest.keyClick(w, Qt.Key_R)
+        wait_for(lambda: not recorder.is_recording and page.table.rowCount() == 1)
+        take = recorder.store.document["recordings"][0]
+        assert take["preset"]["slot"] == 2 and take["preset"]["name"] == amp.slots[1].name
+        assert page.inspector.sound_label.text().startswith(amp.slots[1].name)
+        # rating and favorite by key and by click
+        QTest.keyClick(w, Qt.Key_4)
+        QTest.keyClick(w, Qt.Key_F)
+        assert take["rating"] == 4 and take["favorite"] is True
+        page.inspector.stars.mousePressEvent(type("E", (), {"position": lambda self: __import__("PySide6.QtCore", fromlist=["QPointF"]).QPointF(2, 5)})())
+        assert take["rating"] == 1
+        # a piece, assigned from the inspector
+        page.create_piece("Blues in A", [take["id"]])
+        assert take["pieceID"] == storemod.piece(recorder.store, take["pieceID"])["id"]
+        assert page.takes.table.item(0, 5).text() == "Blues in A"
+        page.mark_best(take["id"])
+        assert storemod.piece(recorder.store, take["pieceID"])["bestTakeID"] == take["id"]
+        page.set_piece_for_new(take["pieceID"])
+        assert recorder.current_piece_id == take["pieceID"]
+        # search narrows the table
+        page.takes.search.setText("gibt es nicht")
+        assert page.table.rowCount() == 0
+        page.takes.search.setText("blues")
+        assert page.table.rowCount() == 1
+        page.takes.search.setText("")
+        # tags and notes are saved
+        page.update_take(take["id"], {"tags": ["Blues", "Üben"], "note": "langsam"})
+        assert recorder.store.recording(take["id"])["tags"] == ["Blues", "Üben"]
+        # the sound of the take opens in the editor as a new preset
+        page.inspector.editor_key.click()
+        assert w.stack.currentIndex() == 1 and w.source == ("new", None)
+        assert protocol.fingerprint(w.editor.current) == take["preset"]["sha256"]
+        # renaming renames the file
+        page.rename_marker  # exists
+        page._rename_to(take["id"], "Mein Take")
+        assert (recorder.store.folder / "Mein Take.wav").exists()
+    finally:
+        w.editor = None
+        w.close()

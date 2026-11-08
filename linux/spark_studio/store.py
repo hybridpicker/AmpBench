@@ -10,7 +10,7 @@ import os
 import shutil
 import uuid as uuidlib
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from . import trash as trashmod, wav
@@ -299,3 +299,154 @@ def auto_level_gain(peak_db: float | None) -> float:
         return 0.0
     gain = min(-1.0 - peak_db, 30.0)
     return gain if gain >= 0.1 else 0.0
+
+
+# MARK: Names, pieces and the questions the library views ask
+
+
+def sanitized_name(name: str) -> str | None:
+    """A safe file name stem, or None when nothing usable remains."""
+    cleaned = name.strip().replace("/", "-").replace(":", "-")
+    cleaned = "".join(ch for ch in cleaned if ch not in "\n\r\0")
+    cleaned = cleaned.lstrip(".").strip()
+    return cleaned if cleaned and len(cleaned.encode("utf-8")) <= 200 else None
+
+
+def rename_recording(store: LibraryStore, take_id: str, new_name: str) -> None:
+    """Renames the file itself, so the file manager and the library agree. Existing files are never overwritten."""
+    recording = store.recording(take_id)
+    if recording is None:
+        raise StoreError("Die Aufnahme wurde nicht gefunden.")
+    stem = sanitized_name(new_name)
+    if stem is None:
+        raise StoreError("Dieser Name ist als Dateiname nicht möglich.")
+    ext = Path(recording["fileName"]).suffix
+    file_name = stem + ext
+    if file_name == recording["fileName"]:
+        return
+    destination = store.folder / file_name
+    same_file_new_case = file_name.lower() == recording["fileName"].lower()
+    if destination.exists() and not same_file_new_case:
+        raise StoreError(f"Es gibt bereits eine Datei mit dem Namen „{file_name}“.")
+    os.rename(store.url(recording), destination)
+    recording["fileName"] = file_name
+
+
+def add_piece(store: LibraryStore, name: str) -> dict:
+    piece = {"id": new_id(), "name": name.strip(), "createdAt": iso(datetime.now(timezone.utc)), "parts": [],
+             "artist": "", "notes": ""}
+    store.document["pieces"].append(piece)
+    return piece
+
+
+def piece(store: LibraryStore, piece_id: str | None) -> dict | None:
+    return next((p for p in store.document["pieces"] if p["id"] == piece_id), None)
+
+
+def remove_piece(store: LibraryStore, piece_id: str) -> dict:
+    """Removes a piece; its takes stay and lose the assignment. Returns what it takes to bring it back."""
+    removed = piece(store, piece_id)
+    if removed is None:
+        raise StoreError("Das Stück wurde nicht gefunden.")
+    takes = [r["id"] for r in store.document["recordings"] if r.get("pieceID") == piece_id]
+    for recording in store.document["recordings"]:
+        if recording.get("pieceID") == piece_id:
+            recording.pop("pieceID")
+    store.document["pieces"] = [p for p in store.document["pieces"] if p["id"] != piece_id]
+    return {"piece": removed, "takes": takes}
+
+
+def restore_piece(store: LibraryStore, removed: dict) -> None:
+    store.document["pieces"].append(removed["piece"])
+    for take_id in removed["takes"]:
+        store.update(take_id, lambda r: r.update(pieceID=removed["piece"]["id"]))
+
+
+def practice_seconds(store: LibraryStore, piece_id: str | None = None, since: datetime | None = None) -> float:
+    total = 0.0
+    for entry in store.document["practiceLog"]:
+        if piece_id is not None and entry.get("pieceID") != piece_id:
+            continue
+        if since is not None and parse_iso(entry.get("date")) < since:
+            continue
+        total += float(entry.get("seconds", 0))
+    return total
+
+
+def practice_by_day(store: LibraryStore, days: int = 30, today: datetime | None = None) -> list[tuple[datetime, float]]:
+    """Minutes practiced on each of the last ``days`` local days, oldest first, today last."""
+    today = (today or datetime.now()).astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+    buckets = {today - timedelta(days=i): 0.0 for i in range(days)}
+    for entry in store.document["practiceLog"]:
+        day = parse_iso(entry.get("date")).astimezone().replace(hour=0, minute=0, second=0, microsecond=0)
+        if day in buckets:
+            buckets[day] += float(entry.get("seconds", 0)) / 60
+    return sorted(buckets.items())
+
+
+def query(recordings: list[dict], *, text: str = "", min_rating: int = 0, favorites: bool = False,
+          status: str = "all", piece_id: str | None | bool = False, tag: str | None = None,
+          piece_names: dict | None = None) -> list[dict]:
+    """The library filter. ``piece_id`` False means all pieces, None means takes without a piece."""
+    needle = text.strip().casefold()
+    result = []
+    for take in recordings:
+        if min_rating and int(take.get("rating", 0)) < min_rating:
+            continue
+        if favorites and not take.get("favorite"):
+            continue
+        if status != "all" and take.get("status", "kept") != status:
+            continue
+        if piece_id is not False and take.get("pieceID") != piece_id:
+            continue
+        if tag and tag.casefold() not in [t.casefold() for t in take.get("tags", [])]:
+            continue
+        if needle:
+            haystack = " ".join([take["fileName"], take.get("note", ""), *take.get("tags", []),
+                                 (piece_names or {}).get(take.get("pieceID"), "")]).casefold()
+            if needle not in haystack:
+                continue
+        result.append(take)
+    return result
+
+
+def all_tags(recordings: list[dict]) -> list[str]:
+    seen: dict[str, str] = {}
+    for take in recordings:
+        for tag in take.get("tags", []):
+            seen.setdefault(tag.casefold(), tag)
+    return sorted(seen.values(), key=str.casefold)
+
+
+def parse_tags(text: str) -> list[str]:
+    seen, tags = set(), []
+    for tag in (t.strip() for t in text.split(",")):
+        if tag and tag.casefold() not in seen:
+            seen.add(tag.casefold())
+            tags.append(tag)
+    return tags
+
+
+# MARK: The sound a take was recorded with
+
+def snapshot_path(store: LibraryStore, take_id: str) -> Path:
+    return store.folder / ".presets" / f"{take_id}.json"
+
+
+def write_snapshot(store: LibraryStore, take_id: str, preset, origin: str) -> None:
+    folder = store.folder / ".presets"
+    folder.mkdir(parents=True, exist_ok=True)
+    data = {"format": 2, "id": new_id(), "savedAt": iso(datetime.now(timezone.utc)), "origin": origin,
+            "isBackup": False, "favorite": False, "rating": 0, "tags": [], "notes": "", "preset": preset.to_json()}
+    path = snapshot_path(store, take_id)
+    temporary = path.with_name(f".{path.name}.tmp")
+    temporary.write_text(dumps(data), encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def read_snapshot(store: LibraryStore, take_id: str):
+    from .protocol import Preset
+    try:
+        return Preset.from_json(json.loads(snapshot_path(store, take_id).read_text(encoding="utf-8"))["preset"])
+    except (OSError, ValueError, KeyError):
+        return None

@@ -92,6 +92,29 @@ def sans(size: float, bold: bool = False, italic: bool = False, spacing: float =
     return font
 
 
+_arrow: str | None = None
+
+
+def arrow_path() -> str:
+    """A small chevron as a PNG file in a temporary folder, for the drop-downs of combo boxes."""
+    global _arrow
+    if _arrow is None:
+        import tempfile
+        from PySide6.QtCore import QPointF, Qt
+        from PySide6.QtGui import QPainter, QPen, QPixmap
+        pixmap = QPixmap(16, 16)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setPen(QPen(QColor(DESK_MUTED), 1.8, Qt.SolidLine, Qt.RoundCap))
+        painter.drawLine(QPointF(4, 6), QPointF(8, 10))
+        painter.drawLine(QPointF(8, 10), QPointF(12, 6))
+        painter.end()
+        _arrow = str(__import__("pathlib").Path(tempfile.mkdtemp(prefix="spark-studio-")) / "chevron.png")
+        pixmap.save(_arrow)
+    return _arrow
+
+
 def stylesheet() -> str:
     return f"""
 * {{ color: {DESK_TEXT}; }}

@@ -37,7 +37,7 @@ STATUS_TEXT = {
 }
 SHORTCUTS = [
     ("R", "Aufnahme starten oder beenden"), ("Leertaste", "Abspielen oder anhalten, während der Aufnahme: beenden und abspielen"),
-    ("L / M", "Schleife A, B, löschen / Marker setzen"), ("K / Rücktaste", "Take behalten / in den Papierkorb"),
+    ("L / M", "Schleife A, B, löschen / Marker setzen"), ("1 – 5 / F", "Bewertung / Favorit"), ("Strg+F", "Suchen"), ("K / Rücktaste", "Take behalten / in den Papierkorb"),
     ("← →", "5 Sekunden springen, mit Umschalt 1 Sekunde"), ("- + 0", "Langsamer, schneller / Tempo und Ton zurücksetzen"), ("Strg+1 – 4", "Platz am Verstärker spielen"), ("Strg+Z / Umschalt+Strg+Z", "Rückgängig / Wiederholen"),
     ("Strg+S", "Preset sichern"), ("Umschalt+Strg+S", "Sichern unter neuem Namen"), ("Strg+N / Umschalt+Strg+N", "Neues Preset / aus Vorlage"),
     ("Strg+D", "Duplizieren"), ("Strg+Alt+1 – 4", "Auf Platz 1 bis 4 speichern"), ("Strg+B", "Mit dem gesicherten Stand vergleichen (A/B)"),
@@ -158,6 +158,11 @@ class MainWindow(QMainWindow):
             self.recorder.refresh_devices()
             self._refresh_recorder()
             self.recordings.refresh()
+        self.recorder.sound_provider = self._heard_sound
+        self.recordings.presets_provider = lambda: [i for i in self.library.items if not i.is_backup]
+        self.recordings.send_sound.connect(self._send_sound)
+        self.recordings.open_sound.connect(self._open_sound)
+        self.recordings.play_link.connect(self._play_link)
         self._router = KeyRouter(self)
         QApplication.instance().installEventFilter(self._router)
         if auto_connect:
@@ -347,6 +352,7 @@ class MainWindow(QMainWindow):
         action(edit, "Wiederholen", self._redo, "Ctrl+Shift+Z")
         action(edit, "Mit dem gesicherten Stand vergleichen", self._toggle_comparison, "Ctrl+B")
         action(edit, "Änderungen verwerfen", self._revert)
+        action(edit, "Aufnahmen durchsuchen", self._search, "Ctrl+F")
 
         amp = self.menuBar().addMenu("Verstärker")
         action(amp, "Mit dem Verstärker verbinden", self.link.start)
@@ -493,6 +499,47 @@ class MainWindow(QMainWindow):
         self._recording_undo = undo
         self.recording_banner.show_message(kind, text, undo)
 
+    def _heard_sound(self):
+        """What the amp plays now, from memory only: the editor's state while it plays live, a tried-out preset, or
+        the stored slot. Without a connection a take has no sound."""
+        core = self.link.core
+        if core.status != "connected":
+            return None
+        device = core.device_name or "Spark"
+        if core.is_editing_live and self.editor is not None:
+            return self._shown().copy(), None, f"Spark Studio · {device}"
+        if core.trying_out and core.tried_preset is not None:
+            return core.tried_preset.copy(), None, f"Spark Studio · {device}"
+        slot = core.active_slot
+        if slot is not None and core.slots[slot] is not None:
+            return core.slots[slot].copy(), slot, f"Platz {slot + 1} · {device}"
+        return None
+
+    def _send_sound(self, preset) -> None:
+        if not self.link.is_connected:
+            self._say("warning", "Der Verstärker ist nicht verbunden.")
+            return
+        self.run(self.link.core.try_out(preset.copy()))
+
+    def _open_sound(self, preset) -> None:
+        if not self._confirm_discard():
+            return
+        self._area(1)
+        self.sidebar.select(None)
+        copy = factory.duplicate(preset, preset.name)
+        self._open(copy, ("new", None), unsaved=True)
+
+    def _play_link(self, link) -> None:
+        if not link:
+            return
+        items = [i for i in self.library.items if not i.is_backup]
+        found = next((i for i in items if link.get("presetID") and i.id == link["presetID"]), None) or \
+            next((i for i in items if link.get("fileName") and i.path.name == link["fileName"]), None)
+        if found is None:
+            self._say("warning", f"Das Preset „{link.get('name', '')}“ gibt es nicht mehr.")
+            return
+        self._send_sound(found.preset)
+
     def handle_key(self, event) -> bool:
         key, mods = event.key(), event.modifiers()
         if mods & (Qt.ControlModifier | Qt.AltModifier | Qt.MetaModifier):
@@ -517,12 +564,22 @@ class MainWindow(QMainWindow):
                    Qt.Key_Backspace: page.discard, Qt.Key_Delete: page.discard,
                    Qt.Key_Left: lambda: page.jump(-1 if shift else -5), Qt.Key_Right: lambda: page.jump(1 if shift else 5),
                    Qt.Key_Minus: lambda: page.nudge_tempo(-0.05), Qt.Key_Plus: lambda: page.nudge_tempo(0.05),
-                   Qt.Key_Equal: lambda: page.nudge_tempo(0.05), Qt.Key_0: page.reset_tempo_pitch}
+                   Qt.Key_Equal: lambda: page.nudge_tempo(0.05), Qt.Key_0: page.reset_tempo_pitch,
+                   Qt.Key_F: page.toggle_favorite}
+        for number in range(1, 6):
+            actions[getattr(Qt, f"Key_{number}")] = lambda n=number: page.rate(n)
         handler = actions.get(key)
         if handler is None:
             return False
         handler()
         return True
+
+    def _search(self) -> None:
+        if self.stack.currentIndex() == 0:
+            self.recordings.show_tab(0)
+            self.recordings.takes.focus_search()
+        else:
+            self.sidebar.search.setFocus()
 
     def _area(self, index: int) -> None:
         self.tabs.set_index(index)
@@ -947,6 +1004,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _rename(self, item: SavedPreset | None = None) -> None:
+        if item is None and self.stack.currentIndex() == 0:
+            self.recordings.rename()
+            return
         item = item or (self.source[1] if self.source and self.source[0] == "file" else None)
         if item is None:
             self._say("info", "Nur gesicherte Presets lassen sich umbenennen. Den Namen des offenen Presets ändert das Namensfeld.")
@@ -972,6 +1032,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _trash(self, item: SavedPreset | None = None) -> None:
+        if item is None and self.stack.currentIndex() == 0:
+            self.recordings.discard()
+            return
         item = item or (self.source[1] if self.source and self.source[0] == "file" else None)
         if item is None:
             return
@@ -989,6 +1052,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _reveal(self, item: SavedPreset | None = None) -> None:
+        if item is None and self.stack.currentIndex() == 0:
+            self.recordings.reveal()
+            return
         item = item or (self.source[1] if self.source and self.source[0] == "file" else None)
         folder = item.path.parent if item else self.library.folder
         QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder)))

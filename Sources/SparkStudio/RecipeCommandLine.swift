@@ -6,6 +6,7 @@ import SparkControl
 ///   --recipe-from <preset.json> [out.json]  describes a saved preset as a recipe
 ///   --recipe-prompt <recipe or preset.json> describes the sound in English, e.g. for REACTOR's Text to Tone
 ///   --catalog-export <folder>               writes spark-catalog.json and spark-catalog.md
+///   --fingerprint <preset.json>...          prints the SHA-256 of each preset's effect chain, the take's sound id
 enum RecipeCommandLine {
     /// The exit status, or nil when the arguments are not one of these commands.
     static func run(_ arguments: [String]) -> Int32? {
@@ -16,8 +17,35 @@ enum RecipeCommandLine {
         case "--recipe-from": return describe(rest)
         case "--recipe-prompt": return prompt(rest)
         case "--catalog-export": return export(rest)
+        case "--fingerprint": return fingerprint(rest)
         default: return nil
         }
+    }
+
+    /// For checking other implementations of the fingerprint, such as spark-studio on Linux.
+    private static func fingerprint(_ paths: [String]) -> Int32 {
+        guard !paths.isEmpty else {
+            print("usage: --fingerprint <preset.json>...")
+            return 64
+        }
+        var failed = false
+        for path in paths {
+            do {
+                let data = try Data(contentsOf: URL(fileURLWithPath: path))
+                let preset: SparkPreset
+                if let file = try? PresetFile.read(data) {
+                    preset = file.preset
+                } else {
+                    preset = try JSONDecoder().decode(SparkPreset.self, from: data)
+                }
+                let hash = try preset.sha256Hex()
+                print("\(hash)  \(URL(fileURLWithPath: path).lastPathComponent)")
+            } catch {
+                print("nicht lesbar: \(path): \(error)")
+                failed = true
+            }
+        }
+        return failed ? 1 : 0
     }
 
     private static func check(_ paths: [String]) -> Int32 {

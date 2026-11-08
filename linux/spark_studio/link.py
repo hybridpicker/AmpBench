@@ -141,6 +141,7 @@ class LinkCore:
         self.firmware: str | None = None
         self.active_slot: int | None = None
         self.trying_out: str | None = None
+        self.tried_preset: Preset | None = None
         self.is_editing_live = False
         self.activity: str | None = None
         self.transfer: Transfer | None = None
@@ -427,6 +428,7 @@ class LinkCore:
             await self._switch_to(0x7F)
         finally:
             self._set("activity", None)
+        self.tried_preset = preset.copy()
         self._set("trying_out", preset.name)
         self._set("is_editing_live", False)
         self._set("active_slot", None)
