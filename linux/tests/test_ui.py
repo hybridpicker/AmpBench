@@ -40,6 +40,7 @@ def window(app, tmp_path, monkeypatch):
     lib = PresetLibrary(tmp_path, trash=lambda p: p.unlink())
     w = MainWindow(link, lib, auto_connect=True)
     w.show()
+    w._area(1)
     wait_for(lambda: link.core.status == "connected" and all(link.core.slots) and not link.core.activity)
     monkeypatch.setattr(QMessageBox, "question", lambda *a, **k: QMessageBox.Yes)
     monkeypatch.setattr(QMessageBox, "warning", lambda *a, **k: pytest.fail(f"warning: {a[2]}"))
@@ -124,3 +125,26 @@ def test_model_change_updates_the_chain(window):
     w._model_chosen("Plexi")
     assert w.editor.current.effects[3].name == "Plexi"
     assert w.pedals[3].model_name == "Plexi Crunch"
+
+
+def test_record_a_take_through_the_window(app, tmp_path):
+    from spark_studio.demo_input import demo_devices, demo_engine
+    from spark_studio.recorder import RecorderModel
+    from spark_studio.store import LibraryStore
+    amp = FakeAmp()
+    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
+    w.show()
+    try:
+        assert recorder.usable and recorder.selected is not None
+        QTest.keyClick(w, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key_R)
+        wait_for(lambda: recorder.is_recording)
+        wait_for(lambda: recorder.engine.meter.seconds > 0.5)
+        assert w.deck.time_label.text() != "00:00,0"
+        QTest.keyClick(w, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key_R)
+        wait_for(lambda: not recorder.is_recording and w.takes.rowCount() == 1)
+        take = recorder.store.document["recordings"][0]
+        assert take["status"] == "open" and take["duration"] > 0.4
+        assert not recorder.store.journal_path.exists()
+    finally:
+        w.close()

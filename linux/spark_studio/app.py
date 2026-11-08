@@ -15,6 +15,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--recipe-check", metavar="FILE", help="check a sound recipe and exit")
     parser.add_argument("--demo", action="store_true", help="use a simulated amp and a temporary presets folder")
     parser.add_argument("--presets-folder", metavar="DIR", help="folder of the saved presets (default ~/Music/Spark Studio/Presets)")
+    parser.add_argument("--recordings-folder", metavar="DIR", help="folder of the recordings (default ~/Music/Spark Studio/Aufnahmen)")
     parser.add_argument("--no-connect", action="store_true", help="do not look for the amp at start")
     parser.add_argument("--screenshot", metavar="PNG", help="render the window to a file and exit (for checks)")
     parser.add_argument("--size", default="1180x760", help="window size for --screenshot")
@@ -57,7 +58,18 @@ def main(argv: list[str] | None = None) -> int:
             folder = Path(tempfile.mkdtemp(prefix="spark-studio-demo-"))
             _seed_demo(PresetLibrary(folder))
     link = QtLink(factory) if factory else QtLink()
-    window = MainWindow(link, PresetLibrary(folder), auto_connect=not args.no_connect)
+    from .recorder import RecorderModel
+    from .store import LibraryStore
+    recordings = Path(args.recordings_folder) if args.recordings_folder else None
+    devices = None
+    engine = None
+    if args.demo:
+        from .demo_input import demo_engine, demo_devices
+        engine, devices = demo_engine(), demo_devices
+        recordings = recordings or Path(tempfile.mkdtemp(prefix="spark-studio-demo-aufnahmen-"))
+    recorder_args = {"devices": devices} if devices else {}
+    recorder = RecorderModel(LibraryStore(recordings), engine, **recorder_args)
+    window = MainWindow(link, PresetLibrary(folder), auto_connect=not args.no_connect, recorder=recorder)
     if args.size and "x" in args.size:
         w, h = args.size.split("x")
         window.resize(int(w), int(h))

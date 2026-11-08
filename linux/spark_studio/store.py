@@ -1,0 +1,270 @@
+"""The recordings library: ``Bibliothek.json`` and the WAV files next to it, in the Mac app's format.
+
+The document is kept as plain dictionaries so that fields this app does not know (edits, grids, sound stamps, pieces)
+survive a save untouched. A port of the parts of SparkCore/LibraryStore.swift that recording needs.
+"""
+from __future__ import annotations
+
+import json
+import os
+import shutil
+import uuid as uuidlib
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path
+
+from . import wav
+
+SCHEMA = 2
+DOCUMENT, BACKUP, JOURNAL = "Bibliothek.json", "Bibliothek.backup.json", ".aufnahme-laeuft.json"
+AUDIO_EXTENSIONS = {".wav", ".aif", ".aiff", ".caf", ".m4a", ".mp3", ".flac"}
+
+
+class StoreError(Exception):
+    pass
+
+
+def iso(date: datetime) -> str:
+    return date.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_iso(text: str | None) -> datetime:
+    if not text:
+        return datetime.fromtimestamp(0, timezone.utc)
+    try:
+        return datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.fromtimestamp(0, timezone.utc)
+
+
+def file_stamp(date: datetime) -> str:
+    return date.astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+
+
+def new_id() -> str:
+    return str(uuidlib.uuid4()).upper()
+
+
+def default_folder() -> Path:
+    return Path.home() / "Music" / "Spark Studio" / "Aufnahmen"
+
+
+def dumps(value) -> str:
+    """Swift's JSONEncoder style (pretty printed, sorted keys, " : "), so both apps write alike."""
+    return json.dumps(value, indent=2, sort_keys=True, ensure_ascii=False, separators=(",", " : ")) + "\n"
+
+
+@dataclass
+class RecoveryOutcome:
+    kind: str  # none, repaired, empty, failed
+    file_name: str = ""
+    seconds: float = 0.0
+
+
+class LibraryStore:
+    def __init__(self, folder: Path | None = None, trash=None):
+        self.folder = folder or default_folder()
+        self.document: dict = self._fresh()
+        self._trash = trash
+        self._lock = None
+
+    @staticmethod
+    def _fresh() -> dict:
+        return {"schemaVersion": SCHEMA, "recordings": [], "pieces": [], "practiceLog": [], "trashed": []}
+
+    @property
+    def document_path(self) -> Path:
+        return self.folder / DOCUMENT
+
+    @property
+    def journal_path(self) -> Path:
+        return self.folder / JOURNAL
+
+    def url(self, recording: dict) -> Path:
+        return self.folder / recording["fileName"]
+
+    def acquire_lock(self) -> bool:
+        """Only one app at a time uses the recordings library."""
+        import fcntl
+        self.folder.mkdir(parents=True, exist_ok=True)
+        handle = open(self.folder / ".sperre", "w")
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            handle.close()
+            return False
+        self._lock = handle
+        return True
+
+    # Loading and saving
+
+    def load(self) -> str:
+        self.folder.mkdir(parents=True, exist_ok=True)
+        try:
+            self.document = self._read(self.document_path)
+            return "loaded"
+        except FileNotFoundError:
+            try:
+                self.document = self._read(self.backup_path)
+                return "loaded"
+            except (OSError, ValueError):
+                self.document = self._fresh()
+                return "fresh"
+        except (OSError, ValueError):
+            kept = f"Bibliothek.defekt-{file_stamp(datetime.now())}.json"
+            os.replace(self.document_path, self.folder / kept)
+            try:
+                self.document = self._read(self.backup_path)
+                return "restored"
+            except (OSError, ValueError):
+                self.document = self._fresh()
+                return "started_over"
+
+    @property
+    def backup_path(self) -> Path:
+        return self.folder / BACKUP
+
+    def _read(self, path: Path) -> dict:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if int(document.get("schemaVersion", 1)) > SCHEMA:
+            raise StoreError(f"Die Bibliothek stammt aus einer neueren Version (Schema {document['schemaVersion']}).")
+        for key in ("recordings", "pieces", "practiceLog", "trashed"):
+            document.setdefault(key, [])
+        return document
+
+    def save(self) -> None:
+        """Saves atomically. The previous version becomes the backup, and a crash at any point leaves a readable file."""
+        self.folder.mkdir(parents=True, exist_ok=True)
+        self.document["schemaVersion"] = SCHEMA
+        if self.document_path.exists():
+            temporary = self.folder / f".{new_id()}.backup"
+            shutil.copy2(self.document_path, temporary)
+            os.replace(temporary, self.backup_path)
+        temporary = self.folder / f".{new_id()}.tmp"
+        temporary.write_text(dumps(self.document), encoding="utf-8")
+        os.replace(temporary, self.document_path)
+
+    # Journal
+
+    def write_journal(self, journal: dict) -> None:
+        temporary = self.folder / f".{new_id()}.tmp"
+        temporary.write_text(dumps(journal), encoding="utf-8")
+        os.replace(temporary, self.journal_path)
+
+    def read_journal(self) -> dict | None:
+        try:
+            return json.loads(self.journal_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+
+    def remove_journal(self) -> None:
+        try:
+            self.journal_path.unlink()
+        except FileNotFoundError:
+            pass
+
+    # Recordings
+
+    def recording(self, take_id: str) -> dict | None:
+        return next((r for r in self.document["recordings"] if r["id"] == take_id), None)
+
+    def add(self, recording: dict) -> None:
+        stat = self.url(recording).stat()
+        recording["fileSize"], recording["inode"] = stat.st_size, stat.st_ino
+        self.document["recordings"].append(recording)
+
+    def log_practice(self, date: datetime, seconds: float, piece_id: str | None) -> None:
+        if seconds <= 0:
+            return
+        entry = {"id": new_id(), "date": iso(date), "seconds": seconds}
+        if piece_id:
+            entry["pieceID"] = piece_id
+        self.document["practiceLog"].append(entry)
+
+    def unique_name(self, stem: str, ext: str = "wav") -> Path:
+        candidate = self.folder / f"{stem}.{ext}"
+        number = 2
+        while candidate.exists():
+            candidate = self.folder / f"{stem} {number}.{ext}"
+            number += 1
+        return candidate
+
+    def new_recording(self, *, take_id: str, file_name: str, started_at: datetime, seconds: float, fmt: wav.Format,
+                      source: dict | None, piece_id: str | None, peak_db: float | None, auto_level: bool = True,
+                      markers: list | None = None, preset: dict | None = None, recovered: bool = False) -> dict:
+        edit = {"autoLevelEnabled": auto_level, "autoLevelDB": auto_level_gain(peak_db) if auto_level else 0}
+        recording = {
+            "id": take_id, "fileName": file_name, "createdAt": iso(started_at), "duration": seconds,
+            "sampleRate": fmt.sample_rate, "channels": fmt.channels, "fileBits": fmt.bits, "fileSize": 0, "inode": 0,
+            "status": "open", "rating": 0, "favorite": False, "tags": [], "note": "", "markers": markers or [],
+            "edit": edit, "health": "ok", "recoveredAfterInterruption": recovered,
+        }
+        if source:
+            recording["source"] = source
+        if piece_id:
+            recording["pieceID"] = piece_id
+        if peak_db is not None:
+            recording["peakDB"] = peak_db
+        if preset:
+            recording["preset"] = preset
+        return recording
+
+    # Recovery after a crash
+
+    def recover_interrupted(self) -> RecoveryOutcome:
+        """Repairs the recording a previous run did not finish, and adds it to the library."""
+        journal = self.read_journal()
+        if journal is None:
+            return RecoveryOutcome("none")
+        path = self.folder / journal["fileName"]
+        if not path.exists():
+            self.remove_journal()
+            return RecoveryOutcome("none")
+        state, info, _ = wav.inspect(path)
+        if state == "empty":
+            self._trash_file(path)
+            self.remove_journal()
+            return RecoveryOutcome("empty", journal["fileName"])
+        if state == "unreadable":
+            self.remove_journal()
+            return RecoveryOutcome("failed", journal["fileName"])
+        try:
+            wav.repair(path, treat_trailing_data_as_audio=True)
+        except (wav.WAVError, OSError):
+            self.remove_journal()
+            return RecoveryOutcome("failed", journal["fileName"])
+        state, fmt, frames = wav.inspect(path)
+        if state != "ok":
+            self.remove_journal()
+            return RecoveryOutcome("failed", journal["fileName"])
+        seconds = frames / fmt.sample_rate
+        if any(r["fileName"] == journal["fileName"] for r in self.document["recordings"]):
+            self.remove_journal()
+            return RecoveryOutcome("repaired", journal["fileName"], seconds)
+        started = parse_iso(journal.get("startedAt"))
+        recording = self.new_recording(
+            take_id=journal.get("takeID") or new_id(), file_name=journal["fileName"], started_at=started,
+            seconds=seconds, fmt=fmt, source=journal.get("source"), piece_id=journal.get("pieceID"), peak_db=None,
+            auto_level=False, markers=journal.get("markers"), preset=journal.get("preset"), recovered=True)
+        self.add(recording)
+        self.log_practice(started, seconds, journal.get("pieceID"))
+        self.save()
+        self.remove_journal()
+        return RecoveryOutcome("repaired", journal["fileName"], seconds)
+
+    def _trash_file(self, path: Path) -> None:
+        if self._trash:
+            self._trash(path)
+            return
+        import subprocess
+        gio = shutil.which("gio")
+        if gio is None or subprocess.run([gio, "trash", str(path)], capture_output=True).returncode != 0:
+            raise StoreError("Der Papierkorb ist nicht erreichbar, die Datei bleibt wo sie ist.")
+
+
+def auto_level_gain(peak_db: float | None) -> float:
+    """AutoLevel.gainDB: raises the peak to -1 dBFS, at most 30 dB, and not at all below 0.1 dB."""
+    if peak_db is None:
+        return 0.0
+    gain = min(-1.0 - peak_db, 30.0)
+    return gain if gain >= 0.1 else 0.0

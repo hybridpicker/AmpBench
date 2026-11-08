@@ -577,3 +577,207 @@ class Pedal(QWidget):
         p.setFont(theme.sans(10, bold=True, spacing=0.12))
         p.setPen(c(theme.ENGRAVING))
         p.drawText(grille.adjusted(0, 0, -10, -6), Qt.AlignRight | Qt.AlignBottom, self.group.upper())
+
+
+class RecordKey(QAbstractButton):
+    """The round record key: red, glowing while recording, with a stop square."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.recording = False
+        self.setFixedSize(92, 92)
+        self.setCursor(Qt.PointingHandCursor)
+        self._pulse = 0.0
+        self._timer = QTimer(self)
+        self._timer.timeout.connect(self._tick)
+        self.setToolTip("Aufnahme starten oder beenden (R)")
+
+    def set_recording(self, on: bool) -> None:
+        self.recording = on
+        if on:
+            self._timer.start(60)
+        else:
+            self._timer.stop()
+            self._pulse = 0.0
+        self.update()
+
+    def _tick(self):
+        self._pulse = (self._pulse + 0.08) % (2 * math.pi)
+        self.update()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        centre = QPointF(self.width() / 2, self.height() / 2)
+        outer = QRectF(8, 8, self.width() - 16, self.height() - 16)
+        p.setPen(Qt.NoPen)
+        p.setBrush(c("#000000", 0.55))
+        p.drawEllipse(outer.adjusted(-2, -2, 2, 2).translated(0, 2))
+        ring = QRadialGradient(centre, outer.width() / 2)
+        ring.setColorAt(0.85, c("#232326"))
+        ring.setColorAt(1, c("#0C0C0E"))
+        p.setBrush(ring)
+        p.drawEllipse(outer)
+        glow = 0.5 + 0.5 * math.sin(self._pulse) if self.recording else 0.0
+        inner = outer.adjusted(9, 9, -9, -9)
+        grad = QRadialGradient(centre - QPointF(0, inner.height() * 0.2), inner.width() * 0.75)
+        grad.setColorAt(0, c("#FF5A50" if self.recording else "#D93A30"))
+        grad.setColorAt(1, c("#8E1A14" if self.recording else "#6E1410"))
+        if self.recording:
+            halo = QRadialGradient(centre, outer.width() * 0.75)
+            halo.setColorAt(0.6, c(theme.RECORD, 0.25 + 0.3 * glow))
+            halo.setColorAt(1, c(theme.RECORD, 0))
+            p.setBrush(halo)
+            p.drawEllipse(centre, outer.width() * 0.75, outer.width() * 0.75)
+        p.setPen(QPen(c("#2A0705"), 1))
+        p.setBrush(grad)
+        p.drawEllipse(inner)
+        if self.recording:
+            p.setPen(Qt.NoPen)
+            p.setBrush(c("#FFE9E6"))
+            side = inner.width() * 0.3
+            p.drawRoundedRect(QRectF(centre.x() - side / 2, centre.y() - side / 2, side, side), 4, 4)
+        if self.hasFocus():
+            p.setPen(QPen(c(theme.AMBER), 1.5))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(outer.adjusted(-2, -2, 2, 2))
+
+
+class LEDMeter(QWidget):
+    """The level meter: segments from -60 to 0 dBFS, green to -18, amber to -6, red above, with the scale below."""
+    SEGMENTS = 54
+    MARKS = [-60, -48, -36, -24, -12, -6, 0]
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.db, self.hold_db = -120.0, -120.0
+        self.setMinimumSize(300, 46)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+    def set_levels(self, db: float, hold_db: float) -> None:
+        if abs(db - self.db) > 0.2 or abs(hold_db - self.hold_db) > 0.2:
+            self.db, self.hold_db = db, hold_db
+            self.update()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        glass = QRectF(0, 0, self.width(), 30)
+        p.setPen(QPen(c(theme.DISPLAY_EDGE), 1))
+        p.setBrush(c(theme.DISPLAY))
+        p.drawRoundedRect(glass.adjusted(0.5, 0.5, -0.5, -0.5), 7, 7)
+        inner = glass.adjusted(10, 8, -10, -8)
+        gap = 2
+        width = (inner.width() - gap * (self.SEGMENTS - 1)) / self.SEGMENTS
+        lit = int((self.db + 60) / 60 * self.SEGMENTS) if self.db > -60 else 0
+        hold = int((self.hold_db + 60) / 60 * self.SEGMENTS) if self.hold_db > -60 else 0
+        p.setPen(Qt.NoPen)
+        for i in range(self.SEGMENTS):
+            db = -60 + (i + 0.5) / self.SEGMENTS * 60
+            tone = "#3FBF5A" if db <= -18 else "#F2B233" if db <= -6 else "#E4332A"
+            on = i < lit or i == hold - 1
+            p.setBrush(c(tone) if on else c("#2A2824"))
+            p.drawRoundedRect(QRectF(inner.left() + i * (width + gap), inner.top(), width, inner.height()), 1, 1)
+        p.setFont(theme.mono(9))
+        p.setPen(c(theme.LAMP_OFF_TEXT))
+        for mark in self.MARKS:
+            x = inner.left() + (mark + 60) / 60 * inner.width()
+            p.drawText(QRectF(x - 20, 31, 40, 14), Qt.AlignCenter, str(mark))
+
+
+class DevicePopup(QWidget):
+    """A choice on a front: dark field, label, chevron, and a real menu."""
+    chosen = Signal(object)
+
+    def __init__(self, title: str, parent=None):
+        super().__init__(parent)
+        self.title = title
+        self.text = "–"
+        self.options: list[tuple[str, object]] = []
+        self.setFixedHeight(28)
+        self.setMinimumWidth(180)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFont(theme.sans(13))
+
+    def set_options(self, options: list[tuple[str, object]], current: str) -> None:
+        self.options, self.text = options, current
+        self.update()
+
+    def mousePressEvent(self, event):
+        if event.button() != Qt.LeftButton or not self.isEnabled():
+            return
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        for label, value in self.options:
+            menu.addAction(label, lambda v=value: self.chosen.emit(v))
+        if not self.options:
+            menu.addAction("Nichts gefunden").setEnabled(False)
+        menu.exec(self.mapToGlobal(self.rect().bottomLeft()))
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setOpacity(1.0 if self.isEnabled() else 0.45)
+        p.setPen(QPen(c(theme.FIELD_EDGE), 1))
+        p.setBrush(c(theme.FIELD))
+        p.drawRoundedRect(r, 8, 8)
+        p.setFont(self.font())
+        p.setPen(c(theme.FIELD_TEXT))
+        p.drawText(QRectF(10, 0, r.width() - 32, r.height()), Qt.AlignLeft | Qt.AlignVCenter,
+                   QFontMetrics(self.font()).elidedText(self.text, Qt.ElideRight, int(r.width() - 36)))
+        p.setPen(QPen(c(theme.ENGRAVING), 1.6, Qt.SolidLine, Qt.RoundCap))
+        x, y = r.right() - 16, r.center().y()
+        p.drawLine(QPointF(x - 4, y - 2), QPointF(x, y + 2))
+        p.drawLine(QPointF(x, y + 2), QPointF(x + 4, y - 2))
+
+
+class SegmentTabs(QWidget):
+    """Tabs on the desk."""
+    changed = Signal(int)
+
+    def __init__(self, names: list[str], parent=None):
+        super().__init__(parent)
+        self.names, self.index, self.disabled = names, 0, set()
+        self.setFixedHeight(32)
+        self.setFont(theme.sans(13, bold=True))
+        self.setCursor(Qt.PointingHandCursor)
+
+    def _rects(self) -> list[QRectF]:
+        fm = QFontMetrics(self.font())
+        rects, x = [], 3.0
+        for name in self.names:
+            w = fm.horizontalAdvance(name) + 36
+            rects.append(QRectF(x, 3, w, self.height() - 6))
+            x += w
+        return rects
+
+    def sizeHint(self):
+        return QSize(int(self._rects()[-1].right()) + 3, 32)
+
+    def set_index(self, index: int) -> None:
+        self.index = index
+        self.update()
+
+    def mousePressEvent(self, event):
+        for i, rect in enumerate(self._rects()):
+            if rect.contains(event.position()) and i not in self.disabled:
+                self.index = i
+                self.update()
+                self.changed.emit(i)
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        full = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setPen(QPen(c(theme.DESK_LINE), 1))
+        p.setBrush(c("#141416"))
+        p.drawRoundedRect(full, 9, 9)
+        p.setFont(self.font())
+        for i, rect in enumerate(self._rects()):
+            if i == self.index:
+                p.setPen(QPen(c("#000000"), 1))
+                p.setBrush(c("#3A3A40"))
+                p.drawRoundedRect(rect, 7, 7)
+            p.setPen(c(theme.DESK_TEXT if i == self.index else theme.DESK_MUTED if i not in self.disabled else "#55555B"))
+            p.drawText(rect, Qt.AlignCenter, self.names[i])

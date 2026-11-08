@@ -11,19 +11,22 @@ from pathlib import Path
 
 from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel, QLineEdit,
-                               QMainWindow, QMenu, QMessageBox, QToolButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QFileDialog, QFrame, QHBoxLayout, QHeaderView,
+                               QInputDialog, QLabel, QLineEdit, QMainWindow, QMenu, QMessageBox, QStackedWidget,
+                               QTableWidget, QTableWidgetItem, QToolButton, QVBoxLayout, QWidget)
 
 from .. import BUILD, VERSION, catalog, factory, protocol, recipe
 from ..editor import PresetEditor
 from ..library import LibraryError, PresetLibrary, SavedPreset
 from ..link import LinkError
 from ..qtlink import QtLink
+from ..store import parse_iso
 from . import theme
+from .deck import Deck
 from .sidebar import Sidebar
 from .theme import c
 from .widgets import (Display, DeviceSwitch, Engraving, Footswitch, Front, HardwareKey, Knob, LEDSegments, Lamp,
-                      Pedal)
+                      Pedal, SegmentTabs)
 
 GROUPS = {"clean": "Clean", "bright": "Brillant", "crunch": "Crunch", "highGain": "High Gain", "metal": "Metal",
           "acoustic": "Akustik", "bass": "Bass"}
@@ -32,7 +35,7 @@ STATUS_TEXT = {
     "bluetooth_off": "Bluetooth aus", "unsupported": "Kein Bluetooth", "starting": "Starte …",
 }
 SHORTCUTS = [
-    ("R", "Aufnehmen (folgt)"), ("Strg+1 – 4", "Platz am Verstärker spielen"), ("Strg+Z / Umschalt+Strg+Z", "Rückgängig / Wiederholen"),
+    ("R", "Aufnahme starten oder beenden"), ("Strg+1 – 4", "Platz am Verstärker spielen"), ("Strg+Z / Umschalt+Strg+Z", "Rückgängig / Wiederholen"),
     ("Strg+S", "Preset sichern"), ("Umschalt+Strg+S", "Sichern unter neuem Namen"), ("Strg+N / Umschalt+Strg+N", "Neues Preset / aus Vorlage"),
     ("Strg+D", "Duplizieren"), ("Strg+Alt+1 – 4", "Auf Platz 1 bis 4 speichern"), ("Strg+B", "Mit dem gesicherten Stand vergleichen (A/B)"),
     ("Umschalt+Strg+L", "Live am Verstärker ein oder aus"), ("Strg+R", "Verstärker neu lesen"),
@@ -112,9 +115,9 @@ class Banner(QFrame):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, link: QtLink, library: PresetLibrary, auto_connect: bool = True):
+    def __init__(self, link: QtLink, library: PresetLibrary, auto_connect: bool = True, recorder=None):
         super().__init__()
-        self.link, self.library = link, library
+        self.link, self.library, self.recorder = link, library, recorder
         self.editor: PresetEditor | None = None
         self.source: tuple[str, object] | None = None  # ("slot", n) or ("file", SavedPreset) or ("new", None)
         self.place = 3
@@ -132,6 +135,11 @@ class MainWindow(QMainWindow):
         self.library.reload()
         self._refresh_library()
         self._refresh_all()
+        if self.recorder is not None:
+            self.recorder.start_library()
+            self.recorder.refresh_devices()
+            self._refresh_recorder()
+            self._refresh_takes()
         if auto_connect:
             QTimer.singleShot(200, self.link.start)
 
@@ -144,87 +152,66 @@ class MainWindow(QMainWindow):
         column = QVBoxLayout(root)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
-        column.addWidget(self._build_deck())
-        body = QHBoxLayout()
+        bar = QWidget()
+        bar.setFixedHeight(46)
+        bar.setStyleSheet(f"background: {theme.DESK}; border-bottom: 1px solid {theme.DESK_LINE};")
+        bar_row = QHBoxLayout(bar)
+        bar_row.setContentsMargins(22, 7, 22, 7)
+        self.tabs = SegmentTabs(["Aufnahme", "Presets"])
+        self.tabs.set_index(0)
+        bar_row.addWidget(self.tabs)
+        bar_row.addStretch(1)
+        column.addWidget(bar)
+        self.deck = Deck()
+        column.addWidget(self.deck)
+        self.stack = QStackedWidget()
+        column.addWidget(self.stack, 1)
+        self.recording_page = self._build_recordings()
+        self.stack.addWidget(self.recording_page)
+        presets = QWidget()
+        body = QHBoxLayout(presets)
+        body.setContentsMargins(0, 0, 0, 0)
         body.setSpacing(0)
         self.sidebar = Sidebar()
         body.addWidget(self.sidebar)
         body.addWidget(self._build_editor(), 1)
-        column.addLayout(body, 1)
+        self.stack.addWidget(presets)
+        self.stack.setCurrentIndex(0)
         self.activity_label = QLabel("")
-        bar = self.statusBar()
-        bar.setSizeGripEnabled(False)
-        bar.addWidget(self.activity_label, 1)
-        hint = QLabel("Strg+/  Tastenkürzel")
-        bar.addPermanentWidget(hint)
-        bar.addPermanentWidget(QLabel(f"   Version {VERSION} ({BUILD})"))
+        status = self.statusBar()
+        status.setSizeGripEnabled(False)
+        status.addWidget(self.activity_label, 1)
+        status.addPermanentWidget(QLabel("Strg+/  Tastenkürzel"))
+        status.addPermanentWidget(QLabel(f"   Version {VERSION} ({BUILD})"))
+        # The deck's controls keep the names the Presets code uses.
+        self.lamp_connected, self.device_label = self.deck.connected_lamp, self.deck.amp_label
+        self.firmware_label, self.connect_key = self.deck.firmware_label, self.deck.connect_key
 
-    def _build_deck(self) -> QWidget:
-        deck = Front(radius=0)
-        deck.setFixedHeight(104)
-        row = QHBoxLayout(deck)
-        row.setContentsMargins(22, 12, 22, 12)
-        row.setSpacing(18)
-
-        brand = QVBoxLayout()
-        brand.addWidget(Engraving("Spark Studio"))
-        self.deck_title = QLabel("Presets")
-        self.deck_title.setFont(theme.sans(26, bold=True))
-        self.deck_title.setStyleSheet(f"background: transparent; color: {theme.TEXT};")
-        brand.addWidget(self.deck_title)
-        brand.addStretch(1)
-        row.addLayout(brand)
-        row.addWidget(self._divider())
-
-        spark = QVBoxLayout()
-        spark.setSpacing(6)
-        top = QHBoxLayout()
-        top.addWidget(Engraving("Spark"))
-        top.addStretch(1)
-        self.lamp_connected = Lamp("Verbunden", "on", False)
-        top.addWidget(self.lamp_connected)
-        spark.addLayout(top)
-        info = QHBoxLayout()
-        self.device_display = Display(radius=8)
-        d = QHBoxLayout(self.device_display)
-        d.setContentsMargins(12, 6, 12, 6)
-        self.device_label = QLabel("–")
-        self.device_label.setFont(theme.mono(14, True))
-        self.device_label.setStyleSheet(f"background: transparent; color: {theme.AMBER};")
-        self.firmware_label = QLabel("")
-        self.firmware_label.setFont(theme.mono(11))
-        self.firmware_label.setStyleSheet(f"background: transparent; color: {theme.AMBER_DIM};")
-        dv = QVBoxLayout()
-        dv.setSpacing(0)
-        dv.addWidget(self.device_label)
-        dv.addWidget(self.firmware_label)
-        d.addLayout(dv)
-        self.device_display.setMinimumWidth(190)
-        info.addWidget(self.device_display)
-        self.connect_key = HardwareKey("Verbinden", "primary")
-        info.addWidget(self.connect_key, 0, Qt.AlignVCenter)
-        spark.addLayout(info)
-        row.addLayout(spark)
-        row.addWidget(self._divider())
-
-        notice = QVBoxLayout()
-        notice.addWidget(Engraving("Aufnahme"))
-        later = QLabel("Der Bereich Aufnahme mit Deck, Wellenform und Bibliothek\nkommt für Linux als Nächstes.")
-        later.setFont(theme.sans(12))
-        later.setStyleSheet(f"background: transparent; color: {theme.ENGRAVING};")
-        notice.addWidget(later)
-        notice.addStretch(1)
-        row.addLayout(notice)
-        row.addStretch(1)
-        return deck
-
-    @staticmethod
-    def _divider() -> QWidget:
-        line = QFrame()
-        line.setFixedWidth(2)
-        line.setStyleSheet("background: qlineargradient(x1:0,y1:0,x2:1,y2:0, stop:0 #000000, stop:0.5 #000000, "
-                           "stop:0.5 #1E1E21, stop:1 #1E1E21);")
-        return line
+    def _build_recordings(self) -> QWidget:
+        page = QWidget()
+        v = QVBoxLayout(page)
+        v.setContentsMargins(0, 0, 0, 0)
+        v.setSpacing(0)
+        self.recording_banner = Banner()
+        v.addWidget(self.recording_banner)
+        self.takes = QTableWidget(0, 3)
+        self.takes.setHorizontalHeaderLabels(["Name", "Datum", "Dauer"])
+        self.takes.verticalHeader().hide()
+        self.takes.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.takes.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.takes.setShowGrid(False)
+        self.takes.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.takes.setStyleSheet(f"QTableWidget {{ background: {theme.DESK}; border: none; alternate-background-color: {theme.DESK_ALT}; }} "
+                                 f"QHeaderView::section {{ background: {theme.DESK}; color: {theme.DESK_MUTED}; border: none; "
+                                 f"border-bottom: 1px solid {theme.DESK_LINE}; padding: 8px; font-weight: bold; }} "
+                                 f"QTableWidget::item:selected {{ background: rgba(247,196,92,36); color: {theme.DESK_TEXT}; }}")
+        self.takes.setAlternatingRowColors(True)
+        v.addWidget(self.takes, 1)
+        self.takes_footer = QLabel("")
+        self.takes_footer.setContentsMargins(22, 8, 22, 8)
+        self.takes_footer.setStyleSheet(f"color: {theme.DESK_MUTED}; border-top: 1px solid {theme.DESK_LINE};")
+        v.addWidget(self.takes_footer)
+        return page
 
     def _build_editor(self) -> QWidget:
         page = QWidget()
@@ -339,6 +326,9 @@ class MainWindow(QMainWindow):
             menu.addAction(a)
             return a
 
+        view = self.menuBar().addMenu("Darstellung")
+        action(view, "Aufnahme", lambda: self._area(0), "Ctrl+Shift+1")
+        action(view, "Presets", lambda: self._area(1), "Ctrl+Shift+2")
         preset = self.menuBar().addMenu("Preset")
         action(preset, "Neues Preset", lambda: self._new(None), "Ctrl+N")
         action(preset, "Neu aus Vorlage …", self._new_from_template, "Ctrl+Shift+N")
@@ -405,6 +395,18 @@ class MainWindow(QMainWindow):
         link.strain.connect(lambda: self._say("info", "Der Verstärker antwortet langsam. Änderungen gehen jetzt gemächlicher."))
 
         self.connect_key.clicked.connect(self._connect_clicked)
+        self.tabs.changed.connect(self.stack.setCurrentIndex)
+        if self.recorder is not None:
+            r = self.recorder
+            self.deck.record_clicked.connect(r.toggle)
+            self.deck.check_clicked.connect(r.toggle_monitoring)
+            self.deck.input_chosen.connect(r.select)
+            r.phase_changed.connect(lambda _: self._refresh_recorder())
+            r.monitoring_changed.connect(lambda _: self._refresh_recorder())
+            r.devices_changed.connect(self._refresh_devices)
+            r.meter_changed.connect(lambda: self.deck.show_levels(r))
+            r.message.connect(self._say)
+            r.library_changed.connect(self._refresh_takes)
         sb = self.sidebar
         sb.slot_selected.connect(self._slot_clicked)
         sb.slot_played.connect(self._play_slot)
@@ -488,7 +490,45 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _say(self, kind: str, text: str, undo=None) -> None:
-        self.banner.show_message(kind, text, undo)
+        banner = self.recording_banner if self.stack.currentIndex() == 0 else self.banner
+        banner.show_message(kind, text, undo)
+
+    def _area(self, index: int) -> None:
+        self.tabs.set_index(index)
+        self.stack.setCurrentIndex(index)
+
+    def _refresh_recorder(self) -> None:
+        self.deck.show_recorder(self.recorder)
+
+    def _refresh_devices(self) -> None:
+        self.deck.show_devices(self.recorder)
+        self._refresh_recorder()
+
+    def _refresh_takes(self) -> None:
+        recordings = sorted(self.recorder.store.document["recordings"], key=lambda r: r.get("createdAt", ""), reverse=True)
+        self.takes.setRowCount(len(recordings))
+        total = 0.0
+        for row, take in enumerate(recordings):
+            name = Path(take["fileName"]).stem + ("   · Offen" if take.get("status") == "open" else "")
+            seconds = float(take.get("duration", 0))
+            total += seconds
+            date = parse_iso(take.get("createdAt")).astimezone()
+            for column, text in enumerate((name, date.strftime("%d.%m.%y, %H:%M"), f"{int(seconds) // 60:02d}:{int(seconds) % 60:02d}")):
+                item = QTableWidgetItem(text)
+                if column:
+                    item.setFont(theme.mono(13))
+                self.takes.setItem(row, column, item)
+            self.takes.setRowHeight(row, 36)
+        self.takes_footer.setText(f"{len(recordings)} Aufnahmen · {int(total // 3600)} Std. {int(total // 60) % 60} Min.   "
+                                  "Wiedergabe, Wellenform und Bibliothek wie auf dem Mac folgen.")
+
+    def keyPressEvent(self, event):
+        """R starts and stops a recording, unless a text field wants the key."""
+        if self.recorder is not None and event.key() == Qt.Key_R and not event.modifiers():
+            self.recorder.toggle()
+            event.accept()
+            return
+        super().keyPressEvent(event)
 
     def _report(self, error: Exception) -> None:
         known = isinstance(error, (LinkError, LibraryError, recipe.RecipeError))
@@ -996,6 +1036,8 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             event.ignore()
             return
+        if self.recorder is not None:
+            self.recorder.shutdown()
         self.link.shutdown()
         super().closeEvent(event)
 
