@@ -48,6 +48,12 @@ public struct CatalogReference: Codable, Equatable, Sendable {
         /// True when a Spark MINI accepted the model and its start values were read back.
         public var checkedOnAmp: Bool
         public var parameters: [Parameter]
+        /// How many parameters the amp gives this model, hidden ones included.
+        public var parameterCount: Int
+        /// The amp's start values as it stores them, 0 to 1, one per parameter. Empty when not measured.
+        public var defaults: [Double]
+        /// Indexes of the parameters that follow the effect's on and off by themselves (1 when on, 0 when off).
+        public var mirrors: [Int]
     }
 
     public var format = "spark-catalog"
@@ -82,7 +88,9 @@ public struct CatalogReference: Codable, Equatable, Sendable {
         }
         return Model(id: info.id, place: info.place.key, name: info.name, summary: info.summary,
                      inspiration: info.inspiration, group: info.group?.key, pack: info.isPack,
-                     checkedOnAmp: info.isCheckedOnMini, parameters: parameters)
+                     checkedOnAmp: info.isCheckedOnMini, parameters: parameters, parameterCount: info.parameterCount,
+                     defaults: info.defaults.map { Double("\($0)") ?? Double($0) },
+                     mirrors: (0..<info.parameterCount).filter { info.parameter($0).kind == .mirror })
     }
 
     public func jsonData() throws -> Data {

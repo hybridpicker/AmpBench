@@ -1,0 +1,210 @@
+{
+  "bpm" : 120,
+  "description" : "",
+  "effects" : [
+    {
+      "isOn" : true,
+      "name" : "bias.noisegate",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.19011272
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    },
+    {
+      "isOn" : false,
+      "name" : "Compressor",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.42981642
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.71267635
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Overdrive",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.39110497
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.39536422
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.8987778
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Plexi",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.6652893
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.6491083
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.4543374
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.63578904
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.50000006
+        }
+      ]
+    },
+    {
+      "isOn" : false,
+      "name" : "UniVibe",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 1
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.7
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "DelayMono",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.31511056
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.2392638
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.43558282
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.6
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "bias.reverb",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.49875778
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.64382565
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.7270076
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.17531718
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.46953782
+        },
+        {
+          "index" : 5,
+          "marker" : 145,
+          "value" : 0.43100566
+        },
+        {
+          "index" : 6,
+          "marker" : 145,
+          "value" : 0.6
+        },
+        {
+          "index" : 7,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    }
+  ],
+  "icon" : "icon.png",
+  "name" : "SOLO",
+  "trailer" : [
+    202,
+    70,
+    28,
+    24,
+    0,
+    202,
+    63,
+    0,
+    0,
+    0,
+    218
+  ],
+  "uuid" : "C20D8EFE-FF82-496A-99B1-C9C5F12B0BBE",
+  "version" : "0.7"
+}

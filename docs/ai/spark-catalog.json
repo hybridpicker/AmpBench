@@ -4,9 +4,18 @@
   "models" : [
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.2,
+        0.5,
+        1
+      ],
       "id" : "bias.noisegate",
+      "mirrors" : [
+        2
+      ],
       "name" : "Noise Gate",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -28,10 +37,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0,
+        0.7,
+        0.7
+      ],
       "id" : "LA2AComp",
       "inspiration" : "Teletronix LA-2A",
+      "mirrors" : [
+
+      ],
       "name" : "Studio-Kompressor",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -62,10 +80,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.486,
+        0.525,
+        0.493,
+        0.644
+      ],
       "id" : "BlueComp",
       "inspiration" : "Boss CS-3",
+      "mirrors" : [
+
+      ],
       "name" : "Sustainer",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -101,10 +129,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.644,
+        0.648
+      ],
       "id" : "Compressor",
       "inspiration" : "MXR Dyna Comp",
+      "mirrors" : [
+
+      ],
       "name" : "Kompressor",
       "pack" : false,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -126,9 +162,17 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.373,
+        0.53
+      ],
       "id" : "BassComp",
+      "mirrors" : [
+
+      ],
       "name" : "Bass-Kompressor",
       "pack" : false,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -150,10 +194,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.65,
+        0.4,
+        0
+      ],
       "id" : "BBEOpticalComp",
       "inspiration" : "BBE Opto Stomp",
+      "mirrors" : [
+
+      ],
       "name" : "Opto-Kompressor",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -184,10 +237,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.Vox846",
       "inspiration" : "Vox V846",
+      "mirrors" : [
+
+      ],
       "name" : "JH Wah",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -271,9 +331,16 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.767
+      ],
       "id" : "Booster",
+      "mirrors" : [
+
+      ],
       "name" : "Booster",
       "pack" : false,
+      "parameterCount" : 1,
       "parameters" : [
         {
           "index" : 0,
@@ -288,10 +355,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.5,
+        0.5,
+        0.5
+      ],
       "id" : "KlonCentaurSilver",
       "inspiration" : "Klon Centaur",
+      "mirrors" : [
+
+      ],
       "name" : "Transparent Drive",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -320,10 +396,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.57,
+        0.5,
+        0.62,
+        0
+      ],
       "id" : "DistortionTS9",
       "inspiration" : "Ibanez TS9",
+      "mirrors" : [
+
+      ],
       "name" : "Mid Drive",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -352,9 +438,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.59,
+        0.7,
+        0.53
+      ],
       "id" : "Overdrive",
+      "mirrors" : [
+
+      ],
       "name" : "Overdrive",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -383,10 +478,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.44,
+        0.84
+      ],
       "id" : "Fuzz",
       "inspiration" : "Fuzz Face",
+      "mirrors" : [
+
+      ],
       "name" : "Germanium Fuzz",
       "pack" : false,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -408,10 +511,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.71,
+        0.5,
+        0.66
+      ],
       "id" : "ProCoRat",
       "inspiration" : "ProCo RAT",
+      "mirrors" : [
+
+      ],
       "name" : "Filter Distortion",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -440,10 +552,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.33,
+        0.77,
+        0.88
+      ],
       "id" : "BassBigMuff",
       "inspiration" : "Electro-Harmonix Bass Big Muff",
+      "mirrors" : [
+
+      ],
       "name" : "Bass Sustain Fuzz",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -472,10 +593,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.51,
+        0.5,
+        0.75
+      ],
       "id" : "GuitarMuff",
       "inspiration" : "Electro-Harmonix Big Muff",
+      "mirrors" : [
+
+      ],
       "name" : "Sustain Fuzz",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -504,10 +634,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.4,
+        0.76,
+        0.2
+      ],
       "id" : "MaestroBassmaster",
       "inspiration" : "Maestro Bass Brassmaster",
+      "mirrors" : [
+
+      ],
       "name" : "Brass Bass",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -536,9 +675,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.4,
+        0.45,
+        0.8,
+        1
+      ],
       "id" : "SABdriver",
+      "mirrors" : [
+
+      ],
       "name" : "Amp-in-a-Box",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -576,10 +725,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.AxisFuzz",
       "inspiration" : "Roger Mayer Axis Fuzz",
+      "mirrors" : [
+
+      ],
       "name" : "JH Axis Fuzz",
       "pack" : true,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -599,10 +755,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.SupaFuzz",
       "inspiration" : "Univox Super-Fuzz",
+      "mirrors" : [
+
+      ],
       "name" : "JH Super Fuzz",
       "pack" : true,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -622,10 +785,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.Octavia",
       "inspiration" : "Roger Mayer Octavia",
+      "mirrors" : [
+
+      ],
       "name" : "JH Octave Fuzz",
       "pack" : true,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -645,10 +815,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.FuzzTone",
       "inspiration" : "Maestro Fuzz-Tone",
+      "mirrors" : [
+
+      ],
       "name" : "JH Fuzz Tone",
       "pack" : true,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -668,11 +845,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.709,
+        0.354,
+        0.332,
+        0.534,
+        0.848
+      ],
       "group" : "clean",
       "id" : "RolandJC120",
       "inspiration" : "Roland JC-120",
+      "mirrors" : [
+
+      ],
       "name" : "Solid Clean",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -715,11 +903,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.696,
+        0.372,
+        0.453,
+        0.549,
+        0.803
+      ],
       "group" : "clean",
       "id" : "Twin",
       "inspiration" : "Fender Twin Reverb",
+      "mirrors" : [
+
+      ],
       "name" : "US Clean",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -762,11 +961,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.677,
+        0.57,
+        0.532,
+        0.341,
+        0.68
+      ],
       "group" : "clean",
       "id" : "ADClean",
       "inspiration" : "Orange AD30, Clean",
+      "mirrors" : [
+
+      ],
       "name" : "Brit Clean",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -809,11 +1019,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.5,
+        0.354,
+        0.416,
+        0.439,
+        0.712
+      ],
       "group" : "clean",
       "id" : "94MatchDCV2",
       "inspiration" : "Matchless DC-30",
+      "mirrors" : [
+
+      ],
       "name" : "Boutique Clean",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -856,11 +1077,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.71,
+        0.38,
+        0.53,
+        0.53,
+        0.6
+      ],
       "group" : "clean",
       "id" : "ODS50CN",
       "inspiration" : "Dumble ODS 50",
+      "mirrors" : [
+
+      ],
       "name" : "Silk Clean",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -903,11 +1135,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.582,
+        0.663,
+        0.472,
+        0.359,
+        0.716
+      ],
       "group" : "bright",
       "id" : "Bassman",
       "inspiration" : "Fender Bassman ’59",
+      "mirrors" : [
+
+      ],
       "name" : "Tweed 4×10",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -950,11 +1193,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.492,
+        0.469,
+        0.504,
+        0.594,
+        0.6
+      ],
       "group" : "bright",
       "id" : "AC Boost",
       "inspiration" : "Vox AC30 Top Boost",
+      "mirrors" : [
+
+      ],
       "name" : "Brit Chime",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -997,11 +1251,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.748,
+        0.522,
+        0.367,
+        0.507,
+        0.439
+      ],
       "group" : "bright",
       "id" : "Checkmate",
       "inspiration" : "Teisco Checkmate 20",
+      "mirrors" : [
+
+      ],
       "name" : "Vintage Combo",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1044,11 +1309,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.581,
+        0.508,
+        0.611,
+        0.5,
+        0.65
+      ],
       "group" : "bright",
       "id" : "TwoStoneSP50",
       "inspiration" : "Two-Rock Studio Pro 50",
+      "mirrors" : [
+
+      ],
       "name" : "Studio Glass",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1091,11 +1367,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.68,
+        0.4,
+        0.2,
+        0.58,
+        0.7
+      ],
       "group" : "crunch",
       "id" : "Deluxe65",
       "inspiration" : "Fender Deluxe",
+      "mirrors" : [
+
+      ],
       "name" : "US Deluxe",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1138,11 +1425,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.727,
+        0.433,
+        0.469,
+        0.592,
+        0.344
+      ],
       "group" : "crunch",
       "id" : "Plexi",
       "inspiration" : "Marshall Super Lead ’Plexi’",
+      "mirrors" : [
+
+      ],
       "name" : "Plexi Crunch",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1185,11 +1483,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.652,
+        0.657,
+        0.562,
+        0.321,
+        0.539
+      ],
       "group" : "crunch",
       "id" : "OverDrivenJM45",
       "inspiration" : "Marshall JTM45",
+      "mirrors" : [
+
+      ],
       "name" : "Brit 45",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1232,11 +1541,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.256,
+        0.23,
+        0.284,
+        0.383,
+        0.826
+      ],
       "group" : "crunch",
       "id" : "OverDrivenLuxVerb",
       "inspiration" : "Fender Deluxe Reverb",
+      "mirrors" : [
+
+      ],
       "name" : "US Crunch",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1279,11 +1599,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.66,
+        0.45,
+        0.5,
+        0.6,
+        0.75
+      ],
       "group" : "crunch",
       "id" : "BluesJrTweed",
       "inspiration" : "Fender Blues Junior",
+      "mirrors" : [
+
+      ],
       "name" : "Blues Combo",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1326,11 +1657,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.656,
+        0.597,
+        0.554,
+        0.356,
+        0.537
+      ],
       "group" : "highGain",
       "id" : "Bogner",
       "inspiration" : "Bogner Ecstasy 101",
+      "mirrors" : [
+
+      ],
       "name" : "Boutique Lead",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1373,11 +1715,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.675,
+        0.357,
+        0.402,
+        0.601,
+        0.326
+      ],
       "group" : "highGain",
       "id" : "OrangeAD30",
       "inspiration" : "Orange AD30",
+      "mirrors" : [
+
+      ],
       "name" : "Brit 30 Drive",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1420,11 +1773,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.616,
+        0.431,
+        0.556,
+        0.495,
+        0.78
+      ],
       "group" : "highGain",
       "id" : "AmericanHighGain",
       "inspiration" : "Mesa/Boogie",
+      "mirrors" : [
+
+      ],
       "name" : "US Lead",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1467,11 +1831,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.591,
+        0.385,
+        0.526,
+        0.454,
+        0.487
+      ],
       "group" : "highGain",
       "id" : "SLO100",
       "inspiration" : "Soldano SLO-100",
+      "mirrors" : [
+
+      ],
       "name" : "Super Lead",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1514,11 +1889,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.604,
+        0.5,
+        0.383,
+        0.623,
+        0.61
+      ],
       "group" : "highGain",
       "id" : "YJM100",
       "inspiration" : "Marshall YJM100",
+      "mirrors" : [
+
+      ],
       "name" : "Shred 100",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1561,11 +1947,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.669,
+        0.577,
+        0.558,
+        0.596,
+        0.781
+      ],
       "group" : "metal",
       "id" : "Rectifier",
       "inspiration" : "Mesa/Boogie Rectifier",
+      "mirrors" : [
+
+      ],
       "name" : "Rectified",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1608,11 +2005,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.502,
+        0.7,
+        0.628,
+        0.333,
+        0.884
+      ],
       "group" : "metal",
       "id" : "EVH",
       "inspiration" : "EVH 5150 III",
+      "mirrors" : [
+
+      ],
       "name" : "Brown Lead",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1655,11 +2063,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.66,
+        0.5,
+        0.4,
+        0.5,
+        0.7
+      ],
       "group" : "metal",
       "id" : "6505Plus",
       "inspiration" : "Peavey 6505+",
+      "mirrors" : [
+
+      ],
       "name" : "Thrash Head",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1702,11 +2121,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.597,
+        0.5,
+        0.506,
+        0.6,
+        0.656
+      ],
       "group" : "metal",
       "id" : "SwitchAxeLead",
       "inspiration" : "Hughes & Kettner Switchblade",
+      "mirrors" : [
+
+      ],
       "name" : "Switch Lead",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1749,11 +2179,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.597,
+        0.508,
+        0.39,
+        0.615,
+        0.578
+      ],
       "group" : "metal",
       "id" : "Invader",
       "inspiration" : "Orange Rockerverb 50",
+      "mirrors" : [
+
+      ],
       "name" : "Rock Verb",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1796,11 +2237,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.571,
+        0.561,
+        0.649,
+        0.404,
+        0.818
+      ],
       "group" : "metal",
       "id" : "BE101",
       "inspiration" : "Friedman BE-100",
+      "mirrors" : [
+
+      ],
       "name" : "Modern Brit",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1843,10 +2295,21 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.64,
+        0.478,
+        0.511,
+        0.531,
+        0.519
+      ],
       "group" : "acoustic",
       "id" : "Acoustic",
+      "mirrors" : [
+
+      ],
       "name" : "Akustik pur",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1889,11 +2352,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.406,
+        0.407,
+        0.144,
+        0.662,
+        0.85
+      ],
       "group" : "acoustic",
       "id" : "AcousticAmpV2",
       "inspiration" : "Fishman Loudbox",
+      "mirrors" : [
+
+      ],
       "name" : "Akustik-Combo",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1936,10 +2410,21 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.532,
+        0.469,
+        0.48,
+        0.708,
+        0.461
+      ],
       "group" : "acoustic",
       "id" : "FatAcousticV2",
+      "mirrors" : [
+
+      ],
       "name" : "Akustik voll",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -1982,10 +2467,21 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.669,
+        0.446,
+        0.558,
+        0.715,
+        0.539
+      ],
       "group" : "acoustic",
       "id" : "FlatAcoustic",
+      "mirrors" : [
+
+      ],
       "name" : "Akustik flach",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2028,11 +2524,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.548,
+        0.419,
+        0.366,
+        0.595,
+        0.886
+      ],
       "group" : "bass",
       "id" : "GK800",
       "inspiration" : "Gallien-Krueger 800RB",
+      "mirrors" : [
+
+      ],
       "name" : "Bass 800",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2075,11 +2582,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.501,
+        0.599,
+        0.417,
+        0.508,
+        0.749
+      ],
       "group" : "bass",
       "id" : "Sunny3000",
       "inspiration" : "Sunn 300T",
+      "mirrors" : [
+
+      ],
       "name" : "Bass Vintage",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2122,11 +2640,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.503,
+        0.374,
+        0.269,
+        0.631,
+        0.87
+      ],
       "group" : "bass",
       "id" : "W600",
       "inspiration" : "Eden WTP600",
+      "mirrors" : [
+
+      ],
       "name" : "Bass Studio",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2169,11 +2698,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.544,
+        0.524,
+        0.29,
+        0.678,
+        0.753
+      ],
       "group" : "bass",
       "id" : "Hammer500",
       "inspiration" : "Aguilar Tone Hammer 500",
+      "mirrors" : [
+
+      ],
       "name" : "Bass Modern",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2216,11 +2756,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.JTM45",
       "inspiration" : "Marshall JTM45/100",
+      "mirrors" : [
+
+      ],
       "name" : "JH 45/100",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2258,11 +2805,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.SuperLead100",
       "inspiration" : "Marshall Super Lead 100",
+      "mirrors" : [
+
+      ],
       "name" : "JH Super Lead",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2300,11 +2854,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.DualShowman",
       "inspiration" : "Fender Dual Showman",
+      "mirrors" : [
+
+      ],
       "name" : "JH Showman",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2342,11 +2903,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.Sunn100",
       "inspiration" : "Sunn 100S",
+      "mirrors" : [
+
+      ],
       "name" : "JH 100S",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2384,11 +2952,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.Bassman50Silver",
       "inspiration" : "Fender Bassman 50",
+      "mirrors" : [
+
+      ],
       "name" : "JH Bassman",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2426,11 +3001,18 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "group" : "crunch",
       "id" : "JH.SoundCity100",
       "inspiration" : "Sound City One Hundred",
+      "mirrors" : [
+
+      ],
       "name" : "JH City 100",
       "pack" : true,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -2468,9 +3050,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.454,
+        0.7,
+        0.596
+      ],
       "id" : "Tremolo",
+      "mirrors" : [
+
+      ],
       "name" : "Tremolo",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -2499,9 +3090,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.761,
+        0.28,
+        0.746,
+        0.568
+      ],
       "id" : "ChorusAnalog",
+      "mirrors" : [
+
+      ],
       "name" : "Chorus",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -2537,9 +3138,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.414,
+        0.663,
+        0.655
+      ],
       "id" : "Flanger",
+      "mirrors" : [
+
+      ],
       "name" : "Flanger",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -2568,10 +3178,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.55,
+        0.62,
+        0,
+        0
+      ],
       "id" : "Phaser",
       "inspiration" : "MXR Phase 90",
+      "mirrors" : [
+
+      ],
       "name" : "Phaser",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -2593,9 +3213,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.814,
+        0.527,
+        0.5
+      ],
       "id" : "Vibrato01",
+      "mirrors" : [
+
+      ],
       "name" : "Vibrato",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -2624,10 +3253,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.5,
+        1,
+        0.7
+      ],
       "id" : "UniVibe",
       "inspiration" : "Shin-ei Uni-Vibe",
+      "mirrors" : [
+
+      ],
       "name" : "Rotary Vibe",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -2658,10 +3296,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.249,
+        1
+      ],
       "id" : "Cloner",
       "inspiration" : "Electro-Harmonix Small Clone",
+      "mirrors" : [
+
+      ],
       "name" : "Clone Chorus",
       "pack" : false,
+      "parameterCount" : 2,
       "parameters" : [
         {
           "index" : 0,
@@ -2685,10 +3331,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.31,
+        0.256,
+        0.6,
+        0.5
+      ],
       "id" : "MiniVibe",
       "inspiration" : "Voodoo Lab Micro Vibe",
+      "mirrors" : [
+
+      ],
       "name" : "Mini Vibe",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -2724,9 +3380,18 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.659,
+        0.5,
+        0
+      ],
       "id" : "Tremolator",
+      "mirrors" : [
+
+      ],
       "name" : "Sync Tremolo",
       "pack" : false,
+      "parameterCount" : 3,
       "parameters" : [
         {
           "index" : 0,
@@ -2757,9 +3422,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.1,
+        0.5,
+        0.6,
+        0
+      ],
       "id" : "TremoloSquare",
+      "mirrors" : [
+
+      ],
       "name" : "Square Tremolo",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -2795,9 +3470,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
       "id" : "GuitarEQ6",
+      "mirrors" : [
+
+      ],
       "name" : "Gitarren-EQ",
       "pack" : false,
+      "parameterCount" : 7,
       "parameters" : [
         {
           "index" : 0,
@@ -2854,9 +3542,22 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
       "id" : "BassEQ6",
+      "mirrors" : [
+
+      ],
       "name" : "Bass-EQ",
       "pack" : false,
+      "parameterCount" : 7,
       "parameters" : [
         {
           "index" : 0,
@@ -2913,10 +3614,17 @@
     },
     {
       "checkedOnAmp" : false,
+      "defaults" : [
+
+      ],
       "id" : "JH.VoodooVibeJr",
       "inspiration" : "Roger Mayer Voodoo-Vibe",
+      "mirrors" : [
+
+      ],
       "name" : "JH Vibe",
       "pack" : true,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -2948,10 +3656,21 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.382,
+        0.398,
+        0.55,
+        0.6,
+        1
+      ],
       "id" : "DelayMono",
       "inspiration" : "Boss DD-3",
+      "mirrors" : [
+
+      ],
       "name" : "Digital Delay",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -3014,9 +3733,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.55,
+        0.461,
+        0.698,
+        0.464,
+        1
+      ],
       "id" : "DelayEchoFilt",
+      "mirrors" : [
+
+      ],
       "name" : "Filter Echo",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -3061,9 +3791,19 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.55,
+        0.647,
+        0.711,
+        1
+      ],
       "id" : "VintageDelay",
+      "mirrors" : [
+
+      ],
       "name" : "Analog Delay",
       "pack" : false,
+      "parameterCount" : 4,
       "parameters" : [
         {
           "index" : 0,
@@ -3101,9 +3841,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.733,
+        0.391,
+        0.677,
+        0.573,
+        1
+      ],
       "id" : "DelayReverse",
+      "mirrors" : [
+
+      ],
       "name" : "Reverse Delay",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -3148,9 +3899,20 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.55,
+        0.605,
+        0.544,
+        0.62,
+        1
+      ],
       "id" : "DelayMultiHead",
+      "mirrors" : [
+
+      ],
       "name" : "Multi Head",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -3213,10 +3975,21 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.72,
+        0.598,
+        0.5,
+        0.55,
+        1
+      ],
       "id" : "DelayRe201",
       "inspiration" : "Roland RE-201",
+      "mirrors" : [
+
+      ],
       "name" : "Tape Echo",
       "pack" : false,
+      "parameterCount" : 5,
       "parameters" : [
         {
           "index" : 0,
@@ -3261,9 +4034,23 @@
     },
     {
       "checkedOnAmp" : true,
+      "defaults" : [
+        0.3,
+        0.4,
+        0.4,
+        0.5,
+        0.4,
+        0.5,
+        0.3,
+        1
+      ],
       "id" : "bias.reverb",
+      "mirrors" : [
+        7
+      ],
       "name" : "Hall",
       "pack" : false,
+      "parameterCount" : 8,
       "parameters" : [
         {
           "index" : 0,

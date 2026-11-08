@@ -1,0 +1,215 @@
+{
+  "bpm" : 120,
+  "description" : "1-Clean",
+  "effects" : [
+    {
+      "isOn" : true,
+      "name" : "bias.noisegate",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "BlueComp",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.55
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.4
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.35
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "DistortionTS9",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.72265196
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.45
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.48
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Twin",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.45
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.55
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.53
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.39
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Cloner",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.21549296
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    },
+    {
+      "isOn" : false,
+      "name" : "VintageDelay",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.3787388
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.42574465
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.4198162
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "bias.reverb",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.28
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.71
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.4
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.39
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.23
+        },
+        {
+          "index" : 5,
+          "marker" : 145,
+          "value" : 0.79
+        },
+        {
+          "index" : 6,
+          "marker" : 145,
+          "value" : 0.29
+        },
+        {
+          "index" : 7,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    }
+  ],
+  "icon" : "icon.png",
+  "name" : "Fusion Sound",
+  "trailer" : [
+    202,
+    70,
+    28,
+    24,
+    0,
+    202,
+    63,
+    0,
+    0,
+    0,
+    174
+  ],
+  "uuid" : "E429FDD2-31C3-45B7-A0DC-BAF7400E5B09",
+  "version" : "0.7"
+}

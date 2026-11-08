@@ -39,9 +39,17 @@ rm -rf "$app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_path/$executable" "$app/Contents/MacOS/$executable"
 cp Resources/Info.plist "$app/Contents/Info.plist"
+# One version for every machine and platform: VERSION at the top of the repository, and the id of what was built.
+# `SparkStudio --version` prints both, and so does `spark-studio --version` on Linux (see sync.sh).
+version="$(tr -d '[:space:]' < VERSION)"
+build_id="$(Tools/build-id.sh)"
+commit_count="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
+plist_buddy=/usr/libexec/PlistBuddy
+$plist_buddy -c "Set :CFBundleShortVersionString $version" -c "Set :CFBundleVersion $commit_count" \
+    -c "Add :SparkBuildID string $build_id" "$app/Contents/Info.plist"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
 codesign --force --sign "${identity:--}" "$app"
-echo "Built $app"
+echo "Built $app ($version, $build_id)"
 
 [[ -n "$install" ]] || exit 0
 

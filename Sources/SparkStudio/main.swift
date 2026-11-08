@@ -6,6 +6,12 @@ import SparkRecorderUI
 // both apps work too (--library, --ui-selftest, --dark, --offline, --snapshot, --open, --size, --appearance,
 // --live-selftest), plus --menu-dump.
 // Sound recipes and the catalog: --recipe-check, --recipe-from, --catalog-export.
+// --version: the same line as `spark-studio --version` on Linux, so sync.sh can compare the machines.
+if CommandLine.arguments.dropFirst().first == "--version" {
+    let info = Bundle.main.infoDictionary ?? [:]
+    print("Spark Studio \(info["CFBundleShortVersionString"] as? String ?? "?") (\(info["SparkBuildID"] as? String ?? "dev"))")
+    exit(0)
+}
 if let status = RecipeCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
     exit(status)
 }

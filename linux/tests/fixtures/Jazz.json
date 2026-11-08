@@ -1,0 +1,231 @@
+{
+  "format" : 1,
+  "isBackup" : false,
+  "origin" : "Platz 1 · Spark MINI",
+  "preset" : {
+    "bpm" : 120,
+    "description" : "1-Clean",
+    "effects" : [
+      {
+        "isOn" : true,
+        "name" : "bias.noisegate",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.20506842
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.5709971
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 1
+          }
+        ]
+      },
+      {
+        "isOn" : true,
+        "name" : "BlueComp",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.5
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.5
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.25
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0.3
+          }
+        ]
+      },
+      {
+        "isOn" : false,
+        "name" : "DistortionTS9",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.7031095
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.27814567
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.6898463
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0
+          }
+        ]
+      },
+      {
+        "isOn" : true,
+        "name" : "Deluxe65",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.68
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.4
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.2
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0.58
+          },
+          {
+            "index" : 4,
+            "marker" : 145,
+            "value" : 0.3570248
+          }
+        ]
+      },
+      {
+        "isOn" : false,
+        "name" : "ChorusAnalog",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.5199758
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.40215245
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.24064158
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0.74057865
+          }
+        ]
+      },
+      {
+        "isOn" : false,
+        "name" : "DelayMono",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.0197
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.1594312
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.49357912
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0.6
+          },
+          {
+            "index" : 4,
+            "marker" : 145,
+            "value" : 1
+          }
+        ]
+      },
+      {
+        "isOn" : true,
+        "name" : "bias.reverb",
+        "parameters" : [
+          {
+            "index" : 0,
+            "marker" : 145,
+            "value" : 0.2666
+          },
+          {
+            "index" : 1,
+            "marker" : 145,
+            "value" : 0.23928572
+          },
+          {
+            "index" : 2,
+            "marker" : 145,
+            "value" : 0.5
+          },
+          {
+            "index" : 3,
+            "marker" : 145,
+            "value" : 0.161
+          },
+          {
+            "index" : 4,
+            "marker" : 145,
+            "value" : 0.33928573
+          },
+          {
+            "index" : 5,
+            "marker" : 145,
+            "value" : 0.6393614
+          },
+          {
+            "index" : 6,
+            "marker" : 145,
+            "value" : 0.7
+          }
+        ]
+      }
+    ],
+    "icon" : "icon.png",
+    "name" : "Jazz",
+    "trailer" : [
+      202,
+      70,
+      28,
+      24,
+      0,
+      202,
+      63,
+      0,
+      0,
+      0,
+      120
+    ],
+    "uuid" : "63EDF56C-BD9B-4C08-BD23-8355A926398E",
+    "version" : "0.7"
+  },
+  "savedAt" : "2026-11-07T13:15:17Z"
+}

@@ -1,0 +1,235 @@
+{
+  "bpm" : 120,
+  "description" : "",
+  "effects" : [
+    {
+      "isOn" : true,
+      "name" : "bias.noisegate",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.27333125
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 1
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Compressor",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.58412516
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.3572313
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "DistortionTS9",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.055248618
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.30469835
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.50931126
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "Rectifier",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.7975391
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.45455724
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.6157517
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.6058662
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.7024793
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "GuitarEQ6",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.51567394
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.5282132
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.5783699
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0.60658306
+        },
+        {
+          "index" : 5,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 6,
+          "marker" : 145,
+          "value" : 0.5
+        }
+      ]
+    },
+    {
+      "isOn" : false,
+      "name" : "DelayMono",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.37111112
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.28302705
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.4355828
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.6
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    },
+    {
+      "isOn" : true,
+      "name" : "bias.reverb",
+      "parameters" : [
+        {
+          "index" : 0,
+          "marker" : 145,
+          "value" : 0.28035718
+        },
+        {
+          "index" : 1,
+          "marker" : 145,
+          "value" : 0.23928572
+        },
+        {
+          "index" : 2,
+          "marker" : 145,
+          "value" : 0.5
+        },
+        {
+          "index" : 3,
+          "marker" : 145,
+          "value" : 0.49642858
+        },
+        {
+          "index" : 4,
+          "marker" : 145,
+          "value" : 0
+        },
+        {
+          "index" : 5,
+          "marker" : 145,
+          "value" : 0.6393614
+        },
+        {
+          "index" : 6,
+          "marker" : 145,
+          "value" : 0.7
+        },
+        {
+          "index" : 7,
+          "marker" : 145,
+          "value" : 0
+        }
+      ]
+    }
+  ],
+  "icon" : "icon.png",
+  "name" : "CUSTOM",
+  "trailer" : [
+    202,
+    70,
+    28,
+    24,
+    0,
+    202,
+    63,
+    0,
+    0,
+    0,
+    253
+  ],
+  "uuid" : "D8F2054D-397A-4046-BEB2-9D693D20A62C",
+  "version" : "0.7"
+}

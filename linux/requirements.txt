@@ -1,0 +1,4 @@
+# Installed into ~/.local/share/spark-studio/venv by linux/install.sh. pytest runs the tests before an install.
+PySide6-Essentials>=6.7
+bleak>=0.22
+pytest>=8
