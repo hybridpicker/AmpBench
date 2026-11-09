@@ -140,7 +140,10 @@ final class Studio: ObservableObject {
         let visible = !closing && window?.isVisible == true && window?.isMiniaturized == false
             && window?.occlusionState.contains(.visible) == true
         // The pictures' synthetic string opens no input, so it may play while the screen is locked, as tests run.
-        tuner.setActive(area == .tuner && (visible || isShowingTunerDemo))
+        let active = area == .tuner && (visible || isShowingTunerDemo)
+        // The amp's own tuner needs the link, which otherwise starts only with the area Presets.
+        if active, !isShowingTunerDemo { presets.startLinkOnce() }
+        tuner.setActive(active)
     }
 
     private var isShowingTunerDemo = false

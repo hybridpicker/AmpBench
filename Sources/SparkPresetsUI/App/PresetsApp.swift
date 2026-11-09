@@ -15,9 +15,10 @@ enum PresetsContent {
 
     private static var started = false
 
-    /// Bluetooth, the snapshot and the live self-test start when the content first appears, and only then: Spark
-    /// Studio shows the content again on every switch to its area, and must not reconnect after "Trennen".
-    private static func startOnce(_ model: PresetsModel) async {
+    /// Bluetooth, the snapshot and the live self-test start when the content first appears, or when the tuner first
+    /// needs the amp, and only then: Spark Studio shows the content again on every switch to its area, and must not
+    /// reconnect after "Trennen".
+    static func startOnce(_ model: PresetsModel) async {
         guard !started else { return }
         started = true
         Snapshot.prepare()

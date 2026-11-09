@@ -99,6 +99,13 @@ public final class PresetsHost: ObservableObject {
 
     // MARK: The amp's own tuner
 
+    /// Starts the Bluetooth link as the area Presets does on its first showing, for the tuner shown first. Does
+    /// nothing once started, also not after "Trennen".
+    public func startLinkOnce() {
+        let model = model
+        Task { await PresetsContent.startOnce(model) }
+    }
+
     /// The connected device's name when its own tuner can be switched on from here (Spark MINI, NEO), nil otherwise.
     public var ampTunerDevice: String? { model.link.canUseAmpTuner ? model.link.profile.displayName : nil }
 
