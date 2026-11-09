@@ -8,18 +8,27 @@ import Foundation
 /// same sound always gives the same value, whatever its name or where on the amp it was read, so takes with the same
 /// sound can be found and matched to a saved preset.
 public struct PresetStamp: Codable, Equatable, Sendable {
-    /// The amp's slot from 1 to 4, or nil when the sound came from the Mac or the amp's temporary place.
+    /// The amp's slot from 1, or nil when the sound came from the Mac or the amp's temporary place.
     public var slot: Int?
     public var name: String
     public var stampedAt: Date
-    /// Lowercase hex, 64 characters.
+    /// Lowercase hex, 64 characters. Empty for a sound that was only listened to.
     public var sha256: String
+    /// The device that played the sound, such as "Spark NEO", whichever input recorded the take. Nil in takes from
+    /// before devices were told apart.
+    public var device: String?
+    /// For a device that is only listened to (the REACTOR): what it reported, in words, instead of a preset. Such a
+    /// stamp has no fingerprint and no snapshot, and the window calls it "mitgelesen".
+    public var listened: [ListenedValue]?
 
-    public init(slot: Int? = nil, name: String, stampedAt: Date = Date(), sha256: String) {
+    public init(slot: Int? = nil, name: String, stampedAt: Date = Date(), sha256: String, device: String? = nil,
+                listened: [ListenedValue]? = nil) {
         self.slot = slot
         self.name = name
         self.stampedAt = stampedAt
         self.sha256 = sha256
+        self.device = device
+        self.listened = listened
     }
 
     public init(from decoder: Decoder) throws {
@@ -28,6 +37,22 @@ public struct PresetStamp: Codable, Equatable, Sendable {
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
         stampedAt = try c.decodeIfPresent(Date.self, forKey: .stampedAt) ?? Date(timeIntervalSince1970: 0)
         sha256 = try c.decodeIfPresent(String.self, forKey: .sha256) ?? ""
+        device = try c.decodeIfPresent(String.self, forKey: .device)
+        listened = try c.decodeIfPresent([ListenedValue].self, forKey: .listened)
+    }
+
+    /// True for a sound read from what a device reported, not a preset.
+    public var isListened: Bool { listened != nil }
+}
+
+/// One reading of a listened-to device, such as "Amp: Crunch" or "Gain: 6,2".
+public struct ListenedValue: Codable, Equatable, Sendable {
+    public var label: String
+    public var value: String
+
+    public init(label: String, value: String) {
+        self.label = label
+        self.value = value
     }
 }
 

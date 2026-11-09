@@ -3,13 +3,17 @@ import Combine
 import SparkControl
 import SwiftUI
 
-/// What the amp plays, ready to be kept with a take: name, slot (1 to 4, nil for the temporary place), the
-/// fingerprint of the effect chain and the snapshot as a preset file.
+/// What the device plays, ready to be kept with a take: name, slot (from 1, nil for the temporary place), the
+/// fingerprint of the effect chain, the snapshot as a preset file, and the device. A REACTOR, which is only listened
+/// to, gives what it reported instead (`listened`), with no fingerprint and no snapshot.
 public struct HeardSound {
     public let name: String
     public let slot: Int?
     public let sha256: String
-    public let snapshot: Data
+    public let snapshot: Data?
+    public let device: String
+    /// Label and value, such as ("Amp", "Crunch"), for a sound that was only listened to.
+    public let listened: [(label: String, value: String)]?
 }
 
 /// Spark Presets inside another app, Spark Studio: the same model, content and menus as the app, plus what Studio
@@ -70,7 +74,7 @@ public final class PresetsHost: ObservableObject {
     /// The state in words, for help texts and VoiceOver.
     public var connectionText: String {
         switch model.link.status {
-        case .connected: model.link.deviceName ?? "verbunden"
+        case .connected: model.link.shownName
         case .starting: model.link.wanted ? "Bluetooth startet" : "getrennt"
         case .searching: "Suche den Verstärker"
         case .connecting: "Verbinde"
@@ -89,10 +93,28 @@ public final class PresetsHost: ObservableObject {
 
     /// What the amp plays now, from memory, or nil when not connected or not known.
     public func heardSound() -> HeardSound? {
+        let link = model.link
+        // The profile's name, never a REACTOR's own Bluetooth name: the stamp is kept in the library.
+        let device = link.profile.id == .unknownSpark ? (link.deviceName ?? link.profile.displayName)
+            : link.profile.displayName
+        if link.status == .connected, !link.profile.canSend {
+            let state = link.reactor
+            let slot = state.slot
+            let name = slot.map { "\(device) \(link.profile.slotName($0))" } ?? device
+            return HeardSound(name: name, slot: slot.map { $0 + 1 }, sha256: "", snapshot: nil, device: device,
+                              listened: state.lines(profile: link.profile))
+        }
         guard let heard = model.heardPreset, let sha256 = try? heard.preset.sha256Hex() else { return nil }
-        let origin = heard.slot.map { model.origin(slot: $0 - 1) } ?? "Vorübergehend · \(model.link.deviceName ?? "Spark")"
+        let origin = heard.slot.map { model.origin(slot: $0 - 1) } ?? "Vorübergehend · \(device)"
         guard let snapshot = try? PresetFile.snapshotData(for: heard.preset, origin: origin) else { return nil }
-        return HeardSound(name: heard.preset.name, slot: heard.slot, sha256: sha256, snapshot: snapshot)
+        return HeardSound(name: heard.preset.name, slot: heard.slot, sha256: sha256, snapshot: snapshot,
+                          device: device, listened: nil)
+    }
+
+    /// Called when the connected device dropped a sound that was not stored, because the connection ended. Gets the
+    /// device's name. A take running then keeps the sound it started with.
+    public func onTemporaryLost(_ handler: @escaping @MainActor (String) -> Void) {
+        model.onTemporaryLost = { name in handler(name) }
     }
 
     /// Plays a take's sound on the temporary place 7F. Never touches a slot. `report` gets nil when it plays, or

@@ -9,6 +9,17 @@ final class InputPolicyTests: XCTestCase {
     private let aggregate = kAudioDeviceTransportTypeAggregate
     private let bluetooth = kAudioDeviceTransportTypeBluetooth
 
+    func testUSBDevicesByNameParts() {
+        let policy = InputPolicy.usbDevices(named: ["spark", "reactor"])
+        XCTAssertTrue(policy.allows(name: "Spark MINI USB", transport: usb))
+        XCTAssertTrue(policy.allows(name: "REACTOR 50", transport: usb))
+        XCTAssertFalse(policy.allows(name: "REACTOR 50", transport: bluetooth))
+        XCTAssertFalse(policy.allows(name: "USB Microphone", transport: usb))
+        // An empty part would allow every USB device.
+        XCTAssertFalse(InputPolicy.usbDevices(named: [""]).allows(name: "USB Microphone", transport: usb))
+        XCTAssertFalse(InputPolicy.usbDevices(named: []).allows(name: "Spark MINI", transport: usb))
+    }
+
     func testSparkOnUSBIsAllowed() {
         XCTAssertTrue(InputPolicy.sparkOnly.allows(name: "Spark MINI USB", transport: usb))
         XCTAssertTrue(InputPolicy.sparkOnly.allows(name: "SPARK 40", transport: usb))

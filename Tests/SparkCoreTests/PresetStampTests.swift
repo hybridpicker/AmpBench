@@ -31,6 +31,31 @@ final class PresetStampTests: XCTestCase {
         return try decoder.decode(type, from: Data(json.utf8))
     }
 
+    // MARK: Devices
+
+    func testTheStampKeepsTheDeviceAndAListenedSound() throws {
+        let neo = PresetStamp(slot: 3, name: "SOLO", sha256: String(repeating: "cd", count: 32), device: "Spark NEO")
+        let reactor = PresetStamp(slot: 6, name: "REACTOR 50 Grün 2", sha256: "", device: "REACTOR 50",
+                                  listened: [ListenedValue(label: "Amp", value: "Crunch"),
+                                             ListenedValue(label: "Gain", value: "6,2")])
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        for stamp in [neo, reactor] {
+            let back = try decoder.decode(PresetStamp.self, from: try encoder.encode(stamp))
+            XCTAssertEqual(back.device, stamp.device)
+            XCTAssertEqual(back.listened, stamp.listened)
+            XCTAssertEqual(back.sha256, stamp.sha256)
+        }
+        XCTAssertFalse(neo.isListened)
+        XCTAssertTrue(reactor.isListened)
+        // Older stamps have neither.
+        let old = try decode(PresetStamp.self, #"{"slot": 1, "name": "Clean", "sha256": "ab"}"#)
+        XCTAssertNil(old.device)
+        XCTAssertNil(old.listened)
+    }
+
     // MARK: Older files
 
     func testLibraryWithoutTheNewFieldsLoadsUnchanged() throws {

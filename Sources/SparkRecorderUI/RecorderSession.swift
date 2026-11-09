@@ -39,8 +39,10 @@ final class RecorderSession: NSObject, NSWindowDelegate {
 
     /// The model for the launch options. `folder` replaces the default library folder; a test library given with
     /// `--library` still wins.
-    static func makeModel(folder: URL? = nil) -> AppModel {
-        let options = LaunchOptions.current
+    static func makeModel(folder: URL? = nil, inputNames: [String]? = nil) -> AppModel {
+        var options = LaunchOptions.current
+        // A real library records from the devices Spark Studio knows; a test library keeps its test devices.
+        if !options.isTestLibrary, let inputNames { options.inputPolicy = .usbDevices(named: inputNames) }
         let defaults = options.isTestLibrary
             ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
             : .standard

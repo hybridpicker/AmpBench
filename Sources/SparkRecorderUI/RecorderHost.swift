@@ -5,9 +5,10 @@ import SwiftUI
 /// What the amp plays when a take starts: the stamp kept with the take and the preset file written next to it.
 public struct TakeSound {
     public let stamp: PresetStamp
-    public let snapshot: Data
+    /// The preset file, nil for a sound that was only listened to.
+    public let snapshot: Data?
 
-    public init(stamp: PresetStamp, snapshot: Data) {
+    public init(stamp: PresetStamp, snapshot: Data?) {
         self.stamp = stamp
         self.snapshot = snapshot
     }
@@ -43,8 +44,9 @@ public final class RecorderHost {
     private let session: RecorderSession
 
     /// `folder` is the recordings library; a test library given with `--library` still wins.
-    public init(folder: URL? = nil) {
-        model = RecorderSession.makeModel(folder: folder)
+    /// `inputNames`: parts of the USB audio names that may be recorded from; without them only Spark devices.
+    public init(folder: URL? = nil, inputNames: [String]? = nil) {
+        model = RecorderSession.makeModel(folder: folder, inputNames: inputNames)
         keyRouter = KeyRouter(model: model)
         session = RecorderSession()
     }

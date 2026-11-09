@@ -396,8 +396,10 @@ final class AppModel: ObservableObject {
     /// end a recording. A snapshot that cannot be written leaves the take without a sound, never without audio.
     private func stampSound(for takeID: UUID) -> PresetStamp? {
         guard let sound = soundProvider?() else { return nil }
+        // A listened-to sound has no preset to keep.
+        guard let snapshot = sound.snapshot else { return sound.stamp }
         do {
-            try store.writePresetSnapshot(sound.snapshot, for: takeID)
+            try store.writePresetSnapshot(snapshot, for: takeID)
             return sound.stamp
         } catch {
             return nil

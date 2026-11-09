@@ -935,16 +935,24 @@ private struct SoundBlock: View {
         sound.slot.map { "Platz \($0)" } ?? "vorübergehend gespielt"
     }
 
+    private var origin: String {
+        [place, sound.device].compactMap { $0 }.joined(separator: " · ")
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             DeskCaption("Sound")
-            Text("\(sound.name.isEmpty ? "Ohne Namen" : sound.name), \(place)")
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .textSelection(.enabled)
-                .accessibilityLabel("Sound: \(sound.name), \(place)")
-            if let actions = model.soundActions {
+            if let listened = sound.listened {
+                ListenedSound(name: sound.name, device: sound.device, values: listened)
+            } else {
+                Text("\(sound.name.isEmpty ? "Ohne Namen" : sound.name), \(origin)")
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .textSelection(.enabled)
+                    .accessibilityLabel("Sound: \(sound.name), \(origin)")
+            }
+            if let actions = model.soundActions, !sound.isListened {
                 let snapshot = model.presetSnapshot(of: recording)
                 HStack(spacing: 8) {
                     Button("Auf den Amp") { snapshot.map(actions.sendToAmp) }
@@ -964,6 +972,49 @@ private struct SoundBlock: View {
                 }
             }
         }
+    }
+}
+
+/// A sound read from what a device reported (the REACTOR), not a preset: it cannot go back to the device or into the
+/// editor, so it shows only what was read, marked "mitgelesen".
+private struct ListenedSound: View {
+    let name: String
+    let device: String?
+    let values: [ListenedValue]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                Text(name.isEmpty ? (device ?? "Gerät") : name)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Pill("Mitgelesen")
+            }
+            if values.isEmpty {
+                Text("Seit dem letzten Platzwechsel wurde am Gerät nichts gedreht; der Inhalt des Presets ist unbekannt.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 2) {
+                    ForEach(values.indices, id: \.self) { index in
+                        GridRow {
+                            Text(values[index].label).foregroundStyle(.secondary)
+                            Text(values[index].value).monospacedDigit()
+                        }
+                    }
+                }
+                .font(.system(size: 12))
+                .textSelection(.enabled)
+                Text("Kein Preset: Das Gerät schickt seinen Inhalt nicht. Gezeigt ist, was es beim Start des Takes gemeldet hatte.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Sound mitgelesen: \(name), " + values.map { "\($0.label) \($0.value)" }.joined(separator: ", "))
     }
 }
 

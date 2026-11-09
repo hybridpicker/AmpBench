@@ -147,7 +147,8 @@ public extension DeviceProfile {
         ampNames: [], slotCount: 8, bankSize: 4, bankNames: ["Rot", "Grün"], transport: .sparkBLE,
         capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: nil,
-        usbAudioNames: ["reactor"],
+        // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
+        usbAudioNames: [],
         checked: "Nur mitgelesen: Regler, Amp-Wahl, Push/Smooth, Heat, Effekte, TAP, Preset, Bank und Stimmgerät. "
             + "Es wurde nie etwas gesendet.")
 
@@ -206,6 +207,13 @@ public extension DeviceProfile {
             return String(name.prefix(prefix.count))
         }
         return name
+    }
+
+    /// Parts of USB audio names the area Aufnahme may record from, from every profile.
+    static var recordableUSBNames: [String] {
+        var names: [String] = []
+        for name in all.flatMap(\.usbAudioNames) where !names.contains(name) { names.append(name) }
+        return names
     }
 
     /// The largest slot count of any profile, for shortcuts and lists that must hold every device.

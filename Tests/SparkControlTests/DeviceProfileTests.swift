@@ -50,6 +50,12 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertTrue(DeviceProfile.sparkNEO.usbAudioNames.isEmpty)
     }
 
+    /// Only names read on a device: the MINI's "Spark". The REACTOR's joins once it is read on the device.
+    func testRecordableUSBNamesComeFromTheProfiles() {
+        XCTAssertEqual(DeviceProfile.recordableUSBNames, ["spark"])
+        XCTAssertTrue(DeviceProfile.reactor50.usbAudioNames.isEmpty)
+    }
+
     func testRecognitionFromWhatIsAdvertised() {
         XCTAssertEqual(DeviceProfile.forAdvertisement(service: "FFC0", name: "Spark NEO Control").id, .sparkNEO)
         XCTAssertEqual(DeviceProfile.forAdvertisement(service: "FFC0", name: "Spark MINI BLE").id, .sparkMini)

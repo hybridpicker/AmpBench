@@ -1,4 +1,5 @@
 import AppKit
+import SparkControl
 import SparkCore
 import SparkPresetsUI
 import SparkRecorderUI
@@ -37,7 +38,7 @@ enum StudioArea: String, CaseIterable, Identifiable {
 final class Studio: ObservableObject {
     static let shared = Studio()
 
-    let recorder = RecorderHost(folder: StudioLaunch.folders?.recordings)
+    let recorder = RecorderHost(folder: StudioLaunch.folders?.recordings, inputNames: DeviceProfile.recordableUSBNames)
     let presets = PresetsHost(folder: StudioLaunch.folders?.presets)
     /// Reads the recorder's input along with it. A test library keeps its settings apart.
     let tuner: TunerHost
@@ -163,8 +164,16 @@ final class Studio: ObservableObject {
         // Read from memory when a take starts. Without a connection the take simply has no sound.
         recorder.provideSound { [weak self] in
             guard let heard = self?.presets.heardSound() else { return nil }
-            return TakeSound(stamp: PresetStamp(slot: heard.slot, name: heard.name, sha256: heard.sha256),
+            let listened = heard.listened?.map { ListenedValue(label: $0.label, value: $0.value) }
+            return TakeSound(stamp: PresetStamp(slot: heard.slot, name: heard.name, sha256: heard.sha256,
+                                                device: heard.device, listened: listened),
                              snapshot: heard.snapshot)
+        }
+        // The NEO plays its stored slot again when the connection ends. A take keeps the sound it started with, and
+        // the recorder says what happened.
+        presets.onTemporaryLost { [weak self] device in
+            guard let self, recorder.isRecording else { return }
+            recorder.warn("\(device) ist getrennt und zum gespeicherten Platz zurückgesprungen. Der Take behält den Sound, mit dem er begann; ab jetzt klingt es anders.")
         }
         recorder.handleSounds(SoundActions(
             sendToAmp: { [weak self] snapshot in

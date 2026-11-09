@@ -25,8 +25,16 @@ public struct InputPolicy: Sendable {
 
     /// A USB device with "Spark" in its name. The manufacturer cannot be used, because the Spark Mini reports its USB
     /// chip's maker instead of Positive Grid.
-    public static let sparkOnly = InputPolicy { name, transport in
-        transport == kAudioDeviceTransportTypeUSB && name.range(of: "spark", options: .caseInsensitive) != nil
+    public static let sparkOnly = usbDevices(named: ["spark"])
+
+    /// A USB device whose name contains one of `parts`, ignoring case. Spark Studio passes the USB audio names of its
+    /// device profiles (SparkControl's `DeviceProfile.usbAudioNames`), each read from the device, never guessed.
+    public static func usbDevices(named parts: [String]) -> InputPolicy {
+        let parts = parts.filter { !$0.isEmpty }
+        return InputPolicy { name, transport in
+            transport == kAudioDeviceTransportTypeUSB
+                && parts.contains { name.range(of: $0, options: .caseInsensitive) != nil }
+        }
     }
 
     /// Virtual test devices only, so tests can never hear a real input, not even the amp.
