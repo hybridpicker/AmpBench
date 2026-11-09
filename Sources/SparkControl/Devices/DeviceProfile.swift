@@ -1,0 +1,213 @@
+import Foundation
+
+/// What Spark Studio knows about one kind of Positive Grid device: how it is found, how many slots it has, what may
+/// be sent to it and what it does on its own.
+///
+/// Every device gets only what has been checked on it with the user. Listening (subscribing to what the device reports)
+/// is separate from sending: a profile without `.send` must not get a single byte, not even a read request. A device
+/// not listed here gets a cautious profile that only reads and switches until it is checked.
+///
+/// A new device joins as a new profile in `all`; the areas read slots and capabilities from the profile and are not
+/// rebuilt for it.
+public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
+    public enum Kind: String, CaseIterable, Sendable, Codable {
+        case sparkMini, sparkNEO, reactor50, reactor100, unknownSpark
+    }
+
+    /// How Spark Studio reaches the device.
+    public enum Transport: String, Sendable {
+        /// Bluetooth LE with Spark messages (`F0 01 … F7`) on a control service.
+        case sparkBLE
+        /// A MIDI output the user picks. Not built yet.
+        case midi
+        /// Nothing goes to the device; it gets text, such as REACTOR's Text to Tone.
+        case textOnly
+    }
+
+    public struct Capabilities: OptionSet, Hashable, Sendable {
+        public let rawValue: Int
+        public init(rawValue: Int) { self.rawValue = rawValue }
+
+        /// Subscribe to what the device reports by itself. Writes nothing.
+        public static let listen = Capabilities(rawValue: 1 << 0)
+        /// Write anything at all to the device. Without it, the link writes not one byte.
+        public static let send = Capabilities(rawValue: 1 << 1)
+        /// Read firmware, name, the playing slot and stored presets.
+        public static let read = Capabilities(rawValue: 1 << 2)
+        /// Switch to a stored slot.
+        public static let switchSlot = Capabilities(rawValue: 1 << 3)
+        /// Play a whole preset on the temporary place 7F.
+        public static let playTemporary = Capabilities(rawValue: 1 << 4)
+        /// Change parameters and switch effects on and off while a preset plays.
+        public static let liveEdit = Capabilities(rawValue: 1 << 5)
+        /// Store a preset in a slot.
+        public static let store = Capabilities(rawValue: 1 << 6)
+        /// Replace a model with `01 06`.
+        public static let modelChange = Capabilities(rawValue: 1 << 7)
+        /// The device reports presses of its own buttons.
+        public static let buttonEvents = Capabilities(rawValue: 1 << 8)
+        /// The device reports its tuner.
+        public static let tuner = Capabilities(rawValue: 1 << 9)
+        /// The device reports a tapped tempo.
+        public static let tapTempo = Capabilities(rawValue: 1 << 10)
+        /// The device is an audio input over USB that the area Aufnahme may record from.
+        public static let usbAudio = Capabilities(rawValue: 1 << 11)
+        /// The device takes a sound described in words (REACTOR's Text to Tone).
+        public static let textToTone = Capabilities(rawValue: 1 << 12)
+    }
+
+    public var id: Kind
+    /// The name the window shows when the device gives none.
+    public var displayName: String
+    /// The Bluetooth LE service it advertises and talks on.
+    public var bleService: String
+    /// Starts of the Bluetooth names it advertises, to tell devices apart before anything is read.
+    public var bleNamePrefixes: [String]
+    /// What it answers to `02 11`, its amp name.
+    public var ampNames: [String]
+    /// The MIDI output to choose, once MIDI exists. Nil: none.
+    public var midiTarget: String?
+    public var slotCount: Int
+    /// Slots per bank, for a device whose slots come in banks.
+    public var bankSize: Int?
+    /// Names of the banks in order, such as "Rot" and "Grün".
+    public var bankNames: [String]
+    public var transport: Transport
+    public var capabilities: Capabilities
+    /// Whether the device keeps a sound on the temporary place when the control connection ends. Nil: not checked,
+    /// which counts as "loses it".
+    public var keepsTemporaryAfterDisconnect: Bool?
+    /// Whether the device acknowledges a parameter change (`04 04`). No Spark checked so far does.
+    public var confirmsParameters: Bool
+    /// The firmware it was checked with. Nil when never read.
+    public var checkedFirmware: String?
+    /// Parts of the USB audio name the area Aufnahme may record from. Empty: none is known, so none is allowed.
+    public var usbAudioNames: [String]
+    /// What was checked on the device, in one sentence.
+    public var checked: String
+
+    public func can(_ capability: Capabilities) -> Bool { capabilities.contains(capability) }
+
+    /// True when the device may get any byte at all.
+    public var canSend: Bool { can(.send) }
+
+    /// True when ending the connection drops a sound that plays without being stored. Unchecked counts as true.
+    public var losesTemporaryOnDisconnect: Bool { keepsTemporaryAfterDisconnect != true }
+
+    /// The slots as numbers from 0, for loops over them.
+    public var slots: Range<Int> { 0..<slotCount }
+
+    /// "Platz 3", or with banks "Grün 1" for slot 4.
+    public func slotName(_ slot: Int) -> String {
+        guard let size = bankSize, size > 0, slot >= 0, slot / size < bankNames.count else { return "Platz \(slot + 1)" }
+        return "\(bankNames[slot / size]) \(slot % size + 1)"
+    }
+
+    /// The bank a slot is in, or nil for a device without banks.
+    public func bank(of slot: Int) -> Int? {
+        guard let size = bankSize, size > 0, slot >= 0 else { return nil }
+        return slot / size
+    }
+}
+
+public extension DeviceProfile {
+    /// The control service of every Spark amp and of the Spark NEO.
+    static let sparkService = "FFC0"
+    /// REACTOR's control service. It speaks Spark frames on the same characteristics FFC1 and FFC2.
+    static let reactorService = "FFD0"
+    /// The services the Bluetooth search filters on. Nothing else nearby is ever seen.
+    static let searchedServices = [sparkService, reactorService]
+
+    /// Checked with the user on 2026-11-07/08: everything Spark Studio does.
+    static let sparkMini = DeviceProfile(
+        id: .sparkMini, displayName: "Spark MINI", bleService: sparkService, bleNamePrefixes: ["Spark MINI"],
+        ampNames: ["Spark MINI"], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        capabilities: [.listen, .send, .read, .switchSlot, .playTemporary, .liveEdit, .store, .modelChange,
+                       .buttonEvents, .tuner, .tapTempo, .usbAudio],
+        keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "1.11.2.75",
+        usbAudioNames: ["spark"],
+        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel und Speichern, Firmware 1.11.2.75.")
+
+    /// Checked with the user on 2026-11-09 with spark-probe: same protocol and preset format as the MINI. Its
+    /// headphones showed no audio device on USB-C, so the area Aufnahme cannot record from it.
+    static let sparkNEO = DeviceProfile(
+        id: .sparkNEO, displayName: "Spark NEO", bleService: sparkService, bleNamePrefixes: ["Spark NEO"],
+        ampNames: ["Spark NEO"], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        capabilities: [.listen, .send, .read, .switchSlot, .playTemporary, .liveEdit, .store, .modelChange,
+                       .buttonEvents],
+        keepsTemporaryAfterDisconnect: false, confirmsParameters: false, checkedFirmware: "1.16.1.60",
+        usbAudioNames: [],
+        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und die mittlere Taste, "
+            + "Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.")
+
+    /// Checked listen-only on 2026-11-09: every control reported, nothing was ever sent. Sending stays off until it is
+    /// checked step by step with the user (docs/STUDIO.md, "REACTOR").
+    static let reactor50 = DeviceProfile(
+        id: .reactor50, displayName: "REACTOR 50", bleService: reactorService, bleNamePrefixes: ["Reactor 50"],
+        ampNames: [], slotCount: 8, bankSize: 4, bankNames: ["Rot", "Grün"], transport: .sparkBLE,
+        capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone],
+        keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: nil,
+        usbAudioNames: ["reactor"],
+        checked: "Nur mitgelesen: Regler, Amp-Wahl, Push/Smooth, Heat, Effekte, TAP, Preset, Bank und Stimmgerät. "
+            + "Es wurde nie etwas gesendet.")
+
+    /// Like the REACTOR 50, but never checked.
+    static let reactor100: DeviceProfile = {
+        var profile = reactor50
+        profile.id = .reactor100
+        profile.displayName = "REACTOR 100"
+        profile.bleNamePrefixes = ["Reactor 100"]
+        profile.checked = "Nicht geprüft. Wie der REACTOR 50 behandelt: nur mitlesen, nichts senden."
+        return profile
+    }()
+
+    /// A Spark device nobody has checked yet: it may be read and switched, nothing more.
+    static let unknownSpark = DeviceProfile(
+        id: .unknownSpark, displayName: "Spark", bleService: sparkService, bleNamePrefixes: ["Spark"],
+        ampNames: [], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        capabilities: [.listen, .send, .read, .switchSlot, .buttonEvents],
+        keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: nil,
+        usbAudioNames: [],
+        checked: "Nicht geprüft. Nur Lesen und Umschalten, bis das Gerät mit dem Nutzer geprüft ist.")
+
+    static let all: [DeviceProfile] = [sparkMini, sparkNEO, reactor50, reactor100, unknownSpark]
+
+    static func profile(_ kind: Kind) -> DeviceProfile {
+        all.first { $0.id == kind } ?? unknownSpark
+    }
+
+    /// The profile from what a device advertises, before anything is read. The service decides the product line:
+    /// FFD0 is a REACTOR, recognised without any request. A Spark device is told apart by its Bluetooth name and is
+    /// confirmed by its amp name (`02 11`) once connected.
+    static func forAdvertisement(service: String, name: String?) -> DeviceProfile {
+        let name = name ?? ""
+        if service.uppercased() == reactorService {
+            return name.lowercased().hasPrefix("reactor 100") ? reactor100 : reactor50
+        }
+        return all.first { profile in
+            profile.bleService == sparkService && profile.id != .unknownSpark
+                && profile.bleNamePrefixes.contains { name.lowercased().hasPrefix($0.lowercased()) }
+        } ?? unknownSpark
+    }
+
+    /// The profile for the amp name a Spark device answers to `02 11`, such as "Spark NEO". Nil for a name no
+    /// profile knows.
+    static func forAmpName(_ ampName: String) -> DeviceProfile? {
+        let name = ampName.trimmingCharacters(in: .whitespaces).lowercased()
+        return all.first { $0.ampNames.contains { $0.lowercased() == name } }
+    }
+
+    /// A device's name as it may appear in a log or in the probe's output. REACTOR's Bluetooth name ends in a part its
+    /// owner chose; that part is cut off: "Reactor 50 Wohnzimmer" becomes "Reactor 50".
+    static func loggableName(_ name: String?) -> String {
+        guard let name else { return "?" }
+        let lower = name.lowercased()
+        for prefix in ["reactor 100", "reactor 50"] where lower.hasPrefix(prefix) {
+            return String(name.prefix(prefix.count))
+        }
+        return name
+    }
+
+    /// The largest slot count of any profile, for shortcuts and lists that must hold every device.
+    static var largestSlotCount: Int { all.map(\.slotCount).max() ?? 4 }
+}

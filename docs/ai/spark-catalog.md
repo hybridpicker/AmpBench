@@ -4,7 +4,8 @@ Written by `SparkStudio --catalog-export docs/ai` from `Sources/SparkControl/Cat
 The same data as JSON is in [spark-catalog.json](spark-catalog.json). How to build a sound from it is in
 [SOUND-GUIDE.md](SOUND-GUIDE.md).
 
-Checked on: Spark MINI, firmware 1.11.2.75. Knobs go from 0 to 10, like the editor. The amp stores them as 0 to 1. Values in brackets are the amp's start values.
+Checked on: Spark MINI, firmware 1.11.2.75 (every model marked checkedOnAmp accepted, start values read back); Spark NEO, firmware 1.16.1.60 (the 16 models of its factory presets; a model change to DistortionTS9 set the MINI's start values).
+Knobs go from 0 to 10, like the editor. The amp stores them as 0 to 1. Values in brackets are the start values a Spark MINI sets.
 Models marked *pack* need a paid add-on and are refused by an amp without it.
 
 ## 1. Noise Gate (`gate`)

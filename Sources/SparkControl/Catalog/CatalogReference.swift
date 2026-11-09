@@ -45,7 +45,8 @@ public struct CatalogReference: Codable, Equatable, Sendable {
         public var group: String?
         /// Part of a paid add-on. The amp plays it only when the official Spark app has unlocked it.
         public var pack: Bool
-        /// True when a Spark MINI accepted the model and its start values were read back.
+        /// True when a Spark MINI accepted the model and its start values were read back. See `checkedOn` for other
+        /// devices.
         public var checkedOnAmp: Bool
         public var parameters: [Parameter]
         /// How many parameters the amp gives this model, hidden ones included.
@@ -56,9 +57,23 @@ public struct CatalogReference: Codable, Equatable, Sendable {
         public var mirrors: [Int]
     }
 
+    /// A device the catalog was checked on, with what was checked there.
+    public struct CheckedDevice: Codable, Equatable, Sendable {
+        public var device: String
+        public var firmware: String
+        public var scope: String
+    }
+
     public var format = "spark-catalog"
-    public var version = 1
-    public var checkedOn = "Spark MINI, firmware 1.11.2.75"
+    public var version = 2
+    /// Where the models were checked. Models that only one device knows join only after a check on that device
+    /// (`spark-probe catalog-check`, eight at a time).
+    public var checkedOn: [CheckedDevice] = [
+        CheckedDevice(device: "Spark MINI", firmware: "1.11.2.75",
+                      scope: "every model marked checkedOnAmp accepted, start values read back"),
+        CheckedDevice(device: "Spark NEO", firmware: "1.16.1.60",
+                      scope: "the 16 models of its factory presets; a model change to DistortionTS9 set the MINI's start values"),
+    ]
     public var scale = "Knobs go from 0 to 10, like the editor. The amp stores them as 0 to 1."
     public var places: [Place]
     public var models: [Model]
@@ -110,7 +125,9 @@ public struct CatalogReference: Codable, Equatable, Sendable {
             "The same data as JSON is in [spark-catalog.json](spark-catalog.json). How to build a sound from it is in",
             "[SOUND-GUIDE.md](SOUND-GUIDE.md).",
             "",
-            "Checked on: \(checkedOn). \(scale) Values in brackets are the amp's start values.",
+            "Checked on: " + checkedOn.map { "\($0.device), firmware \($0.firmware) (\($0.scope))" }
+                .joined(separator: "; ") + ".",
+            "\(scale) Values in brackets are the start values a Spark MINI sets.",
             "Models marked *pack* need a paid add-on and are refused by an amp without it.",
         ]
         for place in places {

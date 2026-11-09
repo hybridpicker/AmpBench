@@ -84,7 +84,11 @@ def load() -> "Catalog":
 
 class Catalog:
     def __init__(self, data: dict):
-        self.checked_on = data.get("checkedOn", "")
+        checked = data.get("checkedOn", "")
+        # Since catalog version 2 a list of devices, each with firmware and what was checked there.
+        if isinstance(checked, list):
+            checked = "; ".join(f"{c['device']}, firmware {c['firmware']}" for c in checked)
+        self.checked_on = checked
         self.models: dict[str, ModelInfo] = {}
         self.by_place: dict[str, list[ModelInfo]] = {place: [] for place in PLACES}
         for entry in data["models"]:

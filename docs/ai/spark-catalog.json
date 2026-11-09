@@ -1,5 +1,16 @@
 {
-  "checkedOn" : "Spark MINI, firmware 1.11.2.75",
+  "checkedOn" : [
+    {
+      "device" : "Spark MINI",
+      "firmware" : "1.11.2.75",
+      "scope" : "every model marked checkedOnAmp accepted, start values read back"
+    },
+    {
+      "device" : "Spark NEO",
+      "firmware" : "1.16.1.60",
+      "scope" : "the 16 models of its factory presets; a model change to DistortionTS9 set the MINI's start values"
+    }
+  ],
   "format" : "spark-catalog",
   "models" : [
     {
@@ -4276,5 +4287,5 @@
     }
   ],
   "scale" : "Knobs go from 0 to 10, like the editor. The amp stores them as 0 to 1.",
-  "version" : 1
+  "version" : 2
 }
