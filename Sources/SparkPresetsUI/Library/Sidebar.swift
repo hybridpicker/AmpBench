@@ -140,8 +140,14 @@ struct DeviceChoice: View {
                     }
                 }
                 Divider()
-                Button(link.wanted ? "Weiter suchen" : "Nach Geräten suchen") { model.start(bluetooth: true) }
-                    .disabled(link.wanted && link.status == .connected)
+                if link.status == .connected {
+                    Button(link.isLookingAround ? "Suche in der Nähe …" : "Nach Geräten in der Nähe suchen") {
+                        link.lookAround()
+                    }
+                    .disabled(link.isLookingAround)
+                } else {
+                    Button(link.wanted ? "Weiter suchen" : "Nach Geräten suchen") { model.start(bluetooth: true) }
+                }
             }
             .frame(maxWidth: .infinity)
             LampDot(tone: presence == .connected ? .on : .hot, isOn: presence != .absent)

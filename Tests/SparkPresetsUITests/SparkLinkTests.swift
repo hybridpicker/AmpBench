@@ -228,6 +228,21 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(again.profile.id, other == device.id(.neo) ? .sparkNEO : .sparkMini)
     }
 
+    func testLookingAroundListsDevicesWithoutLeavingTheConnection() async {
+        let (device, link) = make([.neo])
+        link.start()
+        _ = await ready(link)
+        device.devices.append(SimulatedDevice.Device(
+            found: FoundDevice(id: UUID(), name: "Spark MINI BLE", service: "FFC0"), kind: .mini))
+        link.lookAround(seconds: 0.2)
+        let listed = await until { link.devices.count == 2 }
+        XCTAssertTrue(listed)
+        XCTAssertEqual(device.connected, device.id(.neo))
+        XCTAssertEqual(link.devices.first { $0.name == "Spark MINI" }?.presence, .nearby)
+        let done = await until { !link.isLookingAround }
+        XCTAssertTrue(done)
+    }
+
     func testOnlyTheChosenDeviceIsConnected() async {
         let (device, link) = make([.mini, .neo])
         DeviceMemory(defaults: defaults).chosen = device.id(.neo)

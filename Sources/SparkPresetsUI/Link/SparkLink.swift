@@ -221,6 +221,23 @@ final class SparkLink: NSObject, ObservableObject {
         }
     }
 
+    /// Looks for other devices nearby for a few seconds while connected, for the device choice. The connection stays;
+    /// nothing is connected to, only listed.
+    @Published private(set) var isLookingAround = false
+
+    func lookAround(seconds: Double = 8) {
+        guard status == .connected, transport.state == .poweredOn, !isLookingAround else { return }
+        isLookingAround = true
+        transport.startSearch(services: DeviceProfile.searchedServices)
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.isLookingAround else { return }
+                self.isLookingAround = false
+                if self.status == .connected { self.transport.stopSearch() }
+            }
+        }
+    }
+
     private func updateStatus(for state: TransportState) {
         switch state {
         case .poweredOn: scan()
