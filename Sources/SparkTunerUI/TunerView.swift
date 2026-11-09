@@ -20,7 +20,7 @@ struct TunerView: View {
                 }
             }
             .frame(maxWidth: 1040)
-            Text("Das Stimmgerät hört nur, solange dieser Bereich vorn ist. Es sendet nichts an den Verstärker, gibt keinen Ton aus und speichert nichts.")
+            Text(caption)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -31,6 +31,17 @@ struct TunerView: View {
     }
 
     private var reading: TunerReadout? { model.readout }
+
+    private var caption: String {
+        if model.usesAmp {
+            let name = model.ampName ?? "Verstärkers"
+            return "Das Stimmgerät des \(name) ist an, solange dieser Bereich vorn ist, und der Verstärker ist dabei stumm. Seine Werte kommen über Bluetooth und sind gröber als über USB, auf ganze Cent."
+        }
+        if model.status == .noInput, let name = model.ampName {
+            return "Ohne USB-Ton misst das Stimmgerät des \(name): im Eingang „Stimmgerät des \(name)“ wählen. Der Verstärker ist dann stumm, solange dieser Bereich vorn ist."
+        }
+        return "Das Stimmgerät hört nur, solange dieser Bereich vorn ist. Es sendet nichts an den Verstärker, gibt keinen Ton aus und speichert nichts."
+    }
 
     private var centReading: CentReading? {
         reading.map { CentReading(cents: $0.cents, isInTune: $0.isInTune, isHeld: $0.isHeld) }
@@ -68,7 +79,7 @@ struct TunerView: View {
                         .foregroundStyle(textColor)
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
-                    if let reading {
+                    if let reading, reading.knowsOctave {
                         Text("\(reading.note.octave)")
                             .font(Theme.Fonts.mono(30, weight: .semibold))
                             .foregroundStyle(Theme.device.amberDim)
@@ -90,6 +101,7 @@ struct TunerView: View {
 
     private var stringLine: String {
         guard let reading else { return statusLine }
+        guard reading.knowsOctave else { return "VOM VERSTÄRKER · \(reading.noteName)" }
         let target = "\(reading.noteName)\(reading.note.octave)"
         if let string = reading.string { return "\(string). SAITE · \(target)" }
         return model.tuning == .chromatic ? "CHROMATISCH · \(target)" : "KEINE SAITE · \(target)"
@@ -97,14 +109,21 @@ struct TunerView: View {
 
     private var noteSpoken: String {
         guard let reading else { return statusLine }
-        var parts = [reading.note.spokenName(flats: reading.flats) + " \(reading.note.octave)"]
+        var parts = [reading.note.spokenName(flats: reading.flats) + (reading.knowsOctave ? " \(reading.note.octave)" : "")]
         if let string = reading.string { parts.append("\(string). Saite") }
         if reading.isHeld { parts.append("gehalten") }
         return parts.joined(separator: ", ")
     }
 
     private var statusLine: String {
-        switch model.status {
+        if model.usesAmp {
+            switch model.status {
+            case .idle, .opening: return "SCHALTE DAS STIMMGERÄT EIN …"
+            case .listening, .demo: return model.hasSignal ? "MISST …" : "SPIELE EINE SAITE"
+            case .noInput, .noPermission, .failed: return "KEIN VERSTÄRKER VERBUNDEN"
+            }
+        }
+        return switch model.status {
         case .idle, .opening: "ÖFFNE DEN EINGANG …"
         case .listening, .demo: model.hasSignal ? "HÖRE ZU …" : "SPIELE EINE SAITE"
         case .noInput: model.inputName == "Kein Spark" ? "KEIN SPARK VERBUNDEN" : "EINGANG FEHLT"
@@ -118,7 +137,8 @@ struct TunerView: View {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
-                        Text(reading.map { TunerText.cents($0.cents) } ?? "–,–")
+                        Text(reading.map { $0.isFromAmp ? TunerText.wholeCents($0.cents) : TunerText.cents($0.cents) }
+                             ?? (model.usesAmp ? "–" : "–,–"))
                             .font(Theme.Fonts.mono(56, weight: .semibold))
                             .foregroundStyle(textColor)
                             .lineLimit(1)
@@ -128,7 +148,7 @@ struct TunerView: View {
                             .foregroundStyle(Theme.device.amberDim)
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(reading.map { TunerText.hertz($0.frequency) } ?? "–,––")
+                        Text(reading.flatMap { $0.knowsOctave ? TunerText.hertz($0.frequency) : nil } ?? "–,––")
                             .font(Theme.Fonts.mono(22, weight: .medium))
                             .foregroundStyle(textColor)
                         Text("HZ")
@@ -160,15 +180,22 @@ struct TunerView: View {
     private var isLive: Bool { reading?.isHeld == false }
 
     private var targetLine: String {
-        guard let reading else { return "KAMMERTON A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ" }
+        guard let reading else {
+            return model.usesAmp ? "VOM VERSTÄRKER · A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ"
+                : "KAMMERTON A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ"
+        }
         let target = reading.note.frequency(a4: model.a4)
         let held = reading.isHeld ? " · GEHALTEN" : ""
+        if reading.isFromAmp {
+            return reading.knowsOctave ? "ZIEL \(TunerText.hertz(target)) HZ · VOM VERSTÄRKER\(held)" : "VOM VERSTÄRKER\(held)"
+        }
         return "ZIEL \(TunerText.hertz(target)) HZ · A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ\(held)"
     }
 
     private var valueSpoken: String {
         guard let reading else { return "kein Ton" }
         let cents = CentReading(cents: reading.cents, isInTune: reading.isInTune, isHeld: reading.isHeld).spoken
+        guard reading.knowsOctave else { return cents + ", vom Verstärker" }
         return "\(cents), \(TunerText.hertz(reading.frequency)) Hertz"
     }
 
@@ -195,8 +222,11 @@ struct TunerView: View {
 
     private var inputModule: some View {
         FaceplateModule("Eingang") {
-            Lamp(model.isSharedWithRecording ? "Geteilt" : "Hört", tone: .listening, isOn: model.status == .listening)
-                .help(model.isSharedWithRecording
+            Lamp(model.usesAmp ? "Misst" : model.isSharedWithRecording ? "Geteilt" : "Hört", tone: .listening,
+                 isOn: model.status == .listening)
+                .help(model.usesAmp
+                      ? "Das Stimmgerät des Verstärkers ist an, der Verstärker ist stumm."
+                      : model.isSharedWithRecording
                       ? "Das Stimmgerät liest den Eingang der Aufnahme mit, ohne ihn zu verändern."
                       : "Der Eingang ist offen, solange dieser Bereich vorn ist.")
         } content: {
@@ -204,6 +234,14 @@ struct TunerView: View {
                 DevicePopup("Eingang", value: model.inputName) {
                     Button(model.deckInputName.map { "\($0) (wie im Deck)" } ?? "Spark aus dem Deck") {
                         model.choose(.deck)
+                    }
+                    if let name = model.ampName {
+                        Divider()
+                        Button("Stimmgerät des \(name) (Verstärker stumm)") { model.choose(.amp) }
+                    } else if model.usesAmp {
+                        Divider()
+                        Button("Stimmgerät des Verstärkers (keiner verbunden)") {}
+                            .disabled(true)
                     }
                     if !model.otherInputs.isEmpty {
                         Divider()
@@ -213,16 +251,25 @@ struct TunerView: View {
                     }
                 }
                 .padding(.top, 6)
-                LEDSegments(color: Theme.device.amber) { index, count in
-                    Double(index) < model.level * Double(count) ? 1 : 0
+                if model.usesAmp {
+                    Text("VERSTÄRKER STUMM, SOLANGE ES MISST")
+                        .font(Theme.Fonts.lamp(9))
+                        .foregroundStyle(Theme.device.lampOffText)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                        .frame(height: 16)
+                } else {
+                    LEDSegments(color: Theme.device.amber) { index, count in
+                        Double(index) < model.level * Double(count) ? 1 : 0
+                    }
+                    .frame(height: 6)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 5)
+                    .background(DisplayGlass(radius: 5))
+                    .accessibilityElement()
+                    .accessibilityLabel("Pegel")
+                    .accessibilityValue(model.hasSignal ? "Signal" : "kein Signal")
                 }
-                .frame(height: 6)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(DisplayGlass(radius: 5))
-                .accessibilityElement()
-                .accessibilityLabel("Pegel")
-                .accessibilityValue(model.hasSignal ? "Signal" : "kein Signal")
             }
         }
     }

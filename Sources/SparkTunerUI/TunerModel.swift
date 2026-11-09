@@ -8,7 +8,9 @@ import SparkCore
 /// It listens only while `setActive(true)`, that is while its area shows. The Spark is read along with the recorder's
 /// own input through `SharedInput`, never through a second audio unit. Another input, such as a USB interface or the
 /// Mac's microphone, gets its own engine, but only while nothing of the recorder is involved. The tuner sends nothing
-/// to the amp, plays no sound, stores no audio and has no network access.
+/// to the amp, plays no sound, stores no audio and has no network access, with one exception the user picks: the
+/// source "Stimmgerät des Verstärkers" switches the amp's own tuner on while the area shows, and off when it is left.
+/// The amp is silent then; its readings come over Bluetooth, so a NEO without USB audio can be tuned too.
 @MainActor
 final class TunerModel: ObservableObject {
     enum Source: Hashable {
@@ -16,6 +18,8 @@ final class TunerModel: ObservableObject {
         case deck
         /// Another input, by its stable identifier.
         case other(uid: String)
+        /// The connected amp's own tuner, over Bluetooth.
+        case amp
     }
 
     enum Status: Equatable {
@@ -32,6 +36,7 @@ final class TunerModel: ObservableObject {
     @Published var tuning: Tuning {
         didSet {
             interpreter.tuning = tuning
+            ampInterpreter.tuning = tuning
             defaults.set(tuning.rawValue, forKey: Keys.tuning)
         }
     }
@@ -40,6 +45,7 @@ final class TunerModel: ObservableObject {
             let clean = Self.clampA4(a4)
             if clean != a4 { a4 = clean; return }
             interpreter.a4 = a4
+            ampInterpreter.a4 = a4
             defaults.set(a4, forKey: Keys.a4)
         }
     }
@@ -56,6 +62,22 @@ final class TunerModel: ObservableObject {
     @Published private(set) var deckInputName: String?
     /// True while a recording, the retro buffer or the level check hold the same input open.
     @Published private(set) var isSharedWithRecording = false
+    /// The connected amp whose own tuner can be used, by its name. Nil without one.
+    @Published private(set) var ampName: String?
+
+    /// The amp whose tuner can be a source. Set once by Studio.
+    weak var amp: AmpTuner? {
+        didSet {
+            amp?.onAmpTunerReading = { [weak self] pitchClass, cents in
+                guard let self, source == .amp, isActive else { return }
+                ampInterpreter.add(pitchClass: pitchClass, cents: cents, time: CACurrentMediaTime())
+            }
+            ampName = amp?.ampTunerDevice
+        }
+    }
+    private var ampInterpreter: AmpTunerInterpreter
+    /// True after the amp's tuner was asked on, until it was asked off again.
+    private var ampRequested = false
 
     let shared: SharedInput
     let defaults: UserDefaults
@@ -75,6 +97,7 @@ final class TunerModel: ObservableObject {
         static let a4 = "tunerA4"
         static let strobe = "tunerStrobe"
         static let input = "tunerInputUID"
+        static let usesAmp = "tunerUsesAmp"
     }
 
     init(shared: SharedInput, defaults: UserDefaults) {
@@ -85,8 +108,9 @@ final class TunerModel: ObservableObject {
         self.tuning = tuning
         self.a4 = a4
         showsStrobe = defaults.bool(forKey: Keys.strobe)
-        source = defaults.string(forKey: Keys.input).map { .other(uid: $0) } ?? .deck
+        source = defaults.bool(forKey: Keys.usesAmp) ? .amp : defaults.string(forKey: Keys.input).map { .other(uid: $0) } ?? .deck
         interpreter = TunerInterpreter(tuning: tuning, a4: a4)
+        ampInterpreter = AmpTunerInterpreter(tuning: tuning, a4: a4)
     }
 
     /// Tenths of a hertz within 430 to 450.
@@ -123,27 +147,40 @@ final class TunerModel: ObservableObject {
 
     func choose(_ newSource: Source) {
         guard newSource != source else { return }
+        guard isActive, status != .demo else {
+            source = newSource
+            remember(newSource)
+            return
+        }
+        disconnect()
         source = newSource
-        if case .other(let uid) = newSource {
+        remember(newSource)
+        connect()
+    }
+
+    private func remember(_ source: Source) {
+        defaults.set(source == .amp, forKey: Keys.usesAmp)
+        if case .other(let uid) = source {
             defaults.set(uid, forKey: Keys.input)
         } else {
             defaults.removeObject(forKey: Keys.input)
         }
-        guard isActive, status != .demo else { return }
-        disconnect()
-        connect()
     }
 
     var inputName: String {
         switch source {
         case .deck: return deckInputName ?? "Kein Spark"
         case .other(let uid): return otherInputs.first { $0.uid == uid }?.name ?? "Eingang fehlt"
+        case .amp: return ampName.map { "Stimmgerät des \($0)" } ?? "Kein Verstärker verbunden"
         }
     }
+
+    var usesAmp: Bool { source == .amp }
 
     private func refreshDevices() {
         lastDeviceRefresh = Date()
         deckInputName = shared.device?.name
+        ampName = amp?.ampTunerDevice
         otherInputs = shared.allowsOtherInputs
             ? AudioDevices.inputDevices().filter { !shared.owns($0) }.sorted { $0.name < $1.name }
             : []
@@ -154,6 +191,15 @@ final class TunerModel: ObservableObject {
         guard isActive, status != .demo else { return }
         connectTask?.cancel()
         switch source {
+        case .amp:
+            guard let amp, ampName != nil else {
+                status = .noInput
+                return
+            }
+            ampInterpreter.reset()
+            ampRequested = true
+            amp.wantAmpTuner(true)
+            status = amp.isAmpTunerOn ? .listening : .opening
         case .deck:
             guard shared.device != nil else {
                 status = .noInput
@@ -209,6 +255,11 @@ final class TunerModel: ObservableObject {
     private func disconnect() {
         connectTask?.cancel()
         connectTask = nil
+        if ampRequested {
+            ampRequested = false
+            amp?.wantAmpTuner(false)
+            ampInterpreter.reset()
+        }
         shared.stopSharing(with: engine.tap)
         closeOwnCapture()
     }
@@ -232,9 +283,17 @@ final class TunerModel: ObservableObject {
     private func tick() {
         let now = Date()
         if now.timeIntervalSince(lastDeviceRefresh) > 2 { refreshDevices() }
+        ampName = amp?.ampTunerDevice
         if status != .demo { keepConnected(now: now) }
         isSharedWithRecording = source == .deck && status == .listening && shared.isHeldOpen
 
+        if source == .amp, status != .demo {
+            readout = status == .listening ? ampInterpreter.readout(time: CACurrentMediaTime()) : nil
+            hasSignal = status == .listening && ampInterpreter.hasSignal
+            level = 0
+            announce(now: now)
+            return
+        }
         let snapshot = engine.snapshot
         readout = interpreter.interpret(snapshot.reading, time: CACurrentMediaTime())
         hasSignal = snapshot.hasSignal
@@ -245,6 +304,28 @@ final class TunerModel: ObservableObject {
 
     /// Notices a lost input and tries again once a second, except when permission is missing.
     private func keepConnected(now: Date) {
+        if source == .amp {
+            switch status {
+            case .listening, .opening:
+                if ampName == nil {
+                    disconnect()
+                    status = .noInput
+                } else if amp?.isAmpTunerOn == true {
+                    status = .listening
+                } else if status == .listening {
+                    // The connection came back: the link switches the tuner on again.
+                    status = .opening
+                }
+            case .noInput, .failed:
+                if ampName != nil, now >= nextAttempt {
+                    nextAttempt = now.addingTimeInterval(1)
+                    connect()
+                }
+            case .idle, .noPermission, .demo:
+                break
+            }
+            return
+        }
         switch status {
         case .listening:
             let alive = source == .deck ? shared.isSharing(with: engine.tap) : ownCapture?.isOpen == true

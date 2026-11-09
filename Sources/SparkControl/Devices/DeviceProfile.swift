@@ -46,7 +46,8 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
         public static let modelChange = Capabilities(rawValue: 1 << 7)
         /// The device reports presses of its own buttons.
         public static let buttonEvents = Capabilities(rawValue: 1 << 8)
-        /// The device reports its tuner.
+        /// The device reports its own tuner. With `send` it can also be switched on from here (`01 65`): checked on
+        /// the MINI and the NEO on 2026-11-09, both mute their output while it is on.
         public static let tuner = Capabilities(rawValue: 1 << 9)
         /// The device reports a tapped tempo.
         public static let tapTempo = Capabilities(rawValue: 1 << 10)
@@ -137,7 +138,8 @@ public extension DeviceProfile {
                        .buttonEvents, .tuner, .tapTempo, .usbAudio],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "1.11.2.75",
         usbAudioNames: ["spark"],
-        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel und Speichern, Firmware 1.11.2.75.")
+        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und das eigene Stimmgerät, "
+            + "Firmware 1.11.2.75.")
 
     /// Checked with the user on 2026-11-09 with spark-probe: same protocol and preset format as the MINI. Its
     /// headphones showed no audio device on USB-C, so the area Aufnahme cannot record from it.
@@ -145,11 +147,11 @@ public extension DeviceProfile {
         id: .sparkNEO, displayName: "Spark NEO", bleService: sparkService, bleNamePrefixes: ["Spark NEO"],
         ampNames: ["Spark NEO"], slotCount: 4, bankNames: [], transport: .sparkBLE,
         capabilities: [.listen, .send, .read, .switchSlot, .playTemporary, .liveEdit, .store, .modelChange,
-                       .buttonEvents],
+                       .buttonEvents, .tuner],
         keepsTemporaryAfterDisconnect: false, confirmsParameters: false, checkedFirmware: "1.16.1.60",
         usbAudioNames: [],
-        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und die mittlere Taste, "
-            + "Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
+        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern, die mittlere Taste und das "
+            + "eigene Stimmgerät, Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
         // Heard on 2026-11-09: factory names of at most 7 bytes and spark-probe's copies "SOLO Test" and
         // "HI GAIN Test" (12 bytes), never a description, version "0.7", icon "icon.png".
         checkedText: CheckedText(nameBytes: 12, descriptionBytes: 0, version: "0.7", icon: "icon.png"))

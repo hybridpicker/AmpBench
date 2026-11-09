@@ -70,6 +70,16 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
         !studio.recorder.isRecording
     }
 
+    /// The amp's own tuner mutes the amp: it is switched off before the app ends.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard studio.presets.ampTunerMayBeOn else { return .terminateNow }
+        Task { @MainActor in
+            await studio.presets.switchAmpTunerOff()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         studio.recorder.applicationWillTerminate(notification)
     }

@@ -60,6 +60,7 @@ final class Studio: ObservableObject {
     private init() {
         let tunerDefaults = StudioLaunch.isTestLibrary ? UserDefaults(suiteName: "local.sparkstudio.tuner.tests") : nil
         tuner = TunerHost(input: recorder.sharedInput, defaults: tunerDefaults ?? .standard)
+        tuner.offerAmpTuner(presets)
         // The recorder's single keys act only in its area. R and Space record and play from everywhere.
         recorder.routeKeys { [weak self] key in
             self?.area == .recording || StudioKeymap.isSingleKeyEverywhere(key)
@@ -79,6 +80,13 @@ final class Studio: ObservableObject {
             ("tuner", { [weak self] in self?.showTunerDemo(frequency: 110 * pow(2, -3.4 / 1200), strobe: false) }),
             ("tuner-strobe", { [weak self] in self?.showTunerDemo(frequency: 196 * pow(2, 1.8 / 1200), strobe: true) }),
             ("tuner-intune", { [weak self] in self?.showTunerDemo(frequency: 82.4069, strobe: false) }),
+            ("tuner-amp", { [weak self] in
+                guard let self else { return }
+                isShowingTunerDemo = true
+                tuner.showAmpDemo(pitchClass: 9, cents: 6)
+                area = .tuner
+                updateTuner()
+            }),
         ], done: { [weak self] in
             self?.isShowingTunerDemo = false
             self?.tuner.endDemo()
@@ -227,3 +235,6 @@ final class Studio: ObservableObject {
         }
     }
 }
+
+/// The presets' Bluetooth link offers the amp's own tuner to the tuner area.
+extension PresetsHost: AmpTuner {}

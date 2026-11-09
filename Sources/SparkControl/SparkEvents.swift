@@ -10,7 +10,8 @@ public enum SparkEvent: Equatable, Sendable {
     case presetSelected(slot: UInt8)
     /// A long press of the preset button, asking to store what plays in that slot.
     case storeRequested(slot: UInt8)
-    /// The tuner's reading: the note from 0 (C) to 11 (B) and the offset, 0.5 is in tune. Nil without a signal.
+    /// The tuner's reading: the note from 0 (C) to 11 (B) and the offset from 0 to 1 across one semitone, 0.5 is in
+    /// tune (`SparkProtocol.tunerCents`). Nil without a signal.
     case tuner(note: UInt8, offset: Float?)
     case tunerOn(Bool)
     case tapTempo(bpm: Float)

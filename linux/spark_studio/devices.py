@@ -68,13 +68,14 @@ _FULL = frozenset({LISTEN, SEND, READ, SWITCH_SLOT, PLAY_TEMPORARY, LIVE_EDIT, S
 SPARK_MINI = DeviceProfile(
     "spark_mini", "Spark MINI", SPARK_SERVICE, ("Spark MINI",), ("Spark MINI",), 4, "spark_ble",
     _FULL | {TUNER, TAP_TEMPO, USB_AUDIO}, None, False, "1.11.2.75", ("spark",),
-    "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel und Speichern, Firmware 1.11.2.75.")
+    "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und das eigene Stimmgerät, "
+    "Firmware 1.11.2.75.")
 
 SPARK_NEO = DeviceProfile(
-    "spark_neo", "Spark NEO", SPARK_SERVICE, ("Spark NEO",), ("Spark NEO",), 4, "spark_ble", _FULL, False, False,
-    "1.16.1.60", (),
-    "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und die mittlere Taste, Firmware "
-    "1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
+    "spark_neo", "Spark NEO", SPARK_SERVICE, ("Spark NEO",), ("Spark NEO",), 4, "spark_ble", _FULL | {TUNER}, False,
+    False, "1.16.1.60", (),
+    "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern, die mittlere Taste und das eigene "
+    "Stimmgerät, Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
     # Heard on 2026-11-09: names up to 12 bytes ("HI GAIN Test"), never a description.
     checked_text=(("name_bytes", 12), ("description_bytes", 0), ("version", "0.7"), ("icon", "icon.png")))
 

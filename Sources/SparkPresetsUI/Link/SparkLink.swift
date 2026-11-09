@@ -140,6 +140,19 @@ final class SparkLink: NSObject, ObservableObject {
     /// before the amp hung once, so whoever sends changes should slow down.
     var onStrain: (() -> Void)?
 
+    /// True once the amp confirmed that its own tuner is on. The amp is silent then.
+    @Published private(set) var isAmpTunerOn = false
+    /// Every reading of the amp's own tuner: the note from 0 (C) to 11 (H) and the cents, nil without signal.
+    var onTunerReading: ((Int, Double?) -> Void)?
+    /// What the tuner area asks for. The link keeps to it, also after a connection came back.
+    private(set) var ampTunerWanted = false
+    /// The amp's tuner may still be on: it was on when the connection ended, or switching it off got no answer.
+    private var ampTunerMaybeOn = false
+    private var tunerTask: Task<Void, Never>?
+    private var lastTunerReading = Date.distantPast
+    /// How often switching off was tried without an answer, so it is not tried forever.
+    private var tunerOffTries = 0
+
     /// The amp sometimes ignores a request that follows the previous answer right away.
     var gap: Duration = .milliseconds(150)
     /// Waiting ends when the amp stays silent this long. A preset takes several seconds, but data keeps coming.
@@ -199,8 +212,27 @@ final class SparkLink: NSObject, ObservableObject {
     func stop() {
         wanted = false
         transport.stopSearch()
-        if let id = connectedID ?? connecting?.id { transport.disconnect(id) }
+        if let id = connectedID ?? connecting?.id { endConnection(id) }
         status = .off
+    }
+
+    /// Ends a connection. An amp whose tuner may be on gets `tuner off` first, so it is not left silent; the
+    /// disconnect waits a moment for that write to go out.
+    private func endConnection(_ id: UUID) {
+        guard id == connectedID, status == .connected, ampTunerMaybeOn || isAmpTunerOn, profile.canSend else {
+            transport.disconnect(id)
+            return
+        }
+        sequence = (sequence + 1) & 0x7F
+        try? write([SparkProtocol.setTuner(false, sequence: sequence)])
+        isAmpTunerOn = false
+        ampTunerMaybeOn = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, self.connectedID == id, !self.wanted || self.isSwitching else { return }
+                self.transport.disconnect(id)
+            }
+        }
     }
 
     /// Connects to another device. The current connection ends first, cleanly; there is only ever one.
@@ -213,7 +245,7 @@ final class SparkLink: NSObject, ObservableObject {
         updateDevices()
         if let current = connectedID ?? connecting?.id, current != id {
             isSwitching = true
-            transport.disconnect(current)
+            endConnection(current)
         } else if !wanted {
             start()
         } else {
@@ -612,11 +644,79 @@ final class SparkLink: NSObject, ObservableObject {
         return preset
     }
 
+    // MARK: The amp's own tuner
+
+    /// The connected device can switch its tuner on from here: a MINI or NEO, never a device that is only listened to.
+    var canUseAmpTuner: Bool { status == .connected && profile.can(.tuner) && profile.canSend }
+
+    /// Asks for the amp's tuner on or off. It is switched when connected and kept so after a reconnect.
+    func wantAmpTuner(_ on: Bool) {
+        ampTunerWanted = on
+        if on { tunerOffTries = 0 }
+        reconcileTuner()
+    }
+
+    /// Switches the amp's tuner until it is as wanted: one message at a time, never two at once.
+    private func reconcileTuner() {
+        guard tunerTask == nil, canUseAmpTuner else { return }
+        let on = ampTunerWanted
+        if on ? isAmpTunerOn : !(isAmpTunerOn || ampTunerMaybeOn) { return }
+        if !on, tunerOffTries >= 3 {
+            Self.linkLog.error("the amp's tuner may still be on: switching it off got no answer three times")
+            return
+        }
+        tunerTask = Task { [weak self] in
+            guard let self else { return }
+            await switchTuner(on)
+            tunerTask = nil
+            if status == .connected, ampTunerWanted != on || (!on && ampTunerMaybeOn) { reconcileTuner() }
+        }
+    }
+
+    private func switchTuner(_ on: Bool) async {
+        let answered = (try? await confirmed({ [SparkProtocol.setTuner(on, sequence: $0)] },
+                                             answer: SparkProtocol.Sub.tuner)) ?? false
+        guard status == .connected else { return }
+        if on {
+            // The amp may be on even without an answer, so it is switched off later in any case.
+            ampTunerMaybeOn = true
+            isAmpTunerOn = answered || Date().timeIntervalSince(lastTunerReading) < 1
+            if !answered { Self.linkLog.notice("the amp did not confirm its tuner on") }
+            return
+        }
+        isAmpTunerOn = false
+        if answered {
+            ampTunerMaybeOn = false
+            tunerOffTries = 0
+            return
+        }
+        // The MINI once switched off without `04 65`. Readings that stop are an answer too.
+        tunerOffTries += 1
+        try? await Task.sleep(for: .seconds(1))
+        ampTunerMaybeOn = Date().timeIntervalSince(lastTunerReading) < 0.8
+    }
+
+    /// Switches the amp's tuner off before the app ends, waiting at most `seconds` for it.
+    func switchTunerOffBeforeQuitting(seconds: Double = 1.5) async {
+        ampTunerWanted = false
+        guard canUseAmpTuner, isAmpTunerOn || ampTunerMaybeOn else { return }
+        reconcileTuner()
+        let end = Date().addingTimeInterval(seconds)
+        while Date() < end, isAmpTunerOn || ampTunerMaybeOn || tunerTask != nil {
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+    }
+
+    var ampTunerMayBeOn: Bool { isAmpTunerOn || ampTunerMaybeOn }
+
     // MARK: Incoming
 
     private func received(_ bytes: [UInt8]) {
-        armTimeout()
         let messages = parser.feed(bytes)
+        // The tuner's readings come many times a second and must not keep a wait alive forever.
+        if messages.isEmpty || parser.isInsideChunk || messages.contains(where: { $0.sub != SparkProtocol.Sub.tunerPitch }) {
+            armTimeout()
+        }
         if transfer?.kind == .reading, let progress = parser.chunkProgress {
             transfer?.done = progress.received
             transfer?.total = progress.total
@@ -628,6 +728,11 @@ final class SparkLink: NSObject, ObservableObject {
             }
             if !profile.canSend {
                 listened(message)
+                continue
+            }
+            if message.sub == SparkProtocol.Sub.tunerPitch, case .tuner(let note, let offset)? = SparkEvent(message) {
+                lastTunerReading = Date()
+                onTunerReading?(Int(note), offset.map(SparkProtocol.tunerCents))
                 continue
             }
             if message.command == 0x05, message.sub == SparkProtocol.Sub.preset, transfer?.kind == .sending {
@@ -674,6 +779,7 @@ final class SparkLink: NSObject, ObservableObject {
             await identify()
             await loadAll()
             onConnected?(byItself)
+            reconcileTuner()
         }
     }
 
@@ -688,6 +794,10 @@ final class SparkLink: NSObject, ObservableObject {
         tryingOut = nil
         // The amp ends the temporary preset when the connection ends; the NEO was heard doing it.
         isEditingLive = false
+        // Whether the amp keeps its tuner on without a connection is unknown: it is switched off after reconnecting.
+        if isAmpTunerOn { ampTunerMaybeOn = true }
+        isAmpTunerOn = false
+        tunerOffTries = 0
         if wasTemporary, profile.losesTemporaryOnDisconnect { onTemporaryLost?(name) }
         lostByItself = wanted && !isSwitching
         isSwitching = false

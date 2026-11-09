@@ -100,8 +100,14 @@ public struct TunerReadout: Equatable, Sendable {
     public var isHeld: Bool
     /// The deviation has stayed within the tolerance long enough.
     public var isInTune: Bool
+    /// From the amp's own tuner: whole cents, about ±10 cents exact, and a wider tolerance.
+    public var isFromAmp: Bool
+    /// False when only the note's name is known, not its octave, as from the amp for a note two strings share.
+    /// `frequency` and `note.octave` mean nothing then.
+    public var knowsOctave: Bool
 
-    public init(frequency: Double, note: Note, string: Int?, cents: Double, flats: Bool, isHeld: Bool, isInTune: Bool) {
+    public init(frequency: Double, note: Note, string: Int?, cents: Double, flats: Bool, isHeld: Bool, isInTune: Bool,
+                isFromAmp: Bool = false, knowsOctave: Bool = true) {
         self.frequency = frequency
         self.note = note
         self.string = string
@@ -109,10 +115,12 @@ public struct TunerReadout: Equatable, Sendable {
         self.flats = flats
         self.isHeld = isHeld
         self.isInTune = isInTune
+        self.isFromAmp = isFromAmp
+        self.knowsOctave = knowsOctave
     }
 
     public var direction: Direction {
-        if abs(cents) <= TunerInterpreter.tolerance { return .inTune }
+        if abs(cents) <= (isFromAmp ? AmpTunerInterpreter.tolerance : TunerInterpreter.tolerance) { return .inTune }
         return cents < 0 ? .low : .high
     }
 
@@ -199,6 +207,13 @@ public enum TunerText {
         let rounded = (value * 10).rounded() / 10
         if rounded == 0 { return "±0,0" }
         return (rounded < 0 ? "−" : "+") + decimal(abs(rounded), digits: 1)
+    }
+
+    /// "+3", "−12", "±0": whole cents, for the amp's coarser tuner.
+    public static func wholeCents(_ value: Double) -> String {
+        let rounded = value.rounded()
+        if rounded == 0 { return "±0" }
+        return (rounded < 0 ? "−" : "+") + String(Int(abs(rounded)))
     }
 
     /// "82,41".

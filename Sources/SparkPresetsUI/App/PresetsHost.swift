@@ -97,6 +97,32 @@ public final class PresetsHost: ObservableObject {
         if model.link.wanted { model.disconnect() } else { model.start(bluetooth: true) }
     }
 
+    // MARK: The amp's own tuner
+
+    /// The connected device's name when its own tuner can be switched on from here (Spark MINI, NEO), nil otherwise.
+    public var ampTunerDevice: String? { model.link.canUseAmpTuner ? model.link.profile.displayName : nil }
+
+    public var isAmpTunerOn: Bool { model.link.isAmpTunerOn }
+
+    /// The amp's tuner may still be on, so quitting should switch it off first.
+    public var ampTunerMayBeOn: Bool { model.link.ampTunerMayBeOn }
+
+    /// Every reading of the amp's tuner: the note from 0 (C) to 11 (H) and the cents, nil without signal.
+    public var onAmpTunerReading: ((Int, Double?) -> Void)? {
+        get { model.link.onTunerReading }
+        set { model.link.onTunerReading = newValue }
+    }
+
+    /// Asks for the amp's tuner on or off; the link switches it when connected and keeps to it.
+    public func wantAmpTuner(_ on: Bool) {
+        model.link.wantAmpTuner(on)
+    }
+
+    /// Switches the amp's tuner off before the app ends, so the amp is not left silent. Waits at most 1.5 s.
+    public func switchAmpTunerOff() async {
+        await model.link.switchTunerOffBeforeQuitting()
+    }
+
     // MARK: Sound and tempo
 
     /// What the amp plays now, from memory, or nil when not connected or not known.

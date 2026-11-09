@@ -26,6 +26,15 @@ final class SimulatedDevice: LinkTransport {
     var active = 0
     var temporary: SparkPreset?
     private(set) var parameters: [(String, UInt8, Float)] = []
+    /// The device's own tuner, switched with `01 65`. It stays as it is when the connection ends.
+    private(set) var tunerOn = false
+    /// False: the device switches its tuner off without `04 65`, as the MINI did once.
+    var acknowledgesTunerOff = true
+    /// True: the device is out of reach and not found by a search, until `comeBack`.
+    var isAway = false
+    private var waitingConnect: FoundDevice?
+    /// True: the device answers no request, as when it hangs.
+    var ignoresRequests = false
     private let parser = SparkProtocol.Parser()
     private var sequence: UInt8 = 0
 
@@ -55,6 +64,7 @@ final class SimulatedDevice: LinkTransport {
     }
 
     func startSearch(services: [String]) {
+        guard !isAway else { return }
         for device in devices where services.contains(device.found.service) {
             later { $0.delegate?.transport(found: device.found) }
         }
@@ -64,6 +74,11 @@ final class SimulatedDevice: LinkTransport {
 
     func connect(_ device: FoundDevice, listenOnly: Bool) {
         self.listenOnly[device.id] = listenOnly
+        // Like CoreBluetooth: a connection to a device out of reach waits until it is back.
+        guard !isAway else {
+            waitingConnect = device
+            return
+        }
         later {
             $0.connected = device.id
             $0.delegate?.transport(connected: device.id)
@@ -79,7 +94,7 @@ final class SimulatedDevice: LinkTransport {
         guard let connected else { throw LinkError.notConnected }
         written[connected, default: []] += blocks
         // A REACTOR never answers: nothing Spark Studio may send is known to it.
-        guard connectedKind != .reactor else { return }
+        guard connectedKind != .reactor, !ignoresRequests else { return }
         for block in blocks {
             for message in parser.feed(block) { handle(message) }
         }
@@ -96,6 +111,17 @@ final class SimulatedDevice: LinkTransport {
         later { $0.delegate?.transport(lost: id) }
     }
 
+    /// The device is in reach again and found.
+    func comeBack() {
+        isAway = false
+        if let device = waitingConnect {
+            waitingConnect = nil
+            connect(device, listenOnly: listenOnly[device.id] ?? false)
+        } else {
+            for device in devices { later { $0.delegate?.transport(found: device.found) } }
+        }
+    }
+
     /// The preset button on a Spark, the middle button on a NEO, the preset or bank key on a REACTOR.
     func pressButton(_ slot: Int) {
         active = slot
@@ -106,6 +132,13 @@ final class SimulatedDevice: LinkTransport {
     /// Sends a message by itself, as a REACTOR does when a control is used.
     func report(_ sub: UInt8, _ payload: [UInt8]) {
         reply(SparkProtocol.Command.response, sub, payload)
+    }
+
+    /// One reading of the device's own tuner, `03 64 <note> CA <float>`, sent only while it is on.
+    func tunerReading(note: UInt8, value: Float) {
+        guard tunerOn else { return }
+        reply(SparkProtocol.Command.response, SparkProtocol.Sub.tunerPitch,
+              [note, 0xCA] + withUnsafeBytes(of: value.bitPattern.bigEndian, Array.init))
     }
 
     private func reply(_ command: UInt8, _ sub: UInt8, _ payload: [UInt8]) {
@@ -157,6 +190,9 @@ final class SimulatedDevice: LinkTransport {
             if let change = Self.parameterChange(message.payload) { parameters.append(change) }
         case (set, Sub.effectOnOff), (set, Sub.changeEffect):
             reply(ack, message.sub, [])
+        case (set, Sub.tuner):
+            tunerOn = message.payload.first == 0xC3
+            if tunerOn || acknowledgesTunerOff { reply(ack, Sub.tuner, []) }
         default:
             break
         }

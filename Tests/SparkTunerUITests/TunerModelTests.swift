@@ -32,6 +32,19 @@ final class TunerModelTests: XCTestCase {
         func owns(_ device: InputDevice) -> Bool { true }
     }
 
+    /// Stands in for the presets' link with an amp whose own tuner can be used.
+    final class FakeAmp: AmpTuner {
+        var ampTunerDevice: String? = "Spark NEO"
+        var isAmpTunerOn = false
+        var onAmpTunerReading: ((Int, Double?) -> Void)?
+        var asked: [Bool] = []
+
+        func wantAmpTuner(_ on: Bool) {
+            asked.append(on)
+            isAmpTunerOn = on
+        }
+    }
+
     private var defaults: UserDefaults!
 
     override func setUp() async throws {
@@ -126,5 +139,56 @@ final class TunerModelTests: XCTestCase {
         XCTAssertEqual(model.readout?.string, 5)
         model.setActive(false)
         model.endDemo()
+    }
+
+    func testTheAmpsTunerIsOnOnlyWhileTheAreaShows() async throws {
+        let input = FakeInput(device: nil)
+        let amp = FakeAmp()
+        let model = TunerModel(shared: input, defaults: defaults)
+        model.amp = amp
+        model.setActive(true)
+        _ = await waitUntil { model.status == .noInput }
+        XCTAssertEqual(amp.asked, [], "the deck's input is the source until the amp is picked")
+
+        model.choose(.amp)
+        XCTAssertEqual(amp.asked, [true])
+        XCTAssertEqual(model.inputName, "Stimmgerät des Spark NEO")
+        let listening = await waitUntil { model.status == .listening }
+        XCTAssertTrue(listening)
+        for _ in 0..<6 { amp.onAmpTunerReading?(9, 4) }
+        let shown = await waitUntil { model.readout != nil }
+        XCTAssertTrue(shown)
+        XCTAssertEqual(model.readout?.cents, 4)
+        XCTAssertEqual(model.readout?.string, 5)
+        XCTAssertEqual(model.readout?.isFromAmp, true)
+
+        model.setActive(false)
+        XCTAssertEqual(amp.asked, [true, false], "leaving the area switches the amp's tuner off")
+        model.setActive(true)
+        XCTAssertEqual(amp.asked, [true, false, true], "the choice is kept")
+        model.choose(.deck)
+        XCTAssertEqual(amp.asked, [true, false, true, false])
+        model.setActive(false)
+        XCTAssertEqual(amp.asked.count, 4)
+    }
+
+    func testTheAmpsTunerGoesOffWhenTheAmpIsGone() async {
+        let amp = FakeAmp()
+        let model = TunerModel(shared: FakeInput(device: nil), defaults: defaults)
+        model.amp = amp
+        model.choose(.amp)
+        model.setActive(true)
+        _ = await waitUntil { model.status == .listening }
+        amp.ampTunerDevice = nil
+        amp.isAmpTunerOn = false
+        let gone = await waitUntil { model.status == .noInput }
+        XCTAssertTrue(gone)
+        XCTAssertEqual(amp.asked.last, false)
+        XCTAssertEqual(model.inputName, "Kein Verstärker verbunden")
+        amp.ampTunerDevice = "Spark MINI"
+        let back = await waitUntil { model.status == .listening }
+        XCTAssertTrue(back)
+        XCTAssertEqual(amp.asked.last, true)
+        model.setActive(false)
     }
 }

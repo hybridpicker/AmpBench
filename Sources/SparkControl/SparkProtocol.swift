@@ -37,9 +37,12 @@ public enum SparkProtocol {
         /// The amp reports a tapped tempo.
         public static let tapTempo: UInt8 = 0x63
         public static let hardwarePreset: UInt8 = 0x38
-        /// Repeated many times a second with a float, -1 without signal. Probably the tuner's reading.
+        /// The amp's own tuner reading, about 15 times a second while it is on: the note as a byte from 0 (C) to 11 (H)
+        /// and a float from 0 to 1 across one semitone, 0.5 in tune, -1 without signal. Cents are (value − 0.5) · 100:
+        /// checked on the MINI against the pitch heard over USB on 2026-11-09, to about ±10 cents.
         public static let tunerPitch: UInt8 = 0x64
-        /// A boolean, probably the tuner switching on or off.
+        /// The amp's own tuner on or off. Sent as `01 65 C3` / `C2`; the MINI and the NEO answer `04 65`, mute their
+        /// output while it is on, and send `03 64` readings.
         public static let tuner: UInt8 = 0x65
     }
 
@@ -124,6 +127,16 @@ public enum SparkProtocol {
 
     public static func getFirmware(sequence: UInt8, header: Bool = true) -> [UInt8] {
         frame(command: Command.get, sub: Sub.firmware, payload: [], sequence: sequence, header: header)
+    }
+
+    /// Switches the amp's own tuner on or off. The amp is silent while it is on.
+    public static func setTuner(_ on: Bool, sequence: UInt8, header: Bool = true) -> [UInt8] {
+        frame(command: Command.set, sub: Sub.tuner, payload: [on ? 0xC3 : 0xC2], sequence: sequence, header: header)
+    }
+
+    /// The cents of a tuner reading's value, from −50 to +50.
+    public static func tunerCents(_ value: Float) -> Double {
+        (Double(value) - 0.5) * 100
     }
 
     public static func getAmpName(sequence: UInt8, header: Bool = true) -> [UInt8] {

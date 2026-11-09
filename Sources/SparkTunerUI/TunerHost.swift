@@ -22,6 +22,25 @@ public final class TunerHost: ObservableObject {
 
     public var isListening: Bool { model.status == .listening }
 
+    /// The amp whose own tuner the user may pick as the source, over Bluetooth. Studio passes its presets' link.
+    public func offerAmpTuner(_ amp: AmpTuner) {
+        realAmp = amp
+        model.amp = amp
+    }
+
+    private weak var realAmp: AmpTuner?
+    private var demoAmp: DemoAmpTuner?
+
+    /// A made-up amp whose tuner reports one string, for the window pictures. Nothing is sent anywhere.
+    public func showAmpDemo(pitchClass: Int, cents: Double) {
+        let demo = DemoAmpTuner(pitchClass: pitchClass, cents: cents)
+        demoAmp = demo
+        model.amp = demo
+        model.showsStrobe = false
+        model.choose(.amp)
+        model.endDemo()
+    }
+
     /// A synthetic string for the window pictures of a test library: the tuner shows it as if one played it. With
     /// `strobe`, the strobe shows instead of the needle.
     public func showDemo(frequency: Double, strobe: Bool) {
@@ -30,6 +49,12 @@ public final class TunerHost: ObservableObject {
     }
 
     public func endDemo() {
+        if demoAmp != nil {
+            model.choose(.deck)
+            model.amp = realAmp
+            demoAmp?.wantAmpTuner(false)
+            demoAmp = nil
+        }
         model.endDemo()
         model.showsStrobe = false
     }
@@ -72,5 +97,40 @@ public struct TunerMenus: Commands {
     /// A shortcut that belongs to this menu only while its area shows.
     private func owned(_ shortcut: KeyboardShortcut) -> KeyboardShortcut? {
         isActive ? shortcut : nil
+    }
+}
+
+/// The amp of the window pictures: it "switches its tuner on" and reports one string with a little jitter, as the
+/// MINI and the NEO do, 15 times a second.
+@MainActor
+final class DemoAmpTuner: AmpTuner {
+    let ampTunerDevice: String? = "Spark NEO"
+    private(set) var isAmpTunerOn = false
+    var onAmpTunerReading: ((Int, Double?) -> Void)?
+    private let pitchClass: Int
+    private let cents: Double
+    private var timer: Timer?
+
+    init(pitchClass: Int, cents: Double) {
+        self.pitchClass = pitchClass
+        self.cents = cents
+    }
+
+    func wantAmpTuner(_ on: Bool) {
+        isAmpTunerOn = on
+        timer?.invalidate()
+        timer = nil
+        guard on else { return }
+        let jitter: [Double] = [-4, 3, 0, 6, -2, 1, -5, 2]
+        var index = 0
+        let timer = Timer(timeInterval: 1.0 / 15, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.onAmpTunerReading?(self.pitchClass, self.cents + jitter[index % jitter.count])
+                index += 1
+            }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
     }
 }
