@@ -155,12 +155,15 @@ struct EditorHeader: View {
             Menu {
                 Button("Sichern unter …") { model.beginSaveAs() }
                 Divider()
-                ForEach(0..<4, id: \.self) { slot in
-                    Button("Auf Platz \(slot + 1) speichern …\(link.slots[slot].map { " (jetzt „\($0.name)“)" } ?? "")") {
+                ForEach(Array(link.profile.slots), id: \.self) { slot in
+                    Button("Auf \(link.profile.slotName(slot)) speichern …\(link.slots[safe: slot].flatMap { $0 }.map { " (jetzt „\($0.name)“)" } ?? "")") {
                         model.askToStoreEdited(in: slot)
                     }
-                    .disabled(!model.canUseAmp)
+                    .disabled(!model.canUse(.store))
                 }
+                Divider()
+                Button("Text für REACTOR kopieren") { model.copyToneText() }
+                    .help("Beschreibt den Sound auf Englisch für „Text to Tone“ in der REACTOR-App. Der REACTOR deutet den Text selbst.")
                 Divider()
                 Button("Änderungen verwerfen") { editor.revert() }.disabled(!editor.isModified)
                 Button("Duplizieren") { model.duplicateCurrent() }
@@ -177,7 +180,7 @@ struct EditorHeader: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(editor.showsOriginal)
-            .help("Sichern unter, auf einem Platz speichern, verwerfen, duplizieren")
+            .help("Sichern unter, auf einem Platz speichern, Text für REACTOR, verwerfen, duplizieren")
             .accessibilityLabel("Weitere Aktionen")
         }
     }

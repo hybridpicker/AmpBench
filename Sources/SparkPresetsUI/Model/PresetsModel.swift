@@ -158,8 +158,8 @@ final class PresetsModel: ObservableObject {
         selection = new
         switch new {
         case .slot(let slot):
-            if let preset = link.slots[slot] { editor.open(preset, from: .slot(slot)) } else { editor.close() }
-            if play { self.play(slot: slot) }
+            if let preset = link.slots[safe: slot] ?? nil { editor.open(preset, from: .slot(slot)) } else { editor.close() }
+            if play, link.profile.can(.switchSlot) { self.play(slot: slot) }
         case .saved(let url):
             if let item = items.first(where: { $0.url == url }) {
                 editor.open(item.file.preset, from: .saved(url))
@@ -174,7 +174,7 @@ final class PresetsModel: ObservableObject {
     }
 
     private func slotsChanged(_ slots: [SparkPreset?]) {
-        guard case .slot(let slot) = selection, let preset = slots[slot] else { return }
+        guard case .slot(let slot) = selection, let preset = slots[safe: slot] ?? nil else { return }
         if editor.source == .slot(slot) { editor.refresh(preset, from: .slot(slot)) } else { apply(selection, play: false) }
     }
 
@@ -278,6 +278,20 @@ final class PresetsModel: ObservableObject {
             }
         }
         if disconnecting { link.stop() } else if let device { link.choose(device) }
+    }
+
+    /// Puts the edited sound on the pasteboard as English text for REACTOR's "Text to Tone". Nothing is sent to the
+    /// REACTOR; it builds its own sound from the words.
+    func copyToneText() {
+        guard let preset = editor.preset else { return }
+        do {
+            let text = try SoundRecipe(preset: preset).toneDescription()
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            show(.info, "Der Text für REACTOR ist kopiert. Füge ihn in der REACTOR-App bei „Text to Tone“ ein; der REACTOR deutet ihn selbst und wählt eigene Modelle.")
+        } catch {
+            show(.error, "Der Sound ließ sich nicht als Text beschreiben: \(error.localizedDescription)")
+        }
     }
 
     private func temporaryLost(on name: String) {
@@ -395,7 +409,7 @@ final class PresetsModel: ObservableObject {
 
     /// Saves what a slot holds on the Mac. A preset with the same settings already saved is not saved twice.
     func backUp(slot: Int) {
-        guard let preset = link.slots[slot] else { return }
+        guard let preset = link.slots[safe: slot] ?? nil else { return }
         if let existing = library.existing(preset) {
             show(.info, "„\(preset.name)“ ist schon auf dem Mac gesichert, als „\(existing.url.deletingPathExtension().lastPathComponent)“.")
             return
@@ -468,7 +482,7 @@ final class PresetsModel: ObservableObject {
         // A preset tried out without the editor.
         if let name = link.tryingOut, let preset = lastTriedOut, preset.name == name { return (preset, nil) }
         // A stored slot: what is stored there, whatever the editor shows.
-        if let slot = link.activeSlot, let preset = link.slots[slot] { return (preset, slot + 1) }
+        if let slot = link.activeSlot, let preset = link.slots[safe: slot] ?? nil { return (preset, slot + 1) }
         return nil
     }
 

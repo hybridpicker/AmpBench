@@ -22,7 +22,7 @@ private struct ConnectKey: View {
 
     var body: some View {
         Button(link.wanted ? "Trennen" : "Verbinden") {
-            if link.wanted { link.stop() } else { model.start(bluetooth: true) }
+            if link.wanted { model.disconnect() } else { model.start(bluetooth: true) }
         }
         .buttonStyle(.hardwareKey(size: .small))
         .fixedSize()
@@ -41,9 +41,11 @@ struct Sidebar: View {
         let presets = model.visibleItems.filter { !$0.file.isBackup }
         let backups = model.visibleItems.filter(\.file.isBackup)
         List(selection: selection) {
-            Section("Am Verstärker") {
-                ForEach(0..<4, id: \.self) { slot in
-                    SlotRow(slot: slot).tag(Selection.slot(slot))
+            ForEach(slotSections, id: \.title) { section in
+                Section(section.title) {
+                    ForEach(section.slots, id: \.self) { slot in
+                        SlotRow(slot: slot).tag(Selection.slot(slot))
+                    }
                 }
             }
             if model.selection == .draft {
@@ -77,6 +79,9 @@ struct Sidebar: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
+                DeviceChoice()
+                    .padding(.horizontal, 14)
+                    .padding(.top, 10)
                 HStack(spacing: 8) {
                     ConnectionStatus()
                     Spacer(minLength: 4)
@@ -94,6 +99,78 @@ struct Sidebar: View {
                 Spacer().frame(height: 8)
             }
             .background(.bar)
+        }
+    }
+}
+
+extension Sidebar {
+    /// The device's slots, in one section, or one per bank ("Rot", "Grün" on a REACTOR).
+    var slotSections: [(title: String, slots: [Int])] {
+        let profile = link.profile
+        let title = "Am \(profile.displayName)"
+        guard let size = profile.bankSize, size > 0, !profile.bankNames.isEmpty else {
+            return [(title, Array(profile.slots))]
+        }
+        return profile.bankNames.enumerated().map { bank, name in
+            ("\(title) · \(name)", Array((bank * size)..<min((bank + 1) * size, profile.slotCount)))
+        }
+    }
+}
+
+/// Which device the presets talk to: every known or nearby device with a lamp for being there. Choosing another one
+/// ends the current connection first; there is only ever one.
+struct DeviceChoice: View {
+    @EnvironmentObject private var model: PresetsModel
+    @EnvironmentObject private var link: SparkLink
+
+    var body: some View {
+        HStack(spacing: 8) {
+            DevicePopup("Gerät", value: current) {
+                if link.devices.isEmpty {
+                    Text("Noch kein Gerät gefunden")
+                }
+                ForEach(link.devices) { device in
+                    Button {
+                        model.chooseDevice(device.id)
+                    } label: {
+                        Label("\(device.name) – \(Self.word(device.presence))",
+                              systemImage: device.id == link.chosenID ? "checkmark" : Self.symbol(device.presence))
+                    }
+                }
+                Divider()
+                Button(link.wanted ? "Weiter suchen" : "Nach Geräten suchen") { model.start(bluetooth: true) }
+                    .disabled(link.wanted && link.status == .connected)
+            }
+            .frame(maxWidth: .infinity)
+            LampDot(tone: presence == .connected ? .on : .hot, isOn: presence != .absent)
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityValue(Self.word(presence))
+    }
+
+    private var chosen: DeviceEntry? { link.devices.first { $0.id == link.chosenID } }
+
+    private var presence: DeviceEntry.Presence { chosen?.presence ?? .absent }
+
+    private var current: String {
+        guard let chosen else { return link.devices.isEmpty ? "Kein Gerät gewählt" : "Gerät wählen …" }
+        return chosen.name
+    }
+
+    static func word(_ presence: DeviceEntry.Presence) -> String {
+        switch presence {
+        case .connected: "verbunden"
+        case .nearby: "in der Nähe"
+        case .absent: "nicht da"
+        }
+    }
+
+    static func symbol(_ presence: DeviceEntry.Presence) -> String {
+        switch presence {
+        case .connected: "circle.fill"
+        case .nearby: "circle.lefthalf.filled"
+        case .absent: "circle"
         }
     }
 }
@@ -140,14 +217,30 @@ private struct SlotRow: View {
     @EnvironmentObject private var model: PresetsModel
     @EnvironmentObject private var link: SparkLink
 
-    private var preset: SparkPreset? { link.slots[slot] }
+    private var preset: SparkPreset? { link.slots.indices.contains(slot) ? link.slots[slot] : nil }
     private var isActive: Bool { link.activeSlot == slot && link.tryingOut == nil && !link.isEditingLive }
+    private var number: Int { link.profile.bankSize.map { slot % $0 + 1 } ?? slot + 1 }
+
+    private var emptyText: String {
+        guard link.status == .connected else { return "–" }
+        // A device that is only listened to never sends its presets.
+        return link.profile.can(.read) ? "Wird gelesen …" : isActive ? "Spielt, Inhalt unbekannt" : "Inhalt unbekannt"
+    }
+
+    private var helpText: String {
+        guard link.profile.can(.switchSlot) else {
+            return "\(link.profile.slotName(slot)) am \(link.profile.displayName). Spark Studio liest nur mit und schaltet nicht um."
+        }
+        return slot < DeviceProfile.largestSlotCount
+            ? "Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))"
+            : "Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten"
+    }
 
     var body: some View {
         HStack(spacing: 9) {
-            SlotKey(number: slot + 1, isPlaying: isActive)
+            SlotKey(number: number, isPlaying: isActive)
             VStack(alignment: .leading, spacing: 1) {
-                Text(preset?.name ?? (link.status == .connected ? "Wird gelesen …" : "–"))
+                Text(preset?.name ?? emptyText)
                     .fontWeight(isActive ? .semibold : .regular)
                     .lineLimit(1)
                 Text(preset.map(ChainSummary.text) ?? " ")
@@ -164,12 +257,12 @@ private struct SlotRow: View {
             }
         }
         .padding(.vertical, 2)
-        .help("Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))")
+        .help(helpText)
         .contextMenu {
             Button("Auf dem Mac sichern") { model.backUp(slot: slot) }.disabled(preset == nil)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Platz \(slot + 1): \(preset?.name ?? "unbekannt")\(isActive ? ", spielt" : "")")
+        .accessibilityLabel("\(link.profile.slotName(slot)): \(preset?.name ?? "unbekannt")\(isActive ? ", spielt" : "")")
     }
 }
 
@@ -197,11 +290,11 @@ private struct LibraryRow: View {
         .help("Klicken spielt das Preset zum Anhören, ohne einen Platz zu überschreiben")
         .contextMenu {
             Menu("Auf Platz speichern") {
-                ForEach(0..<4, id: \.self) { slot in
-                    Button("Platz \(slot + 1)") { model.askToStore(item, in: slot) }
+                ForEach(Array(model.link.profile.slots), id: \.self) { slot in
+                    Button(model.link.profile.slotName(slot)) { model.askToStore(item, in: slot) }
                 }
             }
-            .disabled(!model.canUseAmp)
+            .disabled(!model.canUse(.store))
             Divider()
             Button("Umbenennen …") { model.beginRename(item) }
             Button("Im Finder zeigen") { model.reveal(item) }
@@ -271,9 +364,9 @@ struct ConnectionStatus: View {
     private var title: String {
         switch link.status {
         case .starting: "Starte Bluetooth …"
-        case .searching: "Suche den Verstärker …"
+        case .searching: link.chosenID == nil ? "Suche Geräte …" : "Suche \(link.profile.displayName) …"
         case .connecting: "Verbinde …"
-        case .connected: link.deviceName ?? "Verbunden"
+        case .connected: link.shownName
         case .unauthorized: "Kein Bluetooth-Zugriff"
         case .bluetoothOff: "Bluetooth ist aus"
         case .unsupported: "Kein Bluetooth LE"
@@ -284,7 +377,9 @@ struct ConnectionStatus: View {
     private var detail: String? {
         if let activity = link.activity { return activity }
         switch link.status {
-        case .connected: return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
+        case .connected:
+            if !link.profile.canSend { return "verbunden · nur mitlesen, Studio sendet nichts" }
+            return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
         case .searching, .connecting: return "Spark-App am Handy trennen"
         case .off: return "Die Spark-App am Handy kann ihn jetzt nutzen"
         default: return nil

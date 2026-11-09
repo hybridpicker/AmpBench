@@ -82,7 +82,9 @@ enum Snapshot {
         case "template":
             model.newPreset(from: PresetFactory.templates.first { $0.name == parts.last })
         case "slot":
-            if let number = Int(parts.last ?? ""), (1...4).contains(number) { model.select(.slot(number - 1)) }
+            if let number = Int(parts.last ?? ""), model.link.profile.slots.contains(number - 1) {
+                model.select(.slot(number - 1))
+            }
         case "saved":
             if let item = model.items.first(where: { $0.url.deletingPathExtension().lastPathComponent == parts.last }) {
                 model.select(.saved(item.url))

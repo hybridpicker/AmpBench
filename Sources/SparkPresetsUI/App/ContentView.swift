@@ -19,10 +19,10 @@ struct ContentView: View {
         .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }
         .sheet(isPresented: Binding(get: { model.showsAI }, set: { model.showsAI = $0 })) { AISoundSheet() }
         .confirmationDialog(storeTitle, isPresented: storeDialogShown, presenting: model.storeRequest) { request in
-            Button("Auf Platz \(request.slot + 1) speichern") { model.store(request) }
+            Button("Auf \(link.profile.slotName(request.slot)) speichern") { model.store(request) }
             Button("Abbrechen", role: .cancel) { model.storeRequest = nil }
         } message: { request in
-            Text("Was jetzt auf Platz \(request.slot + 1) liegt\(slotName(request.slot)), wird vorher frisch vom Verstärker gelesen und auf dem Mac gesichert. Danach wird der Platz zur Kontrolle zurückgelesen.")
+            Text("Was jetzt auf \(link.profile.slotName(request.slot)) liegt\(slotName(request.slot)), wird vorher frisch vom Verstärker gelesen und auf dem Mac gesichert. Danach wird der Platz zur Kontrolle zurückgelesen.")
         }
         .confirmationDialog(unsavedTitle, isPresented: unsavedShown) {
             Button("Auf dem Mac sichern") { model.resolvePending(save: true) }
@@ -30,6 +30,20 @@ struct ContentView: View {
             Button("Abbrechen", role: .cancel) { model.pendingSelection = nil }
         } message: {
             Text("Ohne Sichern gehen die Änderungen verloren.")
+        }
+        .confirmationDialog(lossTitle, isPresented: lossShown) {
+            Button("Als Preset sichern, dann \(model.pendingDisconnect ? "trennen" : "wechseln")") {
+                model.resolveDeviceChange(save: true)
+            }
+            Button("Ohne Sichern \(model.pendingDisconnect ? "trennen" : "wechseln")", role: .destructive) {
+                model.resolveDeviceChange(save: false)
+            }
+            Button("Abbrechen", role: .cancel) {
+                model.pendingDevice = nil
+                model.pendingDisconnect = false
+            }
+        } message: {
+            Text("Er spielt dann wieder seinen gespeicherten Platz. Gesichert landet der Sound auf dem Mac unter „Auf dem Mac“.")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.reloadLibrary()
@@ -48,9 +62,18 @@ struct ContentView: View {
         Binding(get: { model.pendingSelection != nil }, set: { if !$0 { model.pendingSelection = nil } })
     }
 
+    private var lossShown: Binding<Bool> {
+        Binding(get: { model.pendingDevice != nil || model.pendingDisconnect },
+                set: { if !$0 { model.pendingDevice = nil; model.pendingDisconnect = false } })
+    }
+
+    private var lossTitle: String {
+        "Der Sound auf dem \(link.profile.displayName) geht beim Trennen verloren. Vorher als Preset sichern?"
+    }
+
     private var storeTitle: String {
         guard let request = model.storeRequest else { return "" }
-        return "„\(request.preset.name)“ auf Platz \(request.slot + 1) speichern?"
+        return "„\(request.preset.name)“ auf \(link.profile.slotName(request.slot)) speichern?"
     }
 
     private var unsavedTitle: String {
@@ -58,6 +81,6 @@ struct ContentView: View {
     }
 
     private func slotName(_ slot: Int) -> String {
-        link.slots[slot].map { ", „\($0.name)“" } ?? ""
+        (link.slots[safe: slot] ?? nil).map { ", „\($0.name)“" } ?? ""
     }
 }

@@ -9,7 +9,11 @@ struct EditorView: View {
     @EnvironmentObject private var link: SparkLink
 
     var body: some View {
-        if let preset = editor.preset {
+        // A device that is only listened to shows what it reports. A preset from the Mac still opens in the editor,
+        // for "Text für REACTOR kopieren"; nothing of it goes to the device.
+        if link.status == .connected, !link.profile.canSend, editor.preset == nil || model.selectedSlot != nil {
+            ReactorPanel()
+        } else if let preset = editor.preset {
             VStack(spacing: 0) {
                 Faceplate(top: Theme.device.faceTop, bottom: Swatch(hex: 0x1C1C1F)) {
                     EditorHeader(preset: preset)
@@ -62,8 +66,9 @@ struct EditorView: View {
     }
 
     private var placeholderText: String {
-        if case .slot(let slot) = model.selection, link.slots[slot] == nil {
-            return link.status == .connected ? "Platz \(slot + 1) wird gelesen …" : "Platz \(slot + 1) ist nicht gelesen."
+        if case .slot(let slot) = model.selection, (link.slots[safe: slot] ?? nil) == nil {
+            let name = link.profile.slotName(slot)
+            return link.can(.read) ? "\(name) wird gelesen …" : "\(name) ist nicht gelesen."
         }
         return "Wähle links einen Platz am Verstärker oder ein Preset auf dem Mac, oder lege ein neues an."
     }

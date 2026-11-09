@@ -75,8 +75,6 @@ public struct ReactorState: Equatable, Sendable {
     public var tunerReading: Float?
     /// Messages of unknown meaning, by "command sub", such as "03 1A". Counted, never read.
     public var unknown: [String: Int] = [:]
-    /// True when the REACTOR switched slots since the last control was read: the preset's content is not known.
-    public var contentUnknown = true
 
     public init() {}
 
@@ -182,7 +180,6 @@ public struct ReactorState: Equatable, Sendable {
             selectedPlace = nil
             levelModel = nil
             lastSwitchedOn = nil
-            contentUnknown = true
         }
         slot = new
     }

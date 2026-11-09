@@ -59,6 +59,18 @@ final class StudioKeymapTests: XCTestCase {
         XCTAssertTrue(slots.allSatisfy { $0.scope == .everywhere && $0.condition == "Bluetooth verbunden" })
     }
 
+    /// The REACTOR has 8 slots. Every one of them gets ⌘ and ⌥⌘ with its digit, without a conflict anywhere.
+    func testSlotKeysCoverTheDeviceWithTheMostSlots() {
+        XCTAssertEqual(StudioKeymap.slotKeys, 8)
+        let play = StudioKeymap.all.filter { $0.modifiers == .command && Int($0.key) != nil && $0.action.hasSuffix("spielen") }
+        XCTAssertEqual(play.map(\.key), (1...8).map(String.init))
+        let store = StudioKeymap.all.filter { $0.modifiers == [.command, .option] && Int($0.key) != nil }
+        XCTAssertEqual(store.map(\.key), (1...8).map(String.init))
+        XCTAssertTrue(StudioKeymap.conflicts().isEmpty)
+        // ⌘0 stays the tuner's, so a ninth slot could not get a digit.
+        XCTAssertTrue(StudioKeymap.all.contains { $0.key == "0" && $0.modifiers == .command && $0.scope == .tuner })
+    }
+
     /// The tuner listens while one plays; a stray key must not change anything there, so it has no single keys.
     func testTunerAreaHasNoSingleKeys() {
         let tuner = StudioKeymap.shortcuts(in: .tuner)

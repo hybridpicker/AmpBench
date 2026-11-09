@@ -90,17 +90,17 @@ struct PresetCommands: Commands {
                 .disabled(!isActive)
         }
         CommandMenu("Verstärker") {
-            ForEach(0..<4, id: \.self) { slot in
-                Button("Platz \(slot + 1) spielen") { model.select(.slot(slot)) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(slot + 1)")), modifiers: .command)
-                    .disabled(model.link.status != .connected)
+            // As many slots as the device has; shortcuts for at most as many as StudioKeymap holds.
+            ForEach(Array(model.link.profile.slots), id: \.self) { slot in
+                Button("\(model.link.profile.slotName(slot)) spielen") { model.select(.slot(slot)) }
+                    .keyboardShortcut(slotKey(slot, [.command]))
+                    .disabled(!model.link.can(.switchSlot))
             }
             Divider()
-            ForEach(0..<4, id: \.self) { slot in
-                Button("Auf Platz \(slot + 1) speichern …") { model.askToStoreEdited(in: slot) }
-                    .keyboardShortcut(owned(KeyboardShortcut(KeyEquivalent(Character("\(slot + 1)")),
-                                                             modifiers: [.command, .option])))
-                    .disabled(!model.canUseAmp || editor.preset == nil || editor.showsOriginal || !isActive)
+            ForEach(Array(model.link.profile.slots), id: \.self) { slot in
+                Button("Auf \(model.link.profile.slotName(slot)) speichern …") { model.askToStoreEdited(in: slot) }
+                    .keyboardShortcut(isActive ? slotKey(slot, [.command, .option]) : nil)
+                    .disabled(!model.canUse(.store) || editor.preset == nil || editor.showsOriginal || !isActive)
             }
             Divider()
             Button(editor.showsOriginal ? "Bearbeiteten Stand spielen" : "Mit gespeichertem Stand vergleichen") {
@@ -114,11 +114,11 @@ struct PresetCommands: Commands {
             Divider()
             Button("Verstärker neu lesen") { model.reloadAmp() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: .command)))
-                .disabled(!model.canUseAmp || !isActive)
+                .disabled(!model.canUse(.read) || !isActive)
             // Studio connects only on request and can disconnect again, for the Spark app on the phone.
             Divider()
             if model.link.wanted {
-                Button("Vom Verstärker trennen") { model.link.stop() }
+                Button("Vom Verstärker trennen") { model.disconnect() }
             } else {
                 Button("Mit dem Verstärker verbinden") { model.start(bluetooth: true) }
             }
@@ -139,6 +139,12 @@ struct PresetCommands: Commands {
             .keyboardShortcut(owned(KeyboardShortcut("0", modifiers: .control)))
             .disabled(editor.isLocked || !isActive)
         }
+    }
+
+    /// ⌘ plus the slot's digit, for the first `DeviceProfile.largestSlotCount` slots.
+    private func slotKey(_ slot: Int, _ modifiers: EventModifiers) -> KeyboardShortcut? {
+        guard slot < min(DeviceProfile.largestSlotCount, 9) else { return nil }
+        return KeyboardShortcut(KeyEquivalent(Character("\(slot + 1)")), modifiers: modifiers)
     }
 
     /// A shortcut that belongs to this menu only while its window is in front.

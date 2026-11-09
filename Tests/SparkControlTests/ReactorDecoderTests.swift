@@ -116,7 +116,6 @@ final class ReactorDecoderTests: XCTestCase {
         XCTAssertEqual(state.slot, 1)
         XCTAssertEqual(state.bank, 0)
         XCTAssertFalse(state.hasReadings, "the REACTOR does not send the preset, so nothing of it is known")
-        XCTAssertTrue(state.contentUnknown)
         decode([parameter("Amp.Tonestack", 3, 0.25)], into: &state)
         XCTAssertEqual(state.knobs, [.treble: 0.25], "what is turned after the change shows")
         // The same slot again keeps what was read since.

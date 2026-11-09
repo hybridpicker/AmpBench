@@ -71,6 +71,11 @@ public struct StudioShortcut: Hashable, Sendable {
 public enum StudioKeymap {
     public static let all: [StudioShortcut] = everywhere + recording + presets + tuner
 
+    /// Slots that get ⌘ and ⌥⌘ with their digit: as many as the device with the most slots has (REACTOR, 8), and no
+    /// more than the map holds without a conflict. A device with fewer slots simply has fewer menu items. SparkControl's
+    /// `DeviceProfile.largestSlotCount` must not exceed it.
+    public static let slotKeys = 8
+
     static let everywhere: [StudioShortcut] = [
         StudioShortcut("r", [], .everywhere, "Aufnahme starten oder stoppen, auch „Nochmal“"),
         StudioShortcut("space", [], .everywhere, "Abspielen oder anhalten; während der Aufnahme stoppen und anhören"),
@@ -81,8 +86,9 @@ public enum StudioKeymap {
         StudioShortcut("z", .command, .everywhere, "Rückgängig, im aktiven Bereich"),
         StudioShortcut("z", [.command, .shift], .everywhere, "Wiederholen, im aktiven Bereich"),
         StudioShortcut("s", .command, .everywhere, "Preset im Editor auf dem Mac sichern", when: "Preset offen"),
-    ] + (1...4).map {
-        StudioShortcut("\($0)", .command, .everywhere, "Platz \($0) spielen", when: "Bluetooth verbunden")
+    ] + (1...slotKeys).map {
+        StudioShortcut("\($0)", .command, .everywhere, "Platz \($0) spielen",
+                       when: $0 <= 4 ? "Bluetooth verbunden" : "Gerät mit \($0) Plätzen verbunden, das umschalten darf")
     }
 
     static let recording: [StudioShortcut] = [
@@ -133,9 +139,10 @@ public enum StudioKeymap {
         StudioShortcut("right", .shift, .presets, "Regler in großen Schritten größer", when: "Regler hat den Fokus"),
         StudioShortcut("down", .shift, .presets, "Regler in großen Schritten kleiner", when: "Regler hat den Fokus"),
         StudioShortcut("up", .shift, .presets, "Regler in großen Schritten größer", when: "Regler hat den Fokus"),
-    ] + (1...4).map {
+    ] + (1...slotKeys).map {
         StudioShortcut("\($0)", [.command, .option], .presets, "Auf Platz \($0) speichern …",
-                       when: "Bluetooth verbunden, Preset offen")
+                       when: $0 <= 4 ? "Bluetooth verbunden, Preset offen"
+                           : "Gerät mit \($0) Plätzen verbunden, das speichern darf, Preset offen")
     } + (1...7).map {
         StudioShortcut("\($0)", .control, .presets, "Gerät \($0) der Kette wählen", when: "Preset offen")
     }

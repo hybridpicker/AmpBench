@@ -135,7 +135,7 @@ final class EditorModel: ObservableObject {
     func toggleComparison() {
         guard let editor, editor.isModified || showsOriginal else { return }
         showsOriginal.toggle()
-        guard isLiveEnabled, link.status == .connected else { return }
+        guard isLiveEnabled, link.can(.playTemporary) else { return }
         queue.push(.whole(showsOriginal ? editor.original : editor.current))
         runQueue()
     }
@@ -159,7 +159,7 @@ final class EditorModel: ObservableObject {
     /// Switches the amp to a stored preset. It goes through the same queue as live changes, so a change made right
     /// after it can never arrive before it and end up on the stored preset's sound.
     func play(slot: Int) {
-        guard link.status == .connected else { return }
+        guard link.can(.switchSlot) else { return }
         queue.removeAll()
         pendingSlot = slot
         runQueue()
@@ -167,7 +167,7 @@ final class EditorModel: ObservableObject {
 
     /// Plays the current state on the amp, for example after reconnecting or switching live on.
     func playNow() {
-        guard let preset, link.status == .connected else { return }
+        guard let preset, link.can(.playTemporary) else { return }
         queue.push(.whole(preset))
         runQueue()
     }
@@ -182,7 +182,8 @@ final class EditorModel: ObservableObject {
     // MARK: Sending
 
     private func send(_ changes: [LiveChange]) {
-        guard !changes.isEmpty, isLiveEnabled, link.status == .connected, let editor else { return }
+        // Only on a device checked for it: an unknown Spark only reads and switches, a REACTOR gets nothing.
+        guard !changes.isEmpty, isLiveEnabled, link.can(.playTemporary), link.can(.liveEdit), let editor else { return }
         if link.isEditingLive || queue.items.contains(where: { if case .whole = $0 { true } else { false } }) {
             queue.push(changes)
         } else {

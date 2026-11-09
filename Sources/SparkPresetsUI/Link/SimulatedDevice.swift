@@ -1,13 +1,13 @@
 import Foundation
-@testable import SparkControl
-@testable import SparkPresetsUI
+import SparkControl
 
-/// A simulated Positive Grid device behind `LinkTransport`, the Swift counterpart of linux/spark_studio/fake_amp.py.
+/// Simulated Positive Grid devices behind `LinkTransport`, the Swift counterpart of linux/spark_studio/fake_amp.py.
+/// Used by the tests and by window pictures (`--library <folder> --demo-devices`), never with a real device.
 /// It answers the way the real ones did with spark-probe: chunk acknowledgements `05 01` and `04 01` for presets,
 /// `04 38` for a switch, `04 15` and `04 06` for changes, nothing for a parameter. A NEO drops its temporary sound
 /// when the connection ends. A REACTOR answers nothing and records every byte it gets, which must stay none.
 @MainActor
-final class FakeDevice: LinkTransport {
+final class SimulatedDevice: LinkTransport {
     enum Kind { case mini, neo, reactor, unknownSpark }
 
     struct Device {
@@ -129,9 +129,7 @@ final class FakeDevice: LinkTransport {
             case .unknownSpark: "Spark 40"
             default: "Spark MINI"
             }
-            var writer = SparkWriter()
-            writer.string(name)
-            reply(response, Sub.ampName, [UInt8(name.utf8.count)] + writer.data)
+            reply(response, Sub.ampName, [UInt8(name.utf8.count), 0xA0 + UInt8(name.utf8.count)] + Array(name.utf8))
         case (get, Sub.firmware):
             reply(response, Sub.firmware, connectedKind == .neo ? [0xCE, 1, 16, 1, 60] : [0xCE, 1, 11, 2, 75])
         case (get, Sub.presetNumber):
@@ -156,10 +154,7 @@ final class FakeDevice: LinkTransport {
             }
             reply(ack, Sub.hardwarePreset, message.payload)
         case (set, Sub.parameter):
-            var reader = SparkReader(message.payload)
-            if let effect = try? reader.prefixedString(), let index = try? reader.byte(), let value = try? reader.float() {
-                parameters.append((effect, index, value))
-            }
+            if let change = Self.parameterChange(message.payload) { parameters.append(change) }
         case (set, Sub.effectOnOff), (set, Sub.changeEffect):
             reply(ack, message.sub, [])
         default:
@@ -167,7 +162,17 @@ final class FakeDevice: LinkTransport {
         }
     }
 
-    private func later(_ work: @escaping @MainActor (FakeDevice) -> Void) {
+    /// `len, A0+len, name, index, CA float`, the form of `01 04`.
+    private static func parameterChange(_ payload: [UInt8]) -> (String, UInt8, Float)? {
+        guard payload.count >= 2 else { return nil }
+        let length = Int(payload[0])
+        guard payload.count >= 2 + length + 6, payload[2 + length + 1] == 0xCA else { return nil }
+        let name = String(decoding: payload[2..<(2 + length)], as: UTF8.self)
+        let bits = payload[(3 + length + 1)..<(3 + length + 5)].reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
+        return (name, payload[2 + length], Float(bitPattern: bits))
+    }
+
+    private func later(_ work: @escaping @MainActor (SimulatedDevice) -> Void) {
         DispatchQueue.main.async { [weak self] in
             MainActor.assumeIsolated { if let self { work(self) } }
         }

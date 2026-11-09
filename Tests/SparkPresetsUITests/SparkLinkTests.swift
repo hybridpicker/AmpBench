@@ -18,8 +18,8 @@ final class SparkLinkTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite)
     }
 
-    private func make(_ kinds: [FakeDevice.Kind]) -> (FakeDevice, SparkLink) {
-        let device = FakeDevice(kinds)
+    private func make(_ kinds: [SimulatedDevice.Kind]) -> (SimulatedDevice, SparkLink) {
+        let device = SimulatedDevice(kinds)
         let link = SparkLink(transport: device, memory: DeviceMemory(defaults: defaults))
         link.gap = .milliseconds(1)
         link.silence = 0.4
@@ -204,7 +204,7 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(link.devices.first { $0.id == first }?.presence, .nearby)
 
         // A new link remembers the choice and its profile before anything is found.
-        let again = SparkLink(transport: FakeDevice([]), memory: DeviceMemory(defaults: defaults))
+        let again = SparkLink(transport: SimulatedDevice([]), memory: DeviceMemory(defaults: defaults))
         XCTAssertEqual(again.chosenID, other)
         XCTAssertEqual(again.profile.id, other == device.id(.neo) ? .sparkNEO : .sparkMini)
     }
