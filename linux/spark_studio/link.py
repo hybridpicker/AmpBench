@@ -1,8 +1,11 @@
 """The Bluetooth LE connection to the amp. A port of SparkLink.swift, without any UI toolkit.
 
 ``LinkCore`` runs inside an asyncio loop and talks to a ``Transport`` (BlueZ through bleak, or a simulated amp for
-tests and ``--demo``). It only looks for devices that offer the Spark control service, so no other Bluetooth device
-nearby is ever used. Requests run one at a time, the way the amp wants them.
+tests and ``--demo``). It only looks for devices that offer the Spark control service FFC0 or REACTOR's FFD0, so no
+other Bluetooth device nearby is ever used. Requests run one at a time, the way the amp wants them.
+
+What may go to a device is decided by its profile (devices.py). A profile without ``send`` (the REACTOR) gets not a
+single byte: the transport keeps nothing to write to, and every write is refused here too.
 """
 from __future__ import annotations
 
@@ -10,7 +13,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Callable
 
-from . import editor, protocol
+from . import devices, editor, protocol
+from .devices import DeviceProfile, ReactorState
 from .protocol import Message, Parser, Place, Preset
 
 GAP = 0.15  # the amp sometimes ignores a request that follows the previous answer right away
@@ -46,6 +50,17 @@ class VerifyFailed(LinkError):
         super().__init__(f"Beim Zurücklesen enthielt der Platz nicht „{name}“. Die Sicherung liegt in der Bibliothek.")
 
 
+class NotAllowed(LinkError):
+    """The device's profile may not get anything, such as a REACTOR."""
+    def __init__(self, device: str):
+        super().__init__(f"An {device} sendet Spark Studio nichts. Er wird nur mitgelesen.")
+
+
+class NotSupported(LinkError):
+    def __init__(self, device: str):
+        super().__init__(f"Das kann Spark Studio mit {device} noch nicht; es ist dort nicht geprüft.")
+
+
 class BluetoothUnavailable(LinkError):
     def __init__(self, reason: str):
         super().__init__(reason)
@@ -64,10 +79,13 @@ class Transfer:
 
 
 class Transport:
-    """What the link needs from Bluetooth."""
+    """What the link needs from Bluetooth. ``connect`` looks for a device with FFC0 or FFD0 (only ``chosen``, an
+    address, when given), calls ``on_found(name, service, address)``, which answers with the device's profile, and
+    opens the control channel. For a profile that may not send it subscribes to FFC2 and keeps nothing to write to."""
 
-    async def connect(self, on_found: Callable[[str | None], None], on_notify: Callable[[bytes], None],
-                      on_disconnect: Callable[[], None]) -> None:
+    async def connect(self, on_found: Callable[[str | None, str, str], DeviceProfile],
+                      on_notify: Callable[[bytes], None], on_disconnect: Callable[[], None],
+                      chosen: str | None = None) -> None:
         raise NotImplementedError
 
     async def write(self, blocks: list[bytes]) -> None:
@@ -82,13 +100,22 @@ class BleakTransport(Transport):
         self._client = None
         self._write_response = True
         self._chunk = 20
+        self._can_write = False
+        self._service = devices.SPARK_SERVICE_UUID
 
-    async def connect(self, on_found, on_notify, on_disconnect):
+    async def connect(self, on_found, on_notify, on_disconnect, chosen=None):
         from bleak import BleakClient, BleakScanner
         from bleak.exc import BleakError
 
+        found_service: dict[str, str] = {}
+
         def matches(device, advertisement):
-            return protocol.SERVICE_UUID in [u.lower() for u in advertisement.service_uuids]
+            uuids = [u.lower() for u in advertisement.service_uuids]
+            service = next((u for u in devices.SEARCHED_SERVICES if u in uuids), None)
+            if service is None or (chosen and device.address != chosen):
+                return False
+            found_service[device.address] = service
+            return True
 
         try:
             device = await BleakScanner.find_device_by_filter(matches, timeout=20)
@@ -98,30 +125,38 @@ class BleakTransport(Transport):
                 raise BluetoothUnavailable("off") from error
             raise LinkError(str(error)) from error
         if device is None:
-            raise LinkError("Kein Spark-Verstärker gefunden.")
-        on_found((device.name or "").replace(" BLE", "") or None)
+            raise LinkError("Kein Spark-Gerät gefunden.")
+        service = found_service.get(device.address, devices.SPARK_SERVICE_UUID)
+        profile = on_found(device.name, service, device.address)
+        self._can_write = profile.can_send
+        self._service = service
         client = BleakClient(device, disconnected_callback=lambda _: on_disconnect())
         await client.connect()
-        characteristic = client.services.get_characteristic(protocol.WRITE_UUID)
-        if characteristic is None or client.services.get_characteristic(protocol.NOTIFY_UUID) is None:
+        control = client.services.get_service(service)
+        notify = control.get_characteristic(protocol.NOTIFY_UUID) if control else None
+        characteristic = control.get_characteristic(protocol.WRITE_UUID) if control and self._can_write else None
+        if notify is None or (self._can_write and characteristic is None):
             await client.disconnect()
-            raise LinkError("Das Gerät bietet den Spark-Dienst nicht an.")
-        self._write_response = "write" in characteristic.properties
+            raise LinkError("Das Gerät bietet den Steuerdienst nicht an.")
+        self._write_response = characteristic is not None and "write" in characteristic.properties
         try:
             self._chunk = max(int(client.mtu_size) - 3, 20)
         except Exception:
             self._chunk = 20
-        await client.start_notify(protocol.NOTIFY_UUID, lambda _, data: on_notify(bytes(data)))
+        await client.start_notify(notify, lambda _, data: on_notify(bytes(data)))
         self._client = client
+        self._write_characteristic = characteristic
 
     async def write(self, blocks):
         client = self._client
         if client is None or not client.is_connected:
             raise NotConnected()
+        if not self._can_write or self._write_characteristic is None:
+            raise NotAllowed("diesem Gerät")
         # A write longer than one Bluetooth packet is refused, so every block goes on its own.
         for block in blocks:
             for start in range(0, len(block), self._chunk):
-                await client.write_gatt_char(protocol.WRITE_UUID, block[start:start + self._chunk],
+                await client.write_gatt_char(self._write_characteristic, block[start:start + self._chunk],
                                              response=self._write_response)
 
     async def disconnect(self):
@@ -144,6 +179,13 @@ class LinkCore:
         self.status = "off"
         self.device_name: str | None = None
         self.firmware: str | None = None
+        self.profile: DeviceProfile = devices.SPARK_MINI
+        self.reactor = ReactorState()
+        self.chosen: str | None = None  # the address of the device to connect to, None: the first found
+        self.address: str | None = None
+        self.found: dict[str, tuple[str | None, DeviceProfile]] = {}
+        self.came_back = False  # the last connection returned by itself after it was lost
+        self._lost_by_itself = False
         self.active_slot: int | None = None
         self.trying_out: str | None = None
         self.tried_preset: Preset | None = None
@@ -197,7 +239,35 @@ class LinkCore:
         self._reset_connection_state()
         self._set_status("off")
 
+    @property
+    def loggable_name(self) -> str:
+        return devices.loggable_name(self.device_name or self.profile.display_name)
+
+    @property
+    def shown_name(self) -> str:
+        return self.device_name or self.profile.display_name
+
+    def can(self, capability: str) -> bool:
+        return self.status == "connected" and self.profile.can(capability)
+
+    def choose(self, address: str) -> None:
+        """Connects to another device. The current connection ends first; there is only ever one."""
+        self.chosen = address
+        if self.wanted and self._lost_event is not None and self._transport is not None:
+            self._switching = True
+            self._lost_event.set()
+
+    def _set_profile(self, profile: DeviceProfile) -> None:
+        self._set("profile", profile)
+        if len(self.slots) != profile.slot_count:
+            self.slots = [None] * profile.slot_count
+            self._emit("slots", self.slots)
+
     def _reset_connection_state(self) -> None:
+        was_temporary = self.trying_out is not None or self.is_editing_live
+        if was_temporary and self.profile.loses_temporary_on_disconnect and self.status == "connected":
+            # The NEO plays its stored slot again; heard on 2026-11-09.
+            self._emit("temporary_lost", self.shown_name)
         self._parser = Parser()
         self._set("active_slot", None)
         self._set("trying_out", None)
@@ -211,7 +281,7 @@ class LinkCore:
             self._lost_event = asyncio.Event()
             transport = self._factory()
             try:
-                await transport.connect(self._found, self._received, self._lost_event.set)
+                await transport.connect(self._found, self._received, self._lost_event.set, self.chosen)
             except BluetoothUnavailable as error:
                 self._set_status("unsupported" if error.reason == "unsupported" else "bluetooth_off")
                 await asyncio.sleep(3)
@@ -233,17 +303,56 @@ class LinkCore:
             except asyncio.CancelledError:
                 await transport.disconnect()
                 raise
+            if self._transport is transport:
+                await transport.disconnect()
             self._lost()
 
-    def _found(self, name: str | None) -> None:
-        self._set("device_name", name)
+    def _found(self, name: str | None, service: str, address: str) -> DeviceProfile:
+        profile = devices.for_advertisement(service, name)
+        self.found[address] = (name, profile)
+        self.address = address
+        if self.chosen is None:
+            self.chosen = address
+        shown = (name or "").replace(" BLE", "").replace(" Control", "") or None
+        self._set_profile(profile)
+        self._set("device_name", shown)
+        self._set("firmware", None)
         self._set_status("connecting")
+        self._emit("devices", self.found)
+        return profile
 
     async def _after_connect(self) -> None:
+        self.came_back, self._lost_by_itself = self._lost_by_itself, False
+        if not self.profile.can_send:
+            self.reactor = ReactorState()  # listen only: nothing is asked, the device reports by itself
+            self._emit("reactor", self.reactor)
+            self._emit("connected")
+            return
+        await self._identify()
         await self.load_all()
         self._emit("connected")
 
+    async def _identify(self) -> None:
+        """Asks a Spark for its amp name (``02 11``) and takes the profile it names."""
+        try:
+            message = await self._request(lambda s: protocol.get_amp_name(s), protocol.SUB_AMP_NAME)
+        except (LinkError, NotConnected):
+            return
+        name = protocol.string_of(message.payload)
+        if not name:
+            return
+        self._set("device_name", name)
+        named = devices.for_amp_name(name)
+        if named is not None and named.ble_service == self.profile.ble_service:
+            self._set_profile(named)
+            if self.address:
+                self.found[self.address] = (name, named)
+
+    _switching = False
+
     def _lost(self) -> None:
+        self._lost_by_itself = self.wanted and not self._switching
+        self._switching = False
         self._fail_waiting(NotConnected())
         self._transport = None
         self._reset_connection_state()
@@ -251,17 +360,31 @@ class LinkCore:
 
     # MARK: Requests
 
+    async def _write(self, blocks: list[bytes]) -> None:
+        """The one place where bytes go to the device. A profile that may not send gets nothing, whatever asked."""
+        if not self.profile.can_send:
+            raise NotAllowed(self.profile.display_name)
+        self._trace_out(blocks)
+        await self._transport.write(blocks)
+
+    def _require(self, capability: str) -> None:
+        if self.status != "connected" or self._transport is None:
+            raise NotConnected()
+        if not self.profile.can(capability):
+            raise NotSupported(self.profile.display_name)
+
     async def _once(self, build: Callable[[int], list[bytes]], sub: int, commands: set[int]) -> Message:
         await asyncio.sleep(self.gap)
         if self.status != "connected" or self._transport is None:
             raise NotConnected()
+        if not self.profile.can_send:
+            raise NotAllowed(self.profile.display_name)
         self._sequence = (self._sequence + 1) & 0x7F
         blocks = build(self._sequence)
-        self._trace_out(blocks)
         future: asyncio.Future = asyncio.get_running_loop().create_future()
         self._waiting = (sub, commands, future)
         self._last_activity = asyncio.get_running_loop().time()
-        await self._transport.write(blocks)
+        await self._write(blocks)
         try:
             while True:
                 remaining = self._last_activity + self.silence - asyncio.get_running_loop().time()
@@ -301,8 +424,7 @@ class LinkCore:
                 raise NotConnected()
             self._sequence = (self._sequence + 1) & 0x7F
             blocks = build(self._sequence)
-            self._trace_out(blocks)
-            await self._transport.write(blocks)
+            await self._write(blocks)
             await asyncio.sleep(gap)
 
     def _fail_waiting(self, error: Exception) -> None:
@@ -329,6 +451,9 @@ class LinkCore:
             if self.trace and message.sub != protocol.SUB_TUNER_PITCH:
                 event = protocol.parse_event(message)
                 self.trace(f"← {message.command:02X} {message.sub:02X}" + (f" {event.kind}" if event else ""))
+            if not self.profile.can_send:
+                self._listened(message)
+                continue
             if message.command == 0x05 and message.sub == protocol.SUB_PRESET and self.transfer \
                     and self.transfer.kind == "sending":
                 self.transfer.done += 1
@@ -342,13 +467,22 @@ class LinkCore:
             event = protocol.parse_event(message)
             if event is None:
                 continue
-            if event.kind == "preset_selected" and event.slot < 4:  # the amp's own preset button
+            if event.kind == "preset_selected" and event.slot < self.profile.slot_count:  # preset or NEO middle button
                 self._set("active_slot", event.slot)
                 self._set("trying_out", None)
                 self._set("is_editing_live", False)
                 self._emit("amp_selected", event.slot)
             else:
                 self._emit("amp_event", event)
+
+    def _listened(self, message: Message) -> None:
+        """A device that is only listened to: its messages become its state, nothing is answered."""
+        before = self.reactor.slot
+        self.reactor.apply(message)
+        self._emit("reactor", self.reactor)
+        if self.reactor.slot is not None and self.reactor.slot != before:
+            self._set("active_slot", self.reactor.slot)
+            self._emit("amp_event", protocol.Event("preset_selected", slot=self.reactor.slot))
 
     # MARK: Actions
 
@@ -367,6 +501,7 @@ class LinkCore:
         return LinkCore._Tracked(self, transfer)
 
     async def read_preset(self, place: Place) -> Preset:
+        self._require(devices.READ)
         slot = place.slot if place.kind == "slot" else None
         async with self._tracked(Transfer("reading")):
             message = await self._request(lambda s: protocol.get_preset(slot, s), protocol.SUB_PRESET)
@@ -389,8 +524,10 @@ class LinkCore:
             await self._request(lambda s: protocol.send_preset(preset, place, s), protocol.SUB_PRESET, protocol.CMD_ACK)
 
     async def load_all(self) -> None:
-        """Reads everything the window shows: firmware, the preset playing and the four slots."""
-        self._set("activity", "Lese den Verstärker …")
+        """Reads everything the window shows: firmware, the preset playing and the slots."""
+        if not self.can(devices.READ):
+            return
+        self._set("activity", f"Lese {self.shown_name} …")
         try:
             try:
                 message = await self._request(lambda s: protocol.get_firmware(s), protocol.SUB_FIRMWARE)
@@ -400,12 +537,12 @@ class LinkCore:
             try:
                 message = await self._request(lambda s: protocol.get_preset_number(s), protocol.SUB_PRESET_NUMBER)
                 slot = protocol.slot_of(message.payload)
-                if slot is not None and slot < 4:
+                if slot is not None and slot < self.profile.slot_count:
                     self._set("active_slot", slot)
             except (NoAnswer, NotConnected):
                 pass
-            for slot in range(4):
-                self._set("activity", f"Lese Platz {slot + 1} …")
+            for slot in range(self.profile.slot_count):
+                self._set("activity", f"Lese {self.profile.slot_name(slot)} …")
                 await self.refresh(slot)
         finally:
             self._set("activity", None)
@@ -419,7 +556,10 @@ class LinkCore:
         self._emit("slots", self.slots)
 
     async def select(self, slot: int) -> None:
-        self._set("activity", f"Schalte auf Platz {slot + 1} …")
+        self._require(devices.SWITCH_SLOT)
+        if not 0 <= slot < self.profile.slot_count:
+            raise NotSupported(self.profile.display_name)
+        self._set("activity", f"Schalte auf {self.profile.slot_name(slot)} …")
         try:
             await self._switch_to(slot)
         finally:
@@ -430,6 +570,7 @@ class LinkCore:
 
     async def try_out(self, preset: Preset) -> None:
         """Plays a preset without storing it. Switching to any slot ends it."""
+        self._require(devices.PLAY_TEMPORARY)
         self._set("activity", f"Sende „{preset.name}“ …")
         try:
             await self._send(preset, protocol.TEMPORARY)
@@ -443,6 +584,7 @@ class LinkCore:
 
     async def play_for_editing(self, preset: Preset) -> None:
         """Plays the editor's preset on the temporary place. Changes after it are heard at once."""
+        self._require(devices.PLAY_TEMPORARY)
         self._set("activity", f"Sende „{preset.name}“ zum Bearbeiten …")
         try:
             await self._send(preset, protocol.TEMPORARY)
@@ -454,7 +596,12 @@ class LinkCore:
         self._set("active_slot", None)
 
     async def apply(self, change: editor.Change) -> bool:
-        """Sends one live change. Returns False when a change that the amp confirms got no answer."""
+        """Sends one live change. Returns False when a change that the amp confirms got no answer. No device checked
+        so far confirms a parameter (``04 04``), so a parameter is never waited for."""
+        if change.kind in ("parameter", "toggle"):
+            self._require(devices.LIVE_EDIT)
+        if change.kind == "model":
+            self._require(devices.MODEL_CHANGE)
         if change.kind == "parameter":
             if protocol.guarded_value(change.value) is None:
                 raise Refused(["Der Wert ist keine Zahl."])
@@ -477,14 +624,17 @@ class LinkCore:
 
     async def store(self, preset: Preset, slot: int) -> None:
         """Stores a preset in a slot, switches to it and reads it back to make sure it arrived unchanged."""
-        self._set("activity", f"Speichere „{preset.name}“ auf Platz {slot + 1} …")
+        self._require(devices.STORE)
+        if not 0 <= slot < self.profile.slot_count:
+            raise NotSupported(self.profile.display_name)
+        self._set("activity", f"Speichere „{preset.name}“ auf {self.profile.slot_name(slot)} …")
         try:
             await self._send(preset, Place.of_slot(slot))
             await self._switch_to(slot)
             self._set("active_slot", slot)
             self._set("trying_out", None)
             self._set("is_editing_live", False)
-            self._set("activity", f"Prüfe Platz {slot + 1} …")
+            self._set("activity", f"Prüfe {self.profile.slot_name(slot)} …")
             stored = await self.read_preset(Place.of_slot(slot))
         finally:
             self._set("activity", None)

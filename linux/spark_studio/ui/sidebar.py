@@ -7,7 +7,7 @@ from PySide6.QtCore import QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
 from PySide6.QtWidgets import QFrame, QLabel, QLineEdit, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
-from .. import catalog
+from .. import catalog, devices
 from ..library import SavedPreset
 from . import theme
 from .theme import c
@@ -168,6 +168,7 @@ class Sidebar(QWidget):
         self.selection = None
         self.active_slot: int | None = None
         self.slots: list = [None] * 4
+        self.profile = devices.SPARK_MINI
         self.items: list[SavedPreset] = []
         self.rebuild()
 
@@ -180,10 +181,15 @@ class Sidebar(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         self.rows = []
-        self.column.addWidget(heading("Am Verstärker"))
-        for slot in range(4):
-            preset = self.slots[slot]
-            row = Row(("slot", slot), "slot", preset.name if preset else "–", number=slot + 1)
+        profile = self.profile
+        unknown = "–" if profile.can(devices.READ) else "Inhalt unbekannt"
+        for slot in range(profile.slot_count):
+            if slot == 0 or (profile.bank_size and slot % profile.bank_size == 0):
+                bank = f" · {profile.bank_names[slot // profile.bank_size]}" if profile.bank_size else ""
+                self.column.addWidget(heading(f"Am {profile.display_name}{bank}"))
+            preset = self.slots[slot] if slot < len(self.slots) else None
+            number = slot % profile.bank_size + 1 if profile.bank_size else slot + 1
+            row = Row(("slot", slot), "slot", preset.name if preset else unknown, number=number)
             row.clicked.connect(lambda r: self._clicked(r))
             row.double_clicked.connect(lambda r: self.slot_played.emit(r.key[1]))
             self._add(row)

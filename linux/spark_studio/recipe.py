@@ -188,3 +188,100 @@ def check_file(path: str) -> int:
     for warning in conversion.warnings:
         print(f"  Hinweis: {warning}")
     return 0
+
+
+# MARK: Text for REACTOR's Text to Tone (a port of ToneDescription.swift; keep both the same)
+
+_ROLES = {"gate": "Noise gate", "compressor": "Compressor", "drive": "Drive pedal", "amp": "Amp",
+          "modulation": "Modulation", "delay": "Delay", "reverb": "Reverb"}
+_PLAIN_NAMES = {
+    "bias.noisegate": "noise gate", "BassComp": "bass compressor", "Booster": "clean boost",
+    "Overdrive": "classic overdrive", "SABdriver": "amp-in-a-box overdrive", "Acoustic": "neutral acoustic simulation",
+    "FatAcousticV2": "full jumbo acoustic simulation", "FlatAcoustic": "flat acoustic simulation",
+    "Tremolo": "vintage amp tremolo", "ChorusAnalog": "analog chorus", "Flanger": "flanger",
+    "Vibrato01": "pitch vibrato", "Tremolator": "tempo-synced tremolo", "TremoloSquare": "square-wave tremolo",
+    "GuitarEQ6": "6-band graphic EQ", "BassEQ6": "6-band bass EQ", "DelayEchoFilt": "filtered echo",
+    "VintageDelay": "analog bucket-brigade delay", "DelayReverse": "reverse delay",
+    "DelayMultiHead": "multi-head tape echo", "bias.reverb": "reverb",
+}
+_LABELS = {
+    "Raum A": "small room", "Raum B": "room", "Kammer": "chamber", "Saal natürlich": "natural hall",
+    "Saal mittel": "medium hall", "Saal weit": "large hall", "Platte kurz": "short plate",
+    "Platte satt": "rich plate", "Platte lang": "long plate", "Frei": "free time", "BPM": "synced to tempo",
+    "Kompr.": "compress", "Limit": "limit", "Wenig": "low", "Viel": "high", "1 Takt": "1 bar",
+    "Aus": "off", "An": "on",
+}
+
+
+def _number_text(value: float) -> str:
+    return str(int(value)) if value == int(value) else f"{value:g}"
+
+
+def _spoken(key: str) -> str:
+    """"lowCut" → "low cut", "hz1600" → "1.6 kHz", "knob3" → "knob 3"."""
+    if key.startswith("hz") and key[2:].isdigit():
+        hertz = int(key[2:])
+        return f"{_number_text(hertz / 1000)} kHz" if hertz >= 1000 else f"{hertz} Hz"
+    if key.startswith("knob") and key[4:].isdigit():
+        return f"knob {int(key[4:])}"
+    if key == "effect":
+        return "level"
+    return "".join(" " + ch.lower() if ch.isupper() else ch for ch in key)
+
+
+def _english_name(info) -> str:
+    if info.id in _PLAIN_NAMES:
+        return _PLAIN_NAMES[info.id]
+    if not info.inspiration:
+        return info.name
+    kind = {"amp": "amp", "drive": "pedal", "compressor": "compressor"}.get(info.place, "")
+    return f"{info.inspiration} style {kind}" if kind else f"{info.inspiration} style"
+
+
+def _words(parameter, value: float) -> str:
+    if parameter.kind in ("switch", "choice"):
+        label = parameter.display(value)
+        english = _LABELS.get(label, label)
+        return english if parameter.key == "sync" else f"{_spoken(parameter.key)} {english}"
+    return f"{_spoken(parameter.key)} {_number_text(round(value * 100) / 10)}/10"
+
+
+def tone_description(data: dict) -> str:
+    """A recipe as plain English for REACTOR's "Text to Tone". Models are named after what they are modeled after,
+    values on the 0 to 10 scale. A description to start from: the REACTOR picks its own models."""
+    conversion = to_preset(data)
+    preset = conversion.preset
+    cat = catalog.load()
+    head = ": ".join(t for t in (data.get("name", ""), data.get("description", "")) if t)
+    lines = [f"Guitar tone “{head}”, {int(preset.bpm)} BPM."]
+    chain = data.get("chain", {})
+    for place, effect in zip(catalog.PLACES, preset.effects):
+        if not effect.is_on:
+            continue
+        info = cat.known(effect.name)
+        if info is None:
+            continue
+        settings = (chain.get(place) or {}).get("settings") or {}
+        values = []
+        for parameter in info.parameters:
+            if not parameter.visible or parameter.key == "type":
+                continue
+            if place != "amp" and parameter.key not in settings:
+                continue
+            value = next((p.value for p in effect.parameters if p.index == parameter.index), None)
+            if value is not None:
+                values.append(_words(parameter, value))
+        what = _english_name(info)
+        kind = next((p for p in info.parameters if p.visible and p.key == "type"), None)
+        if kind is not None:
+            value = next((p.value for p in effect.parameters if p.index == kind.index), None)
+            if value is not None:
+                label = kind.display(value)
+                what = f"{_LABELS.get(label, label)} reverb"
+        lines.append(f"{_ROLES[place]}: {what}" + (", " + ", ".join(values) if values else "") + ".")
+    if len(lines) == 1:
+        lines.append("Everything off.")
+    notes = str(data.get("notes", ""))
+    if notes:
+        lines.append(f"Notes: {notes}")
+    return "\n".join(lines) + "\n"

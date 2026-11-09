@@ -5,7 +5,8 @@ process and delivers raw 32-bit samples; a reader thread of this app writes them
 watches the level and never waits for the user interface. If the app stalls, the pipe buffers it and the file is still
 complete; if the app dies, the file is repaired on the next start (``wav.repair``).
 
-Like the Mac app it only uses a USB device with "Spark" in its name. There is no microphone fallback.
+Like the Mac app it only uses a USB device whose name holds one of the profiles' USB audio names (devices.py, today
+"spark"; the REACTOR's joins once read on the device). There is no microphone fallback.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 
-from . import wav
+from . import devices as profiles, wav
 
 CHUNK_SECONDS = 0.02
 OVERVIEW_BIN = 0.05  # seconds per bin of the live waveform
@@ -65,7 +66,8 @@ def list_inputs() -> list[InputDevice]:
         rate, channels, bits = formats.get(name, (48000, 2, 24))
         haystack = f"{name} {description} {props.get('device.product.name', '')}".lower()
         devices.append(InputDevice(name, int(props.get("object.serial", 0)), description, bus, rate, channels,
-                                   "spark" in haystack and bus in ("usb", ""), bits))
+                                   any(part in haystack for part in profiles.recordable_usb_names())
+                                   and bus in ("usb", ""), bits))
     return devices
 
 

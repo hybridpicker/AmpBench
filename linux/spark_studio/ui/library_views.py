@@ -647,8 +647,18 @@ class Inspector(QWidget):
         self.sound_box.setVisible(sound is not None)
         if sound is None:
             return
+        if sound.get("listened") is not None:
+            # Read from what the device reported (the REACTOR), not a preset: nothing to send or open.
+            values = "\n".join(f"{v['label']}: {v['value']}" for v in sound["listened"]) \
+                or "Seit dem letzten Platzwechsel wurde nichts gedreht; der Inhalt ist unbekannt."
+            self.sound_label.setText(f"{sound.get('name') or sound.get('device') or 'Gerät'} · mitgelesen\n{values}")
+            self.amp_key.setVisible(False)
+            self.editor_key.setVisible(False)
+            self.sound_missing.setVisible(False)
+            return
         place = f"Platz {sound['slot']}" if sound.get("slot") else "vom Mac oder vorübergehend gespielt"
-        self.sound_label.setText(f"{sound.get('name') or 'Ohne Namen'}, {place}")
+        device = f" · {sound['device']}" if sound.get("device") else ""
+        self.sound_label.setText(f"{sound.get('name') or 'Ohne Namen'}, {place}{device}")
         self.amp_key.setVisible(snapshot_exists)
         self.editor_key.setVisible(snapshot_exists)
         self.sound_missing.setVisible(not snapshot_exists)

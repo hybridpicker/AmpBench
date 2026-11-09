@@ -30,6 +30,10 @@ class QtLink(QObject):
     strain = Signal()
     trace = Signal(str)
     live_failed = Signal(str)
+    profile = Signal(object)
+    reactor = Signal(object)
+    devices = Signal(object)
+    temporary_lost = Signal(str)
 
     def __init__(self, transport_factory: Callable[[], Transport] = BleakTransport, parent=None):
         super().__init__(parent)
@@ -84,6 +88,10 @@ class QtLink(QObject):
     def stop(self) -> None:
         self.call(self.core.stop())
 
+    def choose(self, address: str) -> None:
+        """Connects to another device; the current connection ends first."""
+        self._loop.call_soon_threadsafe(self.core.choose, address)
+
     def shutdown(self) -> None:
         if self._closed:
             return
@@ -116,7 +124,8 @@ class QtLink(QObject):
         self.call(self.core.select(slot), done)
 
     def _enqueue(self, changes, current) -> None:
-        if self.core.status != "connected":
+        # Only on a device checked for it: an unknown Spark only reads and switches, a REACTOR gets nothing.
+        if not (self.core.can("play_temporary") and self.core.can("live_edit")):
             return
         if self.core.is_editing_live or any(c.kind == "whole" for c in self._queue.items):
             self._queue.push(changes)
@@ -125,7 +134,7 @@ class QtLink(QObject):
         self._start_pump()
 
     def _enqueue_whole(self, preset) -> None:
-        if self.core.status != "connected":
+        if not self.core.can("play_temporary"):
             return
         self._queue.push([editor.Change("whole", preset=preset.copy())])
         self._start_pump()

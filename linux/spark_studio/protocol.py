@@ -503,6 +503,10 @@ def get_firmware(sequence: int) -> list[bytes]:
     return blocks(CMD_GET, SUB_FIRMWARE, b"", sequence)
 
 
+def get_amp_name(sequence: int) -> list[bytes]:
+    return blocks(CMD_GET, SUB_AMP_NAME, b"", sequence)
+
+
 def get_preset_number(sequence: int) -> list[bytes]:
     return blocks(CMD_GET, SUB_PRESET_NUMBER, b"", sequence)
 
@@ -605,6 +609,17 @@ def firmware_version(payload: bytes) -> str | None:
     if len(payload) >= 5 and payload[0] == 0xCE:
         return ".".join(str(b) for b in payload[1:5])
     return None
+
+
+def string_of(payload: bytes) -> str | None:
+    """A string, also with the extra length byte in front that the amp puts before its name (``02 11``)."""
+    data = bytes(payload)
+    if len(data) >= 2 and data[0] < 0x80 and 0xA0 <= data[1] <= 0xBF:
+        data = data[1:]
+    try:
+        return Reader(data).string()
+    except DecodeError:
+        return None
 
 
 def slot_of(payload: bytes) -> int | None:

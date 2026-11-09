@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QApplication, 
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QStackedWidget, QTextEdit,
                                QToolButton, QVBoxLayout, QWidget)
 
-from .. import BUILD, VERSION, catalog, factory, protocol, recipe
+from .. import BUILD, VERSION, catalog, devices, factory, protocol, recipe
 from ..editor import PresetEditor
 from ..library import LibraryError, PresetLibrary, SavedPreset
 from ..link import LinkError
@@ -361,13 +361,16 @@ class MainWindow(QMainWindow):
         self.live_action = action(amp, "Live am Verstärker", self._toggle_live, "Ctrl+Shift+L")
         self.live_action.setCheckable(True)
         self.live_action.setChecked(True)
+        self.device_menu = amp.addMenu("Gerät")
+        self.device_menu.aboutToShow.connect(self._fill_device_menu)
         amp.addSeparator()
-        for slot in range(4):
-            action(amp, f"Platz {slot + 1} spielen", lambda _=False, s=slot: self._play_slot(s), f"Ctrl+{slot + 1}")
+        # As many slots as the device with the most has; those the connected device lacks are hidden.
+        self.play_actions = [action(amp, f"Platz {slot + 1} spielen", lambda _=False, s=slot: self._play_slot(s),
+                                    f"Ctrl+{slot + 1}") for slot in range(devices.LARGEST_SLOT_COUNT)]
         amp.addSeparator()
-        for slot in range(4):
-            action(amp, f"Auf Platz {slot + 1} speichern …", lambda _=False, s=slot: self._store(s),
-                   f"Ctrl+Alt+{slot + 1}")
+        self.store_actions = [action(amp, f"Auf Platz {slot + 1} speichern …", lambda _=False, s=slot: self._store(s),
+                                     f"Ctrl+Alt+{slot + 1}") for slot in range(devices.LARGEST_SLOT_COUNT)]
+        self._apply_profile(devices.SPARK_MINI)
 
         chain = self.menuBar().addMenu("Kette")
         for index, place in enumerate(catalog.PLACES):
@@ -396,6 +399,8 @@ class MainWindow(QMainWindow):
         link.amp_event.connect(self._on_amp_event)
         link.live_failed.connect(lambda text: self._say("warning", text))
         link.strain.connect(lambda: self._say("info", "Der Verstärker antwortet langsam. Änderungen gehen jetzt gemächlicher."))
+        link.profile.connect(self._apply_profile)
+        link.temporary_lost.connect(self._on_temporary_lost)
 
         self.connect_key.clicked.connect(self._connect_clicked)
         self.tabs.changed.connect(self.stack.setCurrentIndex)
@@ -430,6 +435,64 @@ class MainWindow(QMainWindow):
 
     def _on_status(self, status: str) -> None:
         self._refresh_connection()
+        self._apply_profile(self.link.core.profile)
+
+    def _apply_profile(self, profile) -> None:
+        """Slots, names and what may be done follow the connected device."""
+        connected = self.link.core.status == "connected"
+        for slot, (play, store) in enumerate(zip(self.play_actions, self.store_actions)):
+            visible = slot < profile.slot_count
+            play.setVisible(visible)
+            store.setVisible(visible)
+            play.setText(f"{profile.slot_name(slot)} spielen")
+            store.setText(f"Auf {profile.slot_name(slot)} speichern …")
+            play.setEnabled(connected and profile.can(devices.SWITCH_SLOT))
+            store.setEnabled(connected and profile.can(devices.STORE))
+        if self.sidebar.profile != profile:
+            self.sidebar.profile = profile
+            self.sidebar.slots = list(self.link.core.slots)
+            self.sidebar.rebuild()
+
+    def _fill_device_menu(self) -> None:
+        menu = self.device_menu
+        menu.clear()
+        core = self.link.core
+        if not core.found:
+            menu.addAction("Noch kein Gerät gefunden").setEnabled(False)
+        for address, (name, profile) in core.found.items():
+            state = "verbunden" if address == core.address and core.status == "connected" else "gesehen"
+            item = menu.addAction(f"{name or profile.display_name} – {state}",
+                                  lambda a=address: self._choose_device(a))
+            item.setCheckable(True)
+            item.setChecked(address == core.chosen)
+
+    def _choose_device(self, address: str) -> None:
+        core = self.link.core
+        if address == core.chosen and core.status == "connected":
+            return
+        if self._temporary_would_be_lost():
+            answer = QMessageBox.question(
+                self, "Spark Studio",
+                f"Der Sound auf dem {core.profile.display_name} geht beim Trennen verloren. Vorher als Preset sichern?",
+                QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
+            if answer == QMessageBox.Cancel:
+                return
+            if answer == QMessageBox.Save:
+                self._save()
+        self.link.choose(address)
+
+    def _temporary_would_be_lost(self) -> bool:
+        core = self.link.core
+        if core.status != "connected" or not core.profile.loses_temporary_on_disconnect:
+            return False
+        return bool(core.is_editing_live and self.editor is not None and self.editor.is_modified)
+
+    def _on_temporary_lost(self, name: str) -> None:
+        text = (f"{name} ist getrennt und spielt wieder seinen gespeicherten Platz. Der vorübergehende Sound ist dort "
+                "weg. Beim nächsten Verbinden liest Studio nach, was spielt.")
+        if self.recorder is not None and self.recorder.is_recording:
+            text += " Der Take behält den Sound, mit dem er begann."
+        self._say("warning", text)
 
     def _refresh_connection(self) -> None:
         core = self.link.core
@@ -475,7 +538,10 @@ class MainWindow(QMainWindow):
             self.meter.set_fraction(transfer.fraction)
 
     def _on_reconnected(self) -> None:
-        """After a new connection the temporary preset is gone. An edit in progress goes back to the amp."""
+        """After a connection that came back by itself the temporary preset is gone, and an edit in progress goes back to
+        the amp. After "Trennen" or another device, what plays is read, not assumed."""
+        if not self.link.core.came_back:
+            return
         if self.editor is not None and self.live_enabled and self.editor.is_modified:
             self.link.play_now(self.editor.current)
             self._say("info", "Die Verbindung war weg. Der bearbeitete Stand spielt wieder am Verstärker.")
@@ -505,14 +571,20 @@ class MainWindow(QMainWindow):
         core = self.link.core
         if core.status != "connected":
             return None
-        device = core.device_name or "Spark"
+        profile = core.profile
+        # The profile's name, never a REACTOR's own Bluetooth name: the stamp is kept in the library.
+        device = core.device_name if profile.id == "unknown_spark" and core.device_name else profile.display_name
+        if not profile.can_send:
+            slot = core.reactor.slot
+            name = f"{device} {profile.slot_name(slot)}" if slot is not None else device
+            return {"name": name, "slot": slot, "device": device, "listened": core.reactor.lines(profile)}
         if core.is_editing_live and self.editor is not None:
-            return self._shown().copy(), None, f"Spark Studio · {device}"
+            return self._shown().copy(), None, f"Spark Studio · {device}", device
         if core.trying_out and core.tried_preset is not None:
-            return core.tried_preset.copy(), None, f"Spark Studio · {device}"
+            return core.tried_preset.copy(), None, f"Spark Studio · {device}", device
         slot = core.active_slot
-        if slot is not None and core.slots[slot] is not None:
-            return core.slots[slot].copy(), slot, f"Platz {slot + 1} · {device}"
+        if slot is not None and slot < len(core.slots) and core.slots[slot] is not None:
+            return core.slots[slot].copy(), slot, f"{profile.slot_name(slot)} · {device}", device
         return None
 
     def _send_sound(self, preset) -> None:
@@ -656,8 +728,10 @@ class MainWindow(QMainWindow):
         menu.addAction("Ausprobieren", lambda: self.link.is_connected and self.link.core.is_editing_live is not None
                        and self.run(self.link.core.try_out(item.preset.copy())))
         store = menu.addMenu("Auf den Verstärker")
-        for slot in range(4):
-            store.addAction(f"Platz {slot + 1} …", lambda s=slot: self._store(s, item.preset.copy()))
+        profile = self.link.core.profile
+        store.setEnabled(self.link.core.can(devices.STORE))
+        for slot in range(profile.slot_count):
+            store.addAction(f"{profile.slot_name(slot)} …", lambda s=slot: self._store(s, item.preset.copy()))
         menu.addSeparator()
         menu.addAction("Umbenennen …", lambda: self._rename(item))
         menu.addAction("Duplizieren", lambda: self._open(factory.duplicate(item.preset), ("new", None), True))
@@ -897,11 +971,14 @@ class MainWindow(QMainWindow):
         menu = QMenu(self)
         menu.addAction("Sichern unter …", self._save_as)
         menu.addSeparator()
-        for slot in range(4):
-            old = self.link.core.slots[slot]
-            label = f"Auf Platz {slot + 1} speichern …" + (f" (jetzt „{old.name}“)" if old else "")
+        profile = self.link.core.profile
+        for slot in range(profile.slot_count):
+            old = self.link.core.slots[slot] if slot < len(self.link.core.slots) else None
+            label = f"Auf {profile.slot_name(slot)} speichern …" + (f" (jetzt „{old.name}“)" if old else "")
             action = menu.addAction(label, lambda s=slot: self._store(s))
-            action.setEnabled(self.link.is_connected)
+            action.setEnabled(self.link.core.can(devices.STORE))
+        menu.addSeparator()
+        menu.addAction("Text für REACTOR kopieren", self._copy_tone_text)
         menu.addSeparator()
         revert = menu.addAction("Änderungen verwerfen", self._revert)
         revert.setEnabled(bool(self.editor and self.editor.is_modified))
@@ -914,10 +991,23 @@ class MainWindow(QMainWindow):
         if self.link.is_connected:
             self.run(self.link.core.load_all())
 
+    def _copy_tone_text(self) -> None:
+        """The edited sound as English text for REACTOR's Text to Tone. Nothing goes to the REACTOR."""
+        if self.editor is None:
+            return
+        try:
+            text = recipe.tone_description(recipe.from_preset(self.editor.current))
+        except Exception as error:  # noqa: BLE001 - reported to the user
+            self._say("warning", f"Der Sound ließ sich nicht als Text beschreiben: {error}")
+            return
+        QApplication.clipboard().setText(text)
+        self._say("info", "Der Text für REACTOR ist kopiert. Füge ihn in der REACTOR-App bei „Text to Tone“ ein; der "
+                          "REACTOR deutet ihn selbst.")
+
     def _store(self, slot: int, preset: protocol.Preset | None = None) -> None:
         preset = preset or (self.editor.current.copy() if self.editor else None)
-        if preset is None or not self.link.is_connected:
-            self._say("warning", "Dazu muss ein Preset offen und der Verstärker verbunden sein.")
+        if preset is None or not self.link.core.can(devices.STORE):
+            self._say("warning", "Dazu muss ein Preset offen und ein Gerät verbunden sein, das speichern darf.")
             return
         problem = protocol.name_problem(preset.name)
         if problem:

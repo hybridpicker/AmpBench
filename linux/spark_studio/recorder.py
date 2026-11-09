@@ -112,11 +112,21 @@ class RecorderModel(QObject):
             heard = self.sound_provider()
             if heard is None:
                 return None
-            preset, slot, origin = heard
+            if isinstance(heard, dict):
+                # A device that is only listened to (the REACTOR): what it reported, no preset, no fingerprint.
+                stamp = {"name": heard["name"], "stampedAt": storemod.iso(now), "sha256": "",
+                         "device": heard["device"],
+                         "listened": [{"label": a, "value": b} for a, b in heard["listened"]]}
+                if heard.get("slot") is not None:
+                    stamp["slot"] = heard["slot"] + 1
+                return stamp
+            preset, slot, origin, *rest = heard
             storemod.write_snapshot(self.store, take_id, preset, origin)
             stamp = {"name": preset.name, "stampedAt": storemod.iso(now), "sha256": protocol.fingerprint(preset)}
             if slot is not None:
                 stamp["slot"] = slot + 1
+            if rest and rest[0]:
+                stamp["device"] = rest[0]  # the device that played it, whichever input recorded
             return stamp
         except Exception:  # a missing sound must never stop a recording
             return None
