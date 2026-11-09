@@ -133,8 +133,11 @@ NEO stimmen lässt, der kein USB-Audio hat. Gröber, auf ganze Cent, und der Ver
   Folge, „Gestimmt“ bei ±3 Cent für 0,5 s, nach dem Signal 1,5 s gehalten. Der Verstärker nennt nur den Ton, nicht
   die Oktave: Die Saite der Stimmung mit diesem Ton gibt sie, wenn es genau eine gibt; bei E in Standard (6. und 1.
   Saite) zeigt die Anzeige nur „E“ ohne Oktave und Hertz. Ein anderer Kammerton als 440 Hz verschiebt die Cent.
-- **Wann es an ist:** nur wenn der Nutzer im Eingang „Stimmgerät des Spark NEO/MINI“ wählt (gemerkt in
-  `tunerUsesAmp`), und nur solange der Bereich vorn und sichtbar ist. Verlassen, anderer Eingang, Trennen über das Deck
+- **Wann es an ist:** Der Eingang steht von Haus aus auf **„Automatisch“** (`tunerSource`): Hat das verbundene Gerät
+  USB-Audio und steckt es (MINI), hört das Stimmgerät über USB, genauer und ohne den Verstärker stummzuschalten;
+  hat es keins (NEO) oder steckt kein Spark per USB, nimmt es das Stimmgerät des Verstärkers. Kommt oder geht ein
+  Gerät, wechselt „Automatisch“ mit. Fest wählbar bleiben der Eingang des Decks, „Stimmgerät des Spark NEO/MINI“
+  und andere Eingänge. Das Stimmgerät des Verstärkers ist nur an, solange der Bereich vorn und sichtbar ist. Verlassen, anderer Eingang, Trennen über das Deck
   oder einen Gerätewechsel, Beenden der App (`applicationShouldTerminate` wartet bis 1,5 s) schalten es zuerst aus.
   Ohne Bestätigung gilt es als aus, sobald keine Werte mehr kommen; sonst bis zu drei Versuche. Bricht die Verbindung
   ab, während es an ist, schaltet der Link es nach dem Wiederverbinden an oder aus, je nachdem was gewünscht ist (ob
@@ -491,7 +494,7 @@ Für jedes Gerät, ohne Ausnahme:
     Oktave, Kammerton, Nachbarton, Gestimmt, Halten), `AmpTunerLinkTests` (eine Nachricht an, eine aus; Trennen schaltet
     zuerst aus; nach einem Abbruch wie gewünscht; Aus ohne Antwort; Beenden wartet; REACTOR bekommt nichts; Werte
     halten keine Anfrage am Leben), `TunerModelTests` (an nur, solange der Bereich vorn ist; aus, wenn der Verstärker
-    weg ist). Fensterbild `docs/pictures/stimmgeraet-verstaerker-*` mit einem erfundenen Verstärker angesehen.
+    weg ist; „Automatisch“ nimmt beim NEO sein Stimmgerät, beim gesteckten MINI USB und folgt dem Gerät). Fensterbild `docs/pictures/stimmgeraet-verstaerker-*` mit einem erfundenen Verstärker angesehen.
 - Geräte (synthetisch, `SimulatedDevice` und `fake_amp.py`): `DeviceProfileTests` (Profile, Erkennung, Namen in
   Logs, Bänke, USB-Namen), `ReactorDecoderTests` (die Byte-Folgen der Tabelle oben, auch die NEO-Taste),
   `SparkLinkTests` (NEO gefunden, benannt und gelesen; Zurückspringen beim Trennen und Nachlesen; mittlere Taste;

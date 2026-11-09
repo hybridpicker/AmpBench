@@ -10,10 +10,13 @@ import SparkCore
 /// Mac's microphone, gets its own engine, but only while nothing of the recorder is involved. The tuner sends nothing
 /// to the amp, plays no sound, stores no audio and has no network access, with one exception the user picks: the
 /// source "Stimmgerät des Verstärkers" switches the amp's own tuner on while the area shows, and off when it is left.
-/// The amp is silent then; its readings come over Bluetooth, so a NEO without USB audio can be tuned too.
+/// The amp is silent then; its readings come over Bluetooth, so a NEO without USB audio can be tuned too. "Automatisch",
+/// the default, takes the Spark's USB input when the connected amp has one, and the amp's own tuner otherwise.
 @MainActor
 final class TunerModel: ObservableObject {
     enum Source: Hashable {
+        /// The deck's Spark when the connected amp has USB audio, else the amp's own tuner, else the deck's input.
+        case automatic
         /// The recorder's input, the one chosen in the deck.
         case deck
         /// Another input, by its stable identifier.
@@ -52,7 +55,10 @@ final class TunerModel: ObservableObject {
     @Published var showsStrobe: Bool {
         didSet { defaults.set(showsStrobe, forKey: Keys.strobe) }
     }
+    /// What the user chose.
     @Published private(set) var source: Source
+    /// What is used now: the choice, or what "Automatisch" stands for at the moment. Never `.automatic`.
+    @Published private(set) var current: Source = .deck
     @Published private(set) var readout: TunerReadout?
     @Published private(set) var hasSignal = false
     /// The level from 0 to 1 over −60 to 0 dBFS.
@@ -69,7 +75,7 @@ final class TunerModel: ObservableObject {
     weak var amp: AmpTuner? {
         didSet {
             amp?.onAmpTunerReading = { [weak self] pitchClass, cents in
-                guard let self, source == .amp, isActive else { return }
+                guard let self, current == .amp, isActive else { return }
                 ampInterpreter.add(pitchClass: pitchClass, cents: cents, time: CACurrentMediaTime())
             }
             ampName = amp?.ampTunerDevice
@@ -97,7 +103,7 @@ final class TunerModel: ObservableObject {
         static let a4 = "tunerA4"
         static let strobe = "tunerStrobe"
         static let input = "tunerInputUID"
-        static let usesAmp = "tunerUsesAmp"
+        static let source = "tunerSource"
     }
 
     init(shared: SharedInput, defaults: UserDefaults) {
@@ -108,7 +114,12 @@ final class TunerModel: ObservableObject {
         self.tuning = tuning
         self.a4 = a4
         showsStrobe = defaults.bool(forKey: Keys.strobe)
-        source = defaults.bool(forKey: Keys.usesAmp) ? .amp : defaults.string(forKey: Keys.input).map { .other(uid: $0) } ?? .deck
+        source = switch defaults.string(forKey: Keys.source) {
+        case "deck": .deck
+        case "amp": .amp
+        case "other": defaults.string(forKey: Keys.input).map { .other(uid: $0) } ?? .automatic
+        default: .automatic
+        }
         interpreter = TunerInterpreter(tuning: tuning, a4: a4)
         ampInterpreter = AmpTunerInterpreter(tuning: tuning, a4: a4)
     }
@@ -159,7 +170,13 @@ final class TunerModel: ObservableObject {
     }
 
     private func remember(_ source: Source) {
-        defaults.set(source == .amp, forKey: Keys.usesAmp)
+        let name = switch source {
+        case .automatic: "automatic"
+        case .deck: "deck"
+        case .amp: "amp"
+        case .other: "other"
+        }
+        defaults.set(name, forKey: Keys.source)
         if case .other(let uid) = source {
             defaults.set(uid, forKey: Keys.input)
         } else {
@@ -167,15 +184,34 @@ final class TunerModel: ObservableObject {
         }
     }
 
+    /// What "Automatisch" stands for now.
+    private var resolved: Source {
+        guard source == .automatic else { return source }
+        guard let amp, ampName != nil else { return .deck }
+        return amp.ampTunerPreferred || shared.device == nil ? .amp : .deck
+    }
+
     var inputName: String {
+        if source == .automatic {
+            let now = switch resolved {
+            case .amp: ampName.map { "Stimmgerät des \($0)" } ?? "Stimmgerät"
+            default: deckInputName ?? "Kein Spark"
+            }
+            return "Automatisch: \(now)"
+        }
+        return name(of: source)
+    }
+
+    private func name(of source: Source) -> String {
         switch source {
+        case .automatic: return "Automatisch"
         case .deck: return deckInputName ?? "Kein Spark"
         case .other(let uid): return otherInputs.first { $0.uid == uid }?.name ?? "Eingang fehlt"
         case .amp: return ampName.map { "Stimmgerät des \($0)" } ?? "Kein Verstärker verbunden"
         }
     }
 
-    var usesAmp: Bool { source == .amp }
+    var usesAmp: Bool { current == .amp }
 
     private func refreshDevices() {
         lastDeviceRefresh = Date()
@@ -184,13 +220,16 @@ final class TunerModel: ObservableObject {
         otherInputs = shared.allowsOtherInputs
             ? AudioDevices.inputDevices().filter { !shared.owns($0) }.sorted { $0.name < $1.name }
             : []
-        if case .other = source, !shared.allowsOtherInputs { source = .deck }
+        if case .other = source, !shared.allowsOtherInputs { source = .automatic }
     }
 
     private func connect() {
         guard isActive, status != .demo else { return }
         connectTask?.cancel()
-        switch source {
+        current = resolved
+        switch current {
+        case .automatic:
+            break
         case .amp:
             guard let amp, ampName != nil else {
                 status = .noInput
@@ -285,9 +324,9 @@ final class TunerModel: ObservableObject {
         if now.timeIntervalSince(lastDeviceRefresh) > 2 { refreshDevices() }
         ampName = amp?.ampTunerDevice
         if status != .demo { keepConnected(now: now) }
-        isSharedWithRecording = source == .deck && status == .listening && shared.isHeldOpen
+        isSharedWithRecording = current == .deck && status == .listening && shared.isHeldOpen
 
-        if source == .amp, status != .demo {
+        if current == .amp, status != .demo {
             readout = status == .listening ? ampInterpreter.readout(time: CACurrentMediaTime()) : nil
             hasSignal = status == .listening && ampInterpreter.hasSignal
             level = 0
@@ -304,7 +343,13 @@ final class TunerModel: ObservableObject {
 
     /// Notices a lost input and tries again once a second, except when permission is missing.
     private func keepConnected(now: Date) {
-        if source == .amp {
+        // "Automatisch" follows the devices: the NEO connected, the USB cable plugged in.
+        if source == .automatic, isActive, resolved != current, status != .opening {
+            disconnect()
+            connect()
+            return
+        }
+        if current == .amp {
             switch status {
             case .listening, .opening:
                 if ampName == nil {
@@ -328,7 +373,7 @@ final class TunerModel: ObservableObject {
         }
         switch status {
         case .listening:
-            let alive = source == .deck ? shared.isSharing(with: engine.tap) : ownCapture?.isOpen == true
+            let alive = current == .deck ? shared.isSharing(with: engine.tap) : ownCapture?.isOpen == true
             if !alive {
                 disconnect()
                 status = .noInput

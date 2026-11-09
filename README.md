@@ -303,8 +303,9 @@ the lamps SIGNAL, ZU TIEF, GESTIMMT (green, within ±0.5 cents for 0.4 s) and ZU
 - **Input:** the Spark chosen in the deck, read along with the recorder's own input, so a running recording or the
   retro buffer is never touched. Another input, such as an interface or the Mac's microphone, can be chosen in the
   module EINGANG. The lamp says "GETEILT" while a recording uses the same input.
-- **The amp's own tuner:** with a Spark MINI or NEO connected, EINGANG also offers "Stimmgerät des Spark NEO" (or
-  MINI). Studio then switches the amp's built-in tuner on over Bluetooth while the area shows, and off when you leave
+- **The amp's own tuner:** EINGANG starts on "Automatisch": the Spark's USB input when the connected amp has USB
+  audio and is plugged in (MINI), otherwise the amp's own tuner (NEO, or a MINI over Bluetooth only). It can also be
+  chosen as "Stimmgerät des Spark NEO" (or MINI). Studio switches the amp's built-in tuner on over Bluetooth while the area shows, and off when you leave
   it, disconnect or quit. The amp is silent meanwhile, as when you use its tuner by hand. Its readings are coarser:
   whole cents, smoothed over 0.4 s, within about ±3 cents for GESTIMMT. The amp names only the note, so for E in
   standard tuning (sixth and first string) the octave and Hz stay empty. This is how the NEO, which has no USB audio,

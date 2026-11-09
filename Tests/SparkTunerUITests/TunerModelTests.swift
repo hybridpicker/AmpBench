@@ -35,6 +35,7 @@ final class TunerModelTests: XCTestCase {
     /// Stands in for the presets' link with an amp whose own tuner can be used.
     final class FakeAmp: AmpTuner {
         var ampTunerDevice: String? = "Spark NEO"
+        var ampTunerPreferred = true
         var isAmpTunerOn = false
         var onAmpTunerReading: ((Int, Double?) -> Void)?
         var asked: [Bool] = []
@@ -146,9 +147,10 @@ final class TunerModelTests: XCTestCase {
         let amp = FakeAmp()
         let model = TunerModel(shared: input, defaults: defaults)
         model.amp = amp
+        model.choose(.deck)
         model.setActive(true)
         _ = await waitUntil { model.status == .noInput }
-        XCTAssertEqual(amp.asked, [], "the deck's input is the source until the amp is picked")
+        XCTAssertEqual(amp.asked, [], "a chosen deck input stays, even when an amp's tuner could be used")
 
         model.choose(.amp)
         XCTAssertEqual(amp.asked, [true])
@@ -190,5 +192,58 @@ final class TunerModelTests: XCTestCase {
         XCTAssertTrue(back)
         XCTAssertEqual(amp.asked.last, true)
         model.setActive(false)
+    }
+
+    func testAutomaticTakesTheNEOsOwnTuner() async {
+        let amp = FakeAmp()
+        let model = TunerModel(shared: FakeInput(device: Self.spark), defaults: defaults)
+        model.amp = amp
+        XCTAssertEqual(model.source, .automatic, "the default")
+        model.setActive(true)
+        let listening = await waitUntil { model.status == .listening }
+        XCTAssertTrue(listening)
+        XCTAssertEqual(model.current, .amp, "a device without USB audio is heard through its own tuner")
+        XCTAssertEqual(amp.asked, [true])
+        XCTAssertEqual(model.inputName, "Automatisch: Stimmgerät des Spark NEO")
+        model.setActive(false)
+        XCTAssertEqual(amp.asked, [true, false])
+    }
+
+    func testAutomaticTakesUSBForAMINIPluggedIn() async {
+        let amp = FakeAmp()
+        amp.ampTunerDevice = "Spark MINI"
+        amp.ampTunerPreferred = false
+        let input = FakeInput(device: Self.spark)
+        let model = TunerModel(shared: input, defaults: defaults)
+        model.amp = amp
+        model.setActive(true)
+        let listening = await waitUntil { model.status == .listening }
+        XCTAssertTrue(listening)
+        XCTAssertEqual(model.current, .deck, "USB is finer and leaves the amp audible")
+        XCTAssertTrue(input.sharing === model.engine.tap)
+        XCTAssertEqual(amp.asked, [])
+        model.setActive(false)
+    }
+
+    func testAutomaticFollowsTheAmpComingAndGoing() async {
+        let amp = FakeAmp()
+        amp.ampTunerDevice = nil
+        let model = TunerModel(shared: FakeInput(device: nil), defaults: defaults)
+        model.amp = amp
+        model.setActive(true)
+        _ = await waitUntil { model.status == .noInput }
+        XCTAssertEqual(model.current, .deck)
+        amp.ampTunerDevice = "Spark NEO"
+        let on = await waitUntil { model.status == .listening }
+        XCTAssertTrue(on)
+        XCTAssertEqual(model.current, .amp)
+        XCTAssertEqual(amp.asked, [true])
+        amp.ampTunerDevice = nil
+        amp.isAmpTunerOn = false
+        let gone = await waitUntil { model.current == .deck }
+        XCTAssertTrue(gone)
+        XCTAssertEqual(amp.asked, [true, false])
+        model.setActive(false)
+        XCTAssertEqual(amp.asked, [true, false])
     }
 }

@@ -104,6 +104,9 @@ public final class PresetsHost: ObservableObject {
 
     public var isAmpTunerOn: Bool { model.link.isAmpTunerOn }
 
+    /// The connected device has no USB audio (the NEO): its own tuner is the way to tune with it.
+    public var ampTunerPreferred: Bool { model.link.canUseAmpTuner && !model.link.profile.can(.usbAudio) }
+
     /// The amp's tuner may still be on, so quitting should switch it off first.
     public var ampTunerMayBeOn: Bool { model.link.ampTunerMayBeOn }
 

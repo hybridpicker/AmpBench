@@ -50,7 +50,7 @@ public final class TunerHost: ObservableObject {
 
     public func endDemo() {
         if demoAmp != nil {
-            model.choose(.deck)
+            model.choose(.automatic)
             model.amp = realAmp
             demoAmp?.wantAmpTuner(false)
             demoAmp = nil
@@ -105,6 +105,7 @@ public struct TunerMenus: Commands {
 @MainActor
 final class DemoAmpTuner: AmpTuner {
     let ampTunerDevice: String? = "Spark NEO"
+    let ampTunerPreferred = true
     private(set) var isAmpTunerOn = false
     var onAmpTunerReading: ((Int, Double?) -> Void)?
     private let pitchClass: Int

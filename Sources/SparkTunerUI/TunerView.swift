@@ -37,7 +37,7 @@ struct TunerView: View {
             let name = model.ampName ?? "Verstärkers"
             return "Das Stimmgerät des \(name) ist an, solange dieser Bereich vorn ist, und der Verstärker ist dabei stumm. Seine Werte kommen über Bluetooth und sind gröber als über USB, auf ganze Cent."
         }
-        if model.status == .noInput, let name = model.ampName {
+        if model.status == .noInput, model.source != .automatic, let name = model.ampName {
             return "Ohne USB-Ton misst das Stimmgerät des \(name): im Eingang „Stimmgerät des \(name)“ wählen. Der Verstärker ist dann stumm, solange dieser Bereich vorn ist."
         }
         return "Das Stimmgerät hört nur, solange dieser Bereich vorn ist. Es sendet nichts an den Verstärker, gibt keinen Ton aus und speichert nichts."
@@ -232,6 +232,8 @@ struct TunerView: View {
         } content: {
             VStack(alignment: .leading, spacing: 8) {
                 DevicePopup("Eingang", value: model.inputName) {
+                    Button("Automatisch (USB-Ton, sonst Stimmgerät des Verstärkers)") { model.choose(.automatic) }
+                    Divider()
                     Button(model.deckInputName.map { "\($0) (wie im Deck)" } ?? "Spark aus dem Deck") {
                         model.choose(.deck)
                     }

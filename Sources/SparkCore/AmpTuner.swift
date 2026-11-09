@@ -9,6 +9,8 @@ import Foundation
 public protocol AmpTuner: AnyObject {
     /// The connected device's name when its tuner can be switched on from here. Nil without such a device.
     var ampTunerDevice: String? { get }
+    /// True when the device has no USB audio, so its own tuner is the way to hear it ("Automatisch" takes it then).
+    var ampTunerPreferred: Bool { get }
     /// True once the device confirmed that its tuner is on.
     var isAmpTunerOn: Bool { get }
     /// Every reading as it comes: the note from 0 (C) to 11 (H) and the cents from −50 to +50, nil without signal.
