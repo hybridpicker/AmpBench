@@ -32,7 +32,8 @@ let usage = """
                       accepts and chooses. Stops when the amp echoes instead of acknowledging
       watch [secs]    connect and print what the amp sends, default 30 seconds
       tuner <secs>    switch the amp's own tuner on (one message 01 65 C3), listen, switch it off (01 65 C2) and
-                      sum up the readings. New to every amp: only with the user's okay, headphones off the ears
+                      sum up the readings. New to every amp: only with the user's okay, headphones off the ears.
+                      With --compare, also hear the Spark's USB input and fit the amp's value against its cents
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -40,6 +41,7 @@ let usage = """
       --raw           also print every byte sent and received
       --no-header     send messages without the 16-byte block header
       --no-input      leave the trailing input byte out of live changes
+      --compare       with tuner: pair each reading with the pitch heard over USB (reads only, records nothing)
       --device <name> use the device whose name contains <name> when several are found, otherwise the first
 
     The Spark app on the phone and Spark Studio must be disconnected, the amp accepts only one control connection.
@@ -119,7 +121,7 @@ func parseMode(_ arguments: [String]) -> Mode {
 }
 
 var arguments = Array(CommandLine.arguments.dropFirst())
-var raw = false, header = true, input = true
+var raw = false, header = true, input = true, compare = false
 var device: String?
 if let index = arguments.firstIndex(of: "--device") {
     guard index + 1 < arguments.count else { fail(usage) }
@@ -131,6 +133,7 @@ arguments.removeAll { argument in
     case "--raw": raw = true
     case "--no-header": header = false
     case "--no-input": input = false
+    case "--compare": compare = true
     default: return false
     }
     return true
@@ -152,7 +155,7 @@ Task { @MainActor in
         case .scan, .listen: break
         case .info: try await Commands.info(link)
         case .watch(let seconds): await Commands.watch(link, seconds: seconds)
-        case .tuner(let seconds): try await Commands.tuner(link, seconds: seconds)
+        case .tuner(let seconds): try await Commands.tuner(link, seconds: seconds, compare: compare)
         case .preset(let slot): try await Commands.preset(link, slot: slot)
         case .audition(let slot): try await Commands.audition(link, slot: slot)
         case .storeTest(let slot, let path): try await Commands.storeTest(link, slot: slot, backup: path)

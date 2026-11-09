@@ -44,6 +44,8 @@ final class ProbeLink: NSObject {
     private(set) var hiddenTuner = 0
     /// Every tuner reading (`03 64`): the note byte and the value, nil without a signal. Kept for `tuner`.
     private(set) var tunerReadings: [(note: UInt8, value: Float?)] = []
+    /// Called with every tuner reading as it comes.
+    var onTunerReading: ((UInt8, Float?) -> Void)?
 
     init(raw: Bool, header: Bool, device: String? = nil) {
         self.raw = raw
@@ -194,6 +196,7 @@ final class ProbeLink: NSObject {
         for message in messages {
             if message.sub == SparkProtocol.Sub.tunerPitch, case .tuner(let note, let value)? = SparkEvent(message) {
                 tunerReadings.append((note, value))
+                onTunerReading?(note, value)
             }
             if message.sub == SparkProtocol.Sub.tunerPitch, !raw {
                 hiddenTuner += 1

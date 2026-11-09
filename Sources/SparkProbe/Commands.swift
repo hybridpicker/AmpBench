@@ -42,17 +42,29 @@ enum Commands {
 
     /// Switches the amp's own tuner on with one message `01 65 C3`, listens, then switches it off with `01 65 C2`.
     /// Nothing else is sent. New to every amp checked so far: run it only with the user's okay, headphones off.
-    static func tuner(_ link: ProbeLink, seconds: Double) async throws {
+    /// With `compare`, the Spark's USB input is heard at the same time and each reading paired with its pitch.
+    static func tuner(_ link: ProbeLink, seconds: Double, compare: Bool = false) async throws {
+        // Opened before anything is sent, so a missing input or permission stops here.
+        let comparison = compare ? try await TunerCompare() : nil
+        if let comparison { link.onTunerReading = { comparison.note(ampNote: $0, value: $1) } }
+        defer { comparison?.close() }
         func message(_ on: Bool) -> (UInt8) -> [[UInt8]] {
             { [SparkProtocol.frame(command: SparkProtocol.Command.set, sub: SparkProtocol.Sub.tuner,
                                    payload: [on ? 0xC3 : 0xC2], sequence: $0, header: link.header)] }
+        }
+        if let comparison {
+            log("Hearing the USB input for 8 seconds before the tuner goes on.")
+            await link.listen(8)
+            comparison.phase = .during
         }
         try await link.send("tuner on (01 65 C3)", message(true))
         log("Listening for \(Int(seconds)) seconds. Play single strings now.")
         let during = await link.listen(seconds)
         let readings = link.tunerReadings
+        comparison?.phase = .after
         try await link.send("tuner off (01 65 C2)", message(false))
-        let after = await link.listen(2)
+        let after = await link.listen(comparison == nil ? 2 : 8)
+        link.onTunerReading = nil
         let names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "H"]
         let heard = readings.compactMap { reading in reading.value.map { (reading.note, $0) } }
         log("\nSummary:")
@@ -67,6 +79,7 @@ enum Commands {
         }
         let late = link.tunerReadings.count - readings.count
         log(late == 0 ? "  ✓ no readings after switching off" : "  ! \(late) reading(s) after switching off")
+        comparison?.summarize()
     }
 
     static func watch(_ link: ProbeLink, seconds: Double) async {

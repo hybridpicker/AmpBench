@@ -22,7 +22,8 @@ let package = Package(
         .target(name: "SparkRecorderUI", dependencies: ["SparkCore", "SparkDesign"], path: "Sources/SparkRecorderUI"),
         // The area "Presets": sidebar, editor, menus and the Bluetooth link to the amp.
         .target(name: "SparkPresetsUI", dependencies: ["SparkControl", "SparkDesign"], path: "Sources/SparkPresetsUI"),
-        // The area "Stimmgerät": the tuner's front and menus. It reads the recorder's input and talks to no amp.
+        // The area "Stimmgerät": the tuner's front and menus. It reads the recorder's input; the amp's own tuner only
+        // through the AmpTuner protocol Studio fills in.
         .target(name: "SparkTunerUI", dependencies: ["SparkCore", "SparkDesign"], path: "Sources/SparkTunerUI"),
         // Spark Studio: the one window with the deck and the areas, and what ties them together.
         .executableTarget(
@@ -33,7 +34,7 @@ let package = Package(
                                            "-Xlinker", "\(root)/Resources/Info.plist"])]),
         // Experimental test tool: finds the amp over Bluetooth LE, reads presets and switches them.
         .executableTarget(
-            name: "spark-probe", dependencies: ["SparkControl"], path: "Sources/SparkProbe",
+            name: "spark-probe", dependencies: ["SparkControl", "SparkCore"], path: "Sources/SparkProbe",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/SparkProbe-Info.plist"])]),
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),

@@ -2,11 +2,13 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleIdentifier</key>
-    <string>local.sparkrecorder.probe</string>
-    <key>CFBundleName</key>
-    <string>spark-probe</string>
-    <key>NSBluetoothAlwaysUsageDescription</key>
-    <string>spark-probe verbindet sich per Bluetooth LE mit dem Spark-Verstärker, um Presets zu lesen und umzuschalten. Es sendet nichts ins Internet.</string>
+	<key>CFBundleIdentifier</key>
+	<string>local.sparkrecorder.probe</string>
+	<key>CFBundleName</key>
+	<string>spark-probe</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>spark-probe verbindet sich per Bluetooth LE mit dem Spark-Verstärker, um Presets zu lesen und umzuschalten. Es sendet nichts ins Internet.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>spark-probe hört beim Vergleich des Stimmgeräts den USB-Eingang des Spark mit. Es nimmt nichts auf und sendet nichts ins Internet.</string>
 </dict>
 </plist>
