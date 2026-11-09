@@ -33,7 +33,15 @@ public final class PresetsHost: ObservableObject {
             Snapshot.seededTestFolder(URL(fileURLWithPath: $0, isDirectory: true)
                 .appendingPathComponent("Presets", isDirectory: true))
         }
-        model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder)
+        // A test library keeps its devices apart from the real ones; `--demo-devices` shows simulated devices only.
+        let link: SparkLink? = testFolder.map { _ in
+            let defaults = UserDefaults(suiteName: "local.sparkstudio.devices.tests") ?? .standard
+            let demo = Snapshot.arguments["demo-devices"]
+            if demo != nil { defaults.removePersistentDomain(forName: "local.sparkstudio.devices.tests") }
+            return SparkLink(transport: demo.map { _ in SimulatedDevice([.mini, .neo, .reactor]) as LinkTransport },
+                             memory: DeviceMemory(defaults: defaults))
+        }
+        model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder, link: link)
         changes = model.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         // The pieces' sounds name saved presets, so the library is read at once. Bluetooth waits.
         model.reloadLibrary()
@@ -86,7 +94,7 @@ public final class PresetsHost: ObservableObject {
     }
 
     public func toggleConnection() {
-        if model.link.wanted { model.link.stop() } else { model.start(bluetooth: true) }
+        if model.link.wanted { model.disconnect() } else { model.start(bluetooth: true) }
     }
 
     // MARK: Sound and tempo

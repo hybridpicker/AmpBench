@@ -41,6 +41,11 @@ struct Sidebar: View {
         let presets = model.visibleItems.filter { !$0.file.isBackup }
         let backups = model.visibleItems.filter(\.file.isBackup)
         List(selection: selection) {
+            // The device first: the slots below are its slots.
+            Section("Gerät") {
+                DeviceChoice()
+                    .padding(.vertical, 2)
+            }
             ForEach(slotSections, id: \.title) { section in
                 Section(section.title) {
                     ForEach(section.slots, id: \.self) { slot in
@@ -79,9 +84,6 @@ struct Sidebar: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
-                DeviceChoice()
-                    .padding(.horizontal, 14)
-                    .padding(.top, 10)
                 HStack(spacing: 8) {
                     ConnectionStatus()
                     Spacer(minLength: 4)
@@ -224,7 +226,7 @@ private struct SlotRow: View {
     private var emptyText: String {
         guard link.status == .connected else { return "–" }
         // A device that is only listened to never sends its presets.
-        return link.profile.can(.read) ? "Wird gelesen …" : isActive ? "Spielt, Inhalt unbekannt" : "Inhalt unbekannt"
+        return link.profile.can(.read) ? "Wird gelesen …" : "Inhalt unbekannt"
     }
 
     private var helpText: String {

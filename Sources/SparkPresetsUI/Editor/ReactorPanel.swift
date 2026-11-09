@@ -54,9 +54,9 @@ struct ReactorPanel: View {
                     Text("Preset-Inhalt unbekannt. Angezeigt wird, was seit dem letzten Platzwechsel am Gerät gedreht oder gedrückt wurde.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.device.amberDim)
-                        .fixedSize(horizontal: false, vertical: true)
+                        .lineLimit(2)
                 }
-                Spacer(minLength: 8)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: 2) {
                     PanelLabel("Platz")
                     Text(state.slot.map { link.profile.slotName($0) } ?? "–")

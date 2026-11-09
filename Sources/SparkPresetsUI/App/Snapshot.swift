@@ -10,6 +10,8 @@ import SwiftUI
 ///                 --focus drive --snapshot /tmp/shot.png [--delay 2] [--quit]
 ///
 /// `--offline` leaves Bluetooth off, `--library <test folder>` keeps made-up presets in its subfolder "Presets".
+/// `--demo-devices [neo|mini|reactor]` (only with `--library`) shows simulated devices instead of Bluetooth and
+/// connects to the one named; a REACTOR then reports a few made-up control changes.
 /// `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
 @MainActor
 enum Snapshot {
@@ -64,6 +66,7 @@ enum Snapshot {
                 window.center()
             }
         }
+        await demoDevice(values["demo-devices"], in: model)
         open(values["open"], in: model)
         if let focus = values["focus"], let place = ChainPlace.allCases.first(where: { "\($0)" == focus }) {
             model.editor.focus = place
@@ -72,6 +75,34 @@ enum Snapshot {
         try? await Task.sleep(for: .seconds(Double(values["delay"] ?? "") ?? 1.5))
         write(to: URL(fileURLWithPath: path))
         if values["quit"] != nil { NSApp.terminate(nil) }
+    }
+
+    private static func demoDevice(_ name: String?, in model: PresetsModel) async {
+        guard let name, let simulated = model.link.simulated else { return }
+        let kind: SimulatedDevice.Kind = switch name {
+        case "mini": .mini
+        case "reactor": .reactor
+        default: .neo
+        }
+        model.link.choose(simulated.id(kind))
+        func ready() -> Bool {
+            model.link.status == .connected && simulated.connected == simulated.id(kind) && model.link.activity == nil
+                && (!model.link.profile.can(.read) || model.link.slots.allSatisfy { $0 != nil })
+        }
+        for _ in 0..<200 where !ready() { try? await Task.sleep(for: .milliseconds(50)) }
+        guard kind == .reactor else { return }
+        simulated.pressButton(5)
+        simulated.report(ReactorState.ampSelector, [3, 6])
+        for (block, index, value) in [("Amp.Preamp", 0, 0.62), ("Amp.Tonestack", 1, 0.45), ("Amp.Tonestack", 3, 0.7),
+                                      ("Amp.Poweramp", 0, 0.5)] as [(String, UInt8, Float)] {
+            simulated.report(SparkProtocol.Sub.parameterChanged, SimulatedDevice.parameterPayload(block, index, value))
+        }
+        simulated.report(SparkProtocol.Sub.effectOnOff, SimulatedDevice.onOffPayload("MonoReverb", true))
+        simulated.report(ReactorState.selectedEffect, [6, 0xC3])
+        simulated.report(SparkProtocol.Sub.parameterChanged, SimulatedDevice.parameterPayload("MonoReverb", 0, 0.35))
+        simulated.report(SparkProtocol.Sub.effectOnOff, SimulatedDevice.onOffPayload("DistortionTS9", true))
+        simulated.report(SparkProtocol.Sub.tapTempo, [0xCA] + withUnsafeBytes(of: Float(96).bitPattern.bigEndian, Array.init))
+        try? await Task.sleep(for: .milliseconds(300))
     }
 
     private static func open(_ what: String?, in model: PresetsModel) {

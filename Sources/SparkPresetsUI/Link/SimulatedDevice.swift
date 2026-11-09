@@ -162,6 +162,19 @@ final class SimulatedDevice: LinkTransport {
         }
     }
 
+    /// `len, A0+len, name, index, CA float`, the form of `01 04` and `03 37`.
+    static func parameterPayload(_ name: String, _ index: UInt8, _ value: Float) -> [UInt8] {
+        let bytes = Array(name.utf8)
+        return [UInt8(bytes.count), 0xA0 + UInt8(bytes.count)] + bytes + [index, 0xCA]
+            + withUnsafeBytes(of: value.bitPattern.bigEndian, Array.init)
+    }
+
+    /// `len, A0+len, name, C3/C2`, the form of `03 15`.
+    static func onOffPayload(_ name: String, _ isOn: Bool) -> [UInt8] {
+        let bytes = Array(name.utf8)
+        return [UInt8(bytes.count), 0xA0 + UInt8(bytes.count)] + bytes + [isOn ? 0xC3 : 0xC2]
+    }
+
     /// `len, A0+len, name, index, CA float`, the form of `01 04`.
     private static func parameterChange(_ payload: [UInt8]) -> (String, UInt8, Float)? {
         guard payload.count >= 2 else { return nil }

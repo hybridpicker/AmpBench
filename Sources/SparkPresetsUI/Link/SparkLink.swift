@@ -175,6 +175,9 @@ final class SparkLink: NSObject, ObservableObject {
         updateDevices()
     }
 
+    /// The simulated devices of window pictures, nil with real Bluetooth.
+    var simulated: SimulatedDevice? { transport as? SimulatedDevice }
+
     /// The device's name for logs: a REACTOR's own part cut off.
     var loggableName: String { DeviceProfile.loggableName(deviceName ?? profile.displayName) }
 

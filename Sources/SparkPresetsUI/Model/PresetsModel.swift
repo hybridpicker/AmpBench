@@ -175,7 +175,8 @@ final class PresetsModel: ObservableObject {
 
     private func slotsChanged(_ slots: [SparkPreset?]) {
         guard case .slot(let slot) = selection, let preset = slots[safe: slot] ?? nil else { return }
-        if editor.source == .slot(slot) { editor.refresh(preset, from: .slot(slot)) } else { apply(selection, play: false) }
+        // `slots` is the new value; the link's own property still holds the old one while this runs.
+        if editor.source == .slot(slot) { editor.refresh(preset, from: .slot(slot)) } else { editor.open(preset, from: .slot(slot)) }
     }
 
     // MARK: Library

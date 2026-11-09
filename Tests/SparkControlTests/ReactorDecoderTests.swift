@@ -89,11 +89,16 @@ final class ReactorDecoderTests: XCTestCase {
         XCTAssertEqual(state.selectedEffect?.model, "MonoReverb")
         XCTAssertEqual(state.levelModel, "MonoReverb")
         XCTAssertEqual(state.effects["DistortionTS9"]?.isOn, false)
-        XCTAssertNil(state.effects["DistortionTS9"]?.place, "switching off reports no place")
-        // A short press alone selects a place.
-        decode([wire(ReactorState.selectedEffect, [2, 0xC3])], into: &state)
-        XCTAssertEqual(state.selectedPlace, 2)
-        XCTAssertNil(state.effects["DistortionTS9"]?.place, "only an effect just switched on learns its place")
+        XCTAssertEqual(state.effects["DistortionTS9"]?.place, 2, "a model in the catalog has its place from there")
+        // A model outside the catalog switched off reports no place …
+        decode([onOff("ChorusCloner", false)], into: &state)
+        XCTAssertNil(state.effects["ChorusCloner"]?.place)
+        // … and a short press alone only selects a place.
+        decode([wire(ReactorState.selectedEffect, [4, 0xC3])], into: &state)
+        XCTAssertEqual(state.selectedPlace, 4)
+        XCTAssertNil(state.effects["ChorusCloner"]?.place, "only an effect just switched on learns its place")
+        decode([onOff("ChorusCloner", true), wire(ReactorState.selectedEffect, [4, 0xC3])], into: &state)
+        XCTAssertEqual(state.effects["ChorusCloner"]?.place, 4)
     }
 
     func testTapTempo() {

@@ -131,7 +131,7 @@ public struct ReactorState: Equatable, Sendable {
             if let knob = Knob.of(block: block, index: index) {
                 knobs[knob] = value
             } else if !block.hasPrefix("Amp.") {
-                effects[block, default: Effect(model: block)].parameters[index] = value
+                effects[block, default: Self.effect(block)].parameters[index] = value
                 if index == 0 { levelModel = block }
             } else {
                 break
@@ -139,7 +139,7 @@ public struct ReactorState: Equatable, Sendable {
             return true
         case SparkProtocol.Sub.effectOnOff:
             guard let model = try? reader.prefixedString(), let isOn = try? reader.bool() else { break }
-            effects[model, default: Effect(model: model)].isOn = isOn
+            effects[model, default: Self.effect(model)].isOn = isOn
             lastSwitchedOn = isOn ? model : nil
             return true
         case SparkProtocol.Sub.tapTempo:
@@ -168,6 +168,12 @@ public struct ReactorState: Equatable, Sendable {
     public static let selectedEffect: UInt8 = 0xB3
 
     private var lastSwitchedOn: String?
+
+    /// A newly seen effect. A model the Spark catalog knows gets its place from there (the REACTOR reports the same
+    /// chain order); any other learns it from `03 B3` when it is switched on.
+    private static func effect(_ model: String) -> Effect {
+        Effect(model: model, place: ModelCatalog.known(model).map { $0.place.rawValue }.flatMap { $0 == 3 ? nil : $0 })
+    }
 
     private mutating func switchSlot(to new: Int) {
         // The preset key reports the same slot twice; that is no change.
