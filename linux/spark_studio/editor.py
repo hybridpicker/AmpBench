@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass
 
 from . import catalog
-from .protocol import BPM_RANGE, Parameter, Preset, f32
+from .protocol import BPM_RANGE, Parameter, Preset, f32, fit_description
 
 PARAMETER_GAP = 0.04
 MODEL_GAP = 1.0
@@ -174,6 +174,7 @@ class PresetEditor:
             self.current.name = name
 
     def set_description(self, text: str) -> None:
+        text = fit_description(text)
         if self.current.description != text:
             self._record()
             self.current.description = text

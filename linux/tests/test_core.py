@@ -209,3 +209,83 @@ def test_fingerprint_ignores_name_bpm_and_trailer():
     assert protocol.fingerprint(a) == protocol.fingerprint(b)
     b.effects[3].parameters[0].value = 0.123
     assert protocol.fingerprint(a) != protocol.fingerprint(b)
+
+
+# A preset with a 136-byte description made the amp howl at full volume on 2026-11-08.
+HOWLING = ("KI-Sound: „U2 - where the streets have no name.“. "
+           "Originalgetreuer The-Edge-Sound: glänzender Vox-Clean mit punktiertem Achtel-Echo")
+
+
+def _sent(preset: Preset, place: Place) -> Preset:
+    parser = Parser()
+    messages = parser.feed(b"".join(protocol.send_preset(preset, place, 1)))
+    return Preset.from_payload(messages[-1].payload)
+
+
+def test_the_howling_description_is_cut_before_it_is_sent():
+    assert len(HOWLING.encode("utf-8")) == 136
+    preset = recipe.to_preset({"format": "spark-sound-recipe", "version": 1, "name": "Joshua Tree Echo",
+                               "chain": {"amp": {"model": "AC Boost", "settings": {"gain": 4}}}}).preset
+    preset.description = HOWLING
+    for place in (protocol.TEMPORARY, Place.of_slot(0)):
+        sent = _sent(preset, place)
+        assert len(sent.description.encode("utf-8")) <= protocol.DESCRIPTION_LIMIT
+        assert HOWLING.startswith(sent.description)
+        assert sent.effects == preset.effects
+    assert preset.description == HOWLING
+
+
+def test_editor_and_recipe_cut_a_long_description():
+    conversion = recipe.to_preset({"format": "spark-sound-recipe", "version": 1, "name": "Joshua Tree Echo",
+                                   "description": HOWLING, "chain": {}})
+    assert len(conversion.preset.description.encode("utf-8")) <= protocol.DESCRIPTION_LIMIT
+    assert any("Beschreibung" in w for w in conversion.warnings)
+    edit = editor.PresetEditor(conversion.preset)
+    edit.set_description(HOWLING)
+    assert len(edit.current.description.encode("utf-8")) <= protocol.DESCRIPTION_LIMIT
+    assert protocol.fit_description("ä" * 100) == "ä" * 40
+
+
+def _catalog_preset(name: str = "Joshua Tree Echo", description: str = "", models: dict | None = None) -> Preset:
+    chain = {place: {"model": model} for place, model in (models or {}).items()}
+    preset = recipe.to_preset({"format": "spark-sound-recipe", "version": 1, "name": "x", "chain": chain}).preset
+    preset.name = name
+    preset.description = description
+    return preset
+
+
+def test_the_amp_guard_fits_the_howling_preset_and_every_catalog_preset():
+    howling = _catalog_preset(description=HOWLING)
+    assert protocol.preset_size(howling) > protocol.PAYLOAD_LIMIT
+    assert protocol.amp_problems(howling) == []
+    sent = protocol.for_amp(howling)
+    assert protocol.preset_size(sent) <= protocol.PAYLOAD_LIMIT
+    assert sent.effects == howling.effects
+    assert len(protocol.send_preset(howling, protocol.TEMPORARY, 1)) <= 20
+
+    models = {}
+    for place in ("gate", "compressor", "drive", "amp", "modulation", "delay", "reverb"):
+        candidates = [m.id for m in catalog.load().models_for(place, include_packs=True)]
+        models[place] = max(candidates, key=lambda m: protocol.preset_size(_catalog_preset(models={place: m})))
+    biggest = _catalog_preset(name="W" * protocol.NAME_LIMIT, description="ä" * 100, models=models)
+    assert protocol.amp_problems(biggest) == []
+    assert protocol.preset_size(protocol.for_amp(biggest)) <= protocol.PAYLOAD_LIMIT
+    assert protocol.for_amp(biggest).name == "W" * protocol.NAME_LIMIT
+
+
+def test_the_amp_guard_fits_values_and_refuses_what_is_broken():
+    wild = _catalog_preset()
+    wild.effects[3].parameters[0].value = 7.0
+    wild.bpm = 900.0
+    sent = protocol.for_amp(wild)
+    assert sent.effects[3].parameters[0].value == 1.0
+    assert sent.bpm == protocol.BPM_RANGE[1]
+    broken = _catalog_preset()
+    broken.effects[5].parameters[1].value = float("nan")
+    assert protocol.amp_problems(broken)
+    short = _catalog_preset()
+    short.effects.pop()
+    assert protocol.amp_problems(short)
+    long_name = _catalog_preset(name="N" * 40)
+    assert protocol.amp_problems(long_name)
+    assert protocol.set_parameter("AC Boost", 4, 5.0, 1) == protocol.set_parameter("AC Boost", 4, 1.0, 1)

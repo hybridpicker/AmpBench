@@ -141,11 +141,13 @@ public enum SparkProtocol {
                      sequence: sequence, header: header)
     }
 
-    /// Sends a whole preset. `.temporary` plays it without storing it, `.slot` is meant to store it there.
+    /// Sends a whole preset. `.temporary` plays it without storing it, `.slot` is meant to store it there. The
+    /// description is cut to `PresetRules.descriptionLimit` here, whatever the preset came from: a longer one made the
+    /// amp howl.
     public static func sendPreset(_ preset: SparkPreset, to place: SparkPresetPlace, sequence: UInt8,
                                   header: Bool = true) -> [[UInt8]] {
-        blocks(command: Command.set, sub: Sub.preset, payload: preset.encode(place: place), sequence: sequence,
-               header: header)
+        blocks(command: Command.set, sub: Sub.preset, payload: PresetRules.forAmp(preset).encode(place: place),
+               sequence: sequence, header: header)
     }
 
     /// Switches to stored preset `slot`, 0 to 3, like the preset button on the amp.

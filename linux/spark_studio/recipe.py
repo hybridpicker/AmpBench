@@ -10,7 +10,7 @@ import uuid as uuidlib
 from dataclasses import dataclass, field
 
 from . import catalog, factory
-from .protocol import BPM_RANGE, NAME_LIMIT, Preset, f32, fit_name
+from .protocol import BPM_RANGE, DESCRIPTION_LIMIT, NAME_LIMIT, Preset, f32, fit_description, fit_name
 
 FORMAT = "spark-sound-recipe"
 VERSION = 1
@@ -136,7 +136,11 @@ def to_preset(data: dict, identity: bytes | None = None) -> Conversion:
     clamped = min(max(rounded, BPM_RANGE[0]), BPM_RANGE[1])
     if clamped != rounded:
         warnings.append(f"Das Tempo {bpm:g} liegt außerhalb von {int(BPM_RANGE[0])}–{int(BPM_RANGE[1])} und wurde angepasst.")
-    preset = Preset(name=fitted, effects=effects, uuid=stable_uuid(identity), description=str(data.get("description", "")),
+    description = str(data.get("description", ""))
+    short = fit_description(description)
+    if short != description:
+        warnings.append(f"Die Beschreibung war länger als {DESCRIPTION_LIMIT} Bytes und wurde gekürzt.")
+    preset = Preset(name=fitted, effects=effects, uuid=stable_uuid(identity), description=short,
                     bpm=f32(clamped))
     return Conversion(preset, warnings, list(data.get("tags", [])), str(data.get("notes", "")))
 

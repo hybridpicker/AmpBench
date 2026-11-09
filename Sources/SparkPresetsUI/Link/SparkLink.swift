@@ -1,5 +1,6 @@
 import CoreBluetooth
 import Foundation
+import OSLog
 import SparkControl
 
 /// A preset on its way to or from the amp, for the load meter.
@@ -18,9 +19,12 @@ enum LinkError: LocalizedError {
     case noAnswer
     case unreadable(String)
     case verifyFailed(String)
+    case refused([String])
 
     var errorDescription: String? {
         switch self {
+        case .refused(let problems):
+            "Nicht gesendet, damit der Verstärker nichts Unbekanntes spielt: " + problems.joined(separator: " ")
         case .notConnected: "Der Verstärker ist nicht verbunden."
         case .noAnswer: "Der Verstärker hat nicht geantwortet."
         case .unreadable(let detail): "Der Verstärker hat ein Preset geschickt, das nicht lesbar ist (\(detail))."
@@ -241,11 +245,35 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// The amp confirms every chunk with `05 01` and the whole preset with `04 01`, which drives the load meter.
     private func send(_ preset: SparkPreset, to place: SparkPresetPlace) async throws {
+        let problems = AmpGuard.problems(preset)
+        guard problems.isEmpty else {
+            Self.ampLog.error("refused \"\(preset.name, privacy: .public)\": \(problems.joined(separator: " "), privacy: .public)")
+            throw LinkError.refused(problems)
+        }
         let total = SparkProtocol.sendPreset(preset, to: place, sequence: 0).count
+        Self.log(preset, to: place, chunks: total)
         _ = try await tracked(Transfer(kind: .sending, total: total)) {
             try await request({ SparkProtocol.sendPreset(preset, to: place, sequence: $0) },
                               answer: SparkProtocol.Sub.preset, command: SparkProtocol.Command.acknowledge)
         }
+    }
+
+    /// Every preset that goes to the amp, readable afterwards with
+    /// `log show --predicate 'subsystem == "local.sparkstudio" AND category == "amp"' --info --last 1h`.
+    /// Only the sound itself is written: name, lengths, models and values.
+    private static let ampLog = Logger(subsystem: "local.sparkstudio", category: "amp")
+
+    private static func log(_ preset: SparkPreset, to place: SparkPresetPlace, chunks: Int) {
+        let sent = PresetRules.forAmp(preset)
+        let target = if case .slot(let slot) = place { "slot \(slot + 1)" } else { "temporary" }
+        let chain = sent.effects.map { effect in
+            let values = effect.parameters.map { String(format: "%.2f", $0.value) }.joined(separator: " ")
+            return "\(effect.name)\(effect.isOn ? "" : " (off)") [\(values)]"
+        }.joined(separator: " | ")
+        let cut = sent.description == preset.description ? "" : " (cut from \(preset.description.utf8.count))"
+        let line = "send \"\(sent.name)\" to \(target): \(chunks) chunks, description "
+            + "\(sent.description.utf8.count) bytes\(cut), bpm \(sent.bpm), \(chain)"
+        ampLog.info("\(line, privacy: .public)")
     }
 
     /// The command and sub-command of a message to the amp, and the number of chunks.
@@ -326,6 +354,7 @@ final class SparkLink: NSObject, ObservableObject {
     func apply(_ change: LiveChange) async throws -> Bool {
         switch change {
         case .parameter(let effect, let index, let value):
+            guard AmpGuard.value(value) != nil else { throw LinkError.refused(["Der Wert ist keine Zahl."]) }
             try await sendOnly({ [SparkProtocol.setParameter(effect: effect, index: index, value: value, sequence: $0)] },
                                gap: LivePacing.parameterGap)
             return true
@@ -358,7 +387,8 @@ final class SparkLink: NSObject, ObservableObject {
         activity = "Prüfe Platz \(slot + 1) …"
         let stored = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = stored
-        guard stored == preset else { throw LinkError.verifyFailed(preset.name) }
+        // What went out had its description cut to the length the amp takes.
+        guard stored == PresetRules.forAmp(preset) else { throw LinkError.verifyFailed(preset.name) }
     }
 
     /// Reads a slot fresh from the amp, for a backup that must match what is really stored.

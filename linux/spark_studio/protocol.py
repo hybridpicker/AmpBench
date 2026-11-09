@@ -9,6 +9,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import math
 import struct
 import uuid as uuidlib
 from dataclasses import dataclass, field
@@ -19,6 +20,10 @@ NOTIFY_UUID = "0000ffc2-0000-1000-8000-00805f9b34fb"
 
 NAME_LIMIT = 31
 BPM_RANGE = (40.0, 250.0)
+# No description longer than this many bytes goes to the amp. On 2026-11-08 a preset with a 136-byte description
+# made the amp howl painfully loud with its volume knobs at zero, right after the same sound with an 82-byte
+# description had played fine. The knobs do not protect against such a noise, so it is not raised by trying.
+DESCRIPTION_LIMIT = 80
 
 CMD_SET, CMD_GET, CMD_RESPONSE, CMD_ACK = 0x01, 0x02, 0x03, 0x04
 SUB_PRESET, SUB_PARAMETER, SUB_CHANGE_EFFECT = 0x01, 0x04, 0x06
@@ -378,6 +383,73 @@ def name_problem(name: str) -> str | None:
     return None
 
 
+def fit_description(text: str) -> str:
+    """The description cut at a character boundary so it fits DESCRIPTION_LIMIT."""
+    while len(text.encode("utf-8")) > DESCRIPTION_LIMIT:
+        text = text[:-1]
+    return text
+
+
+# The last check before a preset goes to the amp, as AmpGuard on the Mac. On 2026-11-08 a sound that had just played
+# fine made the amp howl at full volume once it was sent again with a 136-byte description: 540 bytes in 22 chunks,
+# where everything that had worked had at most 486 bytes, 20 chunks and strings under 128 bytes. Both stay inside
+# what is known to work. The amp's volume knobs did not help, so no limit is raised by trying it on the speaker.
+PAYLOAD_LIMIT = 486
+STRING_LIMIT = 127
+UUID_LIMIT = 36
+EFFECT_COUNT = 7
+
+
+def guarded_value(value: float) -> float | None:
+    """A value as it may go to the amp: within 0…1, None when it is no number."""
+    return min(max(float(value), 0.0), 1.0) if math.isfinite(value) else None
+
+
+def preset_size(preset: Preset) -> int:
+    return len(preset.encode(TEMPORARY))
+
+
+def for_amp(preset: Preset) -> Preset:
+    """The preset with everything fitted that can be without changing the sound: values within 0…1, the tempo within
+    range, the description within DESCRIPTION_LIMIT and short enough for PAYLOAD_LIMIT."""
+    safe = copy.deepcopy(preset)
+    safe.description = fit_description(preset.description)
+    if math.isfinite(safe.bpm):
+        safe.bpm = f32(min(max(safe.bpm, BPM_RANGE[0]), BPM_RANGE[1]))
+    for effect in safe.effects:
+        for parameter in effect.parameters:
+            fitted = guarded_value(parameter.value)
+            if fitted is not None and fitted != parameter.value:
+                parameter.value = f32(fitted)
+    while preset_size(safe) > PAYLOAD_LIMIT and safe.description:
+        safe.description = safe.description[:-1]
+    return safe
+
+
+def amp_problems(preset: Preset) -> list[str]:
+    """What keeps the prepared preset from going to the amp. Empty when it may be sent."""
+    safe = for_amp(preset)
+    problems = []
+    if len(safe.effects) != EFFECT_COUNT:
+        problems.append(f"Das Preset hat {len(safe.effects)} statt {EFFECT_COUNT} Effekte.")
+    if not math.isfinite(safe.bpm):
+        problems.append("Das Tempo ist keine Zahl.")
+    for effect in safe.effects:
+        if any(not math.isfinite(p.value) for p in effect.parameters):
+            problems.append(f"„{effect.name}“ hat einen Wert, der keine Zahl ist.")
+    strings = [("Der Name", safe.name, NAME_LIMIT), ("Die Version", safe.version, NAME_LIMIT),
+               ("Das Symbol", safe.icon, NAME_LIMIT), ("Die Kennung", safe.uuid, UUID_LIMIT)]
+    strings += [(f"Der Effektname „{e.name[:20]}“", e.name, NAME_LIMIT) for e in safe.effects]
+    for label, text, limit in strings:
+        limit = min(limit, STRING_LIMIT)
+        if len(text.encode("utf-8")) > limit:
+            problems.append(f"{label} ist mit {len(text.encode('utf-8'))} Bytes zu lang (höchstens {limit}).")
+    size = preset_size(safe)
+    if size > PAYLOAD_LIMIT:
+        problems.append(f"Das Preset ist mit {size} Bytes größer als die {PAYLOAD_LIMIT}, die der Verstärker sicher verträgt.")
+    return problems
+
+
 def fit_name(name: str) -> str:
     name = name.strip()
     while len(name.encode("utf-8")) > NAME_LIMIT:
@@ -441,7 +513,8 @@ def get_preset(slot: int | None, sequence: int) -> list[bytes]:
 
 
 def send_preset(preset: Preset, place: Place, sequence: int) -> list[bytes]:
-    return blocks(CMD_SET, SUB_PRESET, preset.encode(place), sequence)
+    """The description is cut to DESCRIPTION_LIMIT here, whatever the preset came from: a longer one made the amp howl."""
+    return blocks(CMD_SET, SUB_PRESET, for_amp(preset).encode(place), sequence)
 
 
 def change_hardware_preset(slot: int, sequence: int) -> list[bytes]:
@@ -452,7 +525,9 @@ def set_parameter(effect: str, index: int, value: float, sequence: int) -> list[
     w = Writer()
     w.prefixed_string(effect)
     w.bytes([index])
-    w.float(value)
+    # Never more than full: a value outside 0…1 is no setting the amp knows. The link refuses non-numbers first.
+    fitted = guarded_value(value)
+    w.float(0.0 if fitted is None else fitted)
     w.bytes([0x00])
     return blocks(CMD_SET, SUB_PARAMETER, bytes(w.data), sequence)
 

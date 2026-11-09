@@ -12,7 +12,8 @@ public extension SparkProtocol {
         var writer = SparkWriter()
         writer.prefixedString(effect)
         writer.bytes([index])
-        writer.float(value)
+        // Never more than full: a value outside 0…1 is no setting the amp knows. The link refuses non-numbers first.
+        writer.float(AmpGuard.value(value) ?? 0)
         if input { writer.bytes([0x00]) }
         return frame(command: Command.set, sub: Sub.parameter, payload: writer.data, sequence: sequence,
                      header: header)

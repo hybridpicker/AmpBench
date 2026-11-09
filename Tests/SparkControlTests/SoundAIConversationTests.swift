@@ -171,7 +171,23 @@ final class SoundAIConversationTests: XCTestCase {
         XCTAssertEqual(kept.tags, ["Rock", "KI-Sound", "wärmer", "mehr Gain"])
 
         sound.description = String(repeating: "ä", count: 200)
-        XCTAssertLessThanOrEqual(SoundAI.keepsake(sound, request: "x").description.utf8.count, 255)
+        XCTAssertLessThanOrEqual(SoundAI.keepsake(sound, request: "x").description.utf8.count,
+                                 PresetRules.descriptionLimit)
+    }
+
+    /// The sound that made the amp howl on 2026-11-08: its kept description had 136 bytes.
+    func testTheKeptJoshuaTreeEchoFitsWhatTheAmpTakes() throws {
+        var sound = try parsed(recipe())
+        sound.description = "Originalgetreuer The-Edge-Sound: glänzender Vox-Clean mit punktiertem Achtel-Echo"
+        let kept = SoundAI.keepsake(sound, request: "U2 - where the streets have no name.")
+        XCTAssertEqual(kept.description, "KI-Sound: „U2 - where the streets have no name.“")
+        XCTAssertLessThanOrEqual(try kept.preset().preset.description.utf8.count, PresetRules.descriptionLimit)
+
+        let long = String(repeating: "Wunsch ", count: 30)
+        let cut = SoundAI.keepsake(sound, request: long).description
+        XCTAssertLessThanOrEqual(cut.utf8.count, PresetRules.descriptionLimit)
+        XCTAssertTrue(cut.hasPrefix("KI-Sound: „Wunsch"))
+        XCTAssertTrue(cut.hasSuffix("…“"))
     }
 
     // MARK: Corrections

@@ -36,6 +36,11 @@ class Unreadable(LinkError):
         super().__init__(f"Der Verstärker hat ein Preset geschickt, das nicht lesbar ist ({detail}).")
 
 
+class Refused(LinkError):
+    def __init__(self, problems: list[str]):
+        super().__init__("Nicht gesendet, damit der Verstärker nichts Unbekanntes spielt: " + " ".join(problems))
+
+
 class VerifyFailed(LinkError):
     def __init__(self, name: str):
         super().__init__(f"Beim Zurücklesen enthielt der Platz nicht „{name}“. Die Sicherung liegt in der Bibliothek.")
@@ -376,6 +381,9 @@ class LinkCore:
                                 protocol.CMD_ACK)
 
     async def _send(self, preset: Preset, place: Place) -> None:
+        problems = protocol.amp_problems(preset)
+        if problems:
+            raise Refused(problems)
         total = len(protocol.send_preset(preset, place, 0))
         async with self._tracked(Transfer("sending", total=total)):
             await self._request(lambda s: protocol.send_preset(preset, place, s), protocol.SUB_PRESET, protocol.CMD_ACK)
@@ -448,6 +456,8 @@ class LinkCore:
     async def apply(self, change: editor.Change) -> bool:
         """Sends one live change. Returns False when a change that the amp confirms got no answer."""
         if change.kind == "parameter":
+            if protocol.guarded_value(change.value) is None:
+                raise Refused(["Der Wert ist keine Zahl."])
             await self._send_only(lambda s: protocol.set_parameter(change.effect, change.index, change.value, s),
                                   editor.PARAMETER_GAP)
             return True
@@ -480,7 +490,8 @@ class LinkCore:
             self._set("activity", None)
         self.slots[slot] = stored
         self._emit("slots", self.slots)
-        if not stored.same_content(preset):
+        # What went out had its description cut to the length the amp takes.
+        if not stored.same_content(protocol.for_amp(preset)):
             raise VerifyFailed(preset.name)
 
     async def current_preset(self, slot: int) -> Preset:

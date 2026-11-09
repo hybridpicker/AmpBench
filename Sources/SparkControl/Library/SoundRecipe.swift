@@ -200,7 +200,11 @@ public struct SoundRecipe: Codable, Equatable, Sendable {
             warnings.append("Das Tempo \(RecipeValue.number(bpm).text) liegt außerhalb von "
                             + "\(Int(range.lowerBound))–\(Int(range.upperBound)) und wurde angepasst.")
         }
-        let preset = SparkPreset(uuid: Self.uuid(for: identity), name: fitted, description: description,
+        let shortDescription = PresetRules.fitDescription(description)
+        if shortDescription != description {
+            warnings.append("Die Beschreibung war länger als \(PresetRules.descriptionLimit) Bytes und wurde gekürzt.")
+        }
+        let preset = SparkPreset(uuid: Self.uuid(for: identity), name: fitted, description: shortDescription,
                                  bpm: clampedBPM, effects: effects)
         return Conversion(preset: preset, warnings: warnings)
     }

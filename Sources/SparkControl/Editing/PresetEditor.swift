@@ -82,7 +82,9 @@ public struct PresetEditor: Sendable {
         current.name = name
     }
 
+    /// Longer descriptions are cut to `PresetRules.descriptionLimit`, the length the amp is known to take.
     public mutating func setDescription(_ text: String) {
+        let text = PresetRules.fitDescription(text)
         guard current.description != text else { return }
         record()
         current.description = text
@@ -178,6 +180,24 @@ public enum PresetRules {
     /// Names up to this many bytes keep the short string form the amp uses for names.
     public static let nameLimit = 31
     public static let bpmRange: ClosedRange<Float> = 40...250
+
+    /// No description longer than this many bytes goes to the amp. On 2026-11-08 a preset with a 136-byte
+    /// description made the amp howl painfully loud with its volume knobs at zero, right after the same sound with an
+    /// 82-byte description had played fine. The amp's own presets carry 7 bytes at most; 80 stays inside what has
+    /// been heard working. The volume knobs do not protect against such a noise, so it is not raised by trying.
+    public static let descriptionLimit = 80
+
+    /// The description cut at a character boundary so it fits `descriptionLimit`.
+    public static func fitDescription(_ text: String) -> String {
+        var cut = text
+        while cut.utf8.count > descriptionLimit { cut.removeLast() }
+        return cut
+    }
+
+    /// The preset as it may go to the amp, see `AmpGuard.prepared`: the same sound, fitted to what the amp takes.
+    public static func forAmp(_ preset: SparkPreset) -> SparkPreset {
+        AmpGuard.prepared(preset)
+    }
 
     /// Nil when the name is fine, otherwise why it is not.
     public static func problem(withName name: String) -> String? {

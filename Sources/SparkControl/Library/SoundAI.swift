@@ -103,14 +103,28 @@ public enum SoundAI {
     }
 
     /// The recipe as it goes into the library: the wish in the description, marked as a KI-Sound, with the
-    /// adjustments that were made as tags. The description fits the 255 bytes the amp keeps.
+    /// adjustments that were made as tags. The description fits `PresetRules.descriptionLimit`, so what is kept is
+    /// what plays: the wish first, the recipe's own words only when there is room.
     public static func keepsake(_ recipe: SoundRecipe, request: String, adjustments: [Adjustment] = []) -> SoundRecipe {
         var kept = recipe
         let wish = request.trimmingCharacters(in: .whitespacesAndNewlines)
         let own = recipe.description.trimmingCharacters(in: .whitespacesAndNewlines)
-        var description = wish.isEmpty ? own : "KI-Sound: „\(wish)“" + (own.isEmpty ? "" : ". \(own)")
-        while description.utf8.count > 255 { description.removeLast() }
-        kept.description = description
+        let limit = PresetRules.descriptionLimit
+        var description = own
+        if !wish.isEmpty {
+            let marked = "KI-Sound: „\(wish)“"
+            let both = own.isEmpty ? marked : "\(marked). \(own)"
+            if both.utf8.count <= limit {
+                description = both
+            } else if marked.utf8.count <= limit {
+                description = marked
+            } else {
+                var cut = wish
+                while "KI-Sound: „\(cut)…“".utf8.count > limit { cut.removeLast() }
+                description = "KI-Sound: „\(cut)…“"
+            }
+        }
+        kept.description = PresetRules.fitDescription(description)
         var tags: [String] = []
         for tag in recipe.tags + ["KI-Sound"] + adjustments.map(\.label)
         where !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
