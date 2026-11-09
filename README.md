@@ -303,9 +303,16 @@ the lamps SIGNAL, ZU TIEF, GESTIMMT (green, within ±0.5 cents for 0.4 s) and ZU
 - **Input:** the Spark chosen in the deck, read along with the recorder's own input, so a running recording or the
   retro buffer is never touched. Another input, such as an interface or the Mac's microphone, can be chosen in the
   module EINGANG. The lamp says "GETEILT" while a recording uses the same input.
+- **The amp's own tuner:** with a Spark MINI or NEO connected, EINGANG also offers "Stimmgerät des Spark NEO" (or
+  MINI). Studio then switches the amp's built-in tuner on over Bluetooth while the area shows, and off when you leave
+  it, disconnect or quit. The amp is silent meanwhile, as when you use its tuner by hand. Its readings are coarser:
+  whole cents, smoothed over 0.4 s, within about ±3 cents for GESTIMMT. The amp names only the note, so for E in
+  standard tuning (sixth and first string) the octave and Hz stay empty. This is how the NEO, which has no USB audio,
+  can be tuned in Studio.
 - **Only while it shows:** the tuner listens only while its area is in front and the window can be seen. Leaving it
   closes the input again, unless the recorder keeps it open anyway.
-- **Never to the amp, never a sound:** it sends nothing over Bluetooth and plays no reference tone. Audio is analyzed
+- **Never a sound:** apart from the amp's own tuner you chose, it sends nothing over Bluetooth, and it plays no
+  reference tone. Audio is analyzed
   in memory only; nothing is stored, sent or logged.
 
 How it measures, and what the tests prove, is in [docs/STUDIO.md](docs/STUDIO.md#stimmgerät).
@@ -323,6 +330,7 @@ swift build --product spark-probe
 .build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
+.build/debug/spark-probe tuner 20      # the amp's own tuner on, sum up its readings, off; --compare also hears USB
 .build/debug/spark-probe try 3         # play a renamed copy of stored preset 3 without storing it
 .build/debug/spark-probe store-test 4 backup.json        # store a renamed copy in slot 4, then put the original back
 .build/debug/spark-probe persist-test store 4 backup.json  # leave a renamed copy in slot 4 …
@@ -474,6 +482,7 @@ in one sign.
 | ![Presets, dark](docs/pictures/presets-dark.png) | ![Presets, light](docs/pictures/presets-light.png) |
 | ![Stimmgerät, dark](docs/pictures/stimmgeraet-dark.png) | ![Stimmgerät with strobe, light](docs/pictures/stimmgeraet-stroboskop-light.png) |
 | ![Stimmgerät, in tune](docs/pictures/stimmgeraet-gestimmt-dark.png) | ![Stimmgerät at its smallest size](docs/pictures/stimmgeraet-smallest-dark.png) |
+| ![Stimmgerät of the amp, dark](docs/pictures/stimmgeraet-verstaerker-dark.png) | ![Stimmgerät of the amp, light](docs/pictures/stimmgeraet-verstaerker-light.png) |
 | ![Device choice, Spark NEO, dark](docs/pictures/geraete-neo-dark.png) | ![Device choice, Spark NEO, light](docs/pictures/geraete-neo-light.png) |
 | ![REACTOR, listened to, dark](docs/pictures/geraete-reactor-dark.png) | ![REACTOR, listened to, light](docs/pictures/geraete-reactor-light.png) |
 
@@ -505,7 +514,7 @@ Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog 
                         Bluetooth code
 Sources/SparkRecorderUI The deck and the area Aufnahme: window parts, menus, keys, self-test, headless audio commands
 Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
-Sources/SparkTunerUI    The area Stimmgerät: its front and menus; no Bluetooth, no sound
+Sources/SparkTunerUI    The area Stimmgerät: its front and menus; no Bluetooth of its own, no sound
 Sources/SparkStudio     The app: one window, the areas, and what ties takes, sounds and tempo together
 Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
 Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals

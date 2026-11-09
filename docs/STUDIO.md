@@ -37,7 +37,7 @@ SparkStudio  (App: ein Fenster, Bereiche, Verbindungen zwischen ihnen; Info.plis
   ├── SparkRecorderUI  Deck und Bereich Aufnahme; öffentlich nur RecorderHost, RecorderMenus, DeckBluetooth,
   │                    TakeSound, SoundActions, RecorderCommandLine
   ├── SparkPresetsUI   Bereich Presets mit Bluetooth-Link; öffentlich nur PresetsHost, PresetMenus, HeardSound
-  ├── SparkTunerUI     Bereich Stimmgerät; öffentlich nur TunerHost, TunerMenus. Kein Bluetooth, kein Ton
+  ├── SparkTunerUI     Bereich Stimmgerät; öffentlich nur TunerHost, TunerMenus. Kein eigenes Bluetooth, kein Ton
   ├── SparkDesign      Bausteine (DESIGN.md)
   ├── SparkCore        Aufnahme, Bibliothek, PresetStamp, Stücke, StudioFolders, StudioKeymap,
   │                    Tonhöhenerkennung (PitchDetector, PitchTracker, Tuning, TunerEngine, AudioTap, SharedInput)
@@ -88,6 +88,9 @@ Ein chromatisches Stimmgerät mit Saitenerkennung für Gitarre und Bass, 30 Hz b
 auf 0,1 Cent, Kammerton A4 430,0–450,0 Hz in Zehntel-Hertz (UserDefaults `tunerA4`), Stimmungen Standard, Drop D,
 DADGAD, Open G, Halbton tiefer und Chromatisch (`tunerTuning`), Zeiger oder Stroboskop (`tunerStrobe`).
 
+Zweite Quelle, vom Nutzer gewählt: **das Stimmgerät des Verstärkers** (Spark MINI und NEO, unten), damit sich auch der
+NEO stimmen lässt, der kein USB-Audio hat. Gröber, auf ganze Cent, und der Verstärker ist dabei stumm.
+
 ### Woher das Audio kommt, und warum so
 
 - **Mitlesen statt zweiter Audio-Unit.** Die `CaptureEngine` der Aufnahme schreibt jeden Block zusätzlich in einen
@@ -110,9 +113,33 @@ DADGAD, Open G, Halbton tiefer und Chromatisch (`tunerTuning`), Zeiger oder Stro
   Fenster sichtbar ist (nicht geschlossen, nicht im Dock, nicht verdeckt), sonst aus. Dann wird der Tap gelöst und
   der Eingang geschlossen, außer die Aufnahme hält ihn ohnehin offen. Ausnahme ist nur die synthetische Saite der
   Fensterbilder, die kein Gerät öffnet.
-- **Kein Kontakt zum Amp, kein Ton:** SparkTunerUI hängt nicht von SparkControl oder SparkPresetsUI ab, kann also
-  weder Bluetooth noch den Link benutzen. Es gibt keine Ausgabe. Sollte je etwas zum Amp gehen, dann nur über den
-  bestehenden Link und `AmpGuard`.
+- **Kein eigener Kontakt zum Amp, kein Ton:** SparkTunerUI hängt nicht von SparkControl oder SparkPresetsUI ab, kann
+  also weder Bluetooth noch den Link selbst benutzen. Es gibt keine Ausgabe. Das Stimmgerät des Verstärkers kommt nur
+  über das Protokoll `AmpTuner` (SparkCore), das Studio mit dem bestehenden Link der Presets erfüllt.
+
+### Das Stimmgerät des Verstärkers (MINI, NEO; 2026-11-09 am Gerät geprüft)
+
+- **Protokoll:** `01 65 C3` schaltet es an, `01 65 C2` aus; MINI und NEO bestätigen mit `04 65` (der MINI ließ die
+  Bestätigung fürs Ausschalten einmal von dreimal weg). Solange es an ist, ist der Ausgang stumm (MINI-Lautsprecher und
+  NEO-Kopfhörer, vom Nutzer gehört), und es kommt etwa 15-mal je Sekunde `03 64 <ton> CA <float>`: Ton 0 (C) bis
+  11 (H), Wert 0 bis 1 über einen Halbton, −1 ohne Signal. Nach dem Ausschalten kommen noch 3–5 Werte nach. Danach
+  klingt der Verstärker wieder wie vorher (bei beiden gehört).
+- **Skala:** Cent = (Wert − 0,5) · 100 (`SparkProtocol.tunerCents`). Am Rand 0/1 springt der Ton zum Nachbarn, das
+  Fenster ist also ein Halbton. Geprüft mit `spark-probe --compare tuner` am MINI gegen die Tonhöhe, die Studio über
+  USB misst: E +24 Cent → Median 0,63, A −32 Cent → 0,13 (Steigung 0,009 je Cent), gestimmte Saiten um 0,5. Die
+  einzelnen Werte springen um etwa ±10 Cent, besonders beim Anschlag. Der USB-Ton des MINI läuft weiter, während das
+  Stimmgerät an ist.
+- **Anzeige** (`AmpTunerInterpreter`): Median der letzten 0,4 s, ganze Cent, ein neuer Ton erst nach drei Werten in
+  Folge, „Gestimmt“ bei ±3 Cent für 0,5 s, nach dem Signal 1,5 s gehalten. Der Verstärker nennt nur den Ton, nicht
+  die Oktave: Die Saite der Stimmung mit diesem Ton gibt sie, wenn es genau eine gibt; bei E in Standard (6. und 1.
+  Saite) zeigt die Anzeige nur „E“ ohne Oktave und Hertz. Ein anderer Kammerton als 440 Hz verschiebt die Cent.
+- **Wann es an ist:** nur wenn der Nutzer im Eingang „Stimmgerät des Spark NEO/MINI“ wählt (gemerkt in
+  `tunerUsesAmp`), und nur solange der Bereich vorn und sichtbar ist. Verlassen, anderer Eingang, Trennen über das Deck
+  oder einen Gerätewechsel, Beenden der App (`applicationShouldTerminate` wartet bis 1,5 s) schalten es zuerst aus.
+  Ohne Bestätigung gilt es als aus, sobald keine Werte mehr kommen; sonst bis zu drei Versuche. Bricht die Verbindung
+  ab, während es an ist, schaltet der Link es nach dem Wiederverbinden an oder aus, je nachdem was gewünscht ist (ob
+  der Verstärker es ohne Verbindung anlässt, ist ungeprüft). Ein REACTOR bekommt nie etwas, auch hier nicht.
+- Werte des Stimmgeräts halten keine laufende Anfrage am Leben (das Warten auf eine Antwort zählt sie nicht).
 - **Datenschutz:** Audio wird nur im Speicher ausgewertet und nie gespeichert, gesendet oder geloggt; der Ringpuffer
   wird beim Freigeben genullt. Kein Netz. Alle Tests nutzen synthetische Signale (`TunerTestSignal`).
 
@@ -239,7 +266,7 @@ Prüfung mit dem Nutzer.
 | Profil | Plätze | Fähigkeiten | Eigenheiten | Geprüft |
 |---|---|---|---|---|
 | Spark MINI | 4 | alles: lesen, umschalten, vorübergehend spielen, live ändern, Modellwechsel, speichern, Tasten, Stimmgerät, Tap, USB-Audio | behält den vorübergehenden Sound beim Trennen? ungeprüft, gilt als „nein“ | 1.11.2.75 |
-| Spark NEO | 4 | wie MINI, ohne USB-Audio, Stimmgerät und Tap (ungeprüft) | verwirft den vorübergehenden Sound beim Trennen | 1.16.1.60 |
+| Spark NEO | 4 | wie MINI, ohne USB-Audio; Stimmgerät geprüft, Tap ungeprüft | verwirft den vorübergehenden Sound beim Trennen | 1.16.1.60 |
 | REACTOR 50 | 8 (Rot 1–4, Grün 1–4) | nur mitlesen, Tasten, Stimmgerät, Tap, USB-Audio (Name noch nicht abgelesen), Text to Tone | darf nichts bekommen | nur mitgelesen |
 | REACTOR 100 | 8 | wie der 50 | | ungeprüft |
 | unbekanntes Spark (FFC0) | 4 | nur lesen und umschalten | | – |
@@ -290,7 +317,12 @@ Werkspresets stehen im Katalog.
 - USB-C: Der Kopfhörer zeigte am Mac kein Audio- oder MIDI-Gerät, nur einen USB-2.0-Hub (Genesys 05e3:0608) ohne
   Gerät dahinter, vermutlich für Firmware-Updates (nicht ausprobiert). Der Bereich Aufnahme bietet den NEO nicht an.
   Ein Take mit dem NEO als Klanggeber über einen anderen Eingang trägt trotzdem den Gerätenamen im Stempel.
-- Nicht geprüft: Stimmgerät-Meldungen (`64`/`65`), Tap-Tempo und Delay mit sync = BPM, Batteriestand, USB-C mit
+- **Stimmgerät** (`01 65`): geprüft, siehe „Das Stimmgerät des Verstärkers“. Beide Befehle bestätigt, Kopfhörer stumm,
+  danach wieder Ton.
+- **Funksender** (USB-C am Mac): meldet sich als „Low Latency MIC“ (Telink, 248a:9218) mit den Klassen 7/1 und HID,
+  ohne Audio-Gerät. Aufnahme vom NEO bleibt darum ohne USB. Die Gegenprobe (Ausstecken, Gerät verschwindet) ist nicht
+  bestätigt.
+- Nicht geprüft: Tap-Tempo und Delay mit sync = BPM, Batteriestand, USB-C mit
   sicherem Datenkabel und des Funksenders, Texte länger als die der Werkspresets (höchstens 7 Bytes Name, keine
   Beschreibung), der NEO Core.
 - Sicherung aller vier Plätze vom 2026-11-09: `~/Music/Spark Studio/Sicherungen/Spark NEO 2026-11-09/`, außerhalb der
@@ -373,6 +405,10 @@ Nicht gebaut. Der Weg, wenn der Nutzer es will, jeder Schritt mit seinem Okay:
 
 - `spark-probe scan` zeigt das erkannte Profil, `--device <name>` wählt unter mehreren Geräten. Nur `listen` verbindet
   sich mit einem Gerät, dessen Profil nichts bekommen darf.
+- `spark-probe tuner <sekunden>` schaltet das Stimmgerät des Verstärkers an (`01 65 C3`), sammelt die Werte und
+  schaltet es aus (`01 65 C2`). Mit `--compare` hört es dazu den USB-Eingang des Spark (nur lesen, ohne Ratenwechsel,
+  nichts gespeichert): 8 s vorher, währenddessen, 8 s nachher, je Ton Median in Cent und Median des Werts. Das
+  App-Bündel hat dafür einen Mikrofon-Hinweis.
 - `spark-probe listen <sekunden>` findet Geräte mit FFC0 oder FFD0, abonniert nur FFC2 und hat keinen Code, der
   schreibt. Am Ende je Parameter Anzahl, Spanne, erster und letzter Wert, sonst Meldungen mit Zeitpunkt. Der
   Namenszusatz des REACTOR wird weggekürzt. Die Aufnahme läuft erst ab der Zeile „Listening …“, darum die
@@ -451,6 +487,11 @@ Für jedes Gerät, ohne Ausnahme:
     0,25 s nach dem Stopp ≤ 0,5 Cent. Halten, Anschlag-Knack, Schwelle, Gleichanteil, Stimmungen, Namen, Kammerton,
     Texte; Ringpuffer (Mittel der Kanäle, Überlauf, Epoche) und dass die Aufnahme ihn nur angehängt beschreibt.
   - Modell mit gefälschtem Eingang: hört nur, solange aktiv; ohne Spark wird nichts geöffnet; Einstellungen bleiben.
+  - Stimmgerät des Verstärkers: `AmpTunerInterpreterTests` (Median springender Werte, Ausreißer beim Anschlag, E ohne
+    Oktave, Kammerton, Nachbarton, Gestimmt, Halten), `AmpTunerLinkTests` (eine Nachricht an, eine aus; Trennen schaltet
+    zuerst aus; nach einem Abbruch wie gewünscht; Aus ohne Antwort; Beenden wartet; REACTOR bekommt nichts; Werte
+    halten keine Anfrage am Leben), `TunerModelTests` (an nur, solange der Bereich vorn ist; aus, wenn der Verstärker
+    weg ist). Fensterbild `docs/pictures/stimmgeraet-verstaerker-*` mit einem erfundenen Verstärker angesehen.
 - Geräte (synthetisch, `SimulatedDevice` und `fake_amp.py`): `DeviceProfileTests` (Profile, Erkennung, Namen in
   Logs, Bänke, USB-Namen), `ReactorDecoderTests` (die Byte-Folgen der Tabelle oben, auch die NEO-Taste),
   `SparkLinkTests` (NEO gefunden, benannt und gelesen; Zurückspringen beim Trennen und Nachlesen; mittlere Taste;
@@ -492,7 +533,11 @@ Für jedes Gerät, ohne Ausnahme:
 - **Linux:** Geräteauswahl als Menü „Verstärker → Gerät“, ohne Lämpchen in der Seitenleiste; kein REACTOR-Feld (die
   Seitenleiste zeigt seine Bänke, mitgelesen wird im Kern). Die UI-Tests mit PySide6 laufen nur auf linux-host.
 
-- **Stimmgerät mit echter Gitarre:** gegen ein Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten,
+- **Stimmgerät des Verstärkers in Studio am Gerät:** am NEO und am MINI einmal im Bereich wählen, stimmen, Bereich
+  verlassen (Ton wieder da), auch Beenden mit Stimmgerät an. Ob der Verstärker es nach einem Verbindungsabbruch anlässt.
+  Linux hat es noch nicht (dort fehlt der Bereich Stimmgerät ganz).
+- **Stimmgerät mit echter Gitarre:** Über USB am MINI lag der Pegel beim Vergleich am 2026-11-09 bei −31 bis −36 dBFS,
+  die Schwelle −60 dBFS passt also; die Werte über USB blieben auf wenige Cent ruhig. Noch offen: gegen ein Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten,
   auch Drop D und ein Bass bis H0; prüfen, ob die Schwelle −60 dBFS zum Pegel des Spark über USB passt, ob „Gestimmt“
   bei echten Saiten (die beim Anschlag etwas zu hoch klingen) ruhig genug kommt, und wie VoiceOver die Ansagen
   verteilt. Die Latenz des Callbacks (Puffergröße) und des 5-ms-Lesetakts kommt zu den gemessenen 80 ms (tiefes E) noch dazu.
