@@ -85,6 +85,17 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
     public var usbAudioNames: [String]
     /// What was checked on the device, in one sentence.
     public var checked: String
+    /// Text fields as they were heard working on this device, stricter than `AmpGuard`'s limits for every device. Nil:
+    /// only those. The NEO sits on the ears, so nothing longer than what it played goes to it (docs/STUDIO.md).
+    public var checkedText: CheckedText? = nil
+
+    /// The longest texts a device was heard playing, and the fixed fields it had.
+    public struct CheckedText: Equatable, Hashable, Sendable {
+        public var nameBytes: Int
+        public var descriptionBytes: Int
+        public var version: String
+        public var icon: String
+    }
 
     public func can(_ capability: Capabilities) -> Bool { capabilities.contains(capability) }
 
@@ -138,7 +149,10 @@ public extension DeviceProfile {
         keepsTemporaryAfterDisconnect: false, confirmsParameters: false, checkedFirmware: "1.16.1.60",
         usbAudioNames: [],
         checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und die mittlere Taste, "
-            + "Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.")
+            + "Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
+        // Heard on 2026-11-09: factory names of at most 7 bytes and spark-probe's copies "SOLO Test" and
+        // "HI GAIN Test" (12 bytes), never a description, version "0.7", icon "icon.png".
+        checkedText: CheckedText(nameBytes: 12, descriptionBytes: 0, version: "0.7", icon: "icon.png"))
 
     /// Checked listen-only on 2026-11-09: every control reported, nothing was ever sent. Sending stays off until it is
     /// checked step by step with the user (docs/STUDIO.md, "REACTOR").

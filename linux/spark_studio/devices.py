@@ -42,6 +42,8 @@ class DeviceProfile:
     bank_size: int | None = None
     bank_names: tuple[str, ...] = ()
     midi_target: str | None = None
+    # Texts as heard working on this device, stricter than the guard's limits for every device (the NEO).
+    checked_text: tuple | None = None
 
     def can(self, capability: str) -> bool:
         return capability in self.capabilities
@@ -72,7 +74,9 @@ SPARK_NEO = DeviceProfile(
     "spark_neo", "Spark NEO", SPARK_SERVICE, ("Spark NEO",), ("Spark NEO",), 4, "spark_ble", _FULL, False, False,
     "1.16.1.60", (),
     "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und die mittlere Taste, Firmware "
-    "1.16.1.60. Trennen verwirft den vorübergehenden Sound.")
+    "1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
+    # Heard on 2026-11-09: names up to 12 bytes ("HI GAIN Test"), never a description.
+    checked_text=(("name_bytes", 12), ("description_bytes", 0), ("version", "0.7"), ("icon", "icon.png")))
 
 REACTOR_50 = DeviceProfile(
     "reactor50", "REACTOR 50", REACTOR_SERVICE, ("Reactor 50",), (), 8, "spark_ble",

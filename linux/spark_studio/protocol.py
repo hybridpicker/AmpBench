@@ -426,6 +426,25 @@ def for_amp(preset: Preset) -> Preset:
     return safe
 
 
+def for_device(preset: Preset, checked_text: dict | None) -> Preset:
+    """``for_amp``, and on a device with checked text limits (the NEO) the texts fitted to what it was heard playing:
+    the name cut, the description left out, version and icon as on the device. The sound stays the same."""
+    if not checked_text:
+        return for_amp(preset)
+    source = preset.copy()
+    source.name = _fit_bytes(source.name, checked_text["name_bytes"])
+    source.description = _fit_bytes(source.description, checked_text["description_bytes"])
+    source.version = checked_text["version"]
+    source.icon = checked_text["icon"]
+    return for_amp(source)
+
+
+def _fit_bytes(text: str, limit: int) -> str:
+    while len(text.encode("utf-8")) > limit:
+        text = text[:-1]
+    return text
+
+
 def amp_problems(preset: Preset) -> list[str]:
     """What keeps the prepared preset from going to the amp. Empty when it may be sent."""
     safe = for_amp(preset)

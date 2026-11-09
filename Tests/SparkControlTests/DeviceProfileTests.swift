@@ -45,6 +45,19 @@ final class DeviceProfileTests: XCTestCase {
         }
     }
 
+    func testOnlyTheNEOHasCheckedTextLimits() {
+        XCTAssertEqual(DeviceProfile.sparkNEO.checkedText?.nameBytes, 12)
+        XCTAssertEqual(DeviceProfile.sparkNEO.checkedText?.descriptionBytes, 0)
+        XCTAssertNil(DeviceProfile.sparkMini.checkedText)
+        var preset = PresetFactory.empty(name: "Größere Bühne")
+        preset.description = "Ein Sound"
+        let fitted = AmpGuard.prepared(preset, for: .sparkNEO)
+        XCTAssertLessThanOrEqual(fitted.name.utf8.count, 12)
+        XCTAssertEqual(fitted.name, "Größere B", "13 bytes with ü, so cut before it, never inside it")
+        XCTAssertEqual(fitted.description, "")
+        XCTAssertEqual(AmpGuard.prepared(preset, for: .sparkMini), AmpGuard.prepared(preset))
+    }
+
     func testTheNEOIsNoRecordingInput() {
         XCTAssertFalse(DeviceProfile.sparkNEO.can(.usbAudio))
         XCTAssertTrue(DeviceProfile.sparkNEO.usbAudioNames.isEmpty)

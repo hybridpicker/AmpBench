@@ -24,6 +24,29 @@ public enum AmpGuard {
     /// The preset with everything that can be fitted without changing the sound fitted: values within 0…1, the tempo
     /// within range, the description within `PresetRules.descriptionLimit` and short enough for `payloadLimit`.
     public static func prepared(_ preset: SparkPreset) -> SparkPreset {
+        prepared(preset, for: nil)
+    }
+
+    /// The same, and on a device with `checkedText` (the NEO) the texts fitted to what it was heard playing: the name
+    /// cut, the description left out, version and icon as on the device. The sound stays the same.
+    public static func prepared(_ preset: SparkPreset, for profile: DeviceProfile?) -> SparkPreset {
+        var source = preset
+        if let text = profile?.checkedText {
+            source.name = fit(source.name, bytes: text.nameBytes)
+            source.description = fit(source.description, bytes: text.descriptionBytes)
+            source.version = text.version
+            source.icon = text.icon
+        }
+        return generallyPrepared(source)
+    }
+
+    static func fit(_ text: String, bytes: Int) -> String {
+        var cut = text
+        while cut.utf8.count > bytes { cut.removeLast() }
+        return cut
+    }
+
+    private static func generallyPrepared(_ preset: SparkPreset) -> SparkPreset {
         var safe = preset
         safe.description = PresetRules.fitDescription(preset.description)
         if safe.bpm.isFinite {
@@ -42,8 +65,8 @@ public enum AmpGuard {
     }
 
     /// What keeps the prepared preset from going to the amp. Empty when it may be sent.
-    public static func problems(_ preset: SparkPreset) -> [String] {
-        let safe = prepared(preset)
+    public static func problems(_ preset: SparkPreset, for profile: DeviceProfile? = nil) -> [String] {
+        let safe = prepared(preset, for: profile)
         var problems: [String] = []
         if safe.effects.count != effectCount {
             problems.append("Das Preset hat \(safe.effects.count) statt \(effectCount) Effekte.")

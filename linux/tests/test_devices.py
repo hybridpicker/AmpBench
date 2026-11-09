@@ -213,6 +213,26 @@ def test_the_reactor_gets_not_a_single_byte():
     asyncio.run(go())
 
 
+def test_the_neo_gets_only_texts_as_long_as_it_was_heard_playing():
+    async def go():
+        amp = FakeAmp(kind="neo")
+        core, _ = make(amp)
+        core.start()
+        assert await until(lambda: core.status == "connected" and all(core.slots) and core.activity is None)
+        preset = factory.empty("Ein sehr langer Name")
+        preset.description = "Beschreibung " * 6
+        preset.version = "9.9"
+        await core.try_out(preset)
+        assert amp.temporary.name == "Ein sehr lan" and amp.temporary.description == ""
+        assert amp.temporary.version == "0.7" and amp.temporary.icon == "icon.png"
+        await core.store(preset, 3)
+        assert amp.slots[3].name == "Ein sehr lan" and amp.slots[3].description == ""
+        assert protocol.for_device(factory.empty("Größere Bühne"), dict(devices.SPARK_NEO.checked_text)).name \
+            == "Größere B"
+        await core.stop()
+    asyncio.run(go())
+
+
 def test_an_unknown_spark_only_reads_and_switches():
     async def go():
         amp = FakeAmp(kind="unknown")

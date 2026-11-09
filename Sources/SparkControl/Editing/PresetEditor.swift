@@ -25,7 +25,8 @@ public struct PresetEditor: Sendable {
     /// True when anything but the checksum differs from the saved state.
     public var isModified: Bool { isUnsaved || !Self.sameContent(current, original) }
 
-    static func sameContent(_ a: SparkPreset, _ b: SparkPreset) -> Bool {
+    /// Equal apart from the trailer's checksum byte, which `encode` recomputes and the amp writes itself.
+    public static func sameContent(_ a: SparkPreset, _ b: SparkPreset) -> Bool {
         var a = a, b = b
         if a.hasChecksum { a.trailer.removeLast() }
         if b.hasChecksum { b.trailer.removeLast() }

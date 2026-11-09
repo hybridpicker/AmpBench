@@ -515,10 +515,16 @@ class LinkCore:
             await self._request(lambda s: protocol.change_hardware_preset(slot, s), protocol.SUB_HARDWARE_PRESET,
                                 protocol.CMD_ACK)
 
+    def _fitted(self, preset: Preset) -> Preset:
+        """The preset as this device may get it: on the NEO only texts as long as it was heard playing."""
+        text = dict(self.profile.checked_text) if self.profile.checked_text else None
+        return protocol.for_device(preset, text)
+
     async def _send(self, preset: Preset, place: Place) -> None:
         problems = protocol.amp_problems(preset)
         if problems:
             raise Refused(problems)
+        preset = self._fitted(preset)
         total = len(protocol.send_preset(preset, place, 0))
         async with self._tracked(Transfer("sending", total=total)):
             await self._request(lambda s: protocol.send_preset(preset, place, s), protocol.SUB_PRESET, protocol.CMD_ACK)
@@ -641,7 +647,7 @@ class LinkCore:
         self.slots[slot] = stored
         self._emit("slots", self.slots)
         # What went out had its description cut to the length the amp takes.
-        if not stored.same_content(protocol.for_amp(preset)):
+        if not stored.same_content(self._fitted(preset)):
             raise VerifyFailed(preset.name)
 
     async def current_preset(self, slot: int) -> Preset:

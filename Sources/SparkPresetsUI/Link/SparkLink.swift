@@ -409,14 +409,16 @@ final class SparkLink: NSObject, ObservableObject {
     }
 
     /// The amp confirms every chunk with `05 01` and the whole preset with `04 01`, which drives the load meter.
-    private func send(_ preset: SparkPreset, to place: SparkPresetPlace) async throws {
-        let problems = AmpGuard.problems(preset)
+    private func send(_ original: SparkPreset, to place: SparkPresetPlace) async throws {
+        let problems = AmpGuard.problems(original, for: profile)
         guard problems.isEmpty else {
-            Self.ampLog.error("refused \"\(preset.name, privacy: .public)\": \(problems.joined(separator: " "), privacy: .public)")
+            Self.ampLog.error("refused \"\(original.name, privacy: .public)\": \(problems.joined(separator: " "), privacy: .public)")
             throw LinkError.refused(problems)
         }
+        // Fitted to this device: on the NEO only texts as long as it was heard playing.
+        let preset = AmpGuard.prepared(original, for: profile)
         let total = SparkProtocol.sendPreset(preset, to: place, sequence: 0).count
-        Self.log(preset, to: place, chunks: total, device: profile.displayName)
+        Self.log(preset, original: original, to: place, chunks: total, device: profile.displayName)
         _ = try await tracked(Transfer(kind: .sending, total: total)) {
             try await request({ SparkProtocol.sendPreset(preset, to: place, sequence: $0) },
                               answer: SparkProtocol.Sub.preset, command: SparkProtocol.Command.acknowledge)
@@ -429,14 +431,16 @@ final class SparkLink: NSObject, ObservableObject {
     private static let ampLog = Logger(subsystem: "local.sparkstudio", category: "amp")
     private static let linkLog = Logger(subsystem: "local.sparkstudio", category: "link")
 
-    private static func log(_ preset: SparkPreset, to place: SparkPresetPlace, chunks: Int, device: String) {
+    private static func log(_ preset: SparkPreset, original: SparkPreset, to place: SparkPresetPlace, chunks: Int,
+                            device: String) {
         let sent = PresetRules.forAmp(preset)
         let target = if case .slot(let slot) = place { "slot \(slot + 1)" } else { "temporary" }
         let chain = sent.effects.map { effect in
             let values = effect.parameters.map { String(format: "%.2f", $0.value) }.joined(separator: " ")
             return "\(effect.name)\(effect.isOn ? "" : " (off)") [\(values)]"
         }.joined(separator: " | ")
-        let cut = sent.description == preset.description ? "" : " (cut from \(preset.description.utf8.count))"
+        let cut = sent.description == original.description ? "" : " (cut from \(original.description.utf8.count))"
+            + (sent.name == original.name ? "" : ", name cut from \(original.name.utf8.count) bytes")
         let line = "send \"\(sent.name)\" to \(device) \(target): \(chunks) chunks, description "
             + "\(sent.description.utf8.count) bytes\(cut), bpm \(sent.bpm), \(chain)"
         ampLog.info("\(line, privacy: .public)")
@@ -578,7 +582,10 @@ final class SparkLink: NSObject, ObservableObject {
         let stored = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = stored
         // What went out had its description cut to the length the amp takes.
-        guard stored == PresetRules.forAmp(preset) else { throw LinkError.verifyFailed(preset.name) }
+        // Compared apart from the checksum byte, which the amp writes itself, like the Linux app does.
+        guard PresetEditor.sameContent(stored, AmpGuard.prepared(preset, for: profile)) else {
+            throw LinkError.verifyFailed(preset.name)
+        }
     }
 
     /// Reads a slot fresh from the amp, for a backup that must match what is really stored.

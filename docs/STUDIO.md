@@ -276,6 +276,11 @@ Werkspresets stehen im Katalog.
   Modellwechsel (`04 06`, eigene Startwerte gleich den MINI-Werten, geprüft an TS9), Speichern auf Platz 4 und
   Zurückspielen des Originals Byte für Byte.
 - Lesen braucht manchmal den zweiten Versuch; das bestehende Nachfragen reicht.
+- **Texte nur so lang wie gehört:** Der NEO hat nur Namen bis 12 Bytes (Werkspresets ≤ 7, die Probe-Kopien „SOLO Test“
+  und „HI GAIN Test“) und nie eine Beschreibung gespielt. Das Profil hat darum `checkedText`: Vor dem Senden kürzt
+  `AmpGuard.prepared(_:for:)` den Namen auf 12 Bytes (an einer Zeichengrenze), lässt die Beschreibung weg und setzt
+  Version „0.7“ und Icon „icon.png“. Der Klang bleibt gleich; ein gespeicherter Platz trägt dann den gekürzten Namen.
+  Längere Texte erst nach einer Prüfung mit dem Nutzer (Kopfhörer nicht am Ohr).
 - Die mittlere Taste schaltet weiter (3 → 4 → 1) und meldet `03 38` mit dem Platz (`F0 01 50 02 03 38 00 00 02 F7`);
   Studio folgt wie bei der Preset-Taste des MINI. + und − melden nichts.
 - **Trennen verwirft den vorübergehenden Sound**, danach spielt der gespeicherte Platz (gehört und zurückgelesen).
@@ -474,6 +479,9 @@ Für jedes Gerät, ohne Ausnahme:
 
 ## Offen und als Nächstes
 
+- **Zurücklesen nach dem Speichern** verglich auf dem Mac bis 2026-11-09 das ganze Preset samt Prüfsummenbyte; ein
+  neu gebautes Preset hätte darum nie als angekommen gegolten. Jetzt wie unter Linux ohne das Prüfsummenbyte
+  (`PresetEditor.sameContent`). Am Gerät mit Studio noch nicht gespeichert.
 - **Phase 2 am Gerät prüfen**, Schritt für Schritt mit dem Nutzer, Fragen im Chat: Studio findet den NEO, zeigt „Spark
   NEO“ und 1.16.1.60 und liest vier Plätze; Wechsel MINI ↔ NEO mit der Nachfrage; mittlere Taste; Editor am NEO
   (Parameter, an/aus, ein Modellwechsel) und Trennen setzt die Anzeige zurück; Speichern aus dem Editor (mit Okay

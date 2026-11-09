@@ -102,6 +102,25 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(lost, [])
     }
 
+    /// The NEO sits on the ears: only texts as long as it was heard playing go to it, whatever the preset carries.
+    func testTheNEOGetsOnlyTextsAsLongAsItWasHeardPlaying() async throws {
+        let (device, link) = make([.neo])
+        link.start()
+        _ = await ready(link)
+        var preset = PresetFactory.empty(name: "Ein sehr langer Name")
+        preset.description = String(repeating: "Beschreibung ", count: 6)
+        preset.version = "9.9"
+        try await link.tryOut(preset)
+        XCTAssertEqual(device.temporary?.name, "Ein sehr lan")
+        XCTAssertEqual(device.temporary?.description, "")
+        XCTAssertEqual(device.temporary?.version, "0.7")
+        XCTAssertEqual(device.temporary?.icon, "icon.png")
+        XCTAssertEqual(device.temporary?.effects, AmpGuard.prepared(preset).effects, "the sound is unchanged")
+        try await link.store(preset, in: 3)
+        XCTAssertEqual(device.slots[3].name, "Ein sehr lan")
+        XCTAssertEqual(device.slots[3].description, "")
+    }
+
     func testTheNEOsMiddleButtonIsFollowed() async {
         let (device, link) = make([.neo])
         var selected: [Int] = []
