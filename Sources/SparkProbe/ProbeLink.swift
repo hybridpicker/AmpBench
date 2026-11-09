@@ -18,6 +18,8 @@ func log(_ text: String) {
 final class ProbeLink: NSObject {
     let raw: Bool
     let header: Bool
+    /// Part of the name of the device to use when several are found. Nil: the first one.
+    let deviceFilter: String?
     /// The amp sometimes ignores a request that follows the previous answer right away.
     static let gap: Duration = .milliseconds(150)
     /// Waiting ends when the amp stays silent this long. A preset takes several seconds, but data keeps coming.
@@ -41,9 +43,10 @@ final class ProbeLink: NSObject {
     private var collected: [SparkProtocol.Message]?
     private(set) var hiddenTuner = 0
 
-    init(raw: Bool, header: Bool) {
+    init(raw: Bool, header: Bool, device: String? = nil) {
         self.raw = raw
         self.header = header
+        deviceFilter = device
         super.init()
     }
 
@@ -238,7 +241,21 @@ extension ProbeLink: CBCentralManagerDelegate, CBPeripheralDelegate {
             }
             guard seen[peripheral.identifier] == nil else { return }
             seen[peripheral.identifier] = name
-            log("Found \"\(name)\", signal \(RSSI) dBm, advertised services: \(services), connectable: \(connectable)")
+            let isReactor = services.contains(DeviceProfile.reactorService)
+            let profile = DeviceProfile.forAdvertisement(service: isReactor ? DeviceProfile.reactorService
+                                                                            : DeviceProfile.sparkService, name: name)
+            let checked = profile.checkedFirmware.map { "checked with firmware \($0)" } ?? "not checked"
+            log("Found \"\(DeviceProfile.loggableName(name))\", signal \(RSSI) dBm, advertised services: \(services), "
+                + "connectable: \(connectable), profile: \(profile.displayName) (\(checked))")
+            // Nothing that may not get a byte is ever connected here; `listen` is the only way to a REACTOR.
+            guard profile.canSend else {
+                log("  not connected: its profile may not get anything. Use `listen`.")
+                return
+            }
+            if let deviceFilter, !name.localizedCaseInsensitiveContains(deviceFilter) {
+                log("  not chosen: --device \(deviceFilter)")
+                return
+            }
             guard !scanOnly, self.peripheral == nil else { return }
             central.stopScan()
             self.peripheral = peripheral

@@ -4,7 +4,8 @@ import SparkControl
 // spark-probe: an experimental test tool for the Spark's Bluetooth LE control channel.
 //
 // It only shows and connects to devices with "Spark" in their name. Other Bluetooth devices nearby are counted but
-// never printed. Nothing leaves this Mac.
+// never printed. Nothing leaves this Mac. `listen` also finds a REACTOR (service FFD0) and sends nothing at all; a
+// device whose profile may not get anything is never connected by the other commands.
 
 let usage = """
     usage: spark-probe <command> [options]
@@ -30,17 +31,21 @@ let usage = """
                       compressor, drive, amp, modulation, delay, reverb) from first-id on, and print what the amp
                       accepts and chooses. Stops when the amp echoes instead of acknowledging
       watch [secs]    connect and print what the amp sends, default 30 seconds
+      listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
+                      what came: per parameter count, range, first and last value; other messages with times
 
     options:
       --raw           also print every byte sent and received
       --no-header     send messages without the 16-byte block header
       --no-input      leave the trailing input byte out of live changes
+      --device <name> use the device whose name contains <name> when several are found, otherwise the first
 
-    The Spark app on the phone and Spark Presets must be disconnected, the amp accepts only one control connection.
+    The Spark app on the phone and Spark Studio must be disconnected, the amp accepts only one control connection.
+    From a Claude Code session in the desktop app, run it through Tools/probe-app.sh (Bluetooth access, see README).
     """
 
 enum Mode {
-    case scan, info, watch(Double), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
+    case scan, info, watch(Double), listen(Double), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
     case persistStore(UInt8, String), persistCheck(UInt8, String), live(UInt8, [String])
     case catalogCheck([ChainPlace], String?, Int)
     case backup(String)
@@ -61,6 +66,9 @@ func parseMode(_ arguments: [String]) -> Mode {
     case ("scan", 1): return .scan
     case ("info", 1): return .info
     case ("watch", 1): return .watch(30)
+    case ("listen", 2):
+        guard let seconds = Double(second!), seconds > 0 else { break }
+        return .listen(seconds)
     case ("watch", 2):
         guard let seconds = Double(second!), seconds > 0 else { break }
         return .watch(seconds)
@@ -107,6 +115,12 @@ func parseMode(_ arguments: [String]) -> Mode {
 
 var arguments = Array(CommandLine.arguments.dropFirst())
 var raw = false, header = true, input = true
+var device: String?
+if let index = arguments.firstIndex(of: "--device") {
+    guard index + 1 < arguments.count else { fail(usage) }
+    device = arguments[index + 1]
+    arguments.removeSubrange(index...(index + 1))
+}
 arguments.removeAll { argument in
     switch argument {
     case "--raw": raw = true
@@ -119,7 +133,10 @@ arguments.removeAll { argument in
 let mode = parseMode(arguments)
 
 Task { @MainActor in
-    let link = ProbeLink(raw: raw, header: header)
+    if case .listen(let seconds) = mode {
+        exit(await ListenLink(seconds: seconds, device: device, raw: raw).run() ? 0 : 1)
+    }
+    let link = ProbeLink(raw: raw, header: header, device: device)
     if case .scan = mode {
         exit(await link.scan() ? 0 : 1)
     }
@@ -127,7 +144,7 @@ Task { @MainActor in
     do {
         if case .info = mode { try await link.connect(listServices: true) } else { try await link.connect() }
         switch mode {
-        case .scan: break
+        case .scan, .listen: break
         case .info: try await Commands.info(link)
         case .watch(let seconds): await Commands.watch(link, seconds: seconds)
         case .preset(let slot): try await Commands.preset(link, slot: slot)
