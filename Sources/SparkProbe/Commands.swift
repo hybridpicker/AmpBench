@@ -40,6 +40,35 @@ enum Commands {
         _ = try await currentSlot(link)
     }
 
+    /// Switches the amp's own tuner on with one message `01 65 C3`, listens, then switches it off with `01 65 C2`.
+    /// Nothing else is sent. New to every amp checked so far: run it only with the user's okay, headphones off.
+    static func tuner(_ link: ProbeLink, seconds: Double) async throws {
+        func message(_ on: Bool) -> (UInt8) -> [[UInt8]] {
+            { [SparkProtocol.frame(command: SparkProtocol.Command.set, sub: SparkProtocol.Sub.tuner,
+                                   payload: [on ? 0xC3 : 0xC2], sequence: $0, header: link.header)] }
+        }
+        try await link.send("tuner on (01 65 C3)", message(true))
+        log("Listening for \(Int(seconds)) seconds. Play single strings now.")
+        let during = await link.listen(seconds)
+        let readings = link.tunerReadings
+        try await link.send("tuner off (01 65 C2)", message(false))
+        let after = await link.listen(2)
+        let names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "H"]
+        let heard = readings.compactMap { reading in reading.value.map { (reading.note, $0) } }
+        log("\nSummary:")
+        log("  answers to on/off: " + ((during + after).filter { $0.sub == SparkProtocol.Sub.tuner }
+            .map { String(format: "%02X 65 %@", $0.command, $0.payload.hex) }.joined(separator: ", ")).ifEmpty("none"))
+        log("  tuner readings: \(readings.count), with a signal: \(heard.count)")
+        for note in Set(heard.map(\.0)).sorted() {
+            let values = heard.filter { $0.0 == note }.map(\.1)
+            let name = Int(note) < names.count ? names[Int(note)] : "note \(note)"
+            log(String(format: "  %@: %d×, value %.3f to %.3f, last %.3f", name, values.count, values.min() ?? 0,
+                       values.max() ?? 0, values.last ?? 0))
+        }
+        let late = link.tunerReadings.count - readings.count
+        log(late == 0 ? "  ✓ no readings after switching off" : "  ! \(late) reading(s) after switching off")
+    }
+
     static func watch(_ link: ProbeLink, seconds: Double) async {
         log("Listening for \(Int(seconds)) seconds. Press the preset button or turn a knob on the amp.")
         await link.listen(seconds)
@@ -114,4 +143,8 @@ enum Commands {
             ? "  ✓ slot \(slot + 1) is byte for byte the original again"
             : "  ✗ slot \(slot + 1) differs from the original. The backup is in \(path)")
     }
+}
+
+extension String {
+    func ifEmpty(_ other: String) -> String { isEmpty ? other : self }
 }

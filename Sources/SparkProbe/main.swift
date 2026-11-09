@@ -31,6 +31,8 @@ let usage = """
                       compressor, drive, amp, modulation, delay, reverb) from first-id on, and print what the amp
                       accepts and chooses. Stops when the amp echoes instead of acknowledging
       watch [secs]    connect and print what the amp sends, default 30 seconds
+      tuner <secs>    switch the amp's own tuner on (one message 01 65 C3), listen, switch it off (01 65 C2) and
+                      sum up the readings. New to every amp: only with the user's okay, headphones off the ears
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -45,7 +47,7 @@ let usage = """
     """
 
 enum Mode {
-    case scan, info, watch(Double), listen(Double), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
+    case scan, info, watch(Double), listen(Double), tuner(Double), preset(UInt8), audition(UInt8), storeTest(UInt8, String)
     case persistStore(UInt8, String), persistCheck(UInt8, String), live(UInt8, [String])
     case catalogCheck([ChainPlace], String?, Int)
     case backup(String)
@@ -66,6 +68,9 @@ func parseMode(_ arguments: [String]) -> Mode {
     case ("scan", 1): return .scan
     case ("info", 1): return .info
     case ("watch", 1): return .watch(30)
+    case ("tuner", 2):
+        guard let seconds = Double(second!), seconds > 0, seconds <= 120 else { break }
+        return .tuner(seconds)
     case ("listen", 2):
         guard let seconds = Double(second!), seconds > 0 else { break }
         return .listen(seconds)
@@ -147,6 +152,7 @@ Task { @MainActor in
         case .scan, .listen: break
         case .info: try await Commands.info(link)
         case .watch(let seconds): await Commands.watch(link, seconds: seconds)
+        case .tuner(let seconds): try await Commands.tuner(link, seconds: seconds)
         case .preset(let slot): try await Commands.preset(link, slot: slot)
         case .audition(let slot): try await Commands.audition(link, slot: slot)
         case .storeTest(let slot, let path): try await Commands.storeTest(link, slot: slot, backup: path)
