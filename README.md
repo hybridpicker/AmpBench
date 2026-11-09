@@ -309,7 +309,8 @@ the lamps SIGNAL, ZU TIEF, GESTIMMT (green, within ±0.5 cents for 0.4 s) and ZU
   it, disconnect or quit. The amp is silent meanwhile, as when you use its tuner by hand. Its readings are coarser:
   whole cents, smoothed over 0.4 s, within about ±3 cents for GESTIMMT. The amp names only the note, so for E in
   standard tuning (sixth and first string) the octave and Hz stay empty. This is how the NEO, which has no USB audio,
-  can be tuned in Studio.
+  can be tuned in Studio. Shown before the area Presets, the tuner starts the Bluetooth link itself (once; never
+  after "Trennen").
 - **Only while it shows:** the tuner listens only while its area is in front and the window can be seen. Leaving it
   closes the input again, unless the recorder keeps it open anyway.
 - **Never a sound:** apart from the amp's own tuner you chose, it sends nothing over Bluetooth, and it plays no

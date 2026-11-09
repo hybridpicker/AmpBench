@@ -17,9 +17,10 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Immer im Dark Mode, auf Wunsch des Nutzers | 6a85f45 | installiert, läuft |
 | – | Klangrezepte, KI-Katalog in `docs/ai`, Text für REACTOR | 7bd22b1, b530b84 | installiert (2026-11-08), kein Rezept am Amp gehört |
 | – | KI-Sound im Bereich Presets: Beschreibung → Ollama Cloud API → drei Rezepte, Nachbessern, Verlauf | – | installiert (2026-11-08), nicht gegen die Cloud und nicht am Amp geprüft |
-| – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | 2969085 | installiert (2026-11-08), nur mit synthetischen Signalen geprüft, nicht mit Gitarre |
+| – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | 2969085 | installiert (2026-11-08); über USB am MINI mit Gitarre gelaufen (2026-11-09), nicht gegen ein Referenzstimmgerät |
+| – | Stimmgerät des Verstärkers (MINI, NEO) als Quelle, „Automatisch“, Bluetooth-Start aus dem Stimmgerät | 15d37b6, 90513b0, 52b85ac | Befehl und Skala mit spark-probe an MINI und NEO geprüft; in Studio vom Nutzer am NEO und MINI benutzt (2026-11-09) |
 | – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
-| Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | siehe „Geräte“, Prüfung am Gerät offen |
+| Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | NEO finden und lesen, Wechsel MINI ↔ NEO vom Nutzer bestätigt (2026-11-09); Rest siehe „Offen“ |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
 `~/Music/Spark Studio` angelegt und die alten Ordner übernommen; dass alle Aufnahmen und Presets dort angekommen sind,
@@ -528,8 +529,8 @@ Für jedes Gerät, ohne Ausnahme:
 - **Zurücklesen nach dem Speichern** verglich auf dem Mac bis 2026-11-09 das ganze Preset samt Prüfsummenbyte; ein
   neu gebautes Preset hätte darum nie als angekommen gegolten. Jetzt wie unter Linux ohne das Prüfsummenbyte
   (`PresetEditor.sameContent`). Am Gerät mit Studio noch nicht gespeichert.
-- **Phase 2 am Gerät prüfen**, Schritt für Schritt mit dem Nutzer, Fragen im Chat: Studio findet den NEO, zeigt „Spark
-  NEO“ und 1.16.1.60 und liest vier Plätze; Wechsel MINI ↔ NEO mit der Nachfrage; mittlere Taste; Editor am NEO
+- **Phase 2 am Gerät prüfen**, Schritt für Schritt mit dem Nutzer, Fragen im Chat. Bestätigt am 2026-11-09: Studio
+  findet den NEO, zeigt „Spark NEO“ und 1.16.1.60 und liest vier Plätze; Wechsel MINI ↔ NEO. Noch offen: Editor am NEO
   (Parameter, an/aus, ein Modellwechsel) und Trennen setzt die Anzeige zurück; Speichern aus dem Editor (mit Okay
   und Sicherung); ob der MINI beim Trennen den vorübergehenden Sound behält (dann Profil anpassen); REACTOR mitlesen
   (Gain bis Master, Amp, Push/Smooth, Heat, FX-Knöpfe, FX Level, TAP, Preset, Bank, Stimmgerät; dabei FX Level und
@@ -538,12 +539,14 @@ Für jedes Gerät, ohne Ausnahme:
 - **Linux:** Geräteauswahl als Menü „Verstärker → Gerät“, ohne Lämpchen in der Seitenleiste; kein REACTOR-Feld (die
   Seitenleiste zeigt seine Bänke, mitgelesen wird im Kern). Die UI-Tests mit PySide6 laufen nur auf linux-host.
 
-- **Stimmgerät des Verstärkers in Studio am Gerät:** am NEO und am MINI einmal im Bereich wählen, stimmen, Bereich
-  verlassen (Ton wieder da), auch Beenden mit Stimmgerät an. Ob der Verstärker es nach einem Verbindungsabbruch anlässt.
-  Linux hat es noch nicht (dort fehlt der Bereich Stimmgerät ganz).
+- **Stimmgerät des Verstärkers in Studio:** Am 2026-11-09 vom Nutzer benutzt: am NEO nach Wahl im Eingang, am MINI
+  mit „Automatisch“, nachdem Presets die Verbindung gestartet hatte. Daraus entstanden „Automatisch“ als Grundeinstellung
+  und der Bluetooth-Start aus dem Stimmgerät. Noch zu bestätigen: Start direkt ins Stimmgerät findet das Gerät;
+  Bereich verlassen und Beenden mit ⌘Q geben den Ton zurück; ob der Verstärker es nach einem Verbindungsabbruch
+  anlässt. Linux hat es noch nicht (dort fehlt der Bereich Stimmgerät ganz).
 - **Stimmgerät mit echter Gitarre:** Über USB am MINI lag der Pegel beim Vergleich am 2026-11-09 bei −31 bis −36 dBFS,
-  die Schwelle −60 dBFS passt also; die Werte über USB blieben auf wenige Cent ruhig. Noch offen: gegen ein Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten,
-  auch Drop D und ein Bass bis H0; prüfen, ob die Schwelle −60 dBFS zum Pegel des Spark über USB passt, ob „Gestimmt“
+  die Schwelle −60 dBFS passt also; die Werte über USB blieben auf wenige Cent ruhig. Noch offen: gegen ein
+  Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten, auch Drop D und ein Bass bis H0; ob „Gestimmt“
   bei echten Saiten (die beim Anschlag etwas zu hoch klingen) ruhig genug kommt, und wie VoiceOver die Ansagen
   verteilt. Die Latenz des Callbacks (Puffergröße) und des 5-ms-Lesetakts kommt zu den gemessenen 80 ms (tiefes E) noch dazu.
 - **Stimmgerät in der Linux-App:** noch nicht gebaut. `PitchTracker` ist reine Logik und lässt sich nach Python

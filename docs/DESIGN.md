@@ -179,7 +179,8 @@ a variant of `LEDSegments`).
 
 - **One instrument on the desk:** a `Faceplate` with radius 14, at most 1040 pt wide, centered, the same in light and
   dark. Below it one line of system text on the desk: it hears only while its area shows, sends nothing to the amp,
-  plays no sound and stores nothing.
+  plays no sound and stores nothing. With the amp's own tuner instead: it is on only while the area shows, the amp is
+  silent meanwhile, and its values are coarser, in whole cents.
 - **Readout:** two displays side by side, 172 pt high. Left the note, 108 pt bold SF Pro in amber (German names: H,
   and B for B♭; sharps ♯, flats ♭ for "Halbton tiefer"), the octave in 30 pt mono `amberDim`, below it in 12 pt mono
   capitals "6. SAITE · E2", "CHROMATISCH · A4" or the state ("SPIELE EINE SAITE", "KEIN SPARK VERBUNDEN",
@@ -197,11 +198,18 @@ a variant of `LEDSegments`).
   the right when the tone is too high and to the left when it is too low, the upper row 6 pt per second per cent,
   the lower four times as fast, so a tenth of a cent is seen to move; in tune they stand still and the middle mark
   is green. "Reduce motion" stops them: the rows stand shifted by the deviation instead, like a needle.
-- **Modules below an engraved line:** EINGANG (a `DevicePopup` with the deck's Spark and other inputs, the level as
-  amber `LEDSegments` behind glass, the lamp "HÖRT", or "GETEILT" while the recording holds the same input open),
+- **Modules below an engraved line:** EINGANG (a `DevicePopup` with "Automatisch", the deck's Spark, "Stimmgerät des
+  Spark NEO (Verstärker stumm)" while a MINI or NEO is connected, and other inputs; its value reads "Automatisch:
+  Stimmgerät des Spark NEO" or "Automatisch: Spark MINI USB". Below it the level as amber `LEDSegments` behind glass,
+  the lamp "HÖRT", or "GETEILT" while the recording holds the same input open),
   STIMMUNG (a `DevicePopup` and the strings as `LampDot`s with their names, the found one lit), KAMMERTON
   (`DisplayStepper` 430,0 to 450,0 Hz in tenths, a small key "440" with keycap ⌘0) and ANZEIGE (the key
   "Stroboskop", switched on while the strobe shows, keycap ⌘T).
+- **The amp's own tuner as source:** the same front, with what the amp cannot tell left out. Cents in whole numbers
+  ("+7", "±0"), the target line "ZIEL 110,00 HZ · VOM VERSTÄRKER", GESTIMMT within ±3 cents for 0.5 s. When the note
+  belongs to two strings (E in standard tuning) the octave and the Hz stay empty and the line reads "VOM VERSTÄRKER ·
+  E". In EINGANG the lamp says "MISST" and a line in 9 pt lamp capitals, "VERSTÄRKER STUMM, SOLANGE ES MISST",
+  stands where the level would be: the amp sends no level. Pictures: `docs/pictures/stimmgeraet-verstaerker-*`.
 - **No new colors.** Everything uses `amber`, `amberDim`, `on`, `meterOff`, `lampOffText` and the display, so the
   contrast tests cover it.
 - **VoiceOver:** the note display reads "E 2, 6. Saite", the values "minus 3,4 Cent, zu tief, 110,00 Hertz", the
