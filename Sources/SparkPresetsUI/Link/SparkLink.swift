@@ -1,4 +1,3 @@
-import CoreBluetooth
 import Foundation
 import OSLog
 import SparkControl
@@ -20,11 +19,16 @@ enum LinkError: LocalizedError {
     case unreadable(String)
     case verifyFailed(String)
     case refused([String])
+    /// The device's profile does not allow this, such as anything at all on a REACTOR.
+    case notAllowed(String)
+    case notSupported(String)
 
     var errorDescription: String? {
         switch self {
         case .refused(let problems):
             "Nicht gesendet, damit der Verstärker nichts Unbekanntes spielt: " + problems.joined(separator: " ")
+        case .notAllowed(let device): "An \(device) sendet Spark Studio nichts. Er wird nur mitgelesen."
+        case .notSupported(let device): "Das kann Spark Studio mit \(device) noch nicht; es ist dort nicht geprüft."
         case .notConnected: "Der Verstärker ist nicht verbunden."
         case .noAnswer: "Der Verstärker hat nicht geantwortet."
         case .unreadable(let detail): "Der Verstärker hat ein Preset geschickt, das nicht lesbar ist (\(detail))."
@@ -34,8 +38,62 @@ enum LinkError: LocalizedError {
     }
 }
 
-/// The Bluetooth LE connection to the amp. It only looks for devices that offer the Spark control service, so no
-/// other Bluetooth device nearby is ever seen by the app. Requests run one at a time.
+/// A device Spark Studio has been connected to, remembered by its Bluetooth identifier so two devices of the same kind
+/// stay apart.
+struct KnownDevice: Codable, Equatable, Identifiable {
+    let id: UUID
+    var name: String
+    var kind: DeviceProfile.Kind
+
+    var profile: DeviceProfile { DeviceProfile.profile(kind) }
+}
+
+/// The devices Spark Studio knows and the one last chosen, kept in UserDefaults.
+@MainActor
+final class DeviceMemory {
+    private let defaults: UserDefaults
+    private static let knownKey = "Known Devices"
+    private static let chosenKey = "Chosen Device"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var known: [KnownDevice] {
+        get {
+            guard let data = defaults.data(forKey: Self.knownKey) else { return [] }
+            return (try? JSONDecoder().decode([KnownDevice].self, from: data)) ?? []
+        }
+        set { defaults.set(try? JSONEncoder().encode(newValue), forKey: Self.knownKey) }
+    }
+
+    var chosen: UUID? {
+        get { defaults.string(forKey: Self.chosenKey).flatMap(UUID.init(uuidString:)) }
+        set { defaults.set(newValue?.uuidString, forKey: Self.chosenKey) }
+    }
+
+    func remember(_ device: KnownDevice) {
+        var all = known
+        if let index = all.firstIndex(where: { $0.id == device.id }) { all[index] = device } else { all.append(device) }
+        known = all
+    }
+}
+
+/// One line of the device choice: a known or nearby device and whether it is there.
+struct DeviceEntry: Identifiable, Equatable {
+    enum Presence { case connected, nearby, absent }
+    let id: UUID
+    let name: String
+    let profile: DeviceProfile
+    let presence: Presence
+}
+
+/// The Bluetooth LE connection to a Positive Grid device. It only looks for devices that offer the Spark control
+/// service FFC0 or REACTOR's FFD0, so no other Bluetooth device nearby is ever seen by the app. Requests run one at a
+/// time. There is one control connection at a time; choosing another device ends the current one first.
+///
+/// What may go to a device is decided by its `DeviceProfile`. A profile without `.send` (the REACTOR) gets not a single
+/// byte: the transport keeps no characteristic to write to, and every write is refused here too.
 @MainActor
 final class SparkLink: NSObject, ObservableObject {
     enum Status: Equatable {
@@ -44,15 +102,23 @@ final class SparkLink: NSObject, ObservableObject {
     }
 
     @Published private(set) var status = Status.starting
+    /// The device's name as the window shows it. For a REACTOR it includes the part its owner chose, so it never goes
+    /// into a log; `loggableName` does.
     @Published private(set) var deviceName: String?
     @Published private(set) var firmware: String?
-    /// The stored preset playing, 0 to 3. Nil while unknown or while a preset is tried out.
+    /// What the connected device is, or the chosen one while none is connected.
+    @Published private(set) var profile = DeviceProfile.sparkMini
+    /// The stored preset playing, from 0. Nil while unknown or while a preset is tried out.
     @Published private(set) var activeSlot: Int?
     /// The name of a preset that plays without being stored.
     @Published private(set) var tryingOut: String?
     /// True while the editor's preset plays on the temporary place, so live changes are heard.
     @Published private(set) var isEditingLive = false
     @Published private(set) var slots: [SparkPreset?] = Array(repeating: nil, count: 4)
+    /// What a REACTOR reported by itself since it was connected.
+    @Published private(set) var reactor = ReactorState()
+    /// Devices found in this session and devices connected before, for the device choice.
+    @Published private(set) var devices: [DeviceEntry] = []
     /// What the link is doing, for the status line.
     @Published private(set) var activity: String?
     /// What is moving between Mac and amp right now, with its progress.
@@ -62,25 +128,25 @@ final class SparkLink: NSObject, ObservableObject {
     var onAmpEvent: ((String) -> Void)?
     /// Every message sent and received, one line each, for the live self-test.
     var trace: ((String) -> Void)?
-    /// The amp switched to a stored preset by itself, 0 to 3.
+    /// The amp switched to a stored preset by itself, from 0.
     var onAmpSelected: ((Int) -> Void)?
-    /// Called after every new connection, once the amp was read.
-    var onConnected: (() -> Void)?
+    /// Called after every new connection, once the amp was read. True when the connection came back by itself after
+    /// it was lost, false when it was asked for.
+    var onConnected: ((Bool) -> Void)?
+    /// The connection ended while a sound played that is not stored, on a device that drops it then (the NEO). The
+    /// device plays its stored slot again. Gets the device's name.
+    var onTemporaryLost: ((String) -> Void)?
     /// Called when the amp confirmed a change with an echo (`03`) instead of an acknowledgement (`04`). That came
     /// before the amp hung once, so whoever sends changes should slow down.
     var onStrain: (() -> Void)?
 
-    nonisolated(unsafe) private static let service = CBUUID(string: SparkProtocol.serviceUUID)
-    nonisolated(unsafe) private static let write = CBUUID(string: SparkProtocol.writeUUID)
-    nonisolated(unsafe) private static let notify = CBUUID(string: SparkProtocol.notifyUUID)
     /// The amp sometimes ignores a request that follows the previous answer right away.
-    private static let gap: Duration = .milliseconds(150)
+    var gap: Duration = .milliseconds(150)
     /// Waiting ends when the amp stays silent this long. A preset takes several seconds, but data keeps coming.
-    private static let silence = 3.0
+    var silence = 3.0
 
-    private var central: CBCentralManager?
-    private var peripheral: CBPeripheral?
-    private var writeCharacteristic: CBCharacteristic?
+    private let transport: LinkTransport
+    private let memory: DeviceMemory
     private var parser = SparkProtocol.Parser()
     private var sequence: UInt8 = 0
     private var waiting: (sub: UInt8, commands: Set<UInt8>, token: Int, continuation: CheckedContinuation<SparkProtocol.Message, Error>)?
@@ -88,39 +154,131 @@ final class SparkLink: NSObject, ObservableObject {
     private var queue: Task<Void, Never>?
     /// True between `start` and `stop`: the link should hold or look for a connection.
     @Published private(set) var wanted = false
+    /// The device to connect to. Nil until one was chosen or found.
+    @Published private(set) var chosenID: UUID?
+    private var nearby: [UUID: FoundDevice] = [:]
+    private var connecting: FoundDevice?
+    private var connectedID: UUID?
+    /// True while a connection ends because another device was chosen.
+    private var isSwitching = false
+    /// True after a connection was lost without being asked to end.
+    private var lostByItself = false
+
+    init(transport: LinkTransport? = nil, memory: DeviceMemory? = nil) {
+        let transport = transport ?? CoreBluetoothTransport()
+        self.transport = transport
+        self.memory = memory ?? DeviceMemory()
+        super.init()
+        transport.delegate = self
+        chosenID = self.memory.chosen
+        if let chosen = self.memory.known.first(where: { $0.id == chosenID }) { setProfile(chosen.profile) }
+        updateDevices()
+    }
+
+    /// The device's name for logs: a REACTOR's own part cut off.
+    var loggableName: String { DeviceProfile.loggableName(deviceName ?? profile.displayName) }
+
+    /// The name the window uses for the device, its own or the profile's.
+    var shownName: String { deviceName ?? profile.displayName }
+
+    func can(_ capability: DeviceProfile.Capabilities) -> Bool {
+        status == .connected && profile.can(capability)
+    }
 
     func start() {
         wanted = true
-        if let central {
-            updateStatus(for: central.state)
-        } else {
-            central = CBCentralManager(delegate: self, queue: .main)
-        }
+        transport.powerUp()
+        updateStatus(for: transport.state)
     }
 
     /// Ends the connection, so the Spark app on the phone can take the amp. A request still running fails with
     /// "not connected" and is reported like any lost connection.
     func stop() {
         wanted = false
-        central?.stopScan()
-        if let peripheral { central?.cancelPeripheralConnection(peripheral) }
+        transport.stopSearch()
+        if let id = connectedID ?? connecting?.id { transport.disconnect(id) }
         status = .off
     }
 
-    private func updateStatus(for state: CBManagerState) {
+    /// Connects to another device. The current connection ends first, cleanly; there is only ever one.
+    func choose(_ id: UUID) {
+        guard id != chosenID || status != .connected else { return }
+        chosenID = id
+        memory.chosen = id
+        if let known = memory.known.first(where: { $0.id == id }) { setProfile(known.profile) }
+        if let nearby = nearby[id] { setProfile(DeviceProfile.forAdvertisement(service: nearby.service, name: nearby.name)) }
+        updateDevices()
+        if let current = connectedID ?? connecting?.id, current != id {
+            isSwitching = true
+            transport.disconnect(current)
+        } else if !wanted {
+            start()
+        } else {
+            scan()
+        }
+    }
+
+    private func updateStatus(for state: TransportState) {
         switch state {
         case .poweredOn: scan()
         case .unauthorized: status = .unauthorized
         case .poweredOff: status = .bluetoothOff
         case .unsupported: status = .unsupported
-        default: break
+        case .unknown: break
         }
     }
 
     private func scan() {
-        guard wanted, let central, central.state == .poweredOn, peripheral == nil else { return }
+        guard wanted, transport.state == .poweredOn, connectedID == nil, connecting == nil else { return }
         status = .searching
-        central.scanForPeripherals(withServices: [Self.service], options: nil)
+        if let chosenID, let device = nearby[chosenID] {
+            connect(device)
+            return
+        }
+        transport.startSearch(services: DeviceProfile.searchedServices)
+    }
+
+    private func connect(_ device: FoundDevice) {
+        transport.stopSearch()
+        connecting = device
+        chosenID = device.id
+        memory.chosen = device.id
+        let remembered = memory.known.first { $0.id == device.id && $0.kind != .unknownSpark }?.profile
+        let profile = remembered.flatMap { $0.bleService == device.service ? $0 : nil }
+            ?? DeviceProfile.forAdvertisement(service: device.service, name: device.name)
+        setProfile(profile)
+        deviceName = Self.shown(device.name)
+        firmware = nil
+        status = .connecting
+        memory.remember(KnownDevice(id: device.id, name: deviceName ?? profile.displayName, kind: profile.id))
+        updateDevices()
+        transport.connect(device, listenOnly: !profile.canSend)
+    }
+
+    private static func shown(_ name: String?) -> String? {
+        name.map { $0.replacingOccurrences(of: " BLE", with: "").replacingOccurrences(of: " Control", with: "") }
+    }
+
+    private func setProfile(_ new: DeviceProfile) {
+        profile = new
+        if slots.count != new.slotCount { slots = Array(repeating: nil, count: new.slotCount) }
+    }
+
+    private func updateDevices() {
+        var entries: [DeviceEntry] = []
+        var seen = Set<UUID>()
+        for known in memory.known {
+            seen.insert(known.id)
+            let presence: DeviceEntry.Presence = known.id == connectedID ? .connected
+                : nearby[known.id] != nil ? .nearby : .absent
+            entries.append(DeviceEntry(id: known.id, name: known.name, profile: known.profile, presence: presence))
+        }
+        for device in nearby.values.sorted(by: { ($0.name ?? "") < ($1.name ?? "") }) where !seen.contains(device.id) {
+            let profile = DeviceProfile.forAdvertisement(service: device.service, name: device.name)
+            entries.append(DeviceEntry(id: device.id, name: Self.shown(device.name) ?? profile.displayName,
+                                       profile: profile, presence: device.id == connectedID ? .connected : .nearby))
+        }
+        if entries != devices { devices = entries }
     }
 
     // MARK: Requests
@@ -166,41 +324,38 @@ final class SparkLink: NSObject, ObservableObject {
     /// Sends a message the amp does not answer, then keeps a short gap.
     private func sendOnly(_ build: @escaping (UInt8) -> [[UInt8]], gap: Duration) async throws {
         try await serial { [self] in
-            guard status == .connected, let peripheral, let characteristic = writeCharacteristic else {
-                throw LinkError.notConnected
-            }
+            guard status == .connected else { throw LinkError.notConnected }
             sequence = (sequence + 1) & 0x7F
             let blocks = build(sequence)
-            trace?("→ " + Self.describe(blocks))
-            write(blocks, to: peripheral, characteristic)
+            try write(blocks)
             try await Task.sleep(for: gap)
         }
     }
 
-    private func write(_ blocks: [[UInt8]], to peripheral: CBPeripheral, _ characteristic: CBCharacteristic) {
-        let size = max(peripheral.maximumWriteValueLength(for: .withoutResponse), 20)
-        let type: CBCharacteristicWriteType = characteristic.properties.contains(.write) ? .withResponse : .withoutResponse
-        // A write longer than one Bluetooth packet is refused, so every block goes on its own.
-        for block in blocks {
-            for start in stride(from: 0, to: block.count, by: size) {
-                peripheral.writeValue(Data(block[start..<min(start + size, block.count)]), for: characteristic,
-                                      type: type)
-            }
+    /// The one place where bytes go to the device. A profile that may not send gets nothing, whatever asked.
+    private func write(_ blocks: [[UInt8]]) throws {
+        guard profile.canSend else {
+            Self.linkLog.fault("refused to write \(Self.describe(blocks), privacy: .public) to \(self.profile.displayName, privacy: .public): its profile may not send")
+            throw LinkError.notAllowed(profile.displayName)
         }
+        trace?("→ " + Self.describe(blocks))
+        try transport.write(blocks)
     }
 
     private func once(_ build: (UInt8) -> [[UInt8]], sub: UInt8, commands: Set<UInt8>) async throws -> SparkProtocol.Message {
-        try await Task.sleep(for: Self.gap)
-        guard status == .connected, let peripheral, let characteristic = writeCharacteristic else {
-            throw LinkError.notConnected
-        }
+        try await Task.sleep(for: gap)
+        guard status == .connected else { throw LinkError.notConnected }
+        guard profile.canSend else { throw LinkError.notAllowed(profile.displayName) }
         sequence = (sequence + 1) & 0x7F
         let blocks = build(sequence)
-        trace?("→ " + Self.describe(blocks))
         return try await withCheckedThrowingContinuation { continuation in
             waiting = (sub, commands, 0, continuation)
             armTimeout()
-            write(blocks, to: peripheral, characteristic)
+            do {
+                try write(blocks)
+            } catch {
+                failWaiting(error)
+            }
         }
     }
 
@@ -209,7 +364,7 @@ final class SparkLink: NSObject, ObservableObject {
         token += 1
         let mine = token
         waiting = (current.sub, current.commands, mine, current.continuation)
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.silence) { [weak self] in
+        DispatchQueue.main.asyncAfter(deadline: .now() + silence) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, let waiting = self.waiting, waiting.token == mine else { return }
                 self.waiting = nil
@@ -224,7 +379,14 @@ final class SparkLink: NSObject, ObservableObject {
         waiting.continuation.resume(throwing: error)
     }
 
+    /// Refuses what the connected device's profile does not allow.
+    private func require(_ capability: DeviceProfile.Capabilities) throws {
+        guard status == .connected else { throw LinkError.notConnected }
+        guard profile.can(capability) else { throw LinkError.notSupported(profile.displayName) }
+    }
+
     func readPreset(_ place: SparkPresetPlace) async throws -> SparkPreset {
+        try require(.read)
         let slot: UInt8? = if case .slot(let slot) = place { slot } else { nil }
         let message = try await tracked(Transfer(kind: .reading)) {
             try await request({ [SparkProtocol.getPreset(slot: slot, sequence: $0)] }, answer: SparkProtocol.Sub.preset)
@@ -251,7 +413,7 @@ final class SparkLink: NSObject, ObservableObject {
             throw LinkError.refused(problems)
         }
         let total = SparkProtocol.sendPreset(preset, to: place, sequence: 0).count
-        Self.log(preset, to: place, chunks: total)
+        Self.log(preset, to: place, chunks: total, device: profile.displayName)
         _ = try await tracked(Transfer(kind: .sending, total: total)) {
             try await request({ SparkProtocol.sendPreset(preset, to: place, sequence: $0) },
                               answer: SparkProtocol.Sub.preset, command: SparkProtocol.Command.acknowledge)
@@ -260,10 +422,11 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Every preset that goes to the amp, readable afterwards with
     /// `log show --predicate 'subsystem == "local.sparkstudio" AND category == "amp"' --info --last 1h`.
-    /// Only the sound itself is written: name, lengths, models and values.
+    /// Only the sound itself is written: name, lengths, models and values, and the kind of device.
     private static let ampLog = Logger(subsystem: "local.sparkstudio", category: "amp")
+    private static let linkLog = Logger(subsystem: "local.sparkstudio", category: "link")
 
-    private static func log(_ preset: SparkPreset, to place: SparkPresetPlace, chunks: Int) {
+    private static func log(_ preset: SparkPreset, to place: SparkPresetPlace, chunks: Int, device: String) {
         let sent = PresetRules.forAmp(preset)
         let target = if case .slot(let slot) = place { "slot \(slot + 1)" } else { "temporary" }
         let chain = sent.effects.map { effect in
@@ -271,7 +434,7 @@ final class SparkLink: NSObject, ObservableObject {
             return "\(effect.name)\(effect.isOn ? "" : " (off)") [\(values)]"
         }.joined(separator: " | ")
         let cut = sent.description == preset.description ? "" : " (cut from \(preset.description.utf8.count))"
-        let line = "send \"\(sent.name)\" to \(target): \(chunks) chunks, description "
+        let line = "send \"\(sent.name)\" to \(device) \(target): \(chunks) chunks, description "
             + "\(sent.description.utf8.count) bytes\(cut), bpm \(sent.bpm), \(chain)"
         ampLog.info("\(line, privacy: .public)")
     }
@@ -293,9 +456,22 @@ final class SparkLink: NSObject, ObservableObject {
 
     // MARK: Actions
 
-    /// Reads everything the window shows: firmware, the preset playing and the four slots.
+    /// Asks a Spark device for its amp name (`02 11`) and takes the profile it names. Falls back to what the Bluetooth
+    /// name said when the name is missing or unknown.
+    private func identify() async {
+        guard let message = try? await request({ [SparkProtocol.getAmpName(sequence: $0)] },
+                                               answer: SparkProtocol.Sub.ampName),
+              let name = SparkValues.string(message.payload) else { return }
+        deviceName = name
+        if let named = DeviceProfile.forAmpName(name), named.bleService == profile.bleService { setProfile(named) }
+        if let id = connectedID { memory.remember(KnownDevice(id: id, name: name, kind: profile.id)) }
+        updateDevices()
+    }
+
+    /// Reads everything the window shows: firmware, the preset playing and the slots.
     func loadAll() async {
-        activity = "Lese den Verstärker …"
+        guard can(.read) else { return }
+        activity = "Lese \(shownName) …"
         defer { activity = nil }
         if let message = try? await request({ [SparkProtocol.getFirmware(sequence: $0)] },
                                             answer: SparkProtocol.Sub.firmware) {
@@ -303,21 +479,24 @@ final class SparkLink: NSObject, ObservableObject {
         }
         if let message = try? await request({ [SparkProtocol.getPresetNumber(sequence: $0)] },
                                             answer: SparkProtocol.Sub.presetNumber),
-           let slot = SparkValues.slot(message.payload), slot < 4 {
+           let slot = SparkValues.slot(message.payload), Int(slot) < profile.slotCount {
             activeSlot = Int(slot)
         }
-        for slot in 0..<4 {
-            activity = "Lese Platz \(slot + 1) …"
+        for slot in profile.slots {
+            activity = "Lese \(profile.slotName(slot)) …"
             await refresh(slot: slot)
         }
     }
 
     func refresh(slot: Int) async {
+        guard slots.indices.contains(slot) else { return }
         if let preset = try? await readPreset(.slot(UInt8(slot))) { slots[slot] = preset }
     }
 
     func select(slot: Int) async throws {
-        activity = "Schalte auf Platz \(slot + 1) …"
+        try require(.switchSlot)
+        guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
+        activity = "Schalte auf \(profile.slotName(slot)) …"
         defer { activity = nil }
         try await switchTo(UInt8(slot))
         activeSlot = slot
@@ -327,6 +506,7 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Plays a preset without storing it. Switching to any slot ends it.
     func tryOut(_ preset: SparkPreset) async throws {
+        try require(.playTemporary)
         activity = "Sende „\(preset.name)“ …"
         defer { activity = nil }
         try await send(preset, to: .temporary)
@@ -340,6 +520,7 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Plays the editor's preset on the temporary place. Changes after it are heard at once.
     func playForEditing(_ preset: SparkPreset) async throws {
+        try require(.playTemporary)
         activity = "Sende „\(preset.name)“ zum Bearbeiten …"
         defer { activity = nil }
         try await send(preset, to: .temporary)
@@ -350,18 +531,22 @@ final class SparkLink: NSObject, ObservableObject {
     }
 
     /// Sends one live change. Only used while `isEditingLive`. Returns false when a change that the amp confirms
-    /// got no answer, so the caller can check what plays.
+    /// got no answer, so the caller can check what plays. No device checked so far confirms a parameter (`04 04`),
+    /// so a parameter is never waited for; reading back after a pause shows whether it arrived.
     func apply(_ change: LiveChange) async throws -> Bool {
         switch change {
         case .parameter(let effect, let index, let value):
+            try require(.liveEdit)
             guard AmpGuard.value(value) != nil else { throw LinkError.refused(["Der Wert ist keine Zahl."]) }
             try await sendOnly({ [SparkProtocol.setParameter(effect: effect, index: index, value: value, sequence: $0)] },
                                gap: LivePacing.parameterGap)
             return true
         case .toggle(let effect, let isOn):
+            try require(.liveEdit)
             return try await confirmed({ [SparkProtocol.setEffect(effect, on: isOn, sequence: $0)] },
                                        answer: SparkProtocol.Sub.effectOnOff)
         case .model(let old, let new):
+            try require(.modelChange)
             return try await confirmed({ [SparkProtocol.changeModel(from: old, to: new, sequence: $0)] },
                                        answer: SparkProtocol.Sub.changeEffect)
         case .whole(let preset):
@@ -377,14 +562,16 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Stores a preset in a slot, switches to it and reads it back to make sure it arrived unchanged.
     func store(_ preset: SparkPreset, in slot: Int) async throws {
-        activity = "Speichere „\(preset.name)“ auf Platz \(slot + 1) …"
+        try require(.store)
+        guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
+        activity = "Speichere „\(preset.name)“ auf \(profile.slotName(slot)) …"
         defer { activity = nil }
         try await send(preset, to: .slot(UInt8(slot)))
         try await switchTo(UInt8(slot))
         activeSlot = slot
         tryingOut = nil
         isEditingLive = false
-        activity = "Prüfe Platz \(slot + 1) …"
+        activity = "Prüfe \(profile.slotName(slot)) …"
         let stored = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = stored
         // What went out had its description cut to the length the amp takes.
@@ -412,6 +599,10 @@ final class SparkLink: NSObject, ObservableObject {
                 let event = SparkEvent(message).map { " \($0)" } ?? ""
                 trace(String(format: "← %02X %02X", message.command, message.sub) + event)
             }
+            if !profile.canSend {
+                listened(message)
+                continue
+            }
             if message.command == 0x05, message.sub == SparkProtocol.Sub.preset, transfer?.kind == .sending {
                 transfer?.done += 1
             }
@@ -420,106 +611,93 @@ final class SparkLink: NSObject, ObservableObject {
                 waiting.continuation.resume(returning: message)
                 continue
             }
-            // The amp's own preset button.
+            // The amp's own preset button, or the NEO's middle button.
             if message.command == SparkProtocol.Command.response, message.sub == SparkProtocol.Sub.hardwarePreset,
-               let slot = SparkValues.slot(message.payload), slot < 4 {
+               let slot = SparkValues.slot(message.payload), Int(slot) < profile.slotCount {
                 activeSlot = Int(slot)
                 tryingOut = nil
                 isEditingLive = false
                 let name = slots[Int(slot)].map { " „\($0.name)“" } ?? ""
-                onAmpEvent?("Am Verstärker gewählt: Platz \(slot + 1)\(name)")
+                onAmpEvent?("Am \(shownName) gewählt: \(profile.slotName(Int(slot)))\(name)")
                 onAmpSelected?(Int(slot))
             }
         }
     }
 
-    private func connected() {
+    /// A device that is only listened to: its messages become its state, nothing is answered.
+    private func listened(_ message: SparkProtocol.Message) {
+        let before = reactor.slot
+        reactor.apply(message)
+        guard reactor.slot != before, let slot = reactor.slot else { return }
+        activeSlot = slot
+        onAmpEvent?("Am \(profile.displayName) gewählt: \(profile.slotName(slot)). Der Inhalt des Presets ist unbekannt.")
+    }
+
+    private func didConnect() {
         status = .connected
+        let byItself = lostByItself
+        lostByItself = false
+        guard profile.canSend else {
+            // Listen only: nothing is asked, the device reports by itself.
+            reactor = ReactorState()
+            onConnected?(byItself)
+            return
+        }
         Task {
+            await identify()
             await loadAll()
-            onConnected?()
+            onConnected?(byItself)
         }
     }
 
     private func lost() {
+        let wasTemporary = tryingOut != nil || isEditingLive
+        let name = shownName
         failWaiting(LinkError.notConnected)
-        peripheral = nil
-        writeCharacteristic = nil
+        connectedID = nil
+        connecting = nil
         parser = SparkProtocol.Parser()
         activeSlot = nil
         tryingOut = nil
-        // The amp ends the temporary preset when the connection ends.
+        // The amp ends the temporary preset when the connection ends; the NEO was heard doing it.
         isEditingLive = false
-        if central?.state == .poweredOn { status = wanted ? .searching : .off }
+        if wasTemporary, profile.losesTemporaryOnDisconnect { onTemporaryLost?(name) }
+        lostByItself = wanted && !isSwitching
+        isSwitching = false
+        if let chosen = memory.known.first(where: { $0.id == chosenID }) { setProfile(chosen.profile) }
+        updateDevices()
+        if transport.state == .poweredOn { status = wanted ? .searching : .off }
         scan()
     }
 }
 
-extension SparkLink: CBCentralManagerDelegate, CBPeripheralDelegate {
-    nonisolated func centralManagerDidUpdateState(_ central: CBCentralManager) {
-        MainActor.assumeIsolated { updateStatus(for: central.state) }
+extension SparkLink: LinkTransportDelegate {
+    func transport(changedState state: TransportState) {
+        updateStatus(for: state)
     }
 
-    nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral,
-                                    advertisementData: [String: Any], rssi RSSI: NSNumber) {
-        let name = (advertisementData[CBAdvertisementDataLocalNameKey] as? String) ?? peripheral.name
-        MainActor.assumeIsolated {
-            guard self.peripheral == nil else { return }
-            central.stopScan()
-            self.peripheral = peripheral
-            deviceName = name.map { $0.replacingOccurrences(of: " BLE", with: "") }
-            peripheral.delegate = self
-            status = .connecting
-            central.connect(peripheral)
-        }
+    func transport(found device: FoundDevice) {
+        nearby[device.id] = device
+        updateDevices()
+        guard wanted, connecting == nil, connectedID == nil else { return }
+        if chosenID == nil || chosenID == device.id { connect(device) }
     }
 
-    nonisolated func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
-        peripheral.discoverServices([Self.service])
+    func transport(connected id: UUID) {
+        guard connecting?.id == id else { return }
+        connecting = nil
+        connectedID = id
+        updateDevices()
+        didConnect()
     }
 
-    nonisolated func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral,
-                                    error: Error?) {
-        MainActor.assumeIsolated { lost() }
+    func transport(lost id: UUID) {
+        guard id == connectedID || id == connecting?.id else { return }
+        lost()
     }
 
-    nonisolated func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
-                                    error: Error?) {
-        MainActor.assumeIsolated { lost() }
-    }
-
-    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
-        guard let service = peripheral.services?.first(where: { $0.uuid == Self.service }) else {
-            MainActor.assumeIsolated { central?.cancelPeripheralConnection(peripheral) }
-            return
-        }
-        peripheral.discoverCharacteristics([Self.write, Self.notify], for: service)
-    }
-
-    nonisolated func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService,
-                                error: Error?) {
-        let characteristics = service.characteristics ?? []
-        MainActor.assumeIsolated {
-            writeCharacteristic = characteristics.first { $0.uuid == Self.write }
-            guard writeCharacteristic != nil, let notify = characteristics.first(where: { $0.uuid == Self.notify }) else {
-                central?.cancelPeripheralConnection(peripheral)
-                return
-            }
-            peripheral.setNotifyValue(true, for: notify)
-        }
-    }
-
-    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic,
-                                error: Error?) {
-        MainActor.assumeIsolated {
-            if error == nil { connected() } else { central?.cancelPeripheralConnection(peripheral) }
-        }
-    }
-
-    nonisolated func peripheral(_ peripheral: CBPeripheral, didUpdateValueFor characteristic: CBCharacteristic,
-                                error: Error?) {
-        guard let value = characteristic.value else { return }
-        let bytes = [UInt8](value)
-        MainActor.assumeIsolated { received(bytes) }
+    func transport(received bytes: [UInt8]) {
+        guard connectedID != nil else { return }
+        received(bytes)
     }
 }

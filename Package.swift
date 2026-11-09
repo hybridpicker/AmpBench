@@ -39,6 +39,8 @@ let package = Package(
         .testTarget(name: "SparkCoreTests", dependencies: ["SparkCore", "CSparkRT"], path: "Tests/SparkCoreTests"),
         .testTarget(name: "SparkControlTests", dependencies: ["SparkControl"], path: "Tests/SparkControlTests"),
         .testTarget(name: "SparkDesignTests", dependencies: ["SparkDesign"], path: "Tests/SparkDesignTests"),
+        .testTarget(name: "SparkPresetsUITests", dependencies: ["SparkPresetsUI", "SparkControl"],
+                    path: "Tests/SparkPresetsUITests"),
         .testTarget(name: "SparkTunerUITests", dependencies: ["SparkTunerUI", "SparkCore"], path: "Tests/SparkTunerUITests"),
     ]
 )

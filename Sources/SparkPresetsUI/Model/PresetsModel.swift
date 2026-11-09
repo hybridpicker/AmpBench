@@ -38,7 +38,7 @@ private struct InterruptedStore {
 
 @MainActor
 final class PresetsModel: ObservableObject {
-    let link = SparkLink()
+    let link: SparkLink
     let library: PresetLibrary
     let editor: EditorModel
     @Published private(set) var items: [SavedPreset] = []
@@ -94,18 +94,26 @@ final class PresetsModel: ObservableObject {
     private var interrupted: InterruptedStore?
     /// The last preset played with "Ausprobieren", to know what the amp plays while `link.tryingOut` is set.
     private var lastTriedOut: SparkPreset?
+    /// A device chosen while a sound plays that ending the connection would drop, waiting for a decision.
+    @Published var pendingDevice: UUID?
+    /// "Trennen" asked while such a sound plays.
+    @Published var pendingDisconnect = false
+    /// Called when the device dropped a sound that was not stored, because the connection ended (the NEO).
+    var onTemporaryLost: ((String) -> Void)?
 
-    init(folder: URL = PresetLibrary.defaultFolder) {
+    init(folder: URL = PresetLibrary.defaultFolder, link: SparkLink? = nil) {
+        self.link = link ?? SparkLink()
         library = PresetLibrary(folder: folder)
-        editor = EditorModel(link: link)
+        editor = EditorModel(link: self.link)
         editor.show = { [weak self] kind, text in self?.show(kind, text) }
-        link.onAmpEvent = { [weak self] text in self?.show(.info, text) }
-        link.onAmpSelected = { [weak self] slot in self?.ampSelected(slot) }
-        link.onConnected = { [weak self] in self?.connected() }
+        self.link.onAmpEvent = { [weak self] text in self?.show(.info, text) }
+        self.link.onAmpSelected = { [weak self] slot in self?.ampSelected(slot) }
+        self.link.onConnected = { [weak self] byItself in self?.connected(byItself: byItself) }
+        self.link.onTemporaryLost = { [weak self] name in self?.temporaryLost(on: name) }
         // Menus and buttons depend on the connection and the editor too.
-        link.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
+        self.link.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
         editor.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
-        link.$slots.sink { [weak self] slots in self?.slotsChanged(slots) }.store(in: &changes)
+        self.link.$slots.sink { [weak self] slots in self?.slotsChanged(slots) }.store(in: &changes)
         // "qwen3:32b" was the first default but is not offered by the cloud.
         let storedModel = AISetting.load(AISetting.modelKey, default: AISetting.defaultModel)
         aiModel = storedModel == "qwen3:32b" ? AISetting.defaultModel : storedModel
@@ -208,7 +216,73 @@ final class PresetsModel: ObservableObject {
     }
 
     func origin(slot: Int) -> String {
-        "Platz \(slot + 1) · \(link.deviceName ?? "Spark")"
+        "\(link.profile.slotName(slot)) · \(link.profile.displayName)"
+    }
+
+    // MARK: Devices
+
+    /// True when ending the connection would drop a sound that plays without being stored anywhere: the editor's
+    /// unsaved state or a tried-out preset that is not in the library.
+    var temporarySoundWouldBeLost: Bool {
+        guard link.status == .connected else { return false }
+        return Self.wouldLoseSound(profile: link.profile, isEditingLive: link.isEditingLive,
+                                   editorUnsaved: editor.isModified || selection == .draft,
+                                   triedOutUnsaved: link.tryingOut != nil
+                                       && (lastTriedOut.map { library.existing($0) == nil } ?? false))
+    }
+
+    /// Whether ending the connection drops a sound that exists nowhere else: only on a device that loses its
+    /// temporary place then (the NEO, and the MINI until checked), and only for a sound not saved on the Mac.
+    nonisolated static func wouldLoseSound(profile: DeviceProfile, isEditingLive: Bool, editorUnsaved: Bool,
+                                           triedOutUnsaved: Bool) -> Bool {
+        guard profile.losesTemporaryOnDisconnect else { return false }
+        return isEditingLive ? editorUnsaved : triedOutUnsaved
+    }
+
+    /// Connects to another device. Asks first when the current one would drop an unsaved sound.
+    func chooseDevice(_ id: UUID) {
+        guard id != link.chosenID || link.status != .connected else { return }
+        if temporarySoundWouldBeLost {
+            pendingDevice = id
+            return
+        }
+        link.choose(id)
+    }
+
+    /// Ends the connection. Asks first when the device would drop an unsaved sound.
+    func disconnect() {
+        if temporarySoundWouldBeLost {
+            pendingDisconnect = true
+            return
+        }
+        link.stop()
+    }
+
+    /// The answer to "Vorher als Preset sichern?": saves what plays, then goes on, or goes on without saving.
+    func resolveDeviceChange(save: Bool) {
+        let device = pendingDevice
+        let disconnecting = pendingDisconnect
+        pendingDevice = nil
+        pendingDisconnect = false
+        if save {
+            if link.isEditingLive {
+                guard saveOnMac() else { return }
+            } else if let preset = lastTriedOut {
+                do {
+                    _ = try library.save(preset, origin: "Vorübergehend gespielt · \(link.profile.displayName)")
+                    reloadLibrary()
+                } catch {
+                    show(.error, "Das Preset konnte nicht gesichert werden: \(error.localizedDescription)")
+                    return
+                }
+            }
+        }
+        if disconnecting { link.stop() } else if let device { link.choose(device) }
+    }
+
+    private func temporaryLost(on name: String) {
+        show(.warning, "\(name) ist getrennt und spielt wieder seinen gespeicherten Platz. Der vorübergehende Sound ist dort weg. Beim nächsten Verbinden liest Studio nach, was spielt.")
+        onTemporaryLost?(name)
     }
 
     // MARK: New presets
@@ -295,7 +369,7 @@ final class PresetsModel: ObservableObject {
 
     /// Asks before the edited preset goes into a slot.
     func askToStoreEdited(in slot: Int) {
-        guard canUseAmp, let preset = editor.editor?.current else { return }
+        guard canUse(.store), let preset = editor.editor?.current else { return }
         if let problem = PresetRules.problem(withName: preset.name) {
             show(.error, problem)
             return
@@ -310,6 +384,9 @@ final class PresetsModel: ObservableObject {
     // MARK: Amp
 
     var canUseAmp: Bool { link.status == .connected && !isBusy }
+
+    /// True when the connected device allows this and nothing else runs.
+    func canUse(_ capability: DeviceProfile.Capabilities) -> Bool { canUseAmp && link.profile.can(capability) }
 
     /// Switches the amp to a slot, in turn with live changes.
     func play(slot: Int) {
@@ -337,7 +414,7 @@ final class PresetsModel: ObservableObject {
     }
 
     func tryOut(_ item: SavedPreset) {
-        guard canUseAmp else { return }
+        guard canUse(.playTemporary) else { return }
         lastTriedOut = item.file.preset
         run {
             try await self.link.tryOut(item.file.preset)
@@ -350,6 +427,12 @@ final class PresetsModel: ObservableObject {
     func tryOut(_ preset: SparkPreset, report: (@MainActor (String?) -> Void)? = nil) {
         guard link.status == .connected else {
             let text = "Der Verstärker ist nicht verbunden. Verbinde ihn, dann spielt der Sound auf dem vorübergehenden Platz."
+            show(.warning, text)
+            report?(text)
+            return
+        }
+        guard link.profile.can(.playTemporary) else {
+            let text = "\(link.profile.displayName) spielt keinen Sound von Spark Studio. Er wird nur mitgelesen."
             show(.warning, text)
             report?(text)
             return
@@ -390,7 +473,7 @@ final class PresetsModel: ObservableObject {
     }
 
     func askToStore(_ item: SavedPreset, in slot: Int) {
-        guard canUseAmp else { return }
+        guard canUse(.store) else { return }
         storeRequest = StoreRequest(preset: item.file.preset, slot: slot)
     }
 
@@ -410,13 +493,13 @@ final class PresetsModel: ObservableObject {
             do {
                 try await self.link.store(preset, in: slot)
             } catch LinkError.notConnected {
-                self.show(.error, "Die Verbindung brach beim Speichern auf Platz \(slot + 1) ab. Sobald der Verstärker wieder da ist, prüft die App, was dort liegt. Die Sicherung von „\(current.name)“ ist auf dem Mac.")
+                self.show(.error, "Die Verbindung brach beim Speichern auf \(self.link.profile.slotName(slot)) ab. Sobald der Verstärker wieder da ist, prüft die App, was dort liegt. Die Sicherung von „\(current.name)“ ist auf dem Mac.")
                 return
             }
             self.interrupted = nil
             guard let stored = self.link.slots[slot] else { return }
             request.then?(stored)
-            self.show(.info, "„\(preset.name)“ ist auf Platz \(slot + 1) gespeichert und geprüft. Das bisherige „\(current.name)“ liegt als Sicherung auf dem Mac.")
+            self.show(.info, "„\(preset.name)“ ist auf \(self.link.profile.slotName(slot)) gespeichert und geprüft. Das bisherige „\(current.name)“ liegt als Sicherung auf dem Mac.")
         }
     }
 
@@ -427,11 +510,11 @@ final class PresetsModel: ObservableObject {
     }
 
     func reloadAmp() {
-        guard canUseAmp else { return }
+        guard canUse(.read) else { return }
         run { await self.link.loadAll() }
     }
 
-    private func connected() {
+    private func connected(byItself: Bool) {
         if let interrupted, let now = link.slots[interrupted.slot] {
             self.interrupted = nil
             let slot = interrupted.slot + 1
@@ -443,7 +526,9 @@ final class PresetsModel: ObservableObject {
                 show(.error, "Platz \(slot) enthält „\(now.name)“, weder das neue noch das bisherige Preset. Die Sicherung von „\(interrupted.backup.name)“ liegt auf dem Mac.")
             }
         }
-        editor.reconnected()
+        // Only a connection that came back by itself gets the edit again. After "Trennen" or another device, what
+        // the device plays is read, not assumed.
+        if byItself { editor.reconnected() }
     }
 
     // MARK: Saved presets
