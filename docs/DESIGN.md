@@ -110,6 +110,8 @@ All in `Sources/SparkDesign`, each with a `#Preview` in light and dark and usabl
 | `.amberSelection()` | amber selection for a `List` or `Table` | `Table(…).amberSelection()` |
 | `ScrollRouter` | hands the scroll wheel to the hovered control | used by `Knob`, `DeviceSlider`, `DisplayStepper` |
 | `SheetPanel` | a sheet with its title engraved on a front strip, content in system text | `SheetPanel("Tastaturkürzel") { … }` |
+| `CentMeter` | a tuner's needle field, −50 to +50 cents, a tick per cent, the middle ±0.5 cents | `CentMeter(reading: CentReading(cents: -3.2))` |
+| `StrobeBand` | a tuner's strobe: two rows that drift with the deviation and stand still in tune | `StrobeBand(reading: CentReading(cents: 0.4))` |
 
 App-specific glue stays in the apps and only maps their data onto these blocks, such as
 `Sources/SparkPresetsUI/Design/ChainColors.swift` (chain colors as swatches) and `LoadMeter.swift` (the transfer meter,
@@ -164,6 +166,40 @@ a variant of `LEDSegments`).
   two sentences on how to turn them.
 - **Sheets:** rename and save-as stay system dialogs; the templates show each chain as a miniature row of pedals.
 
+## The area Stimmgerät
+
+- **One instrument on the desk:** a `Faceplate` with radius 14, at most 1040 pt wide, centered, the same in light and
+  dark. Below it one line of system text on the desk: it hears only while its area shows, sends nothing to the amp,
+  plays no sound and stores nothing.
+- **Readout:** two displays side by side, 172 pt high. Left the note, 108 pt bold SF Pro in amber (German names: H,
+  and B for B♭; sharps ♯, flats ♭ for "Halbton tiefer"), the octave in 30 pt mono `amberDim`, below it in 12 pt mono
+  capitals "6. SAITE · E2", "CHROMATISCH · A4" or the state ("SPIELE EINE SAITE", "KEIN SPARK VERBUNDEN",
+  "MIKROFONZUGRIFF FEHLT"). Right the deviation in 56 pt SF Mono with sign and one decimal ("−3,4", "±0,0") and
+  "CENT", the frequency with two decimals in 22 pt mono and "HZ", the target and the concert pitch in 11 pt mono.
+  A held value (the tone has ended) is drawn in `amberDim`.
+- **Lamps, each with its word:** SIGNAL, ZU TIEF, ZU HOCH in amber, GESTIMMT in green `#4BD36A` (`Theme.device.on`,
+  the color of "on"), lit when the deviation stayed within ±0.5 cents for 0.4 s and was measured precisely enough.
+  No red: red belongs to recording.
+- **Needle field (`CentMeter`):** a display 96 pt high with a scale from −50 to +50 cents: a tick per cent, longer
+  every five, a number every ten (9.5 mono `amberDim`), the zero in amber. The middle is a window of ±0.5 cents,
+  faintly amber, green while in tune. The needle is a 2.5 pt amber line with a glow; held it is dim and without glow;
+  beyond ±50 it stops at the end with an arrow. It has no animation of its own; it moves as its values do.
+- **Strobe (`StrobeBand`):** the same display with two rows of amber segments, 9 pt lit and 9 pt dark. They drift to
+  the right when the tone is too high and to the left when it is too low, the upper row 6 pt per second per cent,
+  the lower four times as fast, so a tenth of a cent is seen to move; in tune they stand still and the middle mark
+  is green. "Reduce motion" stops them: the rows stand shifted by the deviation instead, like a needle.
+- **Modules below an engraved line:** EINGANG (a `DevicePopup` with the deck's Spark and other inputs, the level as
+  amber `LEDSegments` behind glass, the lamp "HÖRT", or "GETEILT" while the recording holds the same input open),
+  STIMMUNG (a `DevicePopup` and the strings as `LampDot`s with their names, the found one lit), KAMMERTON
+  (`DisplayStepper` 430,0 to 450,0 Hz in tenths, a small key "440" with keycap ⌘0) and ANZEIGE (the key
+  "Stroboskop", switched on while the strobe shows, keycap ⌘T).
+- **No new colors.** Everything uses `amber`, `amberDim`, `on`, `meterOff`, `lampOffText` and the display, so the
+  contrast tests cover it.
+- **VoiceOver:** the note display reads "E 2, 6. Saite", the values "minus 3,4 Cent, zu tief, 110,00 Hertz", the
+  needle field and the strobe the deviation in words. While a tone sounds, an announcement says note, string and
+  deviation at most every two seconds and only when the words change ("E, 6. Saite, 3 Cent zu tief", below two cents
+  in tenths, "gestimmt").
+
 ## Where the apps differ from the canvas, and why
 
 The canvas "Spark Apps Design" is intent, not a pixel specification. These differences are deliberate:
@@ -196,14 +232,15 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 - `swift test` runs `Tests/SparkDesignTests`, which computes the contrast of every text color on the device, keys,
   nameplates, amp and pills against each background it is drawn on and fails below 4.5 : 1; lines and bars on the
   desk must reach 3 : 1.
-- Smallest window: 1120 × 720 for Spark Studio, the deck's 122 pt included; the area Presets gets 1120 × 598. The
+- Smallest window: 1120 × 720 for Spark Studio, the deck's 122 pt included; the areas Presets and Stimmgerät get
+  1120 × 598. The
   `pictures` self-test and the snapshot at `--size 1120x720` show both areas there; nothing may be cut off. At that
   size the editor's board scrolls: the last row of the unit panel (such as the delay's tempo switch) is reached by
   scrolling, it is not cut. A taller minimum would no longer fit 800 pt screens with the Dock. Where room runs short, the design
   gives way in a fixed order: the device name in the recording display, then the lamps of the Presets header move
   below the name, then the pedal row shrinks to two thirds.
-- "Reduce motion" stops the pulsing of the record key and its lamp, the press movement of keys and footswitches and
-  the sweep of the transfer meter.
+- "Reduce motion" stops the pulsing of the record key and its lamp, the press movement of keys and footswitches,
+  the sweep of the transfer meter and the drift of the tuner's strobe.
 - VoiceOver: every block names itself. Keys and popups carry their label and value, knobs, sliders and steppers are
   adjustable, lamps read their word, switches report on or off, decoration (engraving next to a labeled control,
   lamp dots, keycaps) is hidden.

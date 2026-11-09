@@ -8,6 +8,8 @@ public enum KeyScope: String, CaseIterable, Sendable {
     case recording
     /// Only while the area "Presets" shows.
     case presets
+    /// Only while the area "Stimmgerät" shows.
+    case tuner
 
     public func overlaps(_ other: KeyScope) -> Bool {
         self == other || self == .everywhere || other == .everywhere
@@ -62,18 +64,19 @@ public struct StudioShortcut: Hashable, Sendable {
     public var isSingleKey: Bool { modifiers.isDisjoint(with: [.command, .control, .option]) }
 }
 
-/// Every shortcut of Spark Studio, taken from both apps, with the scope decided in docs/STUDIO.md.
+/// Every shortcut of Spark Studio, taken from its areas, with the scope decided in docs/STUDIO.md.
 ///
 /// Today's apps do not read this list yet. It is the plan that the Studio key handling will follow, and the tests
 /// keep it free of conflicts.
 public enum StudioKeymap {
-    public static let all: [StudioShortcut] = everywhere + recording + presets
+    public static let all: [StudioShortcut] = everywhere + recording + presets + tuner
 
     static let everywhere: [StudioShortcut] = [
         StudioShortcut("r", [], .everywhere, "Aufnahme starten oder stoppen, auch „Nochmal“"),
         StudioShortcut("space", [], .everywhere, "Abspielen oder anhalten; während der Aufnahme stoppen und anhören"),
         StudioShortcut("1", [.command, .shift], .everywhere, "Bereich Aufnahme"),
         StudioShortcut("2", [.command, .shift], .everywhere, "Bereich Presets"),
+        StudioShortcut("3", [.command, .shift], .everywhere, "Bereich Stimmgerät"),
         StudioShortcut("/", .command, .everywhere, "Tastaturkürzel"),
         StudioShortcut("z", .command, .everywhere, "Rückgängig, im aktiven Bereich"),
         StudioShortcut("z", [.command, .shift], .everywhere, "Wiederholen, im aktiven Bereich"),
@@ -135,6 +138,16 @@ public enum StudioKeymap {
                        when: "Bluetooth verbunden, Preset offen")
     } + (1...7).map {
         StudioShortcut("\($0)", .control, .presets, "Gerät \($0) der Kette wählen", when: "Preset offen")
+    }
+
+    /// The tuner has no single keys: R and Space keep recording and playing from there, as everywhere.
+    static let tuner: [StudioShortcut] = [
+        StudioShortcut("t", .command, .tuner, "Zeiger oder Stroboskop"),
+        StudioShortcut("up", .command, .tuner, "Kammerton 0,1 Hz höher"),
+        StudioShortcut("down", .command, .tuner, "Kammerton 0,1 Hz tiefer"),
+        StudioShortcut("0", .command, .tuner, "Kammerton 440 Hz"),
+    ] + Tuning.allCases.enumerated().map { index, tuning in
+        StudioShortcut("\(index + 1)", .control, .tuner, "Stimmung \(tuning.title)")
     }
 
     /// Pairs of shortcuts that would fire on the same keys in the same area. Empty when the map is sound.

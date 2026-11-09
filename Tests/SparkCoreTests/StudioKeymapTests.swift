@@ -50,13 +50,21 @@ final class StudioKeymapTests: XCTestCase {
     }
 
     func testAreaSwitchesAndSlotsWorkEverywhere() {
-        for key in ["1", "2"] {
+        for key in ["1", "2", "3"] {
             XCTAssertEqual(StudioKeymap.all.filter { $0.key == key && $0.modifiers == [.command, .shift] }.map(\.scope),
                            [.everywhere])
         }
         let slots = StudioKeymap.all.filter { $0.modifiers == .command && ["1", "2", "3", "4"].contains($0.key) }
         XCTAssertEqual(slots.count, 4)
         XCTAssertTrue(slots.allSatisfy { $0.scope == .everywhere && $0.condition == "Bluetooth verbunden" })
+    }
+
+    /// The tuner listens while one plays; a stray key must not change anything there, so it has no single keys.
+    func testTunerAreaHasNoSingleKeys() {
+        let tuner = StudioKeymap.shortcuts(in: .tuner)
+        XCTAssertFalse(tuner.isEmpty)
+        XCTAssertTrue(tuner.allSatisfy { !$0.isSingleKey }, "\(tuner.filter(\.isSingleKey).map(\.display))")
+        XCTAssertEqual(tuner.filter { $0.modifiers == .control }.count, Tuning.allCases.count)
     }
 
     func testDisplayUsesMenuOrder() {

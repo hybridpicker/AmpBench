@@ -16,6 +16,8 @@ struct SparkCapture {
     SparkClock *_Nullable clock;
 
     _Atomic(ExtAudioFileRef) file;
+    /// A reader such as the tuner. Written under the same `busy` flag as the file, so clearing it can wait.
+    _Atomic(SparkTap *) tap;
     _Atomic int64_t gate_frame;
     /// Frames received so far. Written by the audio thread only.
     _Atomic int64_t frames_received;
@@ -198,6 +200,8 @@ void spark_capture_process(SparkCapture *capture, const float *interleaved, uint
 
     // Sequentially consistent, so the detaching thread cannot miss a callback that is about to use the file.
     atomic_store(&capture->busy, true);
+    SparkTap *tap = atomic_load(&capture->tap);
+    if (tap) spark_tap_write(tap, interleaved, frames, channels);
     ExtAudioFileRef file = atomic_load(&capture->file);
     if (file) {
         uint32_t offset = 0;
@@ -272,6 +276,19 @@ bool spark_capture_detach_file(SparkCapture *capture) {
             if (capture->bin_position > 0) push_bin(capture);
             return true;
         }
+        usleep(250);
+    }
+    return false;
+}
+
+void spark_capture_set_tap(SparkCapture *capture, SparkTap *_Nullable tap) {
+    atomic_store(&capture->tap, tap);
+}
+
+bool spark_capture_clear_tap(SparkCapture *capture) {
+    atomic_store(&capture->tap, NULL);
+    for (int attempt = 0; attempt < 4000; attempt++) {
+        if (!atomic_load(&capture->busy)) return true;
         usleep(250);
     }
     return false;

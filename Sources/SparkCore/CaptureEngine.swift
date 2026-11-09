@@ -63,6 +63,8 @@ public final class CaptureEngine {
     private var listeners: [(AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
     private var syncTimer: DispatchSourceTimer?
     private var syncDescriptor: Int32 = -1
+    /// A reader of the input, such as the tuner. It stays attached when the input is reopened.
+    private var tap: AudioTap?
 
     public private(set) var sampleRate: Double = 0
     public private(set) var channels: Int = 0
@@ -84,12 +86,14 @@ public final class CaptureEngine {
 
     // MARK: Opening the input
 
-    public func open(device: InputDevice, retroSeconds: Double = 0) throws {
+    /// `raiseRate` switches the device to its highest rate while open, as recordings want. A listener that only
+    /// reads, such as the tuner on another input, leaves the device as it is.
+    public func open(device: InputDevice, retroSeconds: Double = 0, raiseRate: Bool = true) throws {
         // Checked here, below every feature, so nothing can record from a device that is not allowed.
         guard inputPolicy.allows(device) else { throw CaptureError.inputNotAllowed(device.name) }
         close()
         deviceID = device.id
-        if device.maxRate > device.currentRate, AudioDevices.setRate(device.maxRate, on: device.id) {
+        if raiseRate, device.maxRate > device.currentRate, AudioDevices.setRate(device.maxRate, on: device.id) {
             restoreRate = device.currentRate
         }
         do {
@@ -155,6 +159,10 @@ public final class CaptureEngine {
             hardware.mChannelsPerFrame, max(maxFrames, 8192), hardware.mSampleRate, retroFrames, margin,
             Self.overviewBinFrames, newClock.pointer)
         spark_capture_set_unit(newCapture, unit)
+        if let tap {
+            tap.begin(sampleRate: hardware.mSampleRate)
+            spark_capture_set_tap(newCapture, tap.pointer)
+        }
         capture = newCapture
 
         var callback = AURenderCallbackStruct(
@@ -228,6 +236,7 @@ public final class CaptureEngine {
             AudioComponentInstanceDispose(unit)
         }
         unit = nil
+        // The unit is disposed, so no callback runs any more and the tap stays with this engine for the next open.
         if let capture { spark_capture_destroy(capture) }
         capture = nil
         // A click may still hold the clock. It then keeps going on the last known timing until it stops.
@@ -328,6 +337,38 @@ public final class CaptureEngine {
         url = nil
         return result
     }
+
+    // MARK: Listening along
+
+    /// Lets `tap` read the input from now on, and after every reopen, until `detach`. Opens nothing by itself.
+    public func attach(_ tap: AudioTap) {
+        guard self.tap !== tap else { return }
+        detachTap()
+        self.tap = tap
+        if let capture {
+            tap.begin(sampleRate: sampleRate)
+            spark_capture_set_tap(capture, tap.pointer)
+        }
+    }
+
+    /// Stops writing into `tap`. A running recording and the retro buffer are not touched.
+    public func detach(_ tap: AudioTap) {
+        guard self.tap === tap else { return }
+        detachTap()
+    }
+
+    public func isAttached(_ tap: AudioTap) -> Bool { self.tap === tap }
+
+    private func detachTap() {
+        guard let old = tap else { return }
+        if let capture, !spark_capture_clear_tap(capture) {
+            // A callback that does not finish in a second is stuck; keeping the tap alive is the safe choice.
+            Self.stuckTaps.append(old)
+        }
+        tap = nil
+    }
+
+    private static var stuckTaps: [AudioTap] = []
 
     // MARK: Observing
 

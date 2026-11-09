@@ -1,6 +1,7 @@
 import AppKit
 import SparkPresetsUI
 import SparkRecorderUI
+import SparkTunerUI
 import SwiftUI
 
 struct StudioApp: App {
@@ -22,6 +23,7 @@ struct StudioCommands: Commands {
     var body: some Commands {
         RecorderMenus(studio.recorder, isActive: studio.area == .recording)
         PresetMenus(studio.presets, isActive: studio.area == .presets)
+        TunerMenus(studio.tuner, isActive: studio.area == .tuner)
         CommandGroup(before: .toolbar) {
             ForEach(StudioArea.allCases) { area in
                 Button(area.title) { studio.show(area) }

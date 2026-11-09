@@ -2,6 +2,7 @@ import AppKit
 import SparkCore
 import SparkPresetsUI
 import SparkRecorderUI
+import SparkTunerUI
 import SwiftUI
 
 /// The areas below the deck, in the order of the toolbar's tabs.
@@ -12,6 +13,7 @@ import SwiftUI
 enum StudioArea: String, CaseIterable, Identifiable {
     case recording
     case presets
+    case tuner
 
     var id: String { rawValue }
 
@@ -19,6 +21,7 @@ enum StudioArea: String, CaseIterable, Identifiable {
         switch self {
         case .recording: "Aufnahme"
         case .presets: "Presets"
+        case .tuner: "Stimmgerät"
         }
     }
 
@@ -36,9 +39,12 @@ final class Studio: ObservableObject {
 
     let recorder = RecorderHost(folder: StudioLaunch.folders?.recordings)
     let presets = PresetsHost(folder: StudioLaunch.folders?.presets)
+    /// Reads the recorder's input along with it. A test library keeps its settings apart.
+    let tuner: TunerHost
     @Published var area = StudioArea.recording {
         didSet {
             guard area != oldValue else { return }
+            updateTuner()
             // SwiftUI rebuilds a menu only when it opens, but a key goes to whatever the menus hold right now.
             // Without this, ⌘N could still open a preset just after switching to Aufnahme.
             for delay in [0.0, 0.15] {
@@ -51,6 +57,8 @@ final class Studio: ObservableObject {
     private var tempoQuestion: Task<Void, Never>?
 
     private init() {
+        let tunerDefaults = StudioLaunch.isTestLibrary ? UserDefaults(suiteName: "local.sparkstudio.tuner.tests") : nil
+        tuner = TunerHost(input: recorder.sharedInput, defaults: tunerDefaults ?? .standard)
         // The recorder's single keys act only in its area. R and Space record and play from everywhere.
         recorder.routeKeys { [weak self] key in
             self?.area == .recording || StudioKeymap.isSingleKeyEverywhere(key)
@@ -59,6 +67,29 @@ final class Studio: ObservableObject {
         connectTakesToSounds()
         connectPiecesToPresets()
         connectTempo()
+        offerTunerPictures()
+    }
+
+    // MARK: Pictures of the tuner
+
+    /// The recorder's `pictures` self-test draws the tuner too, with a synthetic string, never a real input.
+    private func offerTunerPictures() {
+        recorder.addPictures(steps: [
+            ("tuner", { [weak self] in self?.showTunerDemo(frequency: 110 * pow(2, -3.4 / 1200), strobe: false) }),
+            ("tuner-strobe", { [weak self] in self?.showTunerDemo(frequency: 196 * pow(2, 1.8 / 1200), strobe: true) }),
+            ("tuner-intune", { [weak self] in self?.showTunerDemo(frequency: 82.4069, strobe: false) }),
+        ], done: { [weak self] in
+            self?.isShowingTunerDemo = false
+            self?.tuner.endDemo()
+            self?.area = .recording
+        })
+    }
+
+    private func showTunerDemo(frequency: Double, strobe: Bool) {
+        isShowingTunerDemo = true
+        tuner.showDemo(frequency: frequency, strobe: strobe)
+        area = .tuner
+        updateTuner()
     }
 
     // MARK: Window
@@ -83,8 +114,27 @@ final class Studio: ObservableObject {
         recorder.adopt(window)
         presets.adopt(window)
         self.window = window
+        // The tuner hears only while its area shows in a window one can see: not when it is closed, in the Dock or
+        // hidden behind other windows.
+        let names: [Notification.Name] = [NSWindow.willCloseNotification, NSWindow.didMiniaturizeNotification,
+                                          NSWindow.didDeminiaturizeNotification, NSWindow.didChangeOcclusionStateNotification,
+                                          NSWindow.didBecomeKeyNotification]
+        for name in names {
+            NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated { self?.updateTuner(closing: note.name == NSWindow.willCloseNotification) }
+            }
+        }
         return window
     }
+
+    private func updateTuner(closing: Bool = false) {
+        let visible = !closing && window?.isVisible == true && window?.isMiniaturized == false
+            && window?.occlusionState.contains(.visible) == true
+        // The pictures' synthetic string opens no input, so it may play while the screen is locked, as tests run.
+        tuner.setActive(area == .tuner && (visible || isShowingTunerDemo))
+    }
+
+    private var isShowingTunerDemo = false
 
     func show(_ area: StudioArea) {
         self.area = area
@@ -94,6 +144,7 @@ final class Studio: ObservableObject {
     func showWindow() {
         makeWindow().makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        updateTuner()
     }
 
     /// What AppKit does right before a menu opens, for every menu at once.

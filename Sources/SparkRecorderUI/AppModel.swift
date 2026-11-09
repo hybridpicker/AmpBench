@@ -126,6 +126,9 @@ final class AppModel: ObservableObject {
     @Published private(set) var phase = RecordPhase.idle
     @Published private(set) var isMonitoring = false
     @Published private(set) var isRetroOn = false
+    /// The tuner reads along, and keeps the input open while its area shows.
+    @Published private(set) var isTuning = false
+    private var tunerTap: AudioTap?
     @Published var retroMinutes: Double
     @Published var autoLevelDefault: Bool
     @Published var currentPieceID: UUID?
@@ -239,7 +242,7 @@ final class AppModel: ObservableObject {
     }
 
     /// The input is open and hears the device, whichever feature caused it.
-    var isListening: Bool { isRecording || isMonitoring || isRetroOn }
+    var isListening: Bool { isRecording || isMonitoring || isRetroOn || isTuning }
 
     // MARK: Lifecycle
 
@@ -473,6 +476,9 @@ final class AppModel: ObservableObject {
         if isMonitoring || isRetroOn {
             turnOffListening()
             show(.warning, "Der Eingang ist nicht mehr verfügbar. Das Mithören wurde beendet und der Puffer gelöscht.")
+        } else if isTuning {
+            // The tuner reads the new input as soon as it asks again.
+            turnOffListening()
         }
         inputID = target?.id
     }
@@ -515,6 +521,8 @@ final class AppModel: ObservableObject {
         if isMonitoring || isRetroOn {
             turnOffListening()
             show(.info, "Der Eingang wurde gewechselt. Das Mithören wurde beendet und der Puffer gelöscht.")
+        } else if isTuning {
+            turnOffListening()
         }
     }
 
@@ -573,7 +581,7 @@ final class AppModel: ObservableObject {
     }
 
     private func closeInputIfUnused() {
-        guard !isRecording, !isMonitoring, !isRetroOn else { return }
+        guard !isRecording, !isMonitoring, !isRetroOn, !isTuning else { return }
         capture.close()
         resetMeter()
     }
@@ -581,6 +589,9 @@ final class AppModel: ObservableObject {
     private func turnOffListening() {
         isMonitoring = false
         isRetroOn = false
+        if let tunerTap { capture.detach(tunerTap) }
+        tunerTap = nil
+        isTuning = false
         if !isRecording {
             capture.close()
             resetMeter()
@@ -599,6 +610,37 @@ final class AppModel: ObservableObject {
         meter.clipped = false
     }
 
+    // MARK: The tuner
+
+    /// Lets the tuner read the input, opening it if it is closed. A running recording, the retro buffer and the level
+    /// check keep their input exactly as it is.
+    func startTuning(with tap: AudioTap) async throws {
+        guard let device = selectedInput else { throw SharedInputError.noDevice }
+        guard await AVCaptureDevice.requestAccess(for: .audio) else { throw SharedInputError.noPermission }
+        // The device may have gone while permission was asked for.
+        guard selectedInput?.id == device.id else { throw SharedInputError.noDevice }
+        if !capture.isOpen {
+            try capture.open(device: device)
+            signalMonitor.reset()
+        }
+        capture.attach(tap)
+        tunerTap = tap
+        isTuning = true
+    }
+
+    func stopTuning(with tap: AudioTap) {
+        guard tunerTap === tap else { return }
+        capture.detach(tap)
+        tunerTap = nil
+        isTuning = false
+        closeInputIfUnused()
+    }
+
+    func isTuning(with tap: AudioTap) -> Bool { isTuning && tunerTap === tap && capture.isAttached(tap) }
+
+    /// True while something other than the tuner keeps the input open.
+    var holdsInputForRecording: Bool { isRecording || isMonitoring || isRetroOn || phase != .idle }
+
     // MARK: Retro buffer
 
     func toggleRetro() {
@@ -610,7 +652,8 @@ final class AppModel: ObservableObject {
                 // Reopening or closing the input frees the buffer and overwrites it with zeros.
                 capture.close()
                 resetMeter()
-                if isMonitoring, let device = selectedInput { try? capture.open(device: device) }
+                // The tuner's tap stays attached to the engine and reads the reopened input.
+                if isMonitoring || isTuning, let device = selectedInput { try? capture.open(device: device) }
                 show(.info, "Retro-Aufnahme aus. Der Puffer im Arbeitsspeicher wurde gelöscht.")
             }
             return
@@ -788,7 +831,7 @@ final class AppModel: ObservableObject {
                 if gate == nil, punch != nil {
                     // Without a count-in nobody can come in on the right bar, so nothing gets recorded.
                     store.removeJournal()
-                    if !isMonitoring && !isRetroOn { capture.close() }
+                    if !isMonitoring && !isRetroOn && !isTuning { capture.close() }
                     show(.warning, "Die Takte brauchen einen Einzähler, und der Klick konnte nicht starten. Es wurde nichts aufgenommen.", sticky: true)
                     return
                 }
@@ -833,7 +876,7 @@ final class AppModel: ObservableObject {
             announce(beats > 0 ? "Einzähler" : "Aufnahme läuft")
         } catch {
             store.removeJournal()
-            if !isMonitoring && !isRetroOn { capture.close() }
+            if !isMonitoring && !isRetroOn && !isTuning { capture.close() }
             show(.error, "Die Aufnahme konnte nicht starten: \(error.localizedDescription)", sticky: true)
         }
     }
@@ -939,10 +982,12 @@ final class AppModel: ObservableObject {
         meter.beat = 0
         applyPlaybackClick()
         // Keep the input open only for features that still need it. A buffer turned off during the take ends here.
-        if !isRetroOn {
+        if !isRetroOn && !isTuning {
             capture.close()
             isMonitoring = false
             resetMeter()
+        } else if !isRetroOn {
+            isMonitoring = false
         }
     }
 
@@ -1057,6 +1102,9 @@ final class AppModel: ObservableObject {
         } else if isMonitoring || isRetroOn {
             turnOffListening()
             show(.warning, "Die Audioverbindung wurde unterbrochen. Das Mithören wurde beendet und der Puffer gelöscht.", sticky: true)
+        } else if isTuning {
+            // The tuner says so itself, and reads again once the device is back.
+            turnOffListening()
         }
         refreshDevices()
     }

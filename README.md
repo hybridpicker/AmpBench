@@ -35,8 +35,9 @@ Spark Studio joins the former apps Spark Recorder and Spark Presets. Plan, decis
 
 - The **deck** stays on top: the record key with the display, the level, the Spark module (USB input, output, retro,
   and the lamp "BT" for the amp's Bluetooth) and the click.
-- Below it the toolbar's tabs, or `⇧⌘1` and `⇧⌘2`, choose the **area**: **Aufnahme** (waveform, transport, library,
-  pieces, statistics) or **Presets** (the amp's slots, the presets on the Mac and the editor).
+- Below it the toolbar's tabs, or `⇧⌘1`, `⇧⌘2` and `⇧⌘3`, choose the **area**: **Aufnahme** (waveform, transport,
+  library, pieces, statistics), **Presets** (the amp's slots, the presets on the Mac and the editor) or
+  **Stimmgerät** (the tuner).
 - A running recording continues when the window closes. The Dock icon then shows REC and brings the window back.
 - **Bluetooth on demand**: Studio does not look for the amp when it starts. It connects when the area Presets first
   shows, with the key "Verbinden" at the foot of the presets' sidebar, with a click on the lamp "BT", or with
@@ -45,14 +46,14 @@ Spark Studio joins the former apps Spark Recorder and Spark Presets. Plan, decis
 
 ## Keyboard
 
-Single keys act only in the area Aufnahme, `R` and `Space` in both. None of them acts while you type in a text field,
+Single keys act only in the area Aufnahme, `R` and `Space` in every area. None of them acts while you type in a text field,
 and only `⌫` removes anything, only to the Trash, undoably. `⌘/` shows every shortcut.
 
 | Key | Where | Action |
 |---|---|---|
 | `R` | both | Start or stop recording, also "Nochmal" |
 | `Space` | both | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels |
-| `⇧⌘1` / `⇧⌘2` | both | Area Aufnahme / Presets |
+| `⇧⌘1` / `⇧⌘2` / `⇧⌘3` | all | Area Aufnahme / Presets / Stimmgerät |
 | `⌘Z` / `⇧⌘Z` | both | Undo / redo, in the area in front |
 | `⌘S` | both | Save the preset in the editor on the Mac |
 | `⌘1` – `⌘4` | both | Play slot 1 to 4 on the amp, while connected |
@@ -75,6 +76,9 @@ and only `⌫` removes anything, only to the Trash, undoably. `⌘/` shows every
 | `⌘B` / `⇧⌘L` / `⌘R` | Presets | Compare with the saved state / live changes on or off / read the amp again |
 | `⌃1` – `⌃7` / `⌃0` | Presets | Choose a unit of the chain / switch it on or off |
 | arrows | Presets | Turn the focused knob, `⇧` for big steps |
+| `⌘T` | Stimmgerät | Needle or strobe |
+| `⌘↑` / `⌘↓` / `⌘0` | Stimmgerät | Concert pitch A4 0.1 Hz up / down / back to 440 Hz |
+| `⌃1` – `⌃6` | Stimmgerät | Tuning: Standard, Drop D, DADGAD, Open G, half a step down, chromatic |
 
 The list is `Sources/SparkCore/StudioKeymap.swift`, and its tests make sure that no key does two things in one area.
 
@@ -259,6 +263,24 @@ The app only scans for devices that offer the Spark control service, so it never
 Spark app on the phone must be disconnected, because the amp takes only one control connection. For the same reason
 Spark Studio and `spark-probe` cannot talk to the amp at the same time: whichever starts second keeps searching.
 
+## The area Stimmgerät
+
+A tuner for guitar and bass, 30 Hz to 1.4 kHz, read to a tenth of a cent. Play a string: the note shows large with
+its octave and string ("6. SAITE · E2"), the deviation in cents with one decimal, the frequency in Hz with two, and
+the lamps SIGNAL, ZU TIEF, GESTIMMT (green, within ±0.5 cents for 0.4 s) and ZU HOCH. Below it a needle field from
+−50 to +50 cents, or with `⌘T` a strobe that stands still when the string is in tune. The concert pitch is set from
+430.0 to 450.0 Hz in tenths; tuning, pitch and display are remembered.
+
+- **Input:** the Spark chosen in the deck, read along with the recorder's own input, so a running recording or the
+  retro buffer is never touched. Another input, such as an interface or the Mac's microphone, can be chosen in the
+  module EINGANG. The lamp says "GETEILT" while a recording uses the same input.
+- **Only while it shows:** the tuner listens only while its area is in front and the window can be seen. Leaving it
+  closes the input again, unless the recorder keeps it open anyway.
+- **Never to the amp, never a sound:** it sends nothing over Bluetooth and plays no reference tone. Audio is analyzed
+  in memory only; nothing is stored, sent or logged.
+
+How it measures, and what the tests prove, is in [docs/STUDIO.md](docs/STUDIO.md#stimmgerät).
+
 ## Amp control over Bluetooth
 
 The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side offers only audio and volume keys.
@@ -411,6 +433,8 @@ in one sign.
 | ![Aufnahme, dark](docs/pictures/aufnahme-dark.png) | ![Aufnahme, light](docs/pictures/aufnahme-light.png) |
 | ![While recording](docs/pictures/aufnahme-recording-dark.png) | ![At its smallest size](docs/pictures/aufnahme-smallest-light.png) |
 | ![Presets, dark](docs/pictures/presets-dark.png) | ![Presets, light](docs/pictures/presets-light.png) |
+| ![Stimmgerät, dark](docs/pictures/stimmgeraet-dark.png) | ![Stimmgerät with strobe, light](docs/pictures/stimmgeraet-stroboskop-light.png) |
+| ![Stimmgerät, in tune](docs/pictures/stimmgeraet-gestimmt-dark.png) | ![Stimmgerät at its smallest size](docs/pictures/stimmgeraet-smallest-dark.png) |
 
 The pictures come from the app's own snapshot modes, with a test library of synthetic takes and made-up presets:
 
@@ -420,30 +444,33 @@ The pictures come from the app's own snapshot modes, with a test library of synt
     --open saved:Lead --focus delay --snapshot /tmp/presets-dark.png --quit
 ```
 
-The `pictures` scenario also shows the count-in, a running recording (from the test device only), a piece with its
+The `pictures` scenario also shows the tuner, fed with a synthetic string through its real pipeline (no input is
+opened), the count-in, a running recording (from the test device only), a piece with its
 parts and the smallest window, 1120 × 720 ([Presets at that size](docs/pictures/presets-smallest-dark.png)). `swift
 test` checks the contrast of every text color of the design against its backgrounds, at least 4.5 : 1.
 
 ## Project layout
 
 ```
-Sources/CSparkRT        Realtime capture and click (C)
-Sources/SparkCore       Capture, library, repair, edits, playback, export, statistics, Studio's folders and keymap
-                        (no UI)
+Sources/CSparkRT        Realtime capture, click and the tuner's tap (C)
+Sources/SparkCore       Capture, library, repair, edits, playback, export, statistics, Studio's folders and keymap,
+                        pitch detection for the tuner (no UI)
 Sources/SparkDesign     The design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
 Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog and the preset library, without
                         Bluetooth code
 Sources/SparkRecorderUI The deck and the area Aufnahme: window parts, menus, keys, self-test, headless audio commands
 Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
+Sources/SparkTunerUI    The area Stimmgerät: its front and menus; no Bluetooth, no sound
 Sources/SparkStudio     The app: one window, the areas, and what ties takes, sounds and tempo together
 Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
 Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets
-Tests/SparkDesignTests  Contrast of every text color against its backgrounds
+Tests/SparkDesignTests  Contrast of every text color against its backgrounds, the tuner's blocks
+Tests/SparkTunerUITests The tuner's model with a made-up input
 Tools/make-icon.swift   Draws the app icon
 ```
 
-A new area joins as a library with a host, like `RecorderHost` and `PresetsHost`, and a case in `StudioArea`
+A new area joins as a library with a host, like `RecorderHost`, `PresetsHost` and `TunerHost`, and a case in `StudioArea`
 (`Sources/SparkStudio/Studio.swift`); docs/STUDIO.md lists the steps.
 
 ## Tests
@@ -454,8 +481,8 @@ swift test
 
 All audio is generated by the tests. No test reads a real recording. The audio path tests send a tone through the
 virtual [BlackHole](https://github.com/ExistentialAudio/BlackHole) device, and they skip with a reason when BlackHole or
-the microphone permission is missing. Since 2026-11-08 four of them fail on this Mac because the tone does not come
-back through BlackHole; docs/STUDIO.md has the details.
+the microphone permission is missing. On 2026-11-08 four of them failed for some hours because the tone did not come
+back through BlackHole, then passed again without a code change; docs/STUDIO.md has the details.
 
 The recipe tests also check the files in `docs/ai`: every example must be a valid recipe, and the catalog files must
 match the catalog in the code. After a change to `Sources/SparkControl/Catalog`, run

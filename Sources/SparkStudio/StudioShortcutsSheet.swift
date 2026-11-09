@@ -15,6 +15,7 @@ struct StudioShortcutsSheet: View {
 
     private static let sections: [(title: String, scope: KeyScope)] = [
         ("Überall", .everywhere), ("Bereich Aufnahme", .recording), ("Bereich Presets", .presets),
+        ("Bereich Stimmgerät", .tuner),
     ]
 
     var body: some View {

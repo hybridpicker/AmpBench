@@ -21,6 +21,9 @@ final class UISelfTest {
     private var restoreRate: (device: AudioDeviceID, rate: Double)?
     private var activity: NSObjectProtocol?
 
+    /// Pictures of other areas, given by Spark Studio.
+    static var extraPictures: (steps: [(name: String, show: @MainActor () -> Void)], done: @MainActor () -> Void)?
+
     static func startIfRequested(model: AppModel) {
         let arguments = CommandLine.arguments
         guard LaunchOptions.current.isTestLibrary,
@@ -1252,6 +1255,32 @@ final class UISelfTest {
                 await snapshot("smallest-\(suffix)")
             }
             window.setFrame(frame, display: true)
+        }
+
+        // Other areas, such as the tuner with a synthetic string.
+        if let extra = Self.extraPictures {
+            for step in extra.steps {
+                step.show()
+                // Long enough for the tuner to settle on its synthetic string.
+                await wait(1.6)
+                for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+                    NSApp.appearance = NSAppearance(named: appearance)
+                    await snapshot("\(step.name)-\(suffix)")
+                }
+            }
+            if let window, let step = extra.steps.first {
+                let frame = window.frame
+                step.show()
+                window.setContentSize(window.contentMinSize)
+                await wait(1.6)
+                for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+                    NSApp.appearance = NSAppearance(named: appearance)
+                    await snapshot("\(step.name)-smallest-\(suffix)")
+                }
+                window.setFrame(frame, display: true)
+            }
+            extra.done()
+            NSApp.appearance = NSAppearance(named: .darkAqua)
         }
 
         // The deck while counting in and recording, from the test device only.

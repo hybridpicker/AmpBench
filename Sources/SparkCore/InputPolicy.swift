@@ -39,6 +39,10 @@ public struct InputPolicy: Sendable {
         isTestAggregate(name, transport)
     }
 
+    /// Any device, for a listener that only reads, such as the tuner on an input that is not a Spark. Never used for
+    /// recording: the recorder's engine always has `sparkOnly` or a test policy.
+    public static let listenOnly = InputPolicy { _, _ in true }
+
     /// No device at all, standing in for "no amp connected".
     public static let nothing = InputPolicy { _, _ in false }
 

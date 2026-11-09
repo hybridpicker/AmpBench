@@ -130,8 +130,37 @@ public final class RecorderHost {
         model.show(.info, text, action: BannerAction(title: title, run: run))
     }
 
+    /// Further pictures for the `pictures` self-test, such as another area: each step shows something, then the
+    /// window is drawn in dark and light and at its smallest size; `done` puts things back.
+    public func addPictures(steps: [(name: String, show: @MainActor () -> Void)], done: @escaping @MainActor () -> Void) {
+        UISelfTest.extraPictures = (steps, done)
+    }
+
+    // MARK: The input, for the tuner
+
+    /// The recorder's input, for reading along with it. The tuner uses it instead of opening a second audio unit.
+    public lazy var sharedInput: SharedInput = RecorderInput(model: model)
+
     public func inform(_ text: String) { model.show(.info, text) }
     public func warn(_ text: String) { model.show(.warning, text) }
+}
+
+/// The recorder's input as the tuner sees it.
+@MainActor
+private final class RecorderInput: SharedInput {
+    private let model: AppModel
+
+    init(model: AppModel) {
+        self.model = model
+    }
+
+    var device: InputDevice? { model.selectedInput }
+    var isHeldOpen: Bool { model.holdsInputForRecording }
+    var allowsOtherInputs: Bool { !LaunchOptions.current.isTestLibrary }
+    func share(with tap: AudioTap) async throws { try await model.startTuning(with: tap) }
+    func stopSharing(with tap: AudioTap) { model.stopTuning(with: tap) }
+    func isSharing(with tap: AudioTap) -> Bool { model.isTuning(with: tap) }
+    func owns(_ device: InputDevice) -> Bool { LaunchOptions.current.inputPolicy.allows(device) || device.name.localizedCaseInsensitiveContains("spark") }
 }
 
 extension View {

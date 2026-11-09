@@ -13,6 +13,19 @@ public struct InputDevice: Identifiable, Hashable, Sendable {
     public let physicalBits: Int
     public let transport: UInt32
 
+    public init(id: AudioDeviceID, uid: String, modelUID: String, name: String, channels: Int, currentRate: Double,
+                maxRate: Double, physicalBits: Int, transport: UInt32) {
+        self.id = id
+        self.uid = uid
+        self.modelUID = modelUID
+        self.name = name
+        self.channels = channels
+        self.currentRate = currentRate
+        self.maxRate = maxRate
+        self.physicalBits = physicalBits
+        self.transport = transport
+    }
+
     public var identity: DeviceIdentity {
         DeviceIdentity(uid: uid, modelUID: modelUID, name: name, isBuiltIn: transport == kAudioDeviceTransportTypeBuiltIn)
     }

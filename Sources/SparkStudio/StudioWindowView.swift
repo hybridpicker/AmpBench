@@ -1,6 +1,7 @@
 import SparkDesign
 import SparkPresetsUI
 import SparkRecorderUI
+import SparkTunerUI
 import SwiftUI
 
 /// The deck on top, fixed, and the area chosen in the toolbar below it.
@@ -31,11 +32,10 @@ struct StudioWindowView: View {
                 case .presets:
                     presets.content
                         // The recorder's messages, such as "Kein Spark" after R, are seen here too.
-                        .overlay(alignment: .top) {
-                            studio.recorder.banner
-                                .padding(.horizontal, 14)
-                                .padding(.top, 8)
-                        }
+                        .overlay(alignment: .top) { recorderBanner }
+                case .tuner:
+                    studio.tuner.content
+                        .overlay(alignment: .top) { recorderBanner }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -49,6 +49,12 @@ struct StudioWindowView: View {
                     .help(StudioArea.allCases.map { "\($0.title) ⇧⌘\($0.digit)" }.joined(separator: ", "))
             }
         }
+    }
+
+    private var recorderBanner: some View {
+        studio.recorder.banner
+            .padding(.horizontal, 14)
+            .padding(.top, 8)
     }
 
     private var bluetooth: DeckBluetooth {

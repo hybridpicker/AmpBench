@@ -85,6 +85,36 @@ uint64_t spark_capture_retro_available_frames(const SparkCapture *capture);
 /// Copies the most recent frames into `destination` and returns how many were copied.
 uint64_t spark_capture_retro_copy_latest(const SparkCapture *capture, float *destination, uint64_t frames);
 
+// MARK: - Tap
+
+/// A mono copy of an input for a listener that only reads, such as the tuner. One single-producer, single-consumer
+/// ring buffer: the capture callback writes the average of all channels, a normal thread reads. Nothing is kept
+/// beyond the ring, and the ring is zeroed when the tap is destroyed.
+typedef struct SparkTap SparkTap;
+
+/// The capacity is rounded up to a power of two. The buffer is touched up front, so writing never faults a page in.
+SparkTap *spark_tap_create(uint32_t capacity_frames);
+void spark_tap_destroy(SparkTap *tap);
+uint32_t spark_tap_capacity(const SparkTap *tap);
+/// Announces a new stream with its sample rate, before the tap is attached to a capture. The reader sees a new epoch
+/// and drops what it had. Not while a capture writes into this tap.
+void spark_tap_begin(SparkTap *tap, double sample_rate);
+double spark_tap_sample_rate(const SparkTap *tap);
+uint32_t spark_tap_epoch(const SparkTap *tap);
+/// Writes the average of the channels. When the reader is behind, the newest frames are dropped and counted. [RT]
+void spark_tap_write(SparkTap *tap, const float *interleaved, uint32_t frames, uint32_t channels);
+/// Reads up to `max_frames` frames, oldest first. Returns how many were read.
+uint32_t spark_tap_read(SparkTap *tap, float *destination, uint32_t max_frames);
+/// Drops everything written so far, for a reader that starts over.
+void spark_tap_skip(SparkTap *tap);
+uint64_t spark_tap_overruns(const SparkTap *tap);
+
+/// Lets the capture write every block into `tap` as well. The tap must have been begun with this capture's rate.
+void spark_capture_set_tap(SparkCapture *capture, SparkTap *_Nullable tap);
+/// Stops writing into the tap and waits for a callback in progress to finish. Returns false when it did not finish
+/// in time, in which case the tap must not be destroyed yet.
+bool spark_capture_clear_tap(SparkCapture *capture);
+
 // MARK: - Click
 
 typedef struct SparkClick SparkClick;
