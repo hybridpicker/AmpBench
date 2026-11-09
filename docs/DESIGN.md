@@ -151,6 +151,15 @@ a variant of `LEDSegments`).
   folder symbol, "Sicherungen" with a clock and the date of the backup. At the foot: the connection lamp (green when
   connected, amber while searching, dark when Bluetooth cannot be used), device name, firmware, and the "+" key.
   Selection in amber.
+- **Device choice:** the sidebar's first section, "Gerät": a `DevicePopup` with the chosen device and a `LampDot`
+  beside it (green connected, amber nearby, dark not there; the menu says the same in words). The slots below are
+  that device's: "Am Spark NEO", or two sections "Am REACTOR 50 · Rot" and "· Grün" with keys numbered 1–4 per bank.
+  It sits at the top, not at the foot, because the foot is missing from window pictures and the slots belong to it.
+- **REACTOR panel** (instead of the editor while a REACTOR is connected and a slot or nothing is selected): the same
+  front strip with one display (device name, lamps VERBUNDEN and NUR MITLESEN, "Preset-Inhalt unbekannt …" and the
+  slot as "Grün 2" in 26 mono), then raised panels on the board: AMP (the six amps, Push/Smooth and Heat as lamps,
+  five `KnobFace`s that only show, "–" while unknown), EFFEKTE (six small displays, the selected one with the 2 pt
+  amber frame), TAP and STIMMGERÄT AM REACTOR. Nothing on it can be turned. No new colors.
 - **Header:** a front strip with one display: the name (23 bold, editable), lamps GEÄNDERT and LIVE, BPM in mono on
   the right; below the origin and the description; then ÜBERTRAGUNG with the transfer meter. In a narrow window the
   lamps move below the name. On the right the keys Rückgängig ⌘Z, Wiederholen, A/B ⌘B (switched on while the saved

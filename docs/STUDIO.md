@@ -17,7 +17,9 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Immer im Dark Mode, auf Wunsch des Nutzers | 6a85f45 | installiert, läuft |
 | – | Klangrezepte, KI-Katalog in `docs/ai`, Text für REACTOR | 7bd22b1, b530b84 | installiert (2026-11-08), kein Rezept am Amp gehört |
 | – | KI-Sound im Bereich Presets: Beschreibung → Ollama Cloud API → drei Rezepte, Nachbessern, Verlauf | – | installiert (2026-11-08), nicht gegen die Cloud und nicht am Amp geprüft |
-| – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | – | installiert (2026-11-08), nur mit synthetischen Signalen geprüft, nicht mit Gitarre |
+| – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | 2969085 | installiert (2026-11-08), nur mit synthetischen Signalen geprüft, nicht mit Gitarre |
+| – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
+| Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | siehe „Geräte“, Prüfung am Gerät offen |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
 `~/Music/Spark Studio` angelegt und die alten Ordner übernommen; dass alle Aufnahmen und Presets dort angekommen sind,
@@ -39,8 +41,13 @@ SparkStudio  (App: ein Fenster, Bereiche, Verbindungen zwischen ihnen; Info.plis
   ├── SparkDesign      Bausteine (DESIGN.md)
   ├── SparkCore        Aufnahme, Bibliothek, PresetStamp, Stücke, StudioFolders, StudioKeymap,
   │                    Tonhöhenerkennung (PitchDetector, PitchTracker, Tuning, TunerEngine, AudioTap, SharedInput)
-  └── SparkControl     Protokoll, Katalog, Preset-Bibliothek, Fingerabdruck
+  └── SparkControl     Protokoll, Katalog, Preset-Bibliothek, Fingerabdruck, Geräteprofile (DeviceProfile),
+                       REACTOR-Meldungen (ReactorState)
 ```
+
+- **Der Link hängt an einer Transportschicht.** `SparkLink` spricht mit `LinkTransport`: `CoreBluetoothTransport` in der
+  App, `SimulatedDevice` in Tests und Fensterbildern (`--library … --demo-devices`). So prüfen Tests das Zurückspringen
+  des NEO und dass der REACTOR kein Byte bekommt, ohne Bluetooth.
 
 - **Hosts statt öffentlicher Module.** Jede Bibliothek zeigt Studio genau einen Host. Der Rest bleibt `internal`.
   `RecorderSession` (früher der AppDelegate von Spark Recorder) übernimmt Studios Fenster: Dock-REC, „Aufnahme läuft
@@ -169,13 +176,14 @@ steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
 - REACTOR (eigene Produktlinie, laut Positive Grid nicht Spark-kompatibel, kein Dateiformat dokumentiert): Weg nur
   über Text. `--recipe-prompt` beschreibt ein Rezept oder Preset auf Englisch für „Text to Tone“
   (`SoundRecipe.toneDescription`).
-- Geprüft ist nur der Spark MINI. Andere Spark-Verstärker, Spark NEO und REACTOR sind nicht geprüft, offene Punkte
-  stehen unter „Offen und als Nächstes“.
+- Geprüft sind der Spark MINI und der Spark NEO (Abschnitt „Geräte“). Andere Spark-Verstärker sind nicht geprüft; der
+  REACTOR nimmt Rezepte nur als Text.
 
 ## Datenmodell
 
-- **Sound am Take:** `Recording.preset: PresetStamp?` mit `slot` (1–4, nil = vorübergehend gespielt), `name`,
-  `stampedAt`, `sha256`. Der Schnappschuss liegt als Preset-Datei in `Aufnahmen/.presets/<Take-UUID>.json`
+- **Sound am Take:** `Recording.preset: PresetStamp?` mit `slot` (ab 1, nil = vorübergehend gespielt), `name`,
+  `stampedAt`, `sha256`, `device` (Profilname, seit Phase 2) und bei einem nur mitgelesenen Gerät `listened`
+  (Beschriftung und Wert) statt Fingerabdruck und Schnappschuss. Der Schnappschuss liegt als Preset-Datei in `Aufnahmen/.presets/<Take-UUID>.json`
   (`PresetFile.snapshotData`), damit „Im Editor öffnen“ die normale Leselogik benutzt. Benannt nach der UUID, nicht
   nach dem Dateinamen, so bleibt er beim Umbenennen am Take. Verwerfen und Wiederherstellen behalten ihn.
   - Was klingt (`PresetsModel.heardPreset`, nur aus dem Speicher): der Editor-Stand, wenn er live auf 7F spielt (auch
@@ -209,9 +217,9 @@ Leertaste auf einer fokussierten Taste bei voller Tastatursteuerung drückt die 
 
 | Wo | Kürzel |
 |---|---|
-| überall | R, Leertaste, ⇧⌘1/⇧⌘2/⇧⌘3, ⌘/, ⌘Z/⇧⌘Z (im Bereich vorn), ⌘S (Preset im Editor), ⌘1–⌘4 (verbunden) |
+| überall | R, Leertaste, ⇧⌘1/⇧⌘2/⇧⌘3, ⌘/, ⌘Z/⇧⌘Z (im Bereich vorn), ⌘S (Preset im Editor), ⌘1–⌘8 (verbunden, so viele Plätze das Gerät hat) |
 | Aufnahme | L M K F B N T G, ⌘G, 1–5, - + 0, ← → (mit ⇧), ⌫ ⌦ ⌘⌫, ⌘E, ⇧⌘R, ⌘F, Esc |
-| Presets | ⌘N, ⇧⌘N, ⌘D, ⇧⌘S, ⌥⌘1–⌥⌘4, ⌘B, ⇧⌘L, ⌘R, ⌃1–⌃7, ⌃0, Pfeile am Regler, ⌘E, ⌘⌫, ⇧⌘R |
+| Presets | ⌘N, ⇧⌘N, ⌘D, ⇧⌘S, ⌥⌘1–⌥⌘8, ⌘B, ⇧⌘L, ⌘R, ⌃1–⌃7, ⌃0, Pfeile am Regler, ⌘E, ⌘⌫, ⇧⌘R |
 | Stimmgerät | ⌘T (Zeiger/Stroboskop), ⌘↑/⌘↓ (Kammerton ±0,1 Hz), ⌘0 (440 Hz), ⌃1–⌃6 (Stimmung); keine Einzeltasten |
 
 Entschieden: ⌘E, ⌘⌫, ⇧⌘R wirken auf Take oder Preset je nach Bereich. ⌘S sichert überall das Preset im Editor (der
@@ -219,6 +227,155 @@ Recorder speichert von selbst). ⌘1–⌘4 überall, aber nur bei Verbindung. R
 Typ-Auswahl für „r“ nimmt. Esc gehört im Bereich Presets dem Suchfeld. ⇧⌘S nur in Presets, weil es dort ein Sheet
 öffnet. ⌘E bleibt Umbenennen; das Design-Canvas zeigte „Exportieren ⌘E“, das hat keine Keycap bekommen. Ob ⌘F das
 Suchfeld der Presets fokussiert, ist nicht geprüft, darum steht es nicht in der Liste.
+
+## Geräte
+
+Spark Studio kennt mehrere Geräte aus dem Positive-Grid-Katalog. Jedes hat ein `DeviceProfile` (SparkControl; Linux
+`devices.py`): Anzeigename, wie es gefunden wird (Bluetooth-Dienst und -Name, Name aus `02 11`), Plätze und Bänke,
+Transport (`sparkBLE`, `midi`, `textOnly`), Fähigkeiten und Eigenheiten. Die Bereiche lesen Plätze und Fähigkeiten
+aus dem Profil; ein weiteres Gerät (Spark 40, GO, 2, LIVE, NEO Core) kommt als weiteres Profil dazu, erst nach einer
+Prüfung mit dem Nutzer.
+
+| Profil | Plätze | Fähigkeiten | Eigenheiten | Geprüft |
+|---|---|---|---|---|
+| Spark MINI | 4 | alles: lesen, umschalten, vorübergehend spielen, live ändern, Modellwechsel, speichern, Tasten, Stimmgerät, Tap, USB-Audio | behält den vorübergehenden Sound beim Trennen? ungeprüft, gilt als „nein“ | 1.11.2.75 |
+| Spark NEO | 4 | wie MINI, ohne USB-Audio, Stimmgerät und Tap (ungeprüft) | verwirft den vorübergehenden Sound beim Trennen | 1.16.1.60 |
+| REACTOR 50 | 8 (Rot 1–4, Grün 1–4) | nur mitlesen, Tasten, Stimmgerät, Tap, USB-Audio (Name noch nicht abgelesen), Text to Tone | darf nichts bekommen | nur mitgelesen |
+| REACTOR 100 | 8 | wie der 50 | | ungeprüft |
+| unbekanntes Spark (FFC0) | 4 | nur lesen und umschalten | | – |
+
+Keines bestätigt einen Parameter (`04 04`); der Editor wartet darauf nie, ein Zurücklesen nach einer Pause zeigt, ob er
+ankam. Die Drosselung bleibt wie beim MINI.
+
+### Erkennen und wechseln
+
+- **Suche nur nach FFC0 und FFD0.** Andere Bluetooth-Geräte sieht die App nie. FFD0 ist ein REACTOR, erkannt ohne
+  Anfrage. Ein Spark wird am Bluetooth-Namen vorläufig erkannt und nach dem Verbinden am Namen aus `02 11` bestätigt
+  („Spark NEO“, „Spark MINI“); ein unbekannter Name behält das vorsichtige Profil.
+- **Gemerkt per Kennung.** Bekannte Geräte und das zuletzt gewählte stehen in UserDefaults (`Known Devices`,
+  `Chosen Device`) mit ihrer `CBPeripheral.identifier`, damit zwei gleiche Geräte unterscheidbar bleiben. Verbunden
+  wird nur mit dem gewählten; ohne Wahl mit dem ersten gefundenen. Eine Testbibliothek hat eigene Einstellungen.
+- **Eine Steuerverbindung zur Zeit.** Die Geräteauswahl („Gerät“, erster Abschnitt der Seitenleiste) trennt die alte
+  Verbindung, dann verbindet sie die neue. Spielt etwas Ungespeichertes vorübergehend auf einem Gerät, das es beim
+  Trennen verliert, fragt Studio vorher („Der Sound auf dem NEO geht beim Trennen verloren. Vorher als Preset
+  sichern?“), ebenso bei „Trennen“.
+- **Bluetooth auf Abruf** wie bisher; beim Start keine Suche.
+- **Namen in Logs:** Der REACTOR heißt per Bluetooth „Reactor 50 …“ mit einem Zusatz seines Besitzers. Die App zeigt
+  ihn an, schreibt ihn aber in kein Log (`DeviceProfile.loggableName`); Take-Stempel tragen den Profilnamen.
+
+### Spark NEO (2026-11-09 mit spark-probe geprüft, Hörbestätigung durch den Nutzer)
+
+Kabelloses Kopfhörersystem: Kopfhörer plus Funksender an der Gitarre. Bluetooth-Name „Spark NEO Control“, Dienst FFC0
+mit FFC1 (read, write, write without response) und FFC2 (read, notify), Name aus `02 11` „Spark NEO“, Firmware
+1.16.1.60, 4 Plätze (Werkspresets CLEAN, CRUNCH, SOLO, HI GAIN). Preset-Format wie beim MINI (7 Effekte, 399–424
+Bytes, Byte für Byte gleich zurückkodiert, Trailer `CA C1 E8 00 00 CA 3F 00 00 00 xx`); alle 16 Modelle der
+Werkspresets stehen im Katalog.
+
+- Gehört: Umschalten (`01 38` → `04 38`, danach `03 10`), ganzes Preset auf 7F (16 Teile, je `05 01`, dann `04 01`),
+  Parameter (`01 04` mit Eingangsbyte, keine Bestätigung, Zurücklesen zeigt den Wert), an/aus (`04 15`),
+  Modellwechsel (`04 06`, eigene Startwerte gleich den MINI-Werten, geprüft an TS9), Speichern auf Platz 4 und
+  Zurückspielen des Originals Byte für Byte.
+- Lesen braucht manchmal den zweiten Versuch; das bestehende Nachfragen reicht.
+- Die mittlere Taste schaltet weiter (3 → 4 → 1) und meldet `03 38` mit dem Platz (`F0 01 50 02 03 38 00 00 02 F7`);
+  Studio folgt wie bei der Preset-Taste des MINI. + und − melden nichts.
+- **Trennen verwirft den vorübergehenden Sound**, danach spielt der gespeicherte Platz (gehört und zurückgelesen).
+  Studio setzt dann `tryingOut`/`isEditingLive` zurück, meldet es (auch der Aufnahme; ein laufender Take behält
+  seinen Stempel vom Beginn) und liest beim nächsten Verbinden nach, statt den Editor-Stand von selbst neu zu senden.
+  Nur eine Verbindung, die von selbst zurückkommt, bekommt den bearbeiteten Stand wieder.
+- USB-C: Der Kopfhörer zeigte am Mac kein Audio- oder MIDI-Gerät, nur einen USB-2.0-Hub (Genesys 05e3:0608) ohne
+  Gerät dahinter, vermutlich für Firmware-Updates (nicht ausprobiert). Der Bereich Aufnahme bietet den NEO nicht an.
+  Ein Take mit dem NEO als Klanggeber über einen anderen Eingang trägt trotzdem den Gerätenamen im Stempel.
+- Nicht geprüft: Stimmgerät-Meldungen (`64`/`65`), Tap-Tempo und Delay mit sync = BPM, Batteriestand, USB-C mit
+  sicherem Datenkabel und des Funksenders, Texte länger als die der Werkspresets (höchstens 7 Bytes Name, keine
+  Beschreibung), der NEO Core.
+- Sicherung aller vier Plätze vom 2026-11-09: `~/Music/Spark Studio/Sicherungen/Spark NEO 2026-11-09/`, außerhalb der
+  Bibliothek, nur zum Zurückspielen, wird nicht verändert.
+
+### REACTOR 50 (2026-11-09 nur mitgehört, nie etwas gesendet)
+
+Combo-Amp, eigene Produktlinie und eigene App. Handbuch beim Nutzer:
+`~/Desktop/reactor/REACTOR_50_100_User_Manual_English_.pdf` (englisch, 50 und 100).
+
+- **USB-C:** USB-Audiogerät mit 1 Eingang und 2 Ausgängen, 48 kHz, 24 Bit; der Eingang trägt den fertigen Klang mit
+  allen Effekten. Daneben ein serieller Anschluss „PG Virtual Com“ (Firmware-Programm) und eine Espressif-JTAG-
+  Schnittstelle (kann den Chip zurücksetzen): **nie öffnen, auch nicht zum Auflisten.** Kein USB-MIDI. Handbuch: USB
+  anstecken, solange der REACTOR aus ist. Der genaue USB-Audioname ist noch nicht abgelesen; bis dahin steht er nicht
+  im Profil, und die Aufnahme nimmt nicht vom REACTOR auf (`InputPolicy.usbDevices(named:)` mit den Namen der
+  Profile ersetzt das feste „spark“).
+- **Bluetooth:** A2DP für Musik und BLE für die Steuerung: Dienst FFD0, Hersteller-ID 295D, FFC1 (write without
+  response), FFC2 (read, notify). Die Nachrichten sind Spark-Rahmen (`F0 01 … F7`, 7-Bit-Packung, Texte und Floats wie
+  beim MINI).
+- **Was er von sich aus meldet** (`ReactorState`, Linux `devices.ReactorState`):
+
+| Bedienelement | Meldung | Bemerkung |
+|---|---|---|
+| Gain | `03 37` Amp.Preamp Parameter 0 | 0–1, dazu `03 1A 91 00 02 C3` |
+| Bass, Middle, Treble | `03 37` Amp.Tonestack Parameter 1, 2, 3 | bis ~8 Meldungen pro Sekunde |
+| Master | `03 37` Amp.Poweramp Parameter 0 | dazu `03 1A` |
+| Amp-Wahlschalter, Push/Smooth, Heat | `03 B1 <amp> <5 × Schalter + Heat>` | Amp 0–5 Clean, Warm, Grit, Crunch, Hi-Gain, Extreme; Schalter 0 Push, 1 Standard, 2 Smooth; Heat 0–4 (Mitte 2). Kein `03 06` |
+| FX Level | `03 37` Parameter 0 des ausgewählten Effekts | zweimal kam nichts, später zuverlässig; Ursache offen |
+| FX-Knöpfe | an/aus `03 15 <modell> C3/C2`; Auswahl `03 B3 <kettenplatz> C3` | Plätze Gate 0, Comp 1, Drive 2, (Amp 3), Mod 4, Delay 5, Reverb 6 |
+| TAP | `03 63 CA <float>` = BPM | dazu DelayEchoFilt Parameter 4 = 1,0 |
+| Preset (kurz) | `03 38 00 <platz>`, meist doppelt | 0–7 absolut, im Kreis innerhalb der Bank. Kein Preset-Inhalt |
+| Bank (kurz) | `03 38 00 <platz>`, einfach | jede Bank merkt sich ihren Platz; einmal kam ein Wechsel mehr als gezählt |
+| Volume | nichts | außerhalb des Presets |
+| Bank halten = Stimmgerät | `03 65 C3`, laufend `03 64 00 CA <float>` (−1 ohne Signal), `03 65 C2` | Ausgang stumm |
+
+  Modelle in den Werkspresets: bias.noisegate, BBEOpticalComp, DistortionTS9, DelayEchoFilt (im Katalog; ihr Platz
+  kommt daher), ChorusCloner, MonoReverb (nicht im Katalog; ihr Platz kommt aus `03 B3` nach dem Einschalten), der
+  Amp als drei Blöcke Amp.Preamp, Amp.Tonestack, Amp.Poweramp. Daraus folgt nicht, dass ein Spark-Preset passt.
+- **In Studio:** Verbinden, FFC2 abonnieren, nichts schreiben. Der Transport hält für ein Profil ohne `.send` gar
+  kein Merkmal zum Schreiben, und `SparkLink.write` verweigert es zusätzlich (Test `testTheREACTORGetsNotASingleByte`,
+  Linux `test_the_reactor_gets_not_a_single_byte`). Der Bereich Presets zeigt die Bänke und ein REACTOR-Feld mit
+  Anzeigen statt Reglern; nach einem Platzwechsel ist alles außer dem Platz unbekannt. Unbekannte Meldungen
+  (`03 1A` u. a.) werden gezählt, nicht gedeutet. Ein Take hält Gerät, Platz, Amp, Push/Smooth/Heat, Regler und
+  Effekte als `PresetStamp.listened` fest, ohne Fingerabdruck und Schnappschuss; der Inspektor zeigt „Mitgelesen“.
+- **Stimmgerät:** Das REACTOR-Feld zeigt an/aus und den Rohwert aus `03 64`. An die Anzeige des Bereichs
+  Stimmgerät ist es nicht gehängt: Die Skala des Werts ist unbekannt, und die Anzeige verspricht 0,1 Cent.
+- **Text to Tone:** Editor „⋯ → Text für REACTOR kopieren“ (wie `--recipe-prompt`); der REACTOR deutet den Text selbst.
+- **Offen:** Bedeutung von `03 1A 91 00 02 C3`; Power Control (50/25/1 W); PAIR; Expression-Pedal; Wah, EQ und
+  FX-Loop; der zusätzliche Bank-Wechsel; warum FX Level zweimal schwieg; ob der REACTOR auf irgendetwas antwortet;
+  USB-Audioname und Latenz; Firmware.
+
+Aus dem Handbuch (nicht am Gerät geprüft): 8 Plätze. Preset tippen = weiter, halten = speichern. Bank tippen = Bank
+wechseln, halten = Stimmgerät. FX-Knöpfe tippen = auswählen, halten = an/aus. 8 Effekte (Gate, Wah/Volume, Comp,
+Drive, Mod, Delay, EQ, Reverb) plus FX-Loop; Kette Gate → Comp → Drive → Wah → EQ → [Amp] → Mod → Delay → Reverb →
+FX-Loop. MIDI nur über 5-Pol-DIN, Kanal 1: CC an/aus 0 Gate, 1 Comp, 2 Drive, 3 Wah, 4 EQ, 5 Delay, 6 Mod, 7 Reverb,
+10 FX-Loop; CC 21–26 Amp Clean bis Extreme; CC 27 Push, 28 Smooth, 12 Heat+, 13 Heat−; Program Change 0–7 = Rot 1–4,
+Grün 1–4; CC 15 Bank; CC 30 Ausgangs-, 31 Line-Out-, 32 Send-Lautstärke; CC 35 Stimmgerät, CC 36 Tap. MIDI In und
+der REACTOR-Control-Fußschalter schließen sich aus. Der Nutzer möchte ohne MIDI-Interface auskommen.
+
+### REACTOR: senden, später und nur mit dem Nutzer am Gerät
+
+Nicht gebaut. Der Weg, wenn der Nutzer es will, jeder Schritt mit seinem Okay:
+
+1. Eine einzige Leseanfrage (`02 11` Name oder `02 2F` Firmware), Gerät leise, Kopfhörer nicht am Ohr. Antwortet er
+   im Spark-Format, ist das ein Befund, sonst Schluss.
+2. Höchstens `02 10` (aktueller Platz) und `02 01` (Preset lesen), um das REACTOR-Preset-Format kennenzulernen. Nur
+   lesen, mit dem Nutzer auswerten.
+3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
+   Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
+   gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.
+- MIDI (DIN, Tabelle oben) bleibt die Alternative, falls ein Interface kommt: ein vom Nutzer gewählter MIDI-Ausgang,
+  Program Change 0–7, die an/aus-CCs, Tap. Lautstärke-CCs (30–32) nie sprunghaft lauter und nur auf ausdrücklichen
+  Wunsch.
+- Kein Mitschneiden des Verkehrs der REACTOR-App am Handy.
+- Nie zu folgenden Tastengriffen anleiten: REVB + TAP beim Einschalten (Werksreset), TAP + MOD halten
+  (Expression-Kalibrierung), Preset halten (überschreibt den Platz), PAIR halten. Bei Bedienschritten sagen, dass
+  Preset nur angetippt wird. Firmware-Updates nie unterbrechen und nie aus Studio anstoßen.
+
+### Werkzeuge
+
+- `spark-probe scan` zeigt das erkannte Profil, `--device <name>` wählt unter mehreren Geräten. Nur `listen` verbindet
+  sich mit einem Gerät, dessen Profil nichts bekommen darf.
+- `spark-probe listen <sekunden>` findet Geräte mit FFC0 oder FFD0, abonniert nur FFC2 und hat keinen Code, der
+  schreibt. Am Ende je Parameter Anzahl, Spanne, erster und letzter Wert, sonst Meldungen mit Zeitpunkt. Der
+  Namenszusatz des REACTOR wird weggekürzt. Die Aufnahme läuft erst ab der Zeile „Listening …“, darum die
+  Bedienschritte erst danach.
+- Aus einer Claude-Code-Sitzung im Desktop-Programm stürzt ein nackter spark-probe beim Bluetooth-Zugriff ab (TCC
+  rechnet ihn Claude zu). `Tools/probe-app.sh <argumente>` legt ihn in ein App-Bündel (Info.plist aus
+  `Resources/SparkProbe-Info.plist` plus `CFBundleExecutable`, `CFBundlePackageType APPL`, `LSUIElement`, ad hoc
+  signiert) und startet es mit `open -W -n --stdout … --stderr …`.
 
 ## Schutz des Verstärkers
 
@@ -245,6 +402,22 @@ Seitdem geht jedes Preset durch `AmpGuard` (Mac, `Sources/SparkControl/AmpGuard.
 Die Lautstärkeregler schützen vor so einem Fehler nicht. Deshalb wird keine Grenze angehoben, indem man es am
 Lautsprecher ausprobiert, auch nicht leise. Tritt so ein Lärm auf: sofort ausschalten (Ein-/Aus-Taster, notfalls
 Strom und USB trennen).
+
+Für jedes Gerät, ohne Ausnahme:
+
+- Die Grenzen gelten für den NEO genauso und werden für kein Gerät angehoben. Beim NEO sitzt der Lautsprecher am Ohr:
+  Am NEO nie eine neue Variante des Datenformats senden (längere Texte, neue Felder, unbekannte Befehle), auch nicht
+  zum Ausprobieren und nicht „leise“. Eine Prüfung, die etwas Neues sendet, braucht das Okay des Nutzers, und der
+  Kopfhörer liegt dabei nicht auf dem Ohr. Heult es: sofort Ein/Aus oder den Kopfhörer abnehmen.
+- Keine Serien von Modellwechseln: höchstens 8 mit 1 s Pause, Abbruch beim ersten `03`-Echo statt `04` (etwa 40
+  schnelle Wechsel haben den MINI einmal aufgehängt).
+- Vor jeder Arbeit am Gerät alle Plätze sichern (`spark-probe backup <ordner>`), einen Platz nur mit Okay überschreiben.
+- Nur eine Steuerverbindung: Studio, spark-probe und die Handy-App blockieren sich. Vor jedem Probe-Lauf Studio und
+  die Handy-App trennen lassen.
+- REACTOR: nichts senden, über keinen Weg (BLE, USB-Seriell, JTAG, MIDI), bis „senden“ oben mit dem Nutzer erledigt
+  ist. Das Profil hat kein `.send`, der Link und der Transport verweigern jedes Byte.
+- Modelle, die nur ein Gerät kennt, kommen erst nach einer Prüfung am Gerät in den Katalog (`spark-probe
+  catalog-check`, in Achterpaketen). `checkedOn` im Katalog ist eine Liste (MINI 1.11.2.75, NEO 1.16.1.60).
 
 ## Prüfungen
 
@@ -273,6 +446,15 @@ Strom und USB trennen).
     0,25 s nach dem Stopp ≤ 0,5 Cent. Halten, Anschlag-Knack, Schwelle, Gleichanteil, Stimmungen, Namen, Kammerton,
     Texte; Ringpuffer (Mittel der Kanäle, Überlauf, Epoche) und dass die Aufnahme ihn nur angehängt beschreibt.
   - Modell mit gefälschtem Eingang: hört nur, solange aktiv; ohne Spark wird nichts geöffnet; Einstellungen bleiben.
+- Geräte (synthetisch, `SimulatedDevice` und `fake_amp.py`): `DeviceProfileTests` (Profile, Erkennung, Namen in
+  Logs, Bänke, USB-Namen), `ReactorDecoderTests` (die Byte-Folgen der Tabelle oben, auch die NEO-Taste),
+  `SparkLinkTests` (NEO gefunden, benannt und gelesen; Zurückspringen beim Trennen und Nachlesen; mittlere Taste;
+  Parameter ohne Warten; REACTOR bekommt kein Byte, auch nicht auf Lese-, Umschalt-, Sende- und Speicheranfragen;
+  unbekanntes Spark nur lesen und umschalten; Gerätewechsel trennt erst und merkt sich die Kennung; Nachfrage vor
+  dem Verlust), `StudioKeymapTests` (⌘1–⌘8 und ⌥⌘1–⌥⌘8 ohne Doppelbelegung). Linux: `tests/test_devices.py`
+  dasselbe, dazu der Text für REACTOR Byte für Byte wie auf dem Mac.
+- Fensterbilder mit Geräteauswahl (NEO) und REACTOR-Feld in Hell und Dunkel (`docs/pictures/geraete-*`), mit
+  simulierten Geräten, angesehen.
 - `SoundRecipeTests` und `ToneDescriptionTests`: Rezepte in beide Richtungen, alle Fehler auf einmal, Korrekturen
   mit Hinweis, stabile uuid, Lesen im Presets-Ordner, Text für REACTOR. Sie prüfen auch, dass die Beispiele in
   `docs/ai/examples` gültig sind und `docs/ai/spark-catalog.*` dem Katalog im Code entspricht.
@@ -291,6 +473,16 @@ Strom und USB trennen).
 - Icon: bei 1024 und 32 px angesehen.
 
 ## Offen und als Nächstes
+
+- **Phase 2 am Gerät prüfen**, Schritt für Schritt mit dem Nutzer, Fragen im Chat: Studio findet den NEO, zeigt „Spark
+  NEO“ und 1.16.1.60 und liest vier Plätze; Wechsel MINI ↔ NEO mit der Nachfrage; mittlere Taste; Editor am NEO
+  (Parameter, an/aus, ein Modellwechsel) und Trennen setzt die Anzeige zurück; Speichern aus dem Editor (mit Okay
+  und Sicherung); ob der MINI beim Trennen den vorübergehenden Sound behält (dann Profil anpassen); REACTOR mitlesen
+  (Gain bis Master, Amp, Push/Smooth, Heat, FX-Knöpfe, FX Level, TAP, Preset, Bank, Stimmgerät; dabei FX Level und
+  den zusätzlichen Bank-Wechsel klären); REACTOR aufnehmen (USB-Audioname ablesen und ins Profil, Pegel, Latenz, ein
+  Take mit mitgelesenem Stempel).
+- **Linux:** Geräteauswahl als Menü „Verstärker → Gerät“, ohne Lämpchen in der Seitenleiste; kein REACTOR-Feld (die
+  Seitenleiste zeigt seine Bänke, mitgelesen wird im Kern). Die UI-Tests mit PySide6 laufen nur auf linux-host.
 
 - **Stimmgerät mit echter Gitarre:** gegen ein Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten,
   auch Drop D und ein Bass bis H0; prüfen, ob die Schwelle −60 dBFS zum Pegel des Spark über USB passt, ob „Gestimmt“

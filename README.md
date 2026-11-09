@@ -43,6 +43,8 @@ Spark Studio joins the former apps Spark Recorder and Spark Presets. Plan, decis
   shows, with the key "Verbinden" at the foot of the presets' sidebar, with a click on the lamp "BT", or with
   "Verstärker → Mit dem Verstärker verbinden". "Trennen" lets the Spark app on the phone take the amp again, because
   the amp takes only one control connection.
+- **Several devices**: Spark MINI, Spark NEO and REACTOR 50 (see "Devices" below). The first section of the presets'
+  sidebar, **Gerät**, chooses one; its lamp is green when connected, amber when nearby and dark when not there.
 
 ## Keyboard
 
@@ -230,11 +232,12 @@ window or quitting erases the buffer.
 
 ![Area Presets, light](docs/pictures/presets-light.png)
 
-- **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4`, switches the amp to it and opens it in the
+- **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4` (up to `⌘8` on a device with more slots),
+  switches the amp to it and opens it in the
   editor, like the preset button on the amp. A speaker marks what plays. Clicking a preset on the Mac plays it on
   the amp's temporary place, which never touches a slot, and a new preset plays at once. Clicking quickly through
-  the list sends only the last one. When the amp's own preset button is pressed, the app follows, unless the editor
-  holds unsaved changes.
+  the list sends only the last one. When the amp's own preset button (or the NEO's middle button) is pressed, the
+  app follows, unless the editor holds unsaved changes.
 - **Load meter**: a row of amber segments in the display fills while a preset travels to or from the amp, chunk by
   chunk as the amp confirms or sends them ("LÄDT 9/17"). A switch between slots, a single message, shows a short
   sweep. With "Reduce motion" the sweep is left out.
@@ -258,8 +261,34 @@ window or quitting erases the buffer.
   description and BPM.
 - **Auf dem Mac**: presets as files, searchable by name and model. Rename with `⌘E`, `⌘⌫` moves the file to the
   Trash and the banner brings it back.
+- **Text für REACTOR kopieren** (editor, "⋯"): the sound as English text for "Text to Tone" in the REACTOR app, the
+  same as `--recipe-prompt`. The REACTOR reads the text itself and picks its own models.
 
-The app only scans for devices that offer the Spark control service, so it never sees other Bluetooth devices. The
+### Devices
+
+![Device choice with a Spark NEO](docs/pictures/geraete-neo-dark.png)
+
+| Device | What Studio does | Checked |
+|---|---|---|
+| Spark MINI | everything above | firmware 1.11.2.75 |
+| Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
+| REACTOR 50 | listens only: shows what is turned and pressed on the amp, stamps takes with it; sends nothing | listen-only, 2026-11-09 |
+| REACTOR 100 | like the 50 | not checked |
+| any other Spark | reads and switches slots, nothing more, until checked | – |
+
+- **One connection at a time.** Choosing another device ends the current one first. The Spark NEO drops a sound
+  that plays without being stored when the connection ends and plays its stored slot again, so Studio asks first:
+  "Der Sound auf dem NEO geht beim Trennen verloren. Vorher als Preset sichern?" The Spark MINI is treated the same
+  until checked. If the connection ends anyway, a banner says so, and a running take keeps the sound it started with.
+- **REACTOR**: Studio subscribes to its reports and writes nothing, not even a read request. The area Presets shows
+  its slots in two banks (Rot, Grün) and a read-only panel: amp, Push/Smooth, Heat, Gain to Master, the effects,
+  the tapped tempo and its tuner. After a slot change it says "Preset-Inhalt unbekannt", because the REACTOR does
+  not send the preset. A take recorded with it keeps those readings as "mitgelesen", without a fingerprint.
+
+![The REACTOR panel](docs/pictures/geraete-reactor-dark.png)
+
+The app only scans for devices that offer the Spark control service (FFC0) or REACTOR's (FFD0), so it never sees
+other Bluetooth devices. A REACTOR's Bluetooth name ends in a part its owner chose; the window shows it, logs never do. The
 Spark app on the phone must be disconnected, because the amp takes only one control connection. For the same reason
 Spark Studio and `spark-probe` cannot talk to the amp at the same time: whichever starts second keeps searching.
 
@@ -289,7 +318,8 @@ The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side of
 
 ```bash
 swift build --product spark-probe
-.build/debug/spark-probe scan          # look for the amp
+.build/debug/spark-probe scan          # look for the amp, with the profile it is recognised as
+.build/debug/spark-probe listen 60     # Spark or REACTOR: subscribe only, send nothing, sum up what came
 .build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
@@ -308,9 +338,18 @@ A `live` script has one command per line: `param <place> <index> <value>`, `togg
 what the amp plays with what the script sent. The comments in `Sources/SparkProbe/LiveScript.swift` have the details.
 
 `--raw` also prints every byte, `--no-header` sends without the block header, `--no-input` leaves the input byte out
-of live changes. The Spark app on the phone and Spark Studio must be disconnected, because the amp takes only one
-control connection. macOS asks once for Bluetooth access for the terminal app. The tool shows only devices with
-"Spark" in their name and only counts the others.
+of live changes, `--device <name>` picks one of several devices. The Spark app on the phone and Spark Studio must be
+disconnected, because the amp takes only one control connection. macOS asks once for Bluetooth access for the terminal
+app. The tool shows only devices with "Spark" in their name and only counts the others; `listen` also finds a REACTOR
+by its service FFD0 and prints its name without its owner's part. No other command connects to a device whose
+profile may not get anything.
+
+From a Claude Code session in the desktop app, the probe must run as its own app, or macOS ends it at the first
+Bluetooth call (it counts as part of Claude, which has no Bluetooth usage text):
+
+```bash
+Tools/probe-app.sh listen 60      # builds .build/SparkProbe.app, opens it, prints its output when it ends
+```
 
 ### What is checked on the amp
 
@@ -435,6 +474,8 @@ in one sign.
 | ![Presets, dark](docs/pictures/presets-dark.png) | ![Presets, light](docs/pictures/presets-light.png) |
 | ![Stimmgerät, dark](docs/pictures/stimmgeraet-dark.png) | ![Stimmgerät with strobe, light](docs/pictures/stimmgeraet-stroboskop-light.png) |
 | ![Stimmgerät, in tune](docs/pictures/stimmgeraet-gestimmt-dark.png) | ![Stimmgerät at its smallest size](docs/pictures/stimmgeraet-smallest-dark.png) |
+| ![Device choice, Spark NEO, dark](docs/pictures/geraete-neo-dark.png) | ![Device choice, Spark NEO, light](docs/pictures/geraete-neo-light.png) |
+| ![REACTOR, listened to, dark](docs/pictures/geraete-reactor-dark.png) | ![REACTOR, listened to, light](docs/pictures/geraete-reactor-light.png) |
 
 The pictures come from the app's own snapshot modes, with a test library of synthetic takes and made-up presets:
 
@@ -442,7 +483,11 @@ The pictures come from the app's own snapshot modes, with a test library of synt
 .build/debug/SparkStudio --library /tmp/studio-pictures --ui-selftest pictures /tmp/studio-pictures-out
 .build/debug/SparkStudio --library /tmp/studio-presets --offline --appearance dark --size 1180x780 \
     --open saved:Lead --focus delay --snapshot /tmp/presets-dark.png --quit
+.build/debug/SparkStudio --library /tmp/studio-presets --offline --demo-devices reactor --appearance dark \
+    --size 1180x780 --open slot:6 --delay 7 --snapshot /tmp/geraete-reactor-dark.png --quit
 ```
+
+`--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth.
 
 The `pictures` scenario also shows the tuner, fed with a synthetic string through its real pipeline (no input is
 opened), the count-in, a running recording (from the test device only), a piece with its
@@ -488,8 +533,11 @@ The recipe tests also check the files in `docs/ai`: every example must be a vali
 match the catalog in the code. After a change to `Sources/SparkControl/Catalog`, run
 `swift run SparkStudio --catalog-export docs/ai`.
 
-The audio engine refuses every input outside its policy. The default is Spark only, and tests use a policy that allows
-virtual test devices and nothing real, not even the amp.
+The audio engine refuses every input outside its policy. The default allows USB devices whose name holds one of the
+device profiles' USB audio names (today "Spark"; the REACTOR's joins once read on the device), and tests use a policy
+that allows virtual test devices and nothing real, not even the amp. Device tests run against simulated devices
+(`SimulatedDevice`, and `fake_amp.py` on Linux): the NEO drops its temporary sound, and the REACTOR must not get a
+single byte.
 
 The app also has self-tests that drive its real window. They only run with a separate test library, which keeps them
 away from your recordings and presets and skips taking over the old folders. A test library only hears BlackHole, sound
