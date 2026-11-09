@@ -137,7 +137,9 @@ NEO stimmen lässt, der kein USB-Audio hat. Gröber, auf ganze Cent, und der Ver
   USB-Audio und steckt es (MINI), hört das Stimmgerät über USB, genauer und ohne den Verstärker stummzuschalten;
   hat es keins (NEO) oder steckt kein Spark per USB, nimmt es das Stimmgerät des Verstärkers. Kommt oder geht ein
   Gerät, wechselt „Automatisch“ mit. Fest wählbar bleiben der Eingang des Decks, „Stimmgerät des Spark NEO/MINI“
-  und andere Eingänge. Das Stimmgerät des Verstärkers ist nur an, solange der Bereich vorn und sichtbar ist. Verlassen, anderer Eingang, Trennen über das Deck
+  und andere Eingänge. Das Stimmgerät des Verstärkers ist nur an, solange der Bereich vorn und sichtbar ist.
+  Zeigt Studio das Stimmgerät vor dem Bereich Presets, startet es die Bluetooth-Verbindung (einmal, wie Presets; nach
+  „Trennen“ nicht). Verlassen, anderer Eingang, Trennen über das Deck
   oder einen Gerätewechsel, Beenden der App (`applicationShouldTerminate` wartet bis 1,5 s) schalten es zuerst aus.
   Ohne Bestätigung gilt es als aus, sobald keine Werte mehr kommen; sonst bis zu drei Versuche. Bricht die Verbindung
   ab, während es an ist, schaltet der Link es nach dem Wiederverbinden an oder aus, je nachdem was gewünscht ist (ob
