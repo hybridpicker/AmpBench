@@ -499,8 +499,9 @@ Der Weg bis hierher, jeder Schritt mit dem Okay des Nutzers:
      `04 0C`, `04 0D`, `04 2C`, `04 19`, `04 32`, `04 11`, `04 12`, `04 16`, `04 10`, …), mit an/aus und 1 bis 8
      Werten.
    - Werte: `CD` plus 16 Bit als Half-Float, ganze Zahlen als ein Byte.
-   - Am Ende vier Bytes, die kein CRC-32 und kein Adler-32 über den Inhalt sind. **Solange diese Prüfsumme nicht
-     verstanden ist, kann kein Preset geschrieben werden.**
+   - Am Ende vier Bytes Prüfsumme: **CRC-32/MPEG-2** (Polynom 04C11DB7, Start FFFFFFFF, nicht gespiegelt, kein
+     Schluss-XOR), höchstes Byte zuerst, über alles nach `00 <platz>` bis vor die Prüfsumme. Am 2026-11-10 gefunden,
+     passt auf alle acht gelesenen Presets (`ReactorPreset.checksum(of:)`, `checksumOK`).
    Die acht Presets liegen als Sicherung in `~/Music/Spark Studio/REACTOR-Sicherung 2026-11-10`.
    Lesen und Anzeigen sind seit 2026-11-10 in Studio gebaut (oben unter „In Studio“), am Gerät noch nicht gesehen.
    Der Nutzer will Lesen, Anzeigen und Speichern ganzer Presets wie beim Spark, und alles aus einem Guss: keine
@@ -508,7 +509,8 @@ Der Weg bis hierher, jeder Schritt mit dem Okay des Nutzers:
    reicht ihm nicht (aus Studio gelaufen, kaum hörbarer Unterschied).
 3. Parameter, Effekte und Amp-Wahl einzeln mit Okay: erledigt, siehe oben. Das Profil hat dafür `.liveSound` statt
    `.send` bekommen; der Test „schreibt nichts“ gilt weiter für alles andere. Nie ein Spark-Preset an den REACTOR.
-4. Als Nächstes: die vier Prüfbytes am Ende verstehen; die Blöcke deuten (`05 03`, die Effekt-Kennungen), damit
+   Am Gerät gesehen (2026-11-10, Bild des Nutzers): alle acht Namen mit Amp und Effekten, Grün 3 als spielend.
+4. Als Nächstes: die Blöcke deuten (`05 03`, die Effekt-Kennungen), damit
    ein REACTOR-Platz im selben Editor erscheint wie ein Spark-Platz; dann ein Preset unverändert zurückschreiben, mit
    Sicherung; dann eigene Sounds.
 5. Noch offen, jeweils erst mit Okay am Gerät: den Ablauf aus Studio hören; die übrigen fünf Amps, Push/Smooth und

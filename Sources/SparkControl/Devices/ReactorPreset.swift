@@ -2,8 +2,8 @@ import Foundation
 
 /// A preset as a REACTOR stores it, read from its answer to `02 01 00 <slot>`. Its own format, not a Spark preset:
 /// MessagePack with the slot, the preset's and the amp's name cards, the tempo, six fixed blocks for amp and
-/// equalizer and ten effect blocks, each `C4 02 <id> <on> <values>`, and four bytes at the end whose rule is not
-/// known yet. Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). Read only: Spark Studio
+/// equalizer and ten effect blocks, each `C4 02 <id> <on> <values>`, and a checksum of four bytes at the end
+/// (`checksum(of:)`). Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). Read only: Spark Studio
 /// cannot build one.
 public struct ReactorPreset: Equatable, Sendable {
     /// Name, version, description, picture and tags, as both the preset and its amp carry them.
@@ -33,8 +33,22 @@ public struct ReactorPreset: Equatable, Sendable {
     public var fixed: [Block]
     /// The ten effect places.
     public var effects: [Block]
-    /// The last four bytes, kept as they came.
+    /// The last four bytes as they came: the checksum over everything after the slot.
     public var trailer: [UInt8]
+    /// False when the checksum at the end does not fit the content. The preset is still shown.
+    public var checksumOK: Bool
+
+    /// The REACTOR's checksum: CRC-32/MPEG-2 (polynomial 04C11DB7, start FFFFFFFF, not reflected, no final XOR), high
+    /// byte first, over the preset's bytes after the two bytes `00 <slot>` and before the checksum itself. Found on
+    /// 2026-11-10; it fits all eight presets read from a REACTOR 50.
+    public static func checksum(of content: some Sequence<UInt8>) -> [UInt8] {
+        var crc: UInt32 = 0xFFFF_FFFF
+        for byte in content {
+            crc ^= UInt32(byte) << 24
+            for _ in 0..<8 { crc = crc & 0x8000_0000 != 0 ? (crc << 1) ^ 0x04C1_1DB7 : crc << 1 }
+        }
+        return [UInt8(crc >> 24), UInt8(crc >> 16 & 0xFF), UInt8(crc >> 8 & 0xFF), UInt8(crc & 0xFF)]
+    }
 
     public var name: String { preset.name }
     public var ampName: String { amp.name }
@@ -84,6 +98,7 @@ public struct ReactorPreset: Equatable, Sendable {
         effects = try reader.blocks()
         trailer = reader.rest()
         guard trailer.count == 4 else { throw Unreadable(text: "\(trailer.count) statt 4 Bytes am Ende") }
+        checksumOK = Self.checksum(of: data[2..<(data.count - 4)]) == trailer
     }
 
     /// Just enough MessagePack for a REACTOR preset.

@@ -205,6 +205,7 @@ enum RecipeCommandLine {
                 print("\(name): Platz \(preset.slot + 1) „\(preset.name)“, \(preset.summary), \(Int(preset.tempo)) BPM")
                 print("  fest: " + preset.fixed.map(line).joined(separator: " "))
                 print("  Effekte: " + preset.effects.map(line).joined(separator: " "))
+                print("  Prüfsumme: " + (preset.checksumOK ? "stimmt" : "stimmt NICHT"))
             } catch {
                 print("\(name): \(error.localizedDescription)")
                 failed = true

@@ -357,6 +357,6 @@ enum ReactorFixture {
         data += [0xCA, 0x42, 0xF0, 0x00, 0x00] + card(amp, icon: "f_amp_Test.png", tags: [])
         data += [0x96] + fixed.flatMap { id, count in block(id, on: true, (0..<count).map { $0 % 3 == 0 ? 0 : 0.5 }) }
         data += [0x9A] + (0..<10).flatMap { block(0x0409 + UInt16($0), on: $0 < effectsOn, [0.25, 1, 0]) }
-        return data + [0x12, 0x34, 0x56, 0x78]
+        return data + ReactorPreset.checksum(of: data.dropFirst(2))
     }
 }

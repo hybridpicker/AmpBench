@@ -25,7 +25,7 @@ enum ReactorFixture {
         data += [0xCA, 0x42, 0xF0, 0x00, 0x00] + card(amp, icon: "f_amp_Test.png", tags: [])
         data += [0x96] + fixed.flatMap { id, count in block(id, on: true, (0..<count).map { $0 % 3 == 0 ? 0 : 0.5 }) }
         data += [0x9A] + (0..<10).flatMap { block(0x0409 + UInt16($0), on: $0 < effectsOn, [0.25, 1, 0]) }
-        return data + [0x12, 0x34, 0x56, 0x78]
+        return data + ReactorPreset.checksum(of: data.dropFirst(2))
     }
 }
 
@@ -44,7 +44,15 @@ final class ReactorPresetTests: XCTestCase {
         XCTAssertEqual(preset.effects.count, 10)
         XCTAssertEqual(preset.effects[0].values, [0.25, 1, 0])
         XCTAssertEqual(preset.summary, "Twin Clean · 2 Effekte an")
-        XCTAssertEqual(preset.trailer, [0x12, 0x34, 0x56, 0x78])
+        XCTAssertTrue(preset.checksumOK)
+    }
+
+    func testTheChecksumIsCRC32MPEG2AndAChangedPresetFailsIt() throws {
+        // The standard check value of CRC-32/MPEG-2 for "123456789".
+        XCTAssertEqual(ReactorPreset.checksum(of: Array("123456789".utf8)), [0x03, 0x76, 0xE6, 0xE7])
+        var data = ReactorFixture.preset(slot: 1, name: "A", amp: "B")
+        data[40] ^= 0x01
+        XCTAssertFalse(try ReactorPreset(data: data).checksumOK)
     }
 
     /// The Spark parser leaves one byte of every chunk's 16-bit length in front of the chunk's data.
