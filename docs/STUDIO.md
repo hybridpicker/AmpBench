@@ -482,6 +482,24 @@ Der Weg bis hierher, jeder Schritt mit dem Okay des Nutzers:
    `send-one B1 00 07` (geraten aus seiner Meldung `03 B1`: Amp 0 = Clean, 5 × Schalter 1 + Heat 2): quittiert mit
    `04 B1`. Die Amp-Wahl ist also ein Befehl `01 B1 <amp> <5 × Schalter + Heat>`; Hörprobe offen.
    Ungeprüft: Amp-Wahl mit Push/Smooth/Heat (er meldet `03 B1`, der Befehl dazu ist unbekannt), Platzwechsel.
+   **Alle acht Plätze gelesen am 2026-11-10** (`spark-probe read-slot 0…7`, je eine Anfrage `02 01 00 <platz>`,
+   nichts schaltete um). Befund zum Format:
+   - Teile haben einen **vier Bytes langen Kopf**: Anzahl, Nummer, Länge als 16 Bit (350 = `01 5E`). Der
+     Spark-Parser nimmt drei an und lässt darum je Teil ein Byte stehen; vor dem Lesen entfernen.
+   - Inhalt ist MessagePack: `00 <platz>`, dann Kennung (16 Bytes), Name, Version, Beschreibung, Bild, Zahl, Tags
+     für das **Preset** (z. B. „Bright Teaching Clean“; die Namen sind die des Nutzers), `CA` Tempo, dasselbe für
+     den **Amp** („Twin Clean“, `f_amp_TwinReverb.png`), dann 16 Blöcke `C4 02 <Kennung> C3/C2 <Werte>`.
+   - Immer gleich: `05 02` (145 Werte), `05 03` (4 Werte, wohl Gain, Bass, Mitten, Höhen von 0 bis 1), `05 05`
+     (110, darin EQ-Bänder mit 1000 Hz und Güte 0,707), `05 06` (11), `04 34` und `04 35` (je 30).
+   - Zehn Effektblöcke, deren Kennung das Modell nennt und von Platz zu Platz wechselt (`03 09`, `04 0A`, `04 22`,
+     `04 0C`, `04 0D`, `04 2C`, `04 19`, `04 32`, `04 11`, `04 12`, `04 16`, `04 10`, …), mit an/aus und 1 bis 8
+     Werten.
+   - Werte: `CD` plus 16 Bit als Half-Float, ganze Zahlen als ein Byte.
+   - Am Ende vier Bytes, die kein CRC-32 und kein Adler-32 über den Inhalt sind. **Solange diese Prüfsumme nicht
+     verstanden ist, kann kein Preset geschrieben werden.**
+   Die acht Presets liegen als Sicherung in `~/Music/Spark Studio/REACTOR-Sicherung 2026-11-10`.
+   Der Nutzer will Lesen, Anzeigen und Speichern ganzer Presets wie beim Spark; „Auf den REACTOR spielen“ allein
+   reicht ihm nicht (aus Studio gelaufen, kaum hörbarer Unterschied).
 3. Parameter, Effekte und Amp-Wahl einzeln mit Okay: erledigt, siehe oben. Das Profil hat dafür `.liveSound` statt
    `.send` bekommen; der Test „schreibt nichts“ gilt weiter für alles andere. Nie ein Spark-Preset an den REACTOR.
 4. Noch offen, jeweils erst mit Okay am Gerät: den Ablauf aus Studio hören; die übrigen fünf Amps, Push/Smooth und
