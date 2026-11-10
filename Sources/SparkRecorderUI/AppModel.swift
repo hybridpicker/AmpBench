@@ -813,8 +813,8 @@ final class AppModel: ObservableObject {
             let now = Date()
             let punch = pendingPunch
             // A new file, always: re-recording bars must leave the take they come from as it is.
-            let stem = punch.map { "\($0.sourceName) Takt \($0.bars.lowerBound)-\($0.bars.upperBound)" }
-                ?? "Aufnahme_\(LibraryStore.fileStamp(now))"
+            let stem = punch.map { LibraryStore.retakeStem(of: $0.sourceName, bars: $0.bars) }
+                ?? LibraryStore.takeStem(at: now)
             let url = store.uniqueName(stem)
             let source = sourceFormat(device)
             let takeID = UUID()
@@ -1042,7 +1042,7 @@ final class AppModel: ObservableObject {
             fileBits: 24,
             source: source,
             status: .open,
-            tags: journal.punch == nil ? [] : ["Neuaufnahme"],
+            tags: journal.punch == nil ? [] : [LibraryStore.retakeTag],
             markers: markers,
             pieceID: journal.pieceID,
             edit: edit,

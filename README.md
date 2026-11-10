@@ -114,12 +114,12 @@ On Linux the same keys work with Ctrl in place of `⌘`.
 
 ```
 ~/Music/AmpBench/
-  Aufnahmen/   Recordings (*.wav, the originals) and the library file Bibliothek.json, plain readable JSON
+  Recordings/  Recordings (*.wav, the originals) and the library file Library.json, plain readable JSON
   Presets/     Presets, backups of overwritten slots and sound recipes, one readable JSON file each
 ```
 
-Some names on disk are German in this release (`Aufnahmen` means recordings, `Bibliothek` library); they are the
-same in both languages. The AI Sound key is kept in the macOS Keychain, on Linux in the desktop's keyring. The full
+Folders and files from versions before 1.0 with German names (`Aufnahmen`, `Bibliothek.json`) are renamed once at the
+first start; nothing is copied or deleted. The AI Sound key is kept in the macOS Keychain, on Linux in the desktop's keyring. The full
 list of files is in the [manual](docs/MANUAL.md#where-things-are).
 
 ## Documentation

@@ -265,7 +265,7 @@ class RecordingsPage(QWidget):
             self.player.set_tempo(self.tempo_slider.value)
             self.wave.set_take(None, float(take.get("duration", 0)), take.get("markers", []))
             self.wave.message = tr("Calculating waveform …")
-            cache = self.store.folder / ".wellenformen" / f"{take['id']}.lpeaks"
+            cache = self.store.folder / storemod.WAVEFORMS / f"{take['id']}.lpeaks"
             threading.Thread(target=self._compute_wave, args=(take["id"], path, cache, float(take.get("duration", 0))),
                              daemon=True).start()
             self.takes.select_ids([take_id])
@@ -646,7 +646,7 @@ class RecordingsPage(QWidget):
         take = self.store.recording(take_id)
         if take is None:
             return
-        folder = self.store.folder / "Exporte"
+        folder = self.store.folder / storemod.EXPORTS
         folder.mkdir(exist_ok=True)
         ext, label = ("wav", tr("WAV, 24-bit (*.wav)")) if kind == "wav" else ("m4a", "AAC (*.m4a)")
         path, _ = QFileDialog.getSaveFileName(self, tr("Export"), str(folder / f"{Path(take['fileName']).stem}.{ext}"),

@@ -26,6 +26,8 @@ public enum LibraryError: LocalizedError {
     case nameTaken(String)
     case restoreFailed
     case newerSchema(Int)
+    /// A file or folder with a name of an earlier version could not be given its new name. Nothing was lost.
+    case carryOverFailed(from: String, to: String, reason: String)
 
     public var errorDescription: String? {
         switch self {
@@ -36,6 +38,8 @@ public enum LibraryError: LocalizedError {
         case .restoreFailed: return tr("The file is no longer in the Trash.")
         case .newerSchema(let version):
             return tr("The library comes from a newer version of the app (schema %d). It stays unchanged.", version)
+        case .carryOverFailed(let from, let to, let reason):
+            return tr("“%@” from an earlier version could not be renamed to “%@”: %@ Nothing was changed or lost; the library stays closed until this works.", from, to, reason)
         }
     }
 }
@@ -102,11 +106,20 @@ public enum LoadOutcome: Equatable, Sendable {
 
 /// The library document plus every operation on the folder. Not thread-safe: use it from one thread.
 public final class LibraryStore {
-    public static let documentName = "Bibliothek.json"
-    public static let backupName = "Bibliothek.backup.json"
-    public static let journalName = ".aufnahme-laeuft.json"
-    public static let peaksFolderName = ".wellenformen"
-    public static let exportFolderName = "Exporte"
+    public static let documentName = "Library.json"
+    public static let backupName = "Library.backup.json"
+    public static let journalName = ".recording-in-progress.json"
+    public static let peaksFolderName = ".waveforms"
+    public static let exportFolderName = "Exports"
+    /// The names these had while the app wrote German names, in the order `adoptFormerNames` renames them. Copies
+    /// kept under `Bibliothek.vor-Schema…` and `Bibliothek.defekt…` are not in the list: they stay as they are.
+    public static let formerNames: [(former: String, current: String)] = [
+        ("Bibliothek.json", documentName),
+        ("Bibliothek.backup.json", backupName),
+        (".aufnahme-laeuft.json", journalName),
+        (".wellenformen", peaksFolderName),
+        ("Exporte", exportFolderName),
+    ]
     public static let audioExtensions: Set<String> = ["wav", "aif", "aiff", "caf", "m4a", "mp3", "flac"]
 
     public let folder: URL
@@ -158,6 +171,41 @@ public final class LibraryStore {
         return true
     }
 
+    // MARK: Names of an earlier version
+
+    /// Gives the library file, its backup, the journal and the two folders their current names, where they still
+    /// have the former ones: once, because afterwards the former names are gone. Rename only, one step for the file
+    /// system each. Where the current name exists already, in any form, nothing is touched: the current one counts
+    /// and the former one stays. Take files keep their names; the library refers to them.
+    ///
+    /// `load` calls this before it reads anything, so every way of opening a library sees it. When a rename fails,
+    /// the library becomes read-only and the error says which: reading on would mean an empty library next to the
+    /// real one. Returns the former names that were renamed.
+    @discardableResult
+    public func adoptFormerNames() throws -> [String] {
+        var renamed: [String] = []
+        for (former, current) in Self.formerNames {
+            let source = folder.appendingPathComponent(former)
+            let target = folder.appendingPathComponent(current)
+            guard Self.itemExists(at: source), !Self.itemExists(at: target) else { continue }
+            // rename(2) with RENAME_EXCL never replaces a target that appeared in the meantime.
+            guard renamex_np(source.path, target.path, UInt32(RENAME_EXCL)) == 0 else {
+                let code = errno
+                if code == EEXIST { continue }
+                isReadOnly = true
+                throw LibraryError.carryOverFailed(from: former, to: current, reason: String(cString: strerror(code)) + ".")
+            }
+            renamed.append(former)
+        }
+        return renamed
+    }
+
+    /// True for anything of that name, also a link that points nowhere.
+    private static func itemExists(at url: URL) -> Bool {
+        var info = stat()
+        return lstat(url.path, &info) == 0
+    }
+
     // MARK: Loading and saving
 
     private static func makeDecoder() -> JSONDecoder {
@@ -176,6 +224,7 @@ public final class LibraryStore {
     @discardableResult
     public func load() throws -> LoadOutcome {
         try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        try adoptFormerNames()
         guard fileManager.fileExists(atPath: documentURL.path) else {
             if let backup = try? readDocument(at: backupURL) {
                 document = backup
@@ -206,7 +255,7 @@ public final class LibraryStore {
 
     /// Name of the copy kept before an older library is first saved in the current schema.
     public static func schemaBackupName(from version: Int) -> String {
-        "Bibliothek.vor-Schema-\(LibraryDocument.currentSchema).aus-\(version).json"
+        "Library.before-schema-\(LibraryDocument.currentSchema).from-\(version).json"
     }
 
     /// An older library keeps a copy of its file as it was, then counts as current. Nothing in it is rewritten until
@@ -246,7 +295,7 @@ public final class LibraryStore {
 
     private func keepUnreadableDocument() throws -> String {
         let stamp = Self.fileStamp(Date())
-        let name = "Bibliothek.defekt-\(stamp).json"
+        let name = "Library.damaged-\(stamp).json"
         try fileManager.moveItem(at: documentURL, to: folder.appendingPathComponent(name))
         return name
     }
@@ -306,7 +355,8 @@ public final class LibraryStore {
     /// Repairs the recording a previous run did not finish, and adds it to the library.
     @discardableResult
     public func recoverInterruptedRecording() -> RecoveryOutcome {
-        guard let journal = readJournal() else { return .none }
+        // A library that could not be opened for writing is left alone, journal and file included.
+        guard !isReadOnly, let journal = readJournal() else { return .none }
         let fileURL = folder.appendingPathComponent(journal.fileName)
         guard fileManager.fileExists(atPath: fileURL.path) else {
             removeJournal()
@@ -597,6 +647,21 @@ public final class LibraryStore {
         try fileManager.moveItem(at: url(of: recording), to: destination)
         update(id) { $0.fileName = fileName }
     }
+
+    /// The file name, without extension, of a new take started at `date`. Takes of earlier versions are called
+    /// `Aufnahme_<stamp>` and keep that name: nothing reads a meaning from either prefix.
+    public static func takeStem(at date: Date) -> String { "Take_\(fileStamp(date))" }
+
+    /// The file name, without extension, of bars recorded again from the take `sourceName`. Earlier versions wrote
+    /// `<name> Takt a-b`; those files keep their names too.
+    public static func retakeStem(of sourceName: String, bars: ClosedRange<Int>) -> String {
+        "\(sourceName) bars \(bars.lowerBound)-\(bars.upperBound)"
+    }
+
+    /// The tag a take of re-recorded bars starts with. Earlier versions wrote `Neuaufnahme`, which stays on the takes
+    /// that have it: a tag is the user's text, and what the app does with such a take follows from `punch`, not from
+    /// the tag.
+    public static let retakeTag = "Retake"
 
     public func uniqueName(_ stem: String, ext: String = "wav") -> URL {
         var candidate = folder.appendingPathComponent("\(stem).\(ext)")

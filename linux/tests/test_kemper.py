@@ -206,7 +206,7 @@ def test_importing_twice_adds_nothing_and_songs_become_pieces(tmp_path):
     assert new_again == 0 and len(presets.items) == 2
     assert ("kemper", 2) in presets.tag_counts()
 
-    takes = storemod.LibraryStore(tmp_path / "Aufnahmen")
+    takes = storemod.LibraryStore(tmp_path / "Recordings")
     takes.load()
     pieces = [{"title": s.title, "notes": s.notes, "parts": [
         {"name": n, "preset": {"presetID": written[i].id, "fileName": written[i].path.name, "name": written[i].name}}

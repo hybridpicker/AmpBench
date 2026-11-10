@@ -18,7 +18,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--kemper-list", metavar="FILE", help="show what a Kemper import would make and exit")
     parser.add_argument("--demo", action="store_true", help="use a simulated amp and a temporary presets folder")
     parser.add_argument("--presets-folder", metavar="DIR", help="folder of the saved presets (default ~/Music/AmpBench/Presets)")
-    parser.add_argument("--recordings-folder", metavar="DIR", help="folder of the recordings (default ~/Music/AmpBench/Aufnahmen)")
+    parser.add_argument("--recordings-folder", metavar="DIR", help="folder of the recordings (default ~/Music/AmpBench/Recordings)")
     parser.add_argument("--no-connect", action="store_true", help="do not look for the amp at start")
     parser.add_argument("--screenshot", metavar="PNG", help="render the window to a file and exit (for checks)")
     parser.add_argument("--size", default="1180x760", help="window size for --screenshot")
@@ -80,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.demo:
         from .demo_input import demo_engine, demo_devices
         engine, devices = demo_engine(), demo_devices
-        recordings = recordings or Path(tempfile.mkdtemp(prefix="ampbench-demo-aufnahmen-"))
+        recordings = recordings or Path(tempfile.mkdtemp(prefix="ampbench-demo-recordings-"))
     recorder_args = {"devices": devices} if devices else {}
     recorder = RecorderModel(LibraryStore(recordings), engine, **recorder_args)
     window = MainWindow(link, PresetLibrary(folder), auto_connect=not args.no_connect, recorder=recorder)

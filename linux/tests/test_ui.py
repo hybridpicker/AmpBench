@@ -47,7 +47,7 @@ def window(app, tmp_path, monkeypatch):
     from ampbench.demo_input import demo_devices, demo_engine
     from ampbench.recorder import RecorderModel
     from ampbench.store import LibraryStore
-    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     w = MainWindow(link, lib, auto_connect=True, recorder=recorder)
     w.show()
     w._area(1)
@@ -142,7 +142,7 @@ def test_record_a_take_through_the_window(app, tmp_path):
     from ampbench.recorder import RecorderModel
     from ampbench.store import LibraryStore
     amp = FakeAmp()
-    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     w.show()
     try:
@@ -156,6 +156,8 @@ def test_record_a_take_through_the_window(app, tmp_path):
         take = recorder.store.document["recordings"][0]
         assert take["status"] == "open" and take["duration"] > 0.4
         assert not recorder.store.journal_path.exists()
+        assert take["fileName"].startswith("Take_") and (tmp_path / "Recordings" / take["fileName"]).exists()
+        assert (tmp_path / "Recordings" / "Library.json").exists()
     finally:
         w.close()
 
@@ -167,7 +169,7 @@ def test_recording_page_review_keys_and_undo(app, tmp_path, monkeypatch):
     from ampbench.recorder import RecorderModel
     from ampbench.store import LibraryStore
     monkeypatch.setattr("ampbench.trash.trash_root", lambda: tmp_path / "Trash")
-    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     w.show()
     page = w.recordings
@@ -210,7 +212,7 @@ def test_library_views_rate_search_pieces_and_sound(app, tmp_path, monkeypatch):
     from ampbench.recorder import RecorderModel
     from ampbench.store import LibraryStore
     monkeypatch.setattr("ampbench.trash.trash_root", lambda: tmp_path / "Trash")
-    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     amp = FakeAmp()
     w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=True, recorder=recorder)
     w.show()
@@ -425,7 +427,7 @@ def test_the_window_speaks_german_when_asked(app, tmp_path):
     from ampbench.store import LibraryStore
     from ampbench.ui import formats
     i18n.set_language(i18n.GERMAN)
-    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     try:
         assert [a.text() for a in w.menuBar().actions()][:4] == ["Darstellung", "Presets", "Bearbeiten", "Verstärker"]
@@ -457,3 +459,23 @@ def test_the_language_menu_stores_the_choice(window, tmp_path, monkeypatch):
     assert i18n.language() == i18n.ENGLISH, "the running window keeps its language"
     w.language_actions[None].trigger()
     assert settings().value(i18n.SETTINGS_KEY) is None and w.language_actions[None].isChecked()
+
+
+def test_a_failed_rename_of_the_old_library_is_reported_and_nothing_is_recorded(app, tmp_path, monkeypatch):
+    from ampbench import store
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    old = store.dumps({"schemaVersion": 2, "recordings": []})
+    (tmp_path / "Bibliothek.json").write_text(old)
+
+    def refuse(source, target):
+        raise PermissionError(13, "Permission denied")
+    monkeypatch.setattr(store.os, "rename", refuse)
+    recorder = RecorderModel(store.LibraryStore(tmp_path), demo_engine(), demo_devices)
+    said = []
+    recorder.message.connect(lambda kind, text: said.append((kind, text)))
+    recorder.start_library()
+    assert recorder.usable is False and said[0][0] == "error" and "Library.json" in said[0][1]
+    recorder.start()
+    assert not recorder.is_recording
+    assert (tmp_path / "Bibliothek.json").read_text() == old and not (tmp_path / "Library.json").exists()

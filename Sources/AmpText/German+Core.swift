@@ -66,6 +66,7 @@ extension German {
         "Playback could not start: %@": "Die Wiedergabe konnte nicht starten: %@",
         "A file named “%@” already exists.": "Es gibt bereits eine Datei mit dem Namen „%@“.",
         "The library comes from a newer version of the app (schema %d). It stays unchanged.": "Die Bibliothek stammt von einer neueren Version der App (Schema %d). Sie bleibt unverändert.",
+        "“%@” from an earlier version could not be renamed to “%@”: %@ Nothing was changed or lost; the library stays closed until this works.": "„%@“ aus einer früheren Version konnte nicht in „%@“ umbenannt werden: %@ Nichts wurde geändert oder ging verloren; die Bibliothek bleibt geschlossen, bis das klappt.",
         "%d channels": "%d Kanäle",
         "%d-bit": "%d Bit",
         "%d seconds": "%d Sekunden",

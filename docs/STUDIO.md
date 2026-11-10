@@ -274,7 +274,7 @@ ever goes to the Kemper, the file is not changed. `--kemper-list <file>` shows t
 - **Sound of a take:** `Recording.preset: PresetStamp?` with `slot` (from 1, nil = played temporarily), `name`,
   `stampedAt`, `sha256`, `device` (profile name, since phase 2) and, for a device that is only listened to,
   `listened` (label and value) instead of fingerprint and snapshot. The snapshot lies as a preset file in
-  `Aufnahmen/.presets/<take UUID>.json` (`PresetFile.snapshotData`), so that "Open in editor" uses the normal
+  `Recordings/.presets/<take UUID>.json` (`PresetFile.snapshotData`), so that "Open in editor" uses the normal
   reading logic. Named after the UUID, not after the file name, so it stays with the take when it is renamed.
   Discarding and restoring keep it.
   - What sounds (`PresetsModel.heardPreset`, from memory only): the editor's state when it plays live on 7F (also
@@ -288,9 +288,9 @@ ever goes to the Kemper, the file is not changed. `--kemper-list <file>` shows t
   A `PresetLink` names a preset through the stable `PresetFile.id`, with the file name in the folder Presets as a
   fallback, never through an absolute path. Practice time comes from the practice log, discarded takes count too.
 - **Schema 2:** `LibraryDocument.currentSchema = 2`. A library with schema 1 gets a copy
-  `Bibliothek.vor-Schema-2.aus-1.json` before the first save. A version that only knows schema 1 opens schema 2
+  `Library.before-schema-2.from-1.json` before the first save. A version that only knows schema 1 opens schema 2
   read-only and can therefore never drop the new fields.
-- **Folders:** `~/Music/AmpBench/Aufnahmen` and `…/Presets` (`StudioFolders`). At the first start
+- **Folders:** `~/Music/AmpBench/Recordings` and `…/Presets` (`StudioFolders`). At the first start
   `~/Music/Spark Recorder` and `~/Music/Spark Presets` are copied (APFS clone) and never changed or deleted. The copy
   is made in a hidden folder beside them and renamed only when complete. If Spark Recorder still holds its
   library (process lock), the app takes over nothing, says so and quits. The settings of

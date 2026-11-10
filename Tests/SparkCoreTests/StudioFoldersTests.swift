@@ -57,7 +57,7 @@ final class StudioFoldersTests: XCTestCase {
         XCTAssertEqual(copied, recordingsBefore, "every file arrived, hidden ones included")
         XCTAssertEqual(try checksums(studio.presets), presetsBefore)
         XCTAssertTrue(FileManager.default.fileExists(atPath: studio.root.appendingPathComponent(StudioFolders.markerName).path))
-        let leftovers = try FileManager.default.contentsOfDirectory(atPath: folder.url.path).filter { $0.contains("eingerichtet") }
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: folder.url.path).filter { $0.contains("setting up") || $0.contains("eingerichtet") }
         XCTAssertEqual(leftovers, [], "no staging folder remains")
     }
 
@@ -102,20 +102,34 @@ final class StudioFoldersTests: XCTestCase {
 
     private func makeFormerRoot() throws {
         let manager = FileManager.default
-        let recordings = formerRoot.appendingPathComponent(StudioFolders.recordingsName)
+        let recordings = formerRoot.appendingPathComponent(StudioFolders.formerRecordingsName)
         try manager.createDirectory(at: recordings.appendingPathComponent(".wellenformen"), withIntermediateDirectories: true)
         try manager.createDirectory(at: formerRoot.appendingPathComponent(StudioFolders.presetsName),
                                     withIntermediateDirectories: true)
         try Synthetic.writeWAV(to: recordings.appendingPathComponent("Take 1.wav"), seconds: 0.1)
         try Data("{\"schemaVersion\": 1}".utf8).write(to: recordings.appendingPathComponent("Bibliothek.json"))
         try Data("{\"preset\": {}}".utf8).write(to: formerRoot.appendingPathComponent("Presets/Crunch.json"))
-        try Data("{}".utf8).write(to: formerRoot.appendingPathComponent(StudioFolders.markerName))
+        try Data("{}".utf8).write(to: formerRoot.appendingPathComponent(StudioFolders.formerMarkerName))
+    }
+
+    /// The same files under the names `prepare` gives the recordings folder and the marker. The names inside the
+    /// recordings folder are the library's matter and stay until it is opened.
+    private func underCurrentNames(_ files: [String: Data]) -> [String: Data] {
+        var result: [String: Data] = [:]
+        for (path, data) in files {
+            var path = path
+            if path.hasPrefix("/Aufnahmen/") { path = "/Recordings/" + path.dropFirst("/Aufnahmen/".count) }
+            if path == "/.uebernommen.json" { path = "/.adopted.json" }
+            result[path] = data
+        }
+        return result
     }
 
     func testTheFolderOfTheFormerNameIsRenamed() throws {
         try makeFormerRoot()
-        let before = try checksums(formerRoot)
+        let before = underCurrentNames(try checksums(formerRoot))
         XCTAssertFalse(before.isEmpty)
+        XCTAssertNotNil(before["/Recordings/Take 1.wav"])
 
         XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .renamed)
         XCTAssertFalse(FileManager.default.fileExists(atPath: formerRoot.path), "moved, not copied")
@@ -130,7 +144,7 @@ final class StudioFoldersTests: XCTestCase {
     func testTheRenamedFolderIsNotMixedWithTheOlderApps() throws {
         try makeFormerRoot()
         try makeOldFolders()
-        let before = try checksums(formerRoot)
+        let before = underCurrentNames(try checksums(formerRoot))
         XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .renamed)
         XCTAssertEqual(try checksums(studio.root), before)
     }
@@ -165,11 +179,106 @@ final class StudioFoldersTests: XCTestCase {
     /// While the app still runs under its former name, it holds its library's lock. Nothing is renamed under it.
     func testARunningFormerAppBlocksTheRename() throws {
         try makeFormerRoot()
-        let other = LibraryStore(folder: formerRoot.appendingPathComponent(StudioFolders.recordingsName))
+        let other = LibraryStore(folder: formerRoot.appendingPathComponent(StudioFolders.formerRecordingsName))
         XCTAssertTrue(other.acquireProcessLock())
         XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .blocked)
         XCTAssertTrue(FileManager.default.fileExists(atPath: formerRoot.path))
         XCTAssertFalse(FileManager.default.fileExists(atPath: studio.root.path))
+    }
+
+    // MARK: The German names inside the folder
+
+    private var formerRecordings: URL { studio.root.appendingPathComponent(StudioFolders.formerRecordingsName) }
+
+    private func makeRootWithFormerNames() throws {
+        let manager = FileManager.default
+        try manager.createDirectory(at: formerRecordings.appendingPathComponent(".wellenformen"), withIntermediateDirectories: true)
+        try manager.createDirectory(at: formerRecordings.appendingPathComponent("Exporte"), withIntermediateDirectories: true)
+        try manager.createDirectory(at: studio.presets, withIntermediateDirectories: true)
+        try Synthetic.writeWAV(to: formerRecordings.appendingPathComponent("Aufnahme_2026-11-01_10-00-00.wav"), seconds: 0.1)
+        try Data("{\"schemaVersion\": 1}".utf8).write(to: formerRecordings.appendingPathComponent("Bibliothek.json"))
+        try Data("mix".utf8).write(to: formerRecordings.appendingPathComponent("Exporte/Mix.wav"))
+        try Data("{\"preset\": {}}".utf8).write(to: studio.presets.appendingPathComponent("Crunch.json"))
+        try Data("{}".utf8).write(to: studio.root.appendingPathComponent(StudioFolders.formerMarkerName))
+    }
+
+    func testTheRecordingsFolderAndTheMarkerGetTheirEnglishNames() throws {
+        try makeRootWithFormerNames()
+        let before = underCurrentNames(try checksums(studio.root))
+
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .ready)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: formerRecordings.path), "renamed, not copied")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: studio.root.appendingPathComponent(".uebernommen.json").path))
+        XCTAssertEqual(try checksums(studio.root), before, "every file arrived under the new folder name")
+
+        XCTAssertEqual(try studio.adoptFormerNames(), .nothingToDo, "once")
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .ready)
+        XCTAssertEqual(try checksums(studio.root), before)
+    }
+
+    /// The whole way: the folder first, then the names inside it when the library opens.
+    func testAfterTheFolderTheLibraryCarriesItsOwnNamesOver() throws {
+        try makeRootWithFormerNames()
+        _ = try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets)
+        let store = LibraryStore(folder: studio.recordings, trasher: FakeTrash(folder: folder.file("Trash")))
+        XCTAssertEqual(try store.load(), .loaded)
+        let names = Set(try FileManager.default.contentsOfDirectory(atPath: studio.recordings.path))
+        XCTAssertTrue(names.isSuperset(of: ["Library.json", ".waveforms", "Exports", "Aufnahme_2026-11-01_10-00-00.wav"]))
+        XCTAssertTrue(names.isDisjoint(with: ["Bibliothek.json", ".wellenformen", "Exporte"]))
+    }
+
+    func testWhenBothRecordingsFoldersExistNothingIsMoved() throws {
+        try makeRootWithFormerNames()
+        try FileManager.default.createDirectory(at: studio.recordings, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: studio.recordings.appendingPathComponent("Neu.wav"))
+        try Data("{\"new\": true}".utf8).write(to: studio.root.appendingPathComponent(StudioFolders.markerName))
+        let before = try checksums(studio.root)
+
+        XCTAssertEqual(try studio.adoptFormerNames(), .nothingToDo)
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .ready)
+        XCTAssertEqual(try checksums(studio.root), before, "both folders and both markers stay as they were")
+    }
+
+    /// Even a plain file named `Recordings` is in the way, and is never replaced.
+    func testAFileNamedLikeTheRecordingsFolderIsNotReplaced() throws {
+        try makeRootWithFormerNames()
+        try Data("not a folder".utf8).write(to: studio.recordings)
+        XCTAssertEqual(try studio.adoptFormerNames(), .nothingToDo)
+        XCTAssertEqual(try Data(contentsOf: studio.recordings), Data("not a folder".utf8))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: formerRecordings.path))
+    }
+
+    /// A version of the app that still writes into `Aufnahmen` holds its lock. Nothing is renamed under it.
+    func testARunningAppBlocksTheRenameOfTheRecordingsFolder() throws {
+        try makeRootWithFormerNames()
+        let before = try checksums(studio.root)
+        let other = LibraryStore(folder: formerRecordings)
+        XCTAssertTrue(other.acquireProcessLock())
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .blocked)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: studio.recordings.path), "no empty new folder either")
+        var after = try checksums(studio.root)
+        after.removeValue(forKey: "/Aufnahmen/.lock")
+        XCTAssertEqual(after, before)
+    }
+
+    /// A folder that may not be changed: the rename fails, says so, and everything is as it was.
+    func testAFailedRenameOfTheRecordingsFolderChangesNothing() throws {
+        try makeRootWithFormerNames()
+        let before = try checksums(studio.root)
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: studio.root.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: studio.root.path) }
+
+        XCTAssertThrowsError(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: studio.recordings.path))
+        XCTAssertEqual(try checksums(studio.root), before)
+    }
+
+    /// The folders of the still older apps are copied with their German names inside; the new folder gets English ones.
+    func testATakeoverWritesTheEnglishFolderAndMarkerNames() throws {
+        try makeOldFolders()
+        _ = try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets)
+        let names = Set(try FileManager.default.contentsOfDirectory(atPath: studio.root.path))
+        XCTAssertEqual(names, ["Recordings", "Presets", ".adopted.json"])
     }
 
     // MARK: Settings

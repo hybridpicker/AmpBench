@@ -68,7 +68,7 @@ class RecorderModel(QObject):
             return
         if outcome in ("restored", "started_over"):
             self.message.emit("warning", tr("The library could not be read. The broken file is in the folder as "
-                                            "Bibliothek.defekt-…."))
+                                            "Library.damaged-…."))
         self.usable = True
         recovery = self.store.recover_interrupted()
         if recovery.kind == "repaired":
@@ -218,7 +218,7 @@ class RecorderModel(QObject):
             if not self.engine.is_open:
                 self.engine.open(device)
             now = datetime.now(timezone.utc)
-            path = self.store.unique_name(f"Aufnahme_{storemod.file_stamp(now)}")
+            path = self.store.unique_name(f"Take_{storemod.file_stamp(now)}")
             source = self._source_format(device)
             take_id = storemod.new_id()
             journal = {"fileName": path.name, "startedAt": storemod.iso(now), "source": source, "takeID": take_id,

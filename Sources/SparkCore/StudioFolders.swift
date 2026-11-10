@@ -1,6 +1,6 @@
 import Foundation
 
-/// AmpBench's folder: `~/Music/AmpBench` with `Aufnahmen` (the recordings library) and `Presets`.
+/// AmpBench's folder: `~/Music/AmpBench` with `Recordings` (the recordings library) and `Presets`.
 ///
 /// At the first start it takes over the folders of Spark Recorder and Spark Presets by copying them. On APFS a copy is a
 /// clone: instant, and it takes no space until a file changes. The old folders stay exactly as they were, so the old
@@ -9,14 +9,21 @@ import Foundation
 ///
 /// The app was called Spark Studio before, with its folder `~/Music/Spark Studio`. That folder is the app's own, so it
 /// is not copied but renamed, once, before anything reads it: see `adoptFormerRoot`.
+///
+/// The recordings folder was called `Aufnahmen` and the marker `.uebernommen.json` while the app wrote German names.
+/// Both are renamed the same way: see `adoptFormerNames`. The names inside the recordings folder are the library's
+/// own matter: `LibraryStore.adoptFormerNames`.
 public struct StudioFolders: Equatable, Sendable {
     public static let rootName = "AmpBench"
     /// The folder's name while the app was called Spark Studio.
     public static let formerRootName = "Spark Studio"
-    public static let recordingsName = "Aufnahmen"
+    public static let recordingsName = "Recordings"
+    /// The recordings folder's name while the app wrote German names.
+    public static let formerRecordingsName = "Aufnahmen"
     public static let presetsName = "Presets"
     /// Says when and from where the folders were taken over. Hidden, so the library scan never sees it.
-    public static let markerName = ".uebernommen.json"
+    public static let markerName = ".adopted.json"
+    public static let formerMarkerName = ".uebernommen.json"
 
     public let root: URL
     public var recordings: URL { root.appendingPathComponent(Self.recordingsName, isDirectory: true) }
@@ -60,7 +67,11 @@ public struct StudioFolders: Equatable, Sendable {
     /// Makes the folder ready. Throws only when copying fails, and then leaves no trace but the untouched old folders.
     public func prepare(formerRecordings: URL, formerPresets: URL,
                         fileManager: FileManager = .default) throws -> Outcome {
-        switch try adoptFormerRoot(fileManager: fileManager) {
+        let formerRoot = try adoptFormerRoot(fileManager: fileManager)
+        if formerRoot == .inUse { return .blocked }
+        // Before the folders are created below: a new, empty `Recordings` would keep the former one from its name.
+        if try adoptFormerNames(fileManager: fileManager) == .inUse { return .blocked }
+        switch formerRoot {
         case .renamed:
             try fileManager.createDirectory(at: recordings, withIntermediateDirectories: true)
             try fileManager.createDirectory(at: presets, withIntermediateDirectories: true)
@@ -92,7 +103,7 @@ public struct StudioFolders: Equatable, Sendable {
 
         let parent = root.deletingLastPathComponent()
         try fileManager.createDirectory(at: parent, withIntermediateDirectories: true)
-        let staging = parent.appendingPathComponent(".\(Self.rootName) wird eingerichtet \(UUID().uuidString)",
+        let staging = parent.appendingPathComponent(".\(Self.rootName) setting up \(UUID().uuidString)",
                                                     isDirectory: true)
         do {
             try fileManager.createDirectory(at: staging, withIntermediateDirectories: false)
@@ -145,14 +156,55 @@ public struct StudioFolders: Equatable, Sendable {
 
         // An app still running under the former name holds this lock. The file is not created here: no lock file
         // means no such app ever opened the library.
-        let lock = open(former.appendingPathComponent(Self.recordingsName).appendingPathComponent(".lock").path, O_RDWR)
-        if lock >= 0, flock(lock, LOCK_EX | LOCK_NB) != 0 {
-            close(lock)
-            return .inUse
+        // The former folder holds its recordings under the former name, or under the current one.
+        var locks: [Int32] = []
+        defer { locks.forEach { _ = close($0) } }
+        for name in [Self.formerRecordingsName, Self.recordingsName] {
+            let lock = open(former.appendingPathComponent(name).appendingPathComponent(".lock").path, O_RDWR)
+            guard lock >= 0 else { continue }
+            locks.append(lock)
+            if flock(lock, LOCK_EX | LOCK_NB) != 0 { return .inUse }
         }
-        defer { if lock >= 0 { close(lock) } }
         try fileManager.moveItem(at: former, to: root)
         return .renamed
+    }
+
+    public enum FormerNames: Equatable, Sendable {
+        /// No recordings folder of the former name, or the current one is there already. Nothing was changed.
+        case nothingToDo
+        /// The recordings folder now has its current name.
+        case renamed
+        /// A running app holds the library in the folder of the former name. Nothing was changed.
+        case inUse
+    }
+
+    /// Renames the recordings folder `Aufnahmen` inside `root` to `Recordings`: once, because afterwards it is gone.
+    /// When both exist nothing is moved, overwritten or deleted, and the current one counts. The marker follows the
+    /// same rule; it is only a note, so a marker that cannot be renamed stops nothing. Throws when the folder cannot
+    /// be renamed, and then everything is as it was.
+    public func adoptFormerNames(fileManager: FileManager = .default) throws -> FormerNames {
+        let former = root.appendingPathComponent(Self.formerRecordingsName, isDirectory: true)
+        var isDirectory: ObjCBool = false
+        var outcome = FormerNames.nothingToDo
+        if fileManager.fileExists(atPath: former.path, isDirectory: &isDirectory), isDirectory.boolValue,
+           !Self.itemExists(at: recordings) {
+            // A version of the app that still uses the former name holds this lock while it runs.
+            let lock = open(former.appendingPathComponent(".lock").path, O_RDWR)
+            if lock >= 0, flock(lock, LOCK_EX | LOCK_NB) != 0 {
+                close(lock)
+                return .inUse
+            }
+            defer { if lock >= 0 { close(lock) } }
+            try fileManager.moveItem(at: former, to: recordings)
+            outcome = .renamed
+        }
+
+        let formerMarker = root.appendingPathComponent(Self.formerMarkerName)
+        let marker = root.appendingPathComponent(Self.markerName)
+        if Self.itemExists(at: formerMarker), !Self.itemExists(at: marker) {
+            try? fileManager.moveItem(at: formerMarker, to: marker)
+        }
+        return outcome
     }
 
     /// True for anything of that name, also a file or a link that points nowhere, so that a rename never replaces it.

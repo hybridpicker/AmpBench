@@ -1,4 +1,4 @@
-"""The recordings library: ``Bibliothek.json`` and the WAV files next to it, in the Mac app's format.
+"""The recordings library: ``Library.json`` and the WAV files next to it, in the Mac app's format.
 
 The document is kept as plain dictionaries so that fields this app does not know (edits, grids, sound stamps, pieces)
 survive a save untouched. A port of the parts of SparkCore/LibraryStore.swift that recording needs.
@@ -17,7 +17,12 @@ from . import trash as trashmod, wav
 from .i18n import tr
 
 SCHEMA = 2
-DOCUMENT, BACKUP, JOURNAL = "Bibliothek.json", "Bibliothek.backup.json", ".aufnahme-laeuft.json"
+DOCUMENT, BACKUP, JOURNAL = "Library.json", "Library.backup.json", ".recording-in-progress.json"
+WAVEFORMS, EXPORTS = ".waveforms", "Exports"
+RECORDINGS, OLD_RECORDINGS = "Recordings", "Aufnahmen"
+# The names these had while the app wrote German names. Carried over once, in this order, when a folder is opened.
+OLD_NAMES = (("Bibliothek.json", DOCUMENT), ("Bibliothek.backup.json", BACKUP), (".aufnahme-laeuft.json", JOURNAL),
+             (".wellenformen", WAVEFORMS), ("Exporte", EXPORTS))
 AUDIO_EXTENSIONS = {".wav", ".aif", ".aiff", ".caf", ".m4a", ".mp3", ".flac"}
 
 
@@ -47,7 +52,11 @@ def new_id() -> str:
 
 
 def default_folder() -> Path:
-    return Path.home() / "Music" / "AmpBench" / "Aufnahmen"
+    """``Recordings``. The folder under its old name is used only when it could not be renamed (see migrate.py)."""
+    root = Path.home() / "Music" / "AmpBench"
+    if (root / OLD_RECORDINGS).is_dir() and not os.path.lexists(root / RECORDINGS):
+        return root / OLD_RECORDINGS
+    return root / RECORDINGS
 
 
 def dumps(value) -> str:
@@ -99,8 +108,25 @@ class LibraryStore:
 
     # Loading and saving
 
+    def carry_over_names(self) -> list[str]:
+        """Gives the files and folders of an older version their English names: a rename, only where the new name is
+        still free. Nothing is overwritten, copied or deleted. Returns the new names, for the log."""
+        done: list[str] = []
+        for old, new in OLD_NAMES:
+            source, target = self.folder / old, self.folder / new
+            if not os.path.lexists(source) or os.path.lexists(target):
+                continue
+            try:
+                os.rename(source, target)
+            except OSError as error:
+                raise StoreError(tr("“{}” could not be renamed to “{}”: {}. Nothing was changed, the library stays "
+                                    "closed.", old, new, error.strerror or str(error))) from error
+            done.append(new)
+        return done
+
     def load(self) -> str:
         self.folder.mkdir(parents=True, exist_ok=True)
+        self.carry_over_names()
         try:
             self.document = self._read(self.document_path)
             return "loaded"
@@ -112,7 +138,7 @@ class LibraryStore:
                 self.document = self._fresh()
                 return "fresh"
         except (OSError, ValueError):
-            kept = f"Bibliothek.defekt-{file_stamp(datetime.now())}.json"
+            kept = f"Library.damaged-{file_stamp(datetime.now())}.json"
             os.replace(self.document_path, self.folder / kept)
             try:
                 self.document = self._read(self.backup_path)

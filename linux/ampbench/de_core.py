@@ -263,8 +263,10 @@ GERMAN_CORE: dict[str, str] = {
         "Die Aufnahme hat die Grenze des WAV-Formats erreicht und wurde sicher beendet.",
     "The takes are already in use by another AmpBench that is running. Nothing is recorded here.":
         "Die Aufnahmen werden schon von einer anderen AmpBench-Instanz benutzt. Hier wird nichts aufgenommen.",
-    "The library could not be read. The broken file is in the folder as Bibliothek.defekt-….":
-        "Die Bibliothek war nicht lesbar. Die kaputte Datei liegt als Bibliothek.defekt-… im Ordner.",
+    "The library could not be read. The broken file is in the folder as Library.damaged-….":
+        "Die Bibliothek war nicht lesbar. Die kaputte Datei liegt als Library.damaged-… im Ordner.",
+    "“{}” could not be renamed to “{}”: {}. Nothing was changed, the library stays closed.":
+        "„{}“ ließ sich nicht in „{}“ umbenennen: {}. Nichts wurde verändert, die Bibliothek bleibt geschlossen.",
     "The interrupted recording “{}” was repaired ({} s) and is in the library.":
         "Die unterbrochene Aufnahme „{}“ wurde repariert ({} s) und liegt in der Bibliothek.",
     "The interrupted recording “{}” could not be repaired. The file stays unchanged in the folder.":

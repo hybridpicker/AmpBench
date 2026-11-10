@@ -78,18 +78,18 @@ On a device with more slots, `⌘1` – `⌘8` and `⌥⌘1` – `⌥⌘8` reach
 
 ## Where things are
 
-Folder and file names on disk are the same in both languages; some of them are German in this release.
+Folder and file names on disk are English and the same in both languages. Names from versions before 1.0 (`Aufnahmen`, `Bibliothek.json` and the like) are renamed once at the first start; existing take files keep their names.
 
 ```
 ~/Music/AmpBench/
-  Aufnahmen/               The recordings folder.
+  Recordings/              The recordings folder.
     *.wav                  Recordings. They are the originals and are never rewritten.
-    Bibliothek.json        Metadata: names, ratings, tags, notes, takes, markers, edits, pieces. Plain, readable JSON.
-    Bibliothek.backup.json The previous version of that file.
-    Exporte/               Default folder for exports. It is not part of the library.
-    .wellenformen/         Waveform cache. Safe to delete, it is rebuilt when needed.
+    Library.json           Metadata: names, ratings, tags, notes, takes, markers, edits, pieces. Plain, readable JSON.
+    Library.backup.json    The previous version of that file.
+    Exports/               Default folder for exports. It is not part of the library.
+    .waveforms/            Waveform cache. Safe to delete, it is rebuilt when needed.
     .presets/<take id>.json The sound each take was recorded with, as a preset file.
-    .aufnahme-laeuft.json  Exists only during a recording, for crash recovery.
+    .recording-in-progress.json  Exists only during a recording, for crash recovery.
   Presets/
     *.json                 Presets on the Mac, one readable JSON file each, the backups of overwritten slots,
                            and sound recipes written by hand or by an AI assistant (see AI Sound).
@@ -100,7 +100,7 @@ Folder and file names on disk are the same in both languages; some of them are G
 folders stay exactly as they were and are never deleted. If Spark Recorder still runs, AmpBench says so and waits
 until the next start, so no recording can be split between two folders. AmpBench also takes over the former apps'
 settings, such as input and click. A library from before AmpBench keeps a copy of its file as
-`Bibliothek.vor-Schema-2.aus-1.json` before it is first saved in the new format, which older versions only open
+`Library.before-schema-2.from-1.json` before it is first saved in the new format, which older versions only open
 read-only.
 
 Files placed in the recordings folder are picked up on the next start or with "Check folder". Files renamed in the
