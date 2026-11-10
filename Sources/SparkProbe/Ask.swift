@@ -26,6 +26,8 @@ final class AskLink: NSObject {
     /// What goes out, and what to call it in the log.
     private let message: [UInt8]
     private let label: String
+    /// Where a preset answer (03 01) is written, when it is wanted.
+    private var save: URL?
     private let seconds: Double
     private let header: Bool
     private let deviceFilter: String?
@@ -63,6 +65,17 @@ final class AskLink: NSObject {
         message = SparkProtocol.frame(command: SparkProtocol.Command.set, sub: sub, payload: payload, sequence: 1,
                                       header: header)
         label = String(format: "set message (01 %02X %@)", sub, payload.hex)
+        self.seconds = seconds
+        self.header = header
+        deviceFilter = device
+    }
+
+    /// `spark-probe read-slot <0-7> <file>`: one read request for a stored slot (02 01 00 <slot>); the preset that comes
+    /// back is written to the file as it came, for working out a device's own preset format. Reads only.
+    init(slot: UInt8, save: URL, seconds: Double, header: Bool, device: String?) {
+        message = SparkProtocol.getPreset(slot: slot, sequence: 1, header: header)
+        label = "read request (slot \(slot))"
+        self.save = save
         self.seconds = seconds
         self.header = header
         deviceFilter = device
@@ -124,10 +137,19 @@ final class AskLink: NSObject {
     private func received(_ bytes: [UInt8]) {
         let time = started.map { Date().timeIntervalSince($0) } ?? -1
         receivedBytes += bytes.count
-        log(String(format: "%6.2f s  received ", time) + bytes.hex)
+        if save == nil { log(String(format: "%6.2f s  received ", time) + bytes.hex) }
         for message in parser.feed(bytes) {
             let head = String(format: "%02X %02X", message.command, message.sub)
             let event = SparkEvent(message).map { " \($0)" } ?? ""
+            if let save, message.command == SparkProtocol.Command.response, message.sub == SparkProtocol.Sub.preset {
+                do {
+                    try Data(message.payload).write(to: save, options: .atomic)
+                    log("          preset of \(message.payload.count) bytes written to \(save.lastPathComponent)")
+                } catch {
+                    log("          could not write \(save.lastPathComponent)")
+                }
+                continue
+            }
             log("          message \(head) \(message.payload.hex)\(event)\(message.checksumOK ? "" : " (checksum!)")")
         }
     }

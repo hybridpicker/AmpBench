@@ -46,6 +46,9 @@ let usage = """
       send-one <sub> <payload bytes in hex…>
                       send exactly one set message (01 <sub>), e.g. B1 00 07, to try a command known only from
                       the device's own reports. Same rules as set-one, one try
+      read-slot <0-7> <file>
+                      send exactly one read request for a stored slot and write the preset that comes back to
+                      the file as it came. Reads only
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -162,6 +165,14 @@ if arguments.first == "switch-one" {
     guard arguments.count == 3, ["on", "off"].contains(arguments[2]) else { fail(usage) }
     Task { @MainActor in
         exit(await AskLink(model: arguments[1], on: arguments[2] == "on", seconds: 5, header: header,
+                           device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
+}
+if arguments.first == "read-slot" {
+    guard arguments.count == 3, let slot = UInt8(arguments[1]), slot < 8 else { fail(usage) }
+    Task { @MainActor in
+        exit(await AskLink(slot: slot, save: URL(fileURLWithPath: arguments[2]), seconds: 4, header: header,
                            device: device).run() ? 0 : 1)
     }
     dispatchMain()
