@@ -178,6 +178,15 @@ class PresetLibrary:
         self.reload()
         return next(i for i in self.items if i.path == item.path)
 
+    def add_recipe(self, data: dict) -> Path:
+        """Writes a sound recipe into the folder under a free file name; it shows as a recipe until saved."""
+        path = self._unique(file_name_for(str(data.get("name", "")) or "Rezept"))
+        temporary = path.with_name(f".{path.name}.tmp")
+        temporary.write_text(json.dumps(data, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+        os.replace(temporary, path)
+        self.reload()
+        return path
+
     def tag_counts(self) -> list[tuple[str, int]]:
         """Every tag with how many presets carry it, most used first, then by name."""
         counts: dict[str, list] = {}

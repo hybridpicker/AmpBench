@@ -355,3 +355,45 @@ def test_tuner_settings_are_kept(window):
     tuner.set_a4(440)
     tuner.set_tuning("standard")
     tuner.set_strobe(False)
+
+
+def test_the_ai_sound_window_offers_plays_and_keeps(window, monkeypatch, tmp_path):
+    w, amp = window
+    from PySide6.QtCore import QSettings
+    from spark_studio import sound_ai
+    from spark_studio.ui import ai_sound_dialog
+    from test_sound_ai import recipe
+    monkeypatch.setattr(ai_sound_dialog.ai_key, "load", lambda: "test-key")
+    answers = {"Variante A": recipe(name="Rock A", amp="Plexi"), "Variante B": recipe(name="Rock B", amp="SLO100"),
+               "Variante C": recipe(name="Rock C", amp="Twin")}
+
+    def factory(model, key, cancelled):
+        assert key == "test-key"
+        return lambda messages, temperature: next(v for k, v in answers.items() if k in messages[1]["content"])
+
+    played, kept = [], []
+    settings = QSettings(str(tmp_path / "ai.ini"), QSettings.IniFormat)
+    dialog = ai_sound_dialog.AISoundDialog(lambda p: played.append(p) or None, kept.append, w, settings, factory)
+    assert dialog.stack.currentIndex() == 1, "with a key it starts at the wish"
+    dialog.request_field.setPlainText("Rock für die Telecaster")
+    dialog.generate()
+    wait_for(lambda: all(o.recipe is not None for o in dialog.offers))
+    assert [o.recipe["name"] for o in dialog.offers] == ["Rock A", "Rock B", "Rock C"]
+    assert dialog.history[0] == "Rock für die Telecaster"
+    dialog.listen(1)
+    assert played and played[0].name == "Rock B" and dialog.listening == 1
+    dialog.pick(1)
+    assert kept[0]["name"] == "Rock B" and "KI-Sound" in kept[0]["tags"]
+    assert kept[0]["description"].startswith("KI-Sound: „Rock für die Telecaster“")
+    sound_ai.recipemod.to_preset(kept[0])
+
+
+def test_kept_ai_sound_lands_in_the_library(window):
+    w, _ = window
+    from test_sound_ai import recipe
+    import json
+    data = json.loads(recipe(name="KI Probe"))
+    path = w.library.add_recipe(data)
+    w._refresh_library()
+    item = next(i for i in w.library.items if i.path == path)
+    assert item.is_recipe and item.name == "KI Probe"

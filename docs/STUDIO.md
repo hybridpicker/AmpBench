@@ -673,8 +673,8 @@ Für jedes Gerät, ohne Ausnahme:
   bei echten Saiten (die beim Anschlag etwas zu hoch klingen) ruhig genug kommt, und wie VoiceOver die Ansagen
   verteilt. Die Latenz des Callbacks (Puffergröße) und des 5-ms-Lesetakts kommt zu den gemessenen 80 ms (tiefes E) noch dazu.
 - **Stimmgerät in der Linux-App:** seit 2026-11-10 gebaut (`linux/spark_studio/pitch.py`, `tuning.py`, `tuner.py`,
-  `ui/tuner_view.py`), eine Portierung mit numpy; die Genauigkeitstests des Mac laufen dort mit denselben synthetischen
-  Signalen (Sinus, Sägezahn, Karplus-Strong) und Grenzen. Das Stimmgerät liest den Eingang der Aufnahme mit
+  `ui/tuner_view.py`), eine Portierung mit numpy; eine Auswahl der Genauigkeits- und Verhaltenstests des Mac läuft dort mit denselben
+  synthetischen Signalen (Sinus, Sägezahn, Karplus-Strong) und denselben Grenzen. Das Stimmgerät liest den Eingang der Aufnahme mit
   (`CaptureEngine.attach`, `RecorderModel.share`), das Stimmgerät des Verstärkers schaltet `LinkCore.want_amp_tuner`
   wie am Mac. Nicht geprüft: mit echter Gitarre am Laptop, und das Stimmgerät des Verstärkers am echten MINI oder NEO
   unter Linux.
@@ -685,7 +685,11 @@ Für jedes Gerät, ohne Ausnahme:
   Katalog aufnehmen, sobald eines zum Prüfen da ist. REACTOR nimmt nur Text, solange Positive Grid kein Format oder
   keine Schnittstelle veröffentlicht; ein Text-Rezept dort ausprobieren.
 - **KI-Sound:** läuft über die Ollama Cloud API; offen sind ein Test gegen die echte Cloud (alle Tests laufen mit
-  gefälschtem Chat), ob gpt-oss:120b die Beispiele und Schnellknöpfe gut befolgt, und der Nachbau im Linux-Port.
+  gefälschtem Chat), ob gpt-oss:120b die Beispiele und Schnellknöpfe gut befolgt. Seit 2026-11-10 auch in der
+  Linux-App (`linux/spark_studio/sound_ai.py`, `ai_key.py`, `ui/ai_sound_dialog.py`): dieselben Regeln, dasselbe
+  Wissen, dieselben Varianten und Schnellknöpfe, der Schlüssel über `secret-tool` im Schlüsselbund des Desktops,
+  sonst in `~/.config/spark-studio/ollama-key` (0600). Ein laufender Request lässt sich dort nicht abbrechen, seine
+  Antwort wird nach „Anfrage abbrechen“ nur verworfen.
   Am Amp ungeprüft: dass ein Delay mit sync = BPM als Viertel auf `bpm` kommt; darauf beruht die Regel
   „punktierte Achtel = Songtempo × 4/3“ im Prompt.
 - **Audio-Tests über BlackHole** beobachten: am 2026-11-08 morgens grün, mittags vier Fehler, abends wieder grün,

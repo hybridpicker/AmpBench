@@ -348,6 +348,7 @@ class MainWindow(QMainWindow):
         action(preset, "Umbenennen …", self._rename, "Ctrl+E")
         action(preset, "Als Rezept speichern …", self._export_recipe)
         action(preset, "Rezept öffnen …", self._open_recipe)
+        action(preset, "KI-Sound aus Beschreibung …", self._ai_sound, "Ctrl+Alt+N")
         action(preset, "Vom Kemper übernehmen …", self._import_kemper)
         action(preset, "Tags bearbeiten …", self._ctrl_t, "Ctrl+T")
         preset.addSeparator()
@@ -1126,6 +1127,28 @@ class MainWindow(QMainWindow):
         if self.source and self.source[0] == "file" and self.source[1].path == saved.path:
             self.source = ("file", saved)
         self._refresh_library()
+
+    def _ai_sound(self) -> None:
+        """KI-Sound: three suggestions from a description, heard on the amp's temporary place, kept as a recipe."""
+        from .ai_sound_dialog import AISoundDialog
+
+        def play(preset) -> str | None:
+            if not (self.link.is_connected and self.link.core.can("play_temporary")):
+                return "Verbinde den Verstärker, um den Vorschlag zu hören."
+            self.run(self.link.core.try_out(preset))
+            return None
+
+        def keep(data: dict) -> None:
+            path = self.library.add_recipe(data)
+            self._refresh_library()
+            item = next((i for i in self.library.items if i.path == path), None)
+            if item is not None:
+                self._item_clicked(item)
+            note = str(data.get("notes", "")).strip()
+            self._say("success", f"„{data.get('name', '')}“ ist bereit." + (f" Hinweis: {note}" if note else ""))
+
+        self._area(1)
+        AISoundDialog(play, keep, self).exec()
 
     def _import_kemper(self) -> None:
         """Reads a Kemper backup or rig, asks what to make of it, and writes presets and pieces. Reads only."""

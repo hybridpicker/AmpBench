@@ -23,7 +23,15 @@ takes USB when the amp has it, otherwise the amp's own tuner. `pitch.py` and `tu
 and tunings with numpy (about 7 % of one core on the laptop); `tuner.py` is the engine and model, `ui/tuner_view.py`
 the front.
 
-**Not here yet:** the KI-Sound (a sound from a description), and reading a REACTOR's presets.
+**KI-Sound** (Preset ⇒ "KI-Sound aus Beschreibung …", Strg+Alt+N) works as on the Mac: a description in your own
+words goes to Ollama's cloud API, three different suggestions arrive one by one, "Anhören" plays one on the amp's
+temporary place, "wärmer", "mehr Gain", "weniger Hall" and "heller" adjust it, "Behalten" puts it into the library
+as a recipe. Only the rules, the catalog, the wish and, for an adjustment, the recipe leave the computer; a wish with
+an e-mail address, a phone number or a key is refused before anything is sent. The API key is kept in the desktop's
+keyring through `secret-tool`, otherwise in `~/.config/spark-studio/ollama-key` (mode 0600). `sound_ai.py` is the
+port of SoundAI, `ai_key.py` the key store, `ui/ai_sound_dialog.py` the window.
+
+**Not here yet:** reading a REACTOR's presets, and the REACTOR live commands.
 
 ## Install and keep in step with the Mac
 
