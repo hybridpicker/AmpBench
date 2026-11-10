@@ -462,6 +462,10 @@ mit seinem Okay:
    Folgerung: Ein Preset für den REACTOR zu bauen hieße, dieses Format ganz zu verstehen. Näher liegt der Weg über
    die Meldungen, die er selbst schickt (Amp-Wahl `B1`, Regler `37`, an/aus `15`): Sound live einstellen, der Nutzer
    speichert am Gerät. Ob er diese als Befehle (`01 …`) annimmt, ist ungeprüft.
+   **Erster Schreibtest am 2026-11-10 mit Okay** (`spark-probe set-one Amp.Tonestack 1 0.5`, eine Nachricht `01 04`
+   mit Eingangsbyte): Nach 0,09 s kam `03 1A 91 00 06 C3`. Dieselbe Meldung begleitet seine eigenen Reglermeldungen
+   (dort mit 02 statt 06); der REACTOR stand auf Platz 6, die Zahl ist also wohl der Platz und die Meldung „Platz
+   geändert“. Er nimmt `01 04` demnach an. Ob der Bass hörbar auf Mitte ging, muss der Nutzer bestätigen.
 3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
    Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
    gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.

@@ -23,7 +23,9 @@ final class AskLink: NSObject {
         }
     }
 
-    private let question: Question
+    /// What goes out, and what to call it in the log.
+    private let message: [UInt8]
+    private let label: String
     private let seconds: Double
     private let header: Bool
     private let deviceFilter: String?
@@ -39,7 +41,19 @@ final class AskLink: NSObject {
     private var failure: String?
 
     init(question: Question, seconds: Double, header: Bool, device: String?) {
-        self.question = question
+        message = question.message(header: header)
+        label = "read request (\(question.rawValue))"
+        self.seconds = seconds
+        self.header = header
+        deviceFilter = device
+    }
+
+    /// `spark-probe set-one <block> <index> <value>`: one message that sets one parameter (01 04), 0 to 1. The first
+    /// thing that changes a device nothing was written to before: only with the owner's okay for that one value,
+    /// volume down, and never a volume or master parameter first.
+    init(block: String, index: UInt8, value: Float, seconds: Double, header: Bool, device: String?) {
+        message = SparkProtocol.setParameter(effect: block, index: index, value: value, sequence: 1, header: header)
+        label = "parameter change (\(block) parameter \(index) = \(value))"
         self.seconds = seconds
         self.header = header
         deviceFilter = device
@@ -60,8 +74,8 @@ final class AskLink: NSObject {
             log("✗ \(failure)")
             return false
         }
-        log(receivedBytes == 0 ? "\nNothing came back. The request was sent once."
-                               : "\n\(receivedBytes) byte(s) came back. The request was sent once.")
+        log(receivedBytes == 0 ? "\nNothing came back. One message was sent."
+                               : "\n\(receivedBytes) byte(s) came back. One message was sent.")
         return true
     }
 
@@ -78,8 +92,8 @@ final class AskLink: NSObject {
         guard !hasSent, let peripheral, let write else { return }
         hasSent = true
         started = Date()
-        let bytes = question.message(header: header)
-        log("Sending one read request (\(question.rawValue)): \(bytes.hex)")
+        let bytes = message
+        log("Sending one \(label): \(bytes.hex)")
         peripheral.writeValue(Data(bytes), for: write, type: .withoutResponse)
         log("Listening for \(Int(seconds)) seconds.\n")
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self] in

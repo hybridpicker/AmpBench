@@ -38,6 +38,9 @@ let usage = """
                       send exactly one read request to a Spark or REACTOR and print every byte that comes back
                       (default 8 seconds). For a device nothing was sent to before: only with the owner's okay
                       for that one request, volume down
+      set-one <block> <index> <0-1> [secs]
+                      send exactly one parameter change (01 04), e.g. Amp.Tonestack 1 0.5, and print what comes
+                      back. Only with the owner's okay for that one value, volume down
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -147,6 +150,16 @@ if arguments.first == "ask" {
           let seconds = arguments.count == 3 ? Double(arguments[2]) : 8, seconds > 0, seconds <= 60 else { fail(usage) }
     Task { @MainActor in
         exit(await AskLink(question: question, seconds: seconds, header: header, device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
+}
+if arguments.first == "set-one" {
+    guard (4...5).contains(arguments.count), let index = UInt8(arguments[2]), let value = Float(arguments[3]),
+          (0...1).contains(value), let seconds = arguments.count == 5 ? Double(arguments[4]) : 8, seconds > 0,
+          seconds <= 60 else { fail(usage) }
+    Task { @MainActor in
+        exit(await AskLink(block: arguments[1], index: index, value: value, seconds: seconds, header: header,
+                           device: device).run() ? 0 : 1)
     }
     dispatchMain()
 }
