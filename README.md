@@ -282,7 +282,7 @@ window or quitting erases the buffer.
 |---|---|---|
 | Spark MINI | everything above | firmware 1.11.2.75 |
 | Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
-| REACTOR 50 | listens: shows what is turned and pressed on the amp, stamps takes with it. "Auf den REACTOR spielen" sets amp, gain, tone and effects with single live commands; no preset is sent, nothing is read or stored | listened 2026-11-09; the live commands heard by the owner 2026-11-10 |
+| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); shows what is turned and pressed on the amp, stamps takes with it. "Auf den REACTOR spielen" sets amp, gain, tone and effects with single live commands. No preset is written or stored | presets read and seen, live commands heard by the owner, 2026-11-10 |
 | REACTOR 100 | listens only, sends nothing | not checked |
 | any other Spark | reads and switches slots, nothing more, until checked | – |
 
@@ -349,6 +349,7 @@ swift build --product spark-probe
 .build/debug/spark-probe scan          # look for the amp, with the profile it is recognised as
 .build/debug/spark-probe listen 60     # Spark or REACTOR: subscribe only, send nothing, sum up what came
 .build/debug/spark-probe ask firmware  # exactly one read request (firmware, name, slot, current), print the answer
+.build/debug/spark-probe read-slot 0 slot0.bin       # exactly one read request for a stored slot, answer into a file
 .build/debug/spark-probe set-one Amp.Preamp 0 0.1    # exactly one parameter change
 .build/debug/spark-probe switch-one MonoReverb on    # exactly one effect switch
 .build/debug/spark-probe send-one B1 00 07           # exactly one set message, to try a command
@@ -471,6 +472,7 @@ swift run SparkStudio --recipe-from "$HOME/Music/Spark Studio/Presets/Jazz.json"
 swift run SparkStudio --recipe-prompt docs/ai/examples/texas-blues.json   # the sound in English, e.g. for REACTOR
 swift run SparkStudio --catalog-export docs/ai                            # write the catalog files again
 swift run SparkStudio --kemper-list backup.kpabackup                      # what a Kemper import would make, reads only
+swift run SparkStudio --reactor-read "Platz 1.reactorpreset"              # what Studio reads from a saved REACTOR preset
 ```
 
 Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format. Its "Text to Tone" takes the

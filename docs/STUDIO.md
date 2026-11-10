@@ -21,7 +21,7 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Stimmgerät des Verstärkers (MINI, NEO) als Quelle, „Automatisch“, Bluetooth-Start aus dem Stimmgerät | 15d37b6, 90513b0, 52b85ac | Befehl und Skala mit spark-probe an MINI und NEO geprüft; in Studio vom Nutzer am NEO und MINI benutzt (2026-11-09) |
 | – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
 | – | Kemper-Import (Backup, Rigs, Performances → Presets und Stücke) und Hashtags mit angehefteten Abschnitten | 00cd11f | installiert (2026-11-10, nur Mac); mit dem Backup des Nutzers gelesen, kein Sound am Spark gehört |
-| – | REACTOR 50: Leseanfragen, eigenes Preset-Format, „Auf den REACTOR spielen“ mit Live-Befehlen; Probe `ask`, `set-one`, `switch-one`, `send-one` | 192963e … c9f058e | Einzelbefehle vom Nutzer gehört (2026-11-10): Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl Clean; der Ablauf aus Studio noch nicht |
+| – | REACTOR 50: liest nach dem Verbinden die acht Presets (eigenes Format, Prüfsumme CRC-32/MPEG-2) und zeigt sie wie Spark-Plätze; „Auf den REACTOR spielen“ mit Live-Befehlen; Probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 192963e … bbfe150 | vom Nutzer gesehen und gehört (2026-11-10): acht Presets mit Namen in der Seitenleiste; Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl Clean. Kein Preset geschrieben, kein Platz im Editor |
 | Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | NEO finden und lesen, Wechsel MINI ↔ NEO vom Nutzer bestätigt (2026-11-09); Rest siehe „Offen“ |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
@@ -654,8 +654,11 @@ Für jedes Gerät, ohne Ausnahme:
   (Gain bis Master, Amp, Push/Smooth, Heat, FX-Knöpfe, FX Level, TAP, Preset, Bank, Stimmgerät; dabei FX Level und
   den zusätzlichen Bank-Wechsel klären); REACTOR aufnehmen (USB-Audioname ablesen und ins Profil, Pegel, Latenz, ein
   Take mit mitgelesenem Stempel).
-- **REACTOR, „Auf den REACTOR spielen“:** am Gerät mit dem Nutzer durchgehen (Abschnitt „REACTOR: senden“, Punkt 4),
-  zuerst mit den drei Kemper-Kernsounds. In die Linux-App übernehmen.
+- **REACTOR wie ein Spark** (Wunsch des Nutzers, alles aus einem Guss): Blöcke des Preset-Formats deuten, damit ein
+  REACTOR-Platz im selben Editor öffnet; dann mit Okay am Gerät ein Preset unverändert auf seinen Platz
+  zurückschreiben (Sicherung liegt vor, Prüfsumme ist bekannt, der Schreibbefehl ist ungeprüft); dann „Auf Platz
+  speichern“ für eigene Sounds. Sobald das geht, entfällt „Auf den REACTOR spielen“ als eigener Menüpunkt. Lesen
+  und Anzeigen in die Linux-App übernehmen.
 - **Linux:** Geräteauswahl als Menü „Verstärker → Gerät“, ohne Lämpchen in der Seitenleiste; kein REACTOR-Feld (die
   Seitenleiste zeigt seine Bänke, mitgelesen wird im Kern). Die UI-Tests mit PySide6 laufen nur auf linux-host.
 
