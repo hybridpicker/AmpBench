@@ -448,6 +448,20 @@ mit seinem Okay:
    REACTOR beantwortet Leseanfragen.
 2. Höchstens `02 10` (aktueller Platz) und `02 01` (Preset lesen), um das REACTOR-Preset-Format kennenzulernen. Nur
    lesen, mit dem Nutzer auswerten.
+   **Erledigt am 2026-11-10 mit Okay** (`ask slot`, `ask current`, je eine Nachricht): Platz kam als `03 10 00 06`.
+   Das spielende Preset kam als `03 01` in vier Teilen, 1483 Bytes, Kopf je Teil `04 <Teil> <?>`. Es ist **kein
+   Spark-Preset**, sondern ein eigenes MessagePack-artiges Format:
+   - Zwei Köpfe aus `C4 10 <16 Bytes Kennung>`, Name, Version, Beschreibung, Bilddatei, Tags: erst
+     „V30 Classic Mid Gain“ (1.0, `icon.png`, classic/thrash/tight), dann `CA` Float 120,0 (BPM), dann „80s Crunch“
+     (0.1, `f_amp_JCM800.png`, rock/punchy/crunch). Vermutlich Box und Amp.
+   - Dann `96`: sechs Blöcke `C4 02 <2 Bytes Kennung> C3/C2 <Liste>` mit den Kennungen 05 02 (145 Werte), 05 03 (4),
+     05 05 (110), 05 06 (11), 04 34 (30), 04 35 (30); dann `9A`: zehn Blöcke 03 09, 04 0A, 04 0B, 04 0C, 04 2C, 04 0D,
+     04 2E, 04 32, 04 11, 04 12 mit 1 bis 8 Werten, wohl die Effekte mit an/aus.
+   - Werte sind `CD` plus 16 Bit, als Half-Float gelesen plausibel (`3C 00` = 1,0, `38 00` = 0,5).
+   - Keine Modellnamen wie `Amp.Preamp` im Preset; die kommen nur in seinen Reglermeldungen (`03 37`).
+   Folgerung: Ein Preset für den REACTOR zu bauen hieße, dieses Format ganz zu verstehen. Näher liegt der Weg über
+   die Meldungen, die er selbst schickt (Amp-Wahl `B1`, Regler `37`, an/aus `15`): Sound live einstellen, der Nutzer
+   speichert am Gerät. Ob er diese als Befehle (`01 …`) annimmt, ist ungeprüft.
 3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
    Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
    gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.
