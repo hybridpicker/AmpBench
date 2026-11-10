@@ -54,7 +54,10 @@ struct PresetCommands: Commands {
                 .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
                 .disabled(editor.preset == nil || !isActive)
         }
+        // This group also holds the system's Close (⌘W): replacing it would take that away, so it comes back here.
         CommandGroup(replacing: .saveItem) {
+            Button(tr("Close")) { NSApp.keyWindow?.performClose(nil) }
+                .keyboardShortcut("w", modifiers: .command)
             Button(tr("Save to this Mac")) { model.saveOnMac() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(editor.preset == nil || editor.showsOriginal)

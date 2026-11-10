@@ -43,13 +43,21 @@ struct StudioWindowView: View {
         }
         .frame(minWidth: Self.minimumWidth, maxWidth: .infinity, minHeight: Self.minimumHeight, maxHeight: .infinity)
         .toolbar {
-            ToolbarItem(placement: .principal) {
-                SegmentTabs(tr("Area"), selection: Binding(get: { studio.area }, set: { studio.show($0) }),
-                            options: StudioArea.allCases.map { ($0, $0.title) })
-                    .fixedSize()
-                    .help(StudioArea.allCases.map { "\($0.title) ⇧⌘\($0.digit)" }.joined(separator: ", "))
+            // macOS 26 puts a glass capsule of its own around toolbar items; the tabs bring their own bar.
+            if #available(macOS 26, *) {
+                ToolbarItem(placement: .principal) { areaTabs }
+                    .sharedBackgroundVisibility(.hidden)
+            } else {
+                ToolbarItem(placement: .principal) { areaTabs }
             }
         }
+    }
+
+    private var areaTabs: some View {
+        SegmentTabs(tr("Area"), selection: Binding(get: { studio.area }, set: { studio.show($0) }),
+                    options: StudioArea.allCases.map { ($0, $0.title) })
+            .fixedSize()
+            .help(StudioArea.allCases.map { "\($0.title) ⇧⌘\($0.digit)" }.joined(separator: ", "))
     }
 
     private var recorderBanner: some View {

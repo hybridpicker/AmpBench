@@ -88,11 +88,25 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
     /// The amp's own tuner mutes the amp: it is switched off before the app ends.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard studio.presets.ampTunerMayBeOn else { return .terminateNow }
+        // ⌘Q must always end the app: whatever the amp does, the reply comes after 2 seconds at the latest.
+        isQuitting = true
         Task { @MainActor in
             await studio.presets.switchAmpTunerOff()
-            NSApp.reply(toApplicationShouldTerminate: true)
+            replyToQuit()
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            replyToQuit()
         }
         return .terminateLater
+    }
+
+    private var isQuitting = false
+
+    private func replyToQuit() {
+        guard isQuitting else { return }
+        isQuitting = false
+        NSApp.reply(toApplicationShouldTerminate: true)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
