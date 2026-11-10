@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import AppKit
 import ApplicationServices
@@ -21,7 +22,7 @@ final class UISelfTest {
     private var restoreRate: (device: AudioDeviceID, rate: Double)?
     private var activity: NSObjectProtocol?
 
-    /// Pictures of other areas, given by Spark Studio.
+    /// Pictures of other areas, given by AmpBench.
     static var extraPictures: (steps: [(name: String, show: @MainActor () -> Void)], done: @MainActor () -> Void)?
 
     static func startIfRequested(model: AppModel) {
@@ -117,7 +118,7 @@ final class UISelfTest {
 
     /// The action behind ⌘⌫, taken from its real menu item. The item itself is checked for its shortcut too.
     private func pressCommandDelete() async {
-        guard let item = menuItem(titled: "In den Papierkorb legen", in: NSApp.mainMenu), let action = item.action else {
+        guard let item = menuItem(titled: tr("Move to Trash"), in: NSApp.mainMenu), let action = item.action else {
             check(false, "menu item for discarding exists")
             return
         }
@@ -227,7 +228,7 @@ final class UISelfTest {
     }
 
     /// A take keeps the sound the amp plays when it starts, and a failing amp action during the recording ends
-    /// nothing. In Spark Studio the action goes the real way to the presets, which are offline in tests, so it fails
+    /// nothing. In AmpBench the action goes the real way to the presets, which are offline in tests, so it fails
     /// like a lost Bluetooth connection. In Spark Recorder a stand-in action counts the call.
     private func soundScenario() async {
         useTestDevices()
@@ -747,14 +748,14 @@ final class UISelfTest {
             check(model.recordings.contains { $0.id == other }, "undo brings the other row back")
         }
 
-        model.addPiece(named: "Etüde")
-        guard let piece = model.pieces.first(where: { $0.name == "Etüde" }), let take = model.recordings.first else {
+        model.addPiece(named: "Etude")
+        guard let piece = model.pieces.first(where: { $0.name == "Etude" }), let take = model.recordings.first else {
             check(false, "a piece exists")
             return
         }
         model.assign([take.id], toPiece: piece.id)
-        check(model.renamePiece(piece.id, to: "Etüde 2"), "a piece gets a new title")
-        check(model.pieces.first { $0.id == piece.id }?.name == "Etüde 2", "the title changed")
+        check(model.renamePiece(piece.id, to: "Etude 2"), "a piece gets a new title")
+        check(model.pieces.first { $0.id == piece.id }?.name == "Etude 2", "the title changed")
         model.addPiece(named: "Tonleiter", makeCurrent: false)
         check(!model.renamePiece(piece.id, to: "tonleiter"), "two pieces cannot share a title")
         check(model.banner != nil, "the taken title is explained")
@@ -919,12 +920,12 @@ final class UISelfTest {
         note("NOTE \(result.named.count) accessibility elements with names, \(result.missing.count) buttons without")
         check(!result.named.isEmpty, "accessibility tree is readable")
         check(result.missing.isEmpty, "every button has a name", detail: result.missing.joined(separator: ", "))
-        for needed in ["Aufnahme starten (R)", "Eingangspegel", "Aufnahmezustand", "Qualität"] {
+        for needed in [tr("Start recording (R)"), tr("Input level"), tr("Recording state"), tr("Quality")] {
             check(result.named.contains { $0.contains(needed) }, "VoiceOver finds \(needed)")
         }
         let menus = NSApp.mainMenu?.items.map(\.title) ?? []
         note("NOTE menus: \(menus.joined(separator: ", "))")
-        check(menus.contains("Aufnahme") && menus.contains("Wiedergabe") && menus.contains("Bibliothek"), "own menus exist")
+        check(menus.contains(tr("Record")) && menus.contains(tr("Playback")) && menus.contains(tr("Library")), "own menus exist")
     }
 
     private nonisolated static func walkAccessibility(_ element: AXUIElement, into named: inout [String],
@@ -1193,15 +1194,15 @@ final class UISelfTest {
         if let id = piece?.id {
             // A song with its parts, shown open in the pieces' picture.
             model.store.updatePiece(id) {
-                $0.artist = "Übungsband"
+                $0.artist = tr("Practice band")
                 $0.bpm = 96
-                $0.key = "A-Dur"
-                $0.notes = "Solo erst ab Takt 13, vorher nur Akkorde."
-                $0.parts = [PiecePart(name: "Intro"), PiecePart(name: "Strophe"), PiecePart(name: "Solo")]
+                $0.key = tr("A major")
+                $0.notes = tr("Solo only from bar 13, just chords before.")
+                $0.parts = [PiecePart(name: tr("Intro")), PiecePart(name: tr("Verse")), PiecePart(name: tr("Solo"))]
             }
             model.expandedPieces = [id]
         }
-        let names = ["Blues in A, Take 1", "Blues in A, Take 2", "Tonleiter E-Moll", "Akkordwechsel langsam", "Solo Ideen"]
+        let names = ["Blues in A, Take 1", "Blues in A, Take 2", tr("E minor scale"), tr("Chord changes, slow"), tr("Solo ideas")]
         for (index, name) in names.enumerated() {
             let url = model.store.folder.appendingPathComponent("\(name).wav")
             var samples = [Float](repeating: 0, count: 44_100 * 24)
@@ -1221,8 +1222,8 @@ final class UISelfTest {
                 rating: [0, 4, 3, 5, 2][index],
                 favorite: index == 3,
                 tags: index < 2 ? ["Blues"] : [],
-                note: index == 1 ? "Der Lauf in Takt 5 sitzt jetzt." : "",
-                markers: index == 0 ? [Marker(time: 6, label: "Refrain"), Marker(time: 15, label: "Solo")] : [],
+                note: index == 1 ? tr("The run in bar 5 sits now.") : "",
+                markers: index == 0 ? [Marker(time: 6, label: tr("Chorus")), Marker(time: 15, label: tr("Solo"))] : [],
                 pieceID: index < 2 ? piece?.id : nil,
                 edit: EditList(autoLevelEnabled: true, autoLevelDB: 7.9),
                 peakDB: -8.9

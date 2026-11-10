@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import AppKit
 import CoreAudio
@@ -36,17 +37,23 @@ struct Banner: Identifiable, Equatable {
     let kind: Kind
     let text: String
     var canUndo = false
-    /// A key in the banner, such as Spark Studio's "Übernehmen" for a tempo going into the preset.
+    /// A key in the banner, such as AmpBench's "Apply" for a tempo going into the preset.
     var action: BannerAction?
 
     static func == (lhs: Banner, rhs: Banner) -> Bool { lhs.id == rhs.id }
 }
 
 enum LibraryTab: String, CaseIterable, Identifiable {
-    case recordings = "Aufnahmen"
-    case pieces = "Stücke"
-    case stats = "Statistik"
+    case recordings, pieces, stats
     var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .recordings: return tr("Takes")
+        case .pieces: return tr("Pieces")
+        case .stats: return tr("Statistics")
+        }
+    }
 }
 
 /// Fast-changing input values, in their own object so the meter redraws without touching the rest of the window.
@@ -107,7 +114,7 @@ final class AppModel: ObservableObject {
     @Published var sortOrder = [KeyPathComparator(\Recording.createdAt, order: .reverse)]
     @Published var selection = Set<UUID>()
     @Published var tab = LibraryTab.recordings
-    /// Pieces shown open in the list. Kept here, so Spark Studio's switch of areas does not close them.
+    /// Pieces shown open in the list. Kept here, so AmpBench's switch of areas does not close them.
     @Published var expandedPieces = Set<UUID>()
     @Published private(set) var libraryIsUsable = true
 
@@ -171,7 +178,7 @@ final class AppModel: ObservableObject {
 
     @Published var banner: Banner?
     @Published private(set) var exportProgress: Double?
-    /// Shows Spark Studio's list of shortcuts.
+    /// Shows AmpBench's list of shortcuts.
     var showShortcuts: (@MainActor () -> Void)?
     @Published var renameTarget: UUID?
     @Published var renameText = ""
@@ -217,13 +224,13 @@ final class AppModel: ObservableObject {
     /// The delays the bars of the running recording are corrected by.
     private var activeLatency = ClickLatency()
     private var bannerUndoAction: (@MainActor (AppModel) -> Void)?
-    /// Spark Studio's sound of the amp for a new take. Nil in Spark Recorder.
+    /// AmpBench's sound of the amp for a new take. Nil in Spark Recorder.
     var soundProvider: (@MainActor () -> TakeSound?)?
-    /// Spark Studio's actions for a take's sound: play it on the amp, open it in the editor. Nil in Spark Recorder.
+    /// AmpBench's actions for a take's sound: play it on the amp, open it in the editor. Nil in Spark Recorder.
     var soundActions: SoundActions?
-    /// Called after the metronome's tempo was changed by hand, so Spark Studio can offer it to the preset.
+    /// Called after the metronome's tempo was changed by hand, so AmpBench can offer it to the preset.
     var onTempoChanged: (@MainActor (Double) -> Void)?
-    /// Spark Studio's saved presets, for the sounds of pieces and their parts. Nil without the presets.
+    /// AmpBench's saved presets, for the sounds of pieces and their parts. Nil without the presets.
     var presetChoices: (@MainActor () -> [PresetLink])?
     /// Plays a piece's or part's sound on the amp's temporary place.
     var playPreset: (@MainActor (PresetLink) -> Void)?
@@ -271,7 +278,7 @@ final class AppModel: ObservableObject {
 
         guard store.acquireProcessLock() else {
             libraryIsUsable = false
-            show(.error, "Spark Recorder läuft bereits mit dieser Bibliothek. Beende die andere Instanz.", sticky: true)
+            show(.error, tr("AmpBench is already running with this library. Quit the other instance."), sticky: true)
             return
         }
         do {
@@ -279,9 +286,9 @@ final class AppModel: ObservableObject {
             case .fresh, .loaded:
                 break
             case .restoredFromBackup(let keptAs):
-                show(.warning, "Die Bibliotheksdatei war beschädigt. Die Sicherung wurde geladen, die alte Datei liegt als „\(keptAs)“ im Ordner.", sticky: true)
+                show(.warning, tr("The library file was damaged. The backup was loaded; the old file is in the folder as “%@”.", keptAs), sticky: true)
             case .startedOver(let keptAs):
-                show(.warning, "Die Bibliotheksdatei war beschädigt und es gab keine Sicherung. Die Aufnahmen wurden neu eingelesen, die alte Datei liegt als „\(keptAs)“ im Ordner.", sticky: true)
+                show(.warning, tr("The library file was damaged and there was no backup. The takes were read in again; the old file is in the folder as “%@”.", keptAs), sticky: true)
             }
         } catch {
             libraryIsUsable = false
@@ -335,11 +342,11 @@ final class AppModel: ObservableObject {
         case .none:
             break
         case .repaired(let name, let seconds):
-            show(.warning, "Die letzte Aufnahme wurde unterbrochen und repariert: „\(name)“ (\(TimeText.clock(seconds))).", sticky: true)
+            show(.warning, tr("The last recording was interrupted and repaired: “%@” (%@).", name, TimeText.clock(seconds)), sticky: true)
         case .empty(let name):
-            show(.info, "Die unterbrochene Aufnahme „\(name)“ enthielt keine Audiodaten und liegt im Papierkorb.")
+            show(.info, tr("The interrupted recording “%@” contained no audio and is in the Trash.", name))
         case .failed(let name):
-            show(.error, "Die unterbrochene Aufnahme „\(name)“ ließ sich nicht reparieren. Die Datei bleibt unverändert im Ordner.", sticky: true)
+            show(.error, tr("The interrupted recording “%@” could not be repaired. The file stays unchanged in the folder.", name), sticky: true)
         }
         scanFolder(announceNothing: true)
         syncFromStore()
@@ -350,16 +357,16 @@ final class AppModel: ObservableObject {
         let report = store.scan()
         syncFromStore()
         var parts: [String] = []
-        if !report.added.isEmpty { parts.append("\(report.added.count) neu aufgenommen") }
-        if !report.reattached.isEmpty { parts.append("\(report.reattached.count) umbenannt erkannt") }
-        if !report.repaired.isEmpty { parts.append("\(report.repaired.count) repariert") }
-        if !report.missing.isEmpty { parts.append("\(report.missing.count) fehlen") }
-        if !report.damaged.isEmpty { parts.append("\(report.damaged.count) beschädigt") }
+        if !report.added.isEmpty { parts.append(tr("%d added", report.added.count)) }
+        if !report.reattached.isEmpty { parts.append(tr("%d recognized after renaming", report.reattached.count)) }
+        if !report.repaired.isEmpty { parts.append(tr("%d repaired", report.repaired.count)) }
+        if !report.missing.isEmpty { parts.append(tr("%d missing", report.missing.count)) }
+        if !report.damaged.isEmpty { parts.append(tr("%d damaged", report.damaged.count)) }
         if parts.isEmpty {
-            if !announceNothing { show(.info, "Der Ordner stimmt mit der Bibliothek überein.") }
+            if !announceNothing { show(.info, tr("The folder matches the library.")) }
         } else if banner == nil || !announceNothing {
             let isBad = !report.missing.isEmpty || !report.damaged.isEmpty
-            show(isBad ? .warning : .info, "Ordner geprüft: \(parts.joined(separator: ", ")).", sticky: isBad)
+            show(isBad ? .warning : .info, tr("Folder checked: %@.", parts.joined(separator: ", ")), sticky: isBad)
         }
     }
 
@@ -382,16 +389,16 @@ final class AppModel: ObservableObject {
                 let text = error.localizedDescription
                 DispatchQueue.main.async {
                     MainActor.assumeIsolated {
-                        self.show(.error, "Die Bibliothek konnte nicht gespeichert werden: \(text)", sticky: true)
+                        self.show(.error, tr("The library could not be saved: %@", text), sticky: true)
                     }
                 }
             }
         }
     }
 
-    // MARK: Sound of a take (Spark Studio)
+    // MARK: Sound of a take (AmpBench)
 
-    /// Writes the snapshot of what the amp plays now and returns its stamp, or nil without one. Only Spark Studio
+    /// Writes the snapshot of what the amp plays now and returns its stamp, or nil without one. Only AmpBench
     /// provides the sound, from the editor's state in memory: no Bluetooth request, so nothing here can delay or
     /// end a recording. A snapshot that cannot be written leaves the take without a sound, never without audio.
     private func stampSound(for takeID: UUID) -> PresetStamp? {
@@ -477,7 +484,7 @@ final class AppModel: ObservableObject {
         guard target?.id != inputID else { return }
         if isMonitoring || isRetroOn {
             turnOffListening()
-            show(.warning, "Der Eingang ist nicht mehr verfügbar. Das Mithören wurde beendet und der Puffer gelöscht.")
+            show(.warning, tr("The input is no longer available. Listening was stopped and the buffer cleared."))
         } else if isTuning {
             // The tuner reads the new input as soon as it asks again.
             turnOffListening()
@@ -486,7 +493,7 @@ final class AppModel: ObservableObject {
     }
 
     private func showNoSpark() {
-        show(.warning, "Kein Spark verbunden. Ohne Spark nimmt die App nichts auf.")
+        show(.warning, tr("No Spark connected. Without a Spark the app records nothing."))
     }
 
     private func resolveOutput() {
@@ -501,7 +508,7 @@ final class AppModel: ObservableObject {
             pausePlayhead()
             outputID = nil
             try? playback.setOutput(nil)
-            show(.warning, "Das Ausgabegerät ist nicht mehr verfügbar. Die Wiedergabe nutzt den Systemausgang, bis es zurück ist.")
+            show(.warning, tr("The output device is no longer available. Playback uses the system output until it is back."))
         }
     }
 
@@ -522,7 +529,7 @@ final class AppModel: ObservableObject {
         defaults.set(selectedInput?.uid, forKey: "inputUID")
         if isMonitoring || isRetroOn {
             turnOffListening()
-            show(.info, "Der Eingang wurde gewechselt. Das Mithören wurde beendet und der Puffer gelöscht.")
+            show(.info, tr("The input was changed. Listening was stopped and the buffer cleared."))
         } else if isTuning {
             turnOffListening()
         }
@@ -554,7 +561,7 @@ final class AppModel: ObservableObject {
 
     private func requestMicrophone() async -> Bool {
         if await AVCaptureDevice.requestAccess(for: .audio) { return true }
-        show(.error, "Der Mikrofonzugriff fehlt. Erlaube ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon.", sticky: true)
+        show(.error, tr("Microphone access is missing. Allow it under System Settings → Privacy & Security → Microphone."), sticky: true)
         return false
     }
 
@@ -577,7 +584,7 @@ final class AppModel: ObservableObject {
                 isMonitoring = true
                 monitorStartedAt = Date()
             } catch {
-                show(.error, "Der Eingang konnte nicht geöffnet werden: \(error.localizedDescription)")
+                show(.error, tr("The input could not be opened: %@", error.localizedDescription))
             }
         }
     }
@@ -649,19 +656,19 @@ final class AppModel: ObservableObject {
         if isRetroOn {
             isRetroOn = false
             if isRecording {
-                show(.info, "Der Puffer wird beim Ende der Aufnahme gelöscht.")
+                show(.info, tr("The buffer is cleared when the recording ends."))
             } else {
                 // Reopening or closing the input frees the buffer and overwrites it with zeros.
                 capture.close()
                 resetMeter()
                 // The tuner's tap stays attached to the engine and reads the reopened input.
                 if isMonitoring || isTuning, let device = selectedInput { try? capture.open(device: device) }
-                show(.info, "Retro-Aufnahme aus. Der Puffer im Arbeitsspeicher wurde gelöscht.")
+                show(.info, tr("Retro recording off. The buffer in memory was cleared."))
             }
             return
         }
         guard !isRecording else {
-            show(.info, "Die Retro-Aufnahme lässt sich erst nach der laufenden Aufnahme einschalten.")
+            show(.info, tr("Retro recording can only be turned on after the running recording."))
             return
         }
         guard let device = selectedInput else {
@@ -675,9 +682,9 @@ final class AppModel: ObservableObject {
                 try capture.open(device: device, retroSeconds: retroMinutes * 60)
                 signalMonitor.reset()
                 isRetroOn = true
-                show(.info, "Retro-Aufnahme an. Der Eingang hört mit, der Puffer bleibt im Arbeitsspeicher.")
+                show(.info, tr("Retro recording on. The input is listening; the buffer stays in memory."))
             } catch {
-                show(.error, "Der Eingang konnte nicht geöffnet werden: \(error.localizedDescription)")
+                show(.error, tr("The input could not be opened: %@", error.localizedDescription))
             }
         }
     }
@@ -688,10 +695,10 @@ final class AppModel: ObservableObject {
         // A running buffer keeps its size. Changing it would throw away what was just played.
     }
 
-    /// Saves the buffer on explicit request: "Das eben war gut". This is the only way it reaches the disk.
+    /// Saves the buffer on explicit request: "That was good". This is the only way it reaches the disk.
     func saveRetro(seconds: Double? = nil) {
         guard isRetroOn, let copy = capture.copyRetro(seconds: seconds ?? retroMinutes * 60) else {
-            if isRetroOn { show(.info, "Der Puffer ist noch leer.") }
+            if isRetroOn { show(.info, tr("The buffer is still empty.")) }
             return
         }
         let now = Date()
@@ -734,10 +741,10 @@ final class AppModel: ObservableObject {
                 if let waveform = analysis?.waveform { self.saveWaveform(waveform, for: recording.id) }
                 try? self.store.save()
                 self.syncFromStore()
-                self.show(.info, "Die letzten \(TimeText.clock(seconds)) wurden als „\(recording.name)“ gespeichert.")
+                self.show(.info, tr("The last %@ were saved as “%@”.", TimeText.clock(seconds), recording.name))
                 if !self.isRecording { self.select(recording.id) }
             case .failure(let error):
-                self.show(.error, "Der Puffer konnte nicht gespeichert werden: \(error.localizedDescription)", sticky: true)
+                self.show(.error, tr("The buffer could not be saved: %@", error.localizedDescription), sticky: true)
             }
         }
     }
@@ -793,7 +800,7 @@ final class AppModel: ObservableObject {
             return
         }
         guard freeBytes() > Self.minimumFreeBytes else {
-            show(.error, "Auf dem Volume ist zu wenig Platz für eine Aufnahme.", sticky: true)
+            show(.error, tr("There is not enough space on the volume for a recording."), sticky: true)
             return
         }
         pausePlayhead()
@@ -834,7 +841,7 @@ final class AppModel: ObservableObject {
                     // Without a count-in nobody can come in on the right bar, so nothing gets recorded.
                     store.removeJournal()
                     if !isMonitoring && !isRetroOn && !isTuning { capture.close() }
-                    show(.warning, "Die Takte brauchen einen Einzähler, und der Klick konnte nicht starten. Es wurde nichts aufgenommen.", sticky: true)
+                    show(.warning, tr("The bars need a count-in, and the click could not start. Nothing was recorded."), sticky: true)
                     return
                 }
             } else if metronome.clickEnabled && !click.isRunning {
@@ -874,12 +881,12 @@ final class AppModel: ObservableObject {
             NSApp.dockTile.badgeLabel = "REC"
             sleepActivity = ProcessInfo.processInfo.beginActivity(
                 options: [.idleSystemSleepDisabled, .userInitiated, .latencyCritical],
-                reason: "Aufnahme läuft")
-            announce(beats > 0 ? "Einzähler" : "Aufnahme läuft")
+                reason: tr("Recording in progress"))
+            announce(beats > 0 ? tr("Count-in") : tr("Recording in progress"))
         } catch {
             store.removeJournal()
             if !isMonitoring && !isRetroOn && !isTuning { capture.close() }
-            show(.error, "Die Aufnahme konnte nicht starten: \(error.localizedDescription)", sticky: true)
+            show(.error, tr("The recording could not start: %@", error.localizedDescription), sticky: true)
         }
     }
 
@@ -887,7 +894,7 @@ final class AppModel: ObservableObject {
     /// is possible.
     private func prepareCountIn(settings: MetronomeSettings) async -> Int64? {
         guard let output = clickOutput else {
-            show(.warning, "Kein sicherer Ausgang für den Klick gefunden. Die Aufnahme startet ohne Einzähler.")
+            show(.warning, tr("No safe output found for the click. The recording starts without a count-in."))
             return nil
         }
         do {
@@ -899,9 +906,9 @@ final class AppModel: ObservableObject {
                 return ClickTiming.gateFrame(anchorFrame: anchor, beatsBefore: settings.countInBeats, bpm: settings.bpm,
                                              inputRate: capture.sampleRate, preRoll: Self.countInPreRoll)
             }
-            show(.warning, "Der Klick ist nicht angelaufen. Die Aufnahme startet ohne Einzähler.")
+            show(.warning, tr("The click did not start. The recording starts without a count-in."))
         } catch {
-            show(.warning, "Der Klick konnte nicht starten: \(error.localizedDescription) Die Aufnahme startet ohne Einzähler.")
+            show(.warning, tr("The click could not start: %@ The recording starts without a count-in.", error.localizedDescription))
         }
         click.stop()
         isClickRunning = false
@@ -911,13 +918,13 @@ final class AppModel: ObservableObject {
 
     private func startClickForRecording(settings: MetronomeSettings) {
         guard let output = clickOutput else {
-            show(.warning, "Kein sicherer Ausgang für den Klick gefunden. Die Aufnahme läuft ohne Klick.")
+            show(.warning, tr("No safe output found for the click. The recording runs without a click."))
             return
         }
         do {
             try startClick(on: output, settings: settings)
         } catch {
-            show(.warning, "Der Klick konnte nicht starten: \(error.localizedDescription)")
+            show(.warning, tr("The click could not start: %@", error.localizedDescription))
         }
     }
 
@@ -962,7 +969,7 @@ final class AppModel: ObservableObject {
         store.removeJournal()
         activeFile = nil
         activeJournal = nil
-        show(.info, "Der Einzähler wurde abgebrochen.")
+        show(.info, tr("The count-in was canceled."))
     }
 
     private func finishListeningAfterRecording() {
@@ -1017,7 +1024,7 @@ final class AppModel: ObservableObject {
         if result.frames == 0 {
             try? FileManager.default.removeItem(at: result.url)
             store.removeJournal()
-            show(.warning, note ?? "Es wurde nichts aufgenommen, weil das Gerät keine Daten geliefert hat.", sticky: note != nil)
+            show(.warning, note ?? tr("Nothing was recorded because the device delivered no data."), sticky: note != nil)
             return
         }
 
@@ -1051,7 +1058,7 @@ final class AppModel: ObservableObject {
             // The journal goes only after the recording is safely in the library.
             if result.finalized { store.removeJournal() }
         } catch {
-            show(.error, "Die Bibliothek konnte nicht gespeichert werden: \(error.localizedDescription)", sticky: true)
+            show(.error, tr("The library could not be saved: %@", error.localizedDescription), sticky: true)
         }
         syncFromStore()
 
@@ -1069,17 +1076,17 @@ final class AppModel: ObservableObject {
         if let note {
             show(.warning, note, sticky: true)
         } else if let error = result.writeError {
-            show(.error, "Beim Schreiben ist ein Fehler aufgetreten (Fehler \(error)). Die Aufnahme enthält Lücken.", sticky: true)
+            show(.error, tr("An error occurred while writing (error %@). The take has gaps.", "\(error)"), sticky: true)
         } else if result.droppedFrames > 0 {
-            show(.warning, "Es gingen \(TimeText.clock(Double(result.droppedFrames) / max(capture.sampleRate, 44_100), tenths: true)) Audio verloren, weil die Festplatte nicht schnell genug war.", sticky: true)
+            show(.warning, tr("%@ of audio were lost because the disk was not fast enough.", TimeText.clock(Double(result.droppedFrames) / max(capture.sampleRate, 44_100), tenths: true)), sticky: true)
         } else if result.peak == 0 {
-            show(.warning, "Die Datei ist komplett still. Das Gerät hat kein Signal geliefert.", sticky: true)
+            show(.warning, tr("The file is completely silent. The device delivered no signal."), sticky: true)
         } else if result.clippedBlocks > 0 {
-            show(.warning, "Gespeichert, aber das Signal hat übersteuert. Spiel leiser oder senke den Pegel am Gerät.", sticky: true)
+            show(.warning, tr("Saved, but the signal clipped. Play more quietly or lower the level on the device."), sticky: true)
         } else if let punch {
-            show(.info, "\(Self.barsText(punch.bars)) neu aufgenommen, als eigene Aufnahme. „\(punch.sourceName)“ bleibt unverändert.")
+            show(.info, tr("%@ recorded again, as a separate take. “%@” stays unchanged.", Self.barsText(punch.bars), punch.sourceName))
         } else {
-            announce("Aufnahme gespeichert. \(TimeText.spoken(result.seconds)).")
+            announce(tr("Take saved. %@.", TimeText.spoken(result.seconds)))
         }
     }
 
@@ -1087,15 +1094,15 @@ final class AppModel: ObservableObject {
         let note: String
         switch reason {
         case .deviceLost:
-            note = "Die Audioverbindung wurde unterbrochen. Die Aufnahme bis dahin ist gespeichert."
+            note = tr("The audio connection was interrupted. The recording up to that point is saved.")
         case .sampleRateChanged:
-            note = "Eine andere App hat die Abtastrate des Geräts geändert. Die Aufnahme bis dahin ist gespeichert."
+            note = tr("Another app changed the device's sample rate. The recording up to that point is saved.")
         }
         let wasRecording = isRecording
         if wasRecording {
             if case .countIn = phase {
                 cancelCountIn()
-                show(.warning, "Die Audioverbindung wurde unterbrochen.", sticky: true)
+                show(.warning, tr("The audio connection was interrupted."), sticky: true)
             } else {
                 // The retro buffer depends on the lost input too.
                 isRetroOn = false
@@ -1103,7 +1110,7 @@ final class AppModel: ObservableObject {
             }
         } else if isMonitoring || isRetroOn {
             turnOffListening()
-            show(.warning, "Die Audioverbindung wurde unterbrochen. Das Mithören wurde beendet und der Puffer gelöscht.", sticky: true)
+            show(.warning, tr("The audio connection was interrupted. Listening was stopped and the buffer cleared."), sticky: true)
         } else if isTuning {
             // The tuner says so itself, and reads again once the device is back.
             turnOffListening()
@@ -1119,7 +1126,7 @@ final class AppModel: ObservableObject {
             journal.markers.append(Marker(time: time, label: "Marker \(number)"))
             activeJournal = journal
             pendingMarkerCount = journal.markers.count
-            announce("Marker \(number)")
+            announce(tr("Marker %d", number))
             let snapshot = journal
             let store = store
             journalQueue.async { try? store.writeJournal(snapshot) }
@@ -1132,7 +1139,7 @@ final class AppModel: ObservableObject {
             $0.markers.sort { $0.time < $1.time }
         }
         scheduleSave()
-        announce("Marker bei \(TimeText.clock(time))")
+        announce(tr("Marker at %@", TimeText.clock(time)))
     }
 
     func removeMarker(_ marker: Marker, from id: UUID) {
@@ -1162,21 +1169,21 @@ final class AppModel: ObservableObject {
                 peakHoldAge = 0
             }
             if capture.takeClip() {
-                if !meter.clipped { announce("Übersteuerung") }
+                if !meter.clipped { announce(tr("Signal clipping")) }
                 meter.clipped = true
             }
             signalMonitor.update(level: level, callbackCount: capture.callbackCount, elapsed: elapsed)
             if meter.signal != signalMonitor.status { meter.signal = signalMonitor.status }
             if signalMonitor.status != lastBannerForSignal {
                 lastBannerForSignal = signalMonitor.status
-                if signalMonitor.status == .noData { announce("Der Eingang liefert keine Daten") }
-                if signalMonitor.status == .silent { announce("Kein Signal") }
+                if signalMonitor.status == .noData { announce(tr("The input delivers no data")) }
+                if signalMonitor.status == .silent { announce(tr("No signal")) }
             }
             if isRetroOn { meter.retroSeconds = capture.retroAvailableSeconds }
             if isMonitoring, Date().timeIntervalSince(monitorStartedAt) > Self.monitorMaxSeconds {
                 isMonitoring = false
                 closeInputIfUnused()
-                show(.info, "„Eingang prüfen“ wurde nach zwei Minuten automatisch beendet.")
+                show(.info, tr("“Check input” ended automatically after two minutes."))
             }
         }
         if isRecording { recordingTick(elapsed) }
@@ -1209,7 +1216,7 @@ final class AppModel: ObservableObject {
         if case .countIn = phase {
             if capture.recordedFrames > Int64(Self.countInPreRoll * capture.sampleRate) {
                 phase = .recording
-                announce("Aufnahme läuft")
+                announce(tr("Recording in progress"))
             } else if click.isRunning {
                 let total = activeClickSettings?.countInBeats ?? metronome.countInBeats
                 let left = max(total - Int(click.beatCount) + 1, 1)
@@ -1225,9 +1232,9 @@ final class AppModel: ObservableObject {
             diskCheckAge = 0
             let bytes = capture.recordedFrames * Int64(capture.channels) * 3
             if bytes > Self.maximumFileBytes {
-                stopRecording(note: "Die Aufnahme hat die Größengrenze einer WAV-Datei erreicht und wurde sicher beendet.")
+                stopRecording(note: tr("The recording reached the size limit of a WAV file and was ended safely."))
             } else if freeBytes() < Self.criticalFreeBytes {
-                stopRecording(note: "Die Festplatte ist fast voll. Die Aufnahme wurde sicher beendet.")
+                stopRecording(note: tr("The disk is almost full. The recording was ended safely."))
             }
         }
     }
@@ -1446,7 +1453,7 @@ final class AppModel: ObservableObject {
             loopStart = nil
         } else {
             loopStart = position
-            announce("Schleifenanfang bei \(TimeText.clock(position))")
+            announce(tr("Loop start at %@", TimeText.clock(position)))
         }
     }
 
@@ -1455,20 +1462,20 @@ final class AppModel: ObservableObject {
         loopRange = range
         playback.setLoop(range)
         playhead.position = playback.position
-        announce("Schleife von \(TimeText.clock(range.lowerBound)) bis \(TimeText.clock(range.upperBound))")
+        announce(tr("Loop from %@ to %@", TimeText.clock(range.lowerBound), TimeText.clock(range.upperBound)))
     }
 
     func clearLoop() {
         loopStart = nil
         loopRange = nil
         playback.setLoop(nil)
-        announce("Schleife aus")
+        announce(tr("Loop off"))
     }
 
     // MARK: Bars
 
     static func barsText(_ bars: ClosedRange<Int>) -> String {
-        bars.count == 1 ? "Takt \(bars.lowerBound)" : "Takte \(bars.lowerBound)–\(bars.upperBound)"
+        bars.count == 1 ? tr("Bar %d", bars.lowerBound) : tr("Bars %d–%d", bars.lowerBound, bars.upperBound)
     }
 
     /// True while the loop covers exactly the chosen bars.
@@ -1514,7 +1521,7 @@ final class AppModel: ObservableObject {
     func recordSelectedBars() {
         guard canRecordBars, let source = current, let grid = source.grid, let bars = barSelection else { return }
         guard clickOutput != nil else {
-            show(.warning, "Kein sicherer Ausgang für den Klick gefunden. Ohne Einzähler lassen sich keine Takte neu aufnehmen.")
+            show(.warning, tr("No safe output found for the click. Without a count-in, bars cannot be recorded again."))
             return
         }
         pendingPunch = PunchRequest(sourceID: source.id, sourceName: source.name, pieceID: source.pieceID, grid: grid, bars: bars)
@@ -1528,8 +1535,8 @@ final class AppModel: ObservableObject {
         guard let previous = store.recording(target)?.status, previous == .open else { return }
         store.update(target) { $0.status = .kept }
         scheduleSave()
-        announce("Behalten")
-        registerUndo("Behalten") { model in
+        announce(tr("Kept"))
+        registerUndo(tr("Keep")) { model in
             model.store.update(target) { $0.status = previous }
             model.scheduleSave()
         }
@@ -1540,7 +1547,7 @@ final class AppModel: ObservableObject {
         guard !isRecording else { return }
         let targets = RemovalTargets.resolve(menuIDs: ids ?? [], selection: selection, current: currentID)
         guard !targets.isEmpty else {
-            show(.info, "Markiere zuerst die Aufnahme, die in den Papierkorb soll.")
+            show(.info, tr("First select the take that should go to the Trash."))
             return
         }
         // The focus moves on to the next take when the one in focus goes, or when nothing is in focus and everything
@@ -1576,10 +1583,10 @@ final class AppModel: ObservableObject {
                 selection = []
             }
         }
-        let label = entries.count == 1 ? "„\(entries[0].recording.name)“ liegt im Papierkorb." : "\(entries.count) Aufnahmen liegen im Papierkorb."
+        let label = entries.count == 1 ? tr("“%@” is in the Trash.", entries[0].recording.name) : tr("%d takes are in the Trash.", entries.count)
         show(.info, label, canUndo: true)
         lastTrashed = entries
-        registerUndo("In den Papierkorb legen") { model in
+        registerUndo(tr("Move to Trash")) { model in
             model.restore(entries)
         }
     }
@@ -1593,7 +1600,7 @@ final class AppModel: ObservableObject {
                 try store.restore(entry)
                 restored.append(entry.recording.id)
             } catch {
-                show(.error, "„\(entry.recording.name)“: \(error.localizedDescription)", sticky: true)
+                show(.error, tr("“%@”: %@", entry.recording.name, error.localizedDescription), sticky: true)
             }
         }
         guard !restored.isEmpty else { return }
@@ -1606,9 +1613,9 @@ final class AppModel: ObservableObject {
             load(first.id)
         }
         banner = nil
-        announce("Wiederhergestellt")
+        announce(tr("Restored"))
         let ids = Set(restored)
-        registerUndo("In den Papierkorb legen") { model in
+        registerUndo(tr("Move to Trash")) { model in
             model.discard(ids)
         }
     }
@@ -1630,7 +1637,7 @@ final class AppModel: ObservableObject {
 
     func restoreLastTrashed() {
         guard let entry = store.lastRestorable else {
-            show(.info, "Es liegt keine verworfene Aufnahme mehr im Papierkorb.")
+            show(.info, tr("There is no discarded take left in the Trash."))
             return
         }
         restore([entry])
@@ -1662,14 +1669,14 @@ final class AppModel: ObservableObject {
         guard let target = id ?? currentID else { return }
         store.update(target) { $0.rating = $0.rating == rating ? 0 : rating }
         scheduleSave()
-        announce("\(store.recording(target)?.rating ?? 0) Sterne")
+        announce(tr("%d stars", store.recording(target)?.rating ?? 0))
     }
 
     func toggleFavorite(_ id: UUID? = nil) {
         guard let target = id ?? currentID else { return }
         store.update(target) { $0.favorite.toggle() }
         scheduleSave()
-        announce(store.recording(target)?.favorite == true ? "Favorit" : "Kein Favorit")
+        announce(store.recording(target)?.favorite == true ? tr("Favorite") : tr("Not a favorite"))
     }
 
     func setTags(_ text: String, for id: UUID) {
@@ -1704,7 +1711,7 @@ final class AppModel: ObservableObject {
                 if wasPlaying { try? playback.play() }
                 if let loopRange { playback.setLoop(loopRange) }
             }
-            registerUndo("Umbenennen") { model in
+            registerUndo(tr("Rename")) { model in
                 model.rename(id, to: previous)
             }
         } catch {
@@ -1761,15 +1768,15 @@ final class AppModel: ObservableObject {
 
     func export(_ format: ExportFormat, id: UUID? = nil) {
         guard let target = id ?? currentID, let recording = store.recording(target), !isRecording else {
-            if isRecording { show(.info, "Exportiere nach dem Ende der Aufnahme.") }
+            if isRecording { show(.info, tr("Export after the recording has ended.")) }
             return
         }
         let panel = NSSavePanel()
         try? FileManager.default.createDirectory(at: store.exportFolder, withIntermediateDirectories: true)
         panel.directoryURL = store.exportFolder
         panel.nameFieldStringValue = "\(recording.name).\(format.fileExtension)"
-        panel.title = "Exportieren (\(format.label))"
-        panel.message = "Das Original bleibt unverändert. Bearbeitungen werden in die neue Datei gerechnet."
+        panel.title = tr("Export (%@)", format.label)
+        panel.message = tr("The original stays unchanged. Edits are rendered into the new file.")
         panel.canCreateDirectories = true
         guard panel.runModal() == .OK, let destination = panel.url else { return }
         runExport(of: recording, format: format, to: destination)
@@ -1793,12 +1800,12 @@ final class AppModel: ObservableObject {
             switch outcome {
             case .success(let result):
                 if result.clipped {
-                    self.show(.warning, "Exportiert nach „\(result.url.lastPathComponent)“, aber der Pegel hat die Vollaussteuerung überschritten. Senke die Anhebung.", sticky: true)
+                    self.show(.warning, tr("Exported to “%@”, but the level exceeded full scale. Lower the gain.", result.url.lastPathComponent), sticky: true)
                 } else {
-                    self.show(.info, "Exportiert nach „\(result.url.lastPathComponent)“.")
+                    self.show(.info, tr("Exported to “%@”.", result.url.lastPathComponent))
                 }
             case .failure(let error):
-                self.show(.error, "Der Export ist fehlgeschlagen: \(error.localizedDescription)", sticky: true)
+                self.show(.error, tr("The export failed: %@", error.localizedDescription), sticky: true)
             }
         }
     }
@@ -1823,11 +1830,11 @@ final class AppModel: ObservableObject {
         let cleaned = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard cleaned != previous else { return true }
         guard store.renamePiece(id, to: cleaned) else {
-            show(.info, cleaned.isEmpty ? "Ein Stück braucht einen Titel." : "Es gibt schon ein Stück mit dem Titel „\(cleaned)“.")
+            show(.info, cleaned.isEmpty ? tr("A piece needs a title.") : tr("There is already a piece with the title “%@”.", cleaned))
             return false
         }
         scheduleSave()
-        registerUndo("Stück umbenennen") { model in
+        registerUndo(tr("Rename piece")) { model in
             model.renamePiece(id, to: previous)
         }
         return true
@@ -1859,11 +1866,11 @@ final class AppModel: ObservableObject {
             model.store.restorePiece(removed)
             if wasCurrent { model.setCurrentPiece(id) }
             model.scheduleSave()
-            model.announce("Stück wiederhergestellt")
+            model.announce(tr("Piece restored"))
         }
-        show(.info, "Das Stück „\(removed.piece.name)“ ist entfernt. Seine Takes bleiben in der Liste.", canUndo: true)
+        show(.info, tr("The piece “%@” is removed. Its takes stay in the list.", removed.piece.name), canUndo: true)
         bannerUndoAction = restore
-        registerUndo("Stück entfernen", restore)
+        registerUndo(tr("Remove piece"), restore)
     }
 
     func assign(_ ids: Set<UUID>, toPiece pieceID: UUID?) {
@@ -1874,7 +1881,7 @@ final class AppModel: ObservableObject {
     func toggleBestTake(_ id: UUID? = nil) {
         guard let target = id ?? currentID else { return }
         guard store.recording(target)?.pieceID != nil else {
-            show(.info, "Ordne die Aufnahme zuerst einem Stück zu, dann kannst du sie als besten Take markieren.")
+            show(.info, tr("First assign the take to a piece, then you can mark it as the best take."))
             return
         }
         store.toggleBestTake(target)
@@ -1926,7 +1933,7 @@ final class AppModel: ObservableObject {
         practiceLog.filter { $0.pieceID == pieceID }.reduce(0) { $0 + $1.seconds }
     }
 
-    /// Sets the click to the piece's tempo. Like any tempo set by hand, Spark Studio offers it to the open preset.
+    /// Sets the click to the piece's tempo. Like any tempo set by hand, AmpBench offers it to the open preset.
     func useTempo(of piece: Piece) {
         guard let bpm = piece.bpm else { return }
         updateMetronome { $0.bpm = bpm }
@@ -1945,7 +1952,7 @@ final class AppModel: ObservableObject {
         let ordered = recordings.filter { selection.contains($0.id) && $0.health == .ok }
             .sorted { $0.createdAt < $1.createdAt }
         guard ordered.count == 2 else {
-            show(.info, "Zum Vergleichen müssen beide Aufnahmen vorhanden sein.")
+            show(.info, tr("Both takes must exist to compare them."))
             return
         }
         compareIDs = ordered.map(\.id)
@@ -1980,7 +1987,7 @@ final class AppModel: ObservableObject {
                 show(.error, error.localizedDescription)
             }
         }
-        announce(next == 0 ? "Take A" : "Take B")
+        announce(next == 0 ? tr("Take A") : tr("Take B"))
     }
 
     func clearCompare() {
@@ -1995,7 +2002,7 @@ final class AppModel: ObservableObject {
         updateMetronome(notifying: true, change)
     }
 
-    /// The tempo of a preset opened in Spark Studio. It does not ask back whether it should go into the preset.
+    /// The tempo of a preset opened in AmpBench. It does not ask back whether it should go into the preset.
     func setTempoFromPreset(_ bpm: Double) {
         updateMetronome(notifying: false) { $0.bpm = bpm }
     }
@@ -2042,7 +2049,7 @@ final class AppModel: ObservableObject {
                 startClickForRecording(settings: metronome)
             }
         }
-        announce(isOn ? "Klick an" : "Klick aus")
+        announce(isOn ? tr("Click on") : tr("Click off"))
     }
 
     /// The meter that the beat lamps show right now.
@@ -2080,15 +2087,15 @@ final class AppModel: ObservableObject {
                 let key = FeedbackGuard.pairKey(input: input.identity, output: output.identity)
                 if result.outputReachesInput {
                     measuredClean.remove(key)
-                    show(.warning, "Gemessen: Der Ton von „\(output.name)“ kommt am Eingang „\(input.name)“ an. Ausgabe dorthin bleibt während einer Aufnahme gesperrt.", sticky: true)
+                    show(.warning, tr("Measured: The sound from “%@” arrives at the input “%@”. Output to it stays blocked during a recording.", output.name, input.name), sticky: true)
                 } else {
                     measuredClean.insert(key)
-                    show(.info, "Gemessen: Der Ton von „\(output.name)“ kommt am Eingang „\(input.name)“ nicht an. Wiedergabe und Klick dorthin sind jetzt auch während einer Aufnahme erlaubt.", sticky: true)
+                    show(.info, tr("Measured: The sound from “%@” does not arrive at the input “%@”. Playback and click to it are now allowed during a recording too.", output.name, input.name), sticky: true)
                 }
                 defaults.set(Array(measuredClean), forKey: "measuredCleanPairs")
                 objectWillChange.send()
             } catch {
-                show(.error, "Die Messung ist fehlgeschlagen: \(error.localizedDescription)", sticky: true)
+                show(.error, tr("The measurement failed: %@", error.localizedDescription), sticky: true)
             }
         }
     }
@@ -2097,7 +2104,7 @@ final class AppModel: ObservableObject {
         measuredClean = []
         defaults.removeObject(forKey: "measuredCleanPairs")
         objectWillChange.send()
-        show(.info, "Alle Messungen wurden vergessen. Ausgaben auf dasselbe Gerät sind wieder gesperrt.")
+        show(.info, tr("All measurements were forgotten. Outputs on the same device are blocked again."))
     }
 
     // MARK: Click latency
@@ -2153,12 +2160,12 @@ final class AppModel: ObservableObject {
             do {
                 let result = try await LatencyProbe.measure(input: input, output: output.id, inputPolicy: inputPolicy)
                 setLatencyCorrection(result.correction)
-                let text = String(
-                    format: "Gemessen: %.1f ms vom Klick bis in die Datei, davon %.1f ms nicht von den Geräten gemeldet. Streuung %.1f ms über %d Klicks. Die Takte neuer Aufnahmen liegen jetzt darauf. Zieh das Kabel wieder ab.",
+                let text = tr(
+                    "Measured: %.1f ms from the click into the file, of which %.1f ms are not reported by the devices. Spread %.1f ms over %d clicks. The bars of new takes now rest on it. Unplug the cable again.",
                     result.measured * 1000, result.correction * 1000, result.spread * 1000, result.detected)
                 show(.info, text, sticky: true)
             } catch {
-                show(.error, "Die Latenzmessung ist fehlgeschlagen: \(error.localizedDescription)", sticky: true)
+                show(.error, tr("The latency measurement failed: %@", error.localizedDescription), sticky: true)
             }
         }
     }

@@ -57,6 +57,6 @@ final class AmpDescriptionLimitTests: XCTestCase {
                                  chain: ["amp": .init(model: "AC Boost", on: true, settings: ["gain": .number(4)])])
         let conversion = try recipe.preset()
         XCTAssertLessThanOrEqual(conversion.preset.description.utf8.count, PresetRules.descriptionLimit)
-        XCTAssertTrue(conversion.warnings.contains { $0.contains("Beschreibung") })
+        XCTAssertTrue(conversion.warnings.contains { $0.contains("description") })
     }
 }

@@ -1,7 +1,7 @@
 import Foundation
 import SparkControl
 
-/// Simulated Positive Grid devices behind `LinkTransport`, the Swift counterpart of linux/spark_studio/fake_amp.py.
+/// Simulated Positive Grid devices behind `LinkTransport`, the Swift counterpart of linux/ampbench/fake_amp.py.
 /// Used by the tests and by window pictures (`--library <folder> --demo-devices`), never with a real device.
 /// It answers the way the real ones did with spark-probe: chunk acknowledgements `05 01` and `04 01` for presets,
 /// `04 38` for a switch, `04 15` and `04 06` for changes, nothing for a parameter. A NEO drops its temporary sound
@@ -43,7 +43,7 @@ final class SimulatedDevice: LinkTransport {
             let (name, service): (String, String) = switch kind {
             case .mini: ("Spark MINI BLE", "FFC0")
             case .neo: ("Spark NEO Control", "FFC0")
-            case .reactor: ("Reactor 50 Proberaum", "FFD0")
+            case .reactor: ("Reactor 50 Rehearsal", "FFD0")
             case .unknownSpark: ("Spark 40 Audio", "FFC0")
             }
             return Device(found: FoundDevice(id: UUID(), name: name, service: service), kind: kind)

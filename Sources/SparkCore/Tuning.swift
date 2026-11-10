@@ -1,7 +1,8 @@
+import AmpText
 import Foundation
 
 /// A note of the equal-tempered scale, as a MIDI number: 69 is A4, 40 the low E of a guitar (E2), 23 the low B of a
-/// five-string bass (H0 in German).
+/// five-string bass (B0, H0 in German).
 public struct Note: Hashable, Sendable {
     public let midi: Int
 
@@ -9,17 +10,27 @@ public struct Note: Hashable, Sendable {
         self.midi = midi
     }
 
-    private static let sharps = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "H"]
-    private static let flats = ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", "B", "H"]
-    private static let spokenSharps = ["C", "Cis", "D", "Dis", "E", "F", "Fis", "G", "Gis", "A", "Ais", "H"]
-    private static let spokenFlats = ["C", "Des", "D", "Es", "E", "F", "Ges", "G", "As", "A", "B", "H"]
+    // Only the names that differ between the languages go through the tables: German says H for B and B for B♭.
+    private static var sharps: [String] {
+        ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", tr("B")]
+    }
+    private static var flats: [String] {
+        ["C", "D♭", "D", "E♭", "E", "F", "G♭", "G", "A♭", "A", tr("B♭"), tr("B")]
+    }
+    private static var spokenSharps: [String] {
+        ["C", tr("C sharp"), "D", tr("D sharp"), "E", "F", tr("F sharp"), "G", tr("G sharp"), "A", tr("A sharp"),
+         tr("B")]
+    }
+    private static var spokenFlats: [String] {
+        ["C", tr("D flat"), "D", tr("E flat"), "E", "F", tr("G flat"), "G", tr("A flat"), "A", tr("B flat"), tr("B")]
+    }
 
-    /// The German name: H for B, B for B♭.
+    /// The name in the app's language: B and B♭ in English, H and B in German.
     public func name(flats: Bool = false) -> String {
         (flats ? Self.flats : Self.sharps)[pitchClass]
     }
 
-    /// How VoiceOver says it: "Fis", "Es".
+    /// How VoiceOver says it: "F sharp", "E flat"; in German "Fis", "Es".
     public func spokenName(flats: Bool = false) -> String {
         (flats ? Self.spokenFlats : Self.spokenSharps)[pitchClass]
     }
@@ -60,8 +71,8 @@ public enum Tuning: String, CaseIterable, Identifiable, Sendable {
         case .dropD: "Drop D"
         case .dadgad: "DADGAD"
         case .openG: "Open G"
-        case .halfStepDown: "Halbton tiefer"
-        case .chromatic: "Chromatisch"
+        case .halfStepDown: tr("Half step down")
+        case .chromatic: tr("Chromatic")
         }
     }
 
@@ -81,9 +92,9 @@ public enum Tuning: String, CaseIterable, Identifiable, Sendable {
     /// Names with flats, as a tuning half a step down is written.
     public var prefersFlats: Bool { self == .halfStepDown }
 
-    /// The strings as a short line, such as "E A D G H E".
+    /// The strings as a short line, such as "E A D G B E".
     public var summary: String {
-        strings.isEmpty ? "Alle Töne" : strings.map { $0.name(flats: prefersFlats) }.joined(separator: " ")
+        strings.isEmpty ? tr("All notes") : strings.map { $0.name(flats: prefersFlats) }.joined(separator: " ")
     }
 }
 
@@ -200,12 +211,12 @@ public struct TunerInterpreter: Sendable {
     }
 }
 
-/// The tuner's numbers as text, with a decimal comma and a real minus sign.
+/// The tuner's numbers as text, with the language's decimal sign and a real minus sign.
 public enum TunerText {
-    /// "+0,3", "−12,0", "±0,0".
+    /// "+0.3", "−12.0", "±0.0"; with a decimal comma in German.
     public static func cents(_ value: Double) -> String {
         let rounded = (value * 10).rounded() / 10
-        if rounded == 0 { return "±0,0" }
+        if rounded == 0 { return "±" + decimal(0, digits: 1) }
         return (rounded < 0 ? "−" : "+") + decimal(abs(rounded), digits: 1)
     }
 
@@ -216,19 +227,20 @@ public enum TunerText {
         return (rounded < 0 ? "−" : "+") + String(Int(abs(rounded)))
     }
 
-    /// "82,41".
+    /// "82.41".
     public static func hertz(_ value: Double, digits: Int = 2) -> String {
         decimal(value, digits: digits)
     }
 
-    /// "plus 0,3 Cent", for VoiceOver.
+    /// "plus 0.3 cents", for VoiceOver.
     public static func spokenCents(_ value: Double) -> String {
         let rounded = (value * 10).rounded() / 10
-        if rounded == 0 { return "0 Cent" }
-        return (rounded < 0 ? "minus " : "plus ") + decimal(abs(rounded), digits: 1) + " Cent"
+        if rounded == 0 { return tr("0 cents") }
+        let amount = decimal(abs(rounded), digits: 1)
+        return rounded < 0 ? tr("minus %@ cents", amount) : tr("plus %@ cents", amount)
     }
 
     public static func decimal(_ value: Double, digits: Int) -> String {
-        String(format: "%.\(digits)f", value).replacingOccurrences(of: ".", with: ",")
+        String(format: "%.\(digits)f", locale: Texts.locale, value)
     }
 }

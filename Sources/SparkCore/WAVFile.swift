@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// Reads WAV headers and repairs files whose sizes were never finalized, such as after a crash or power loss.
@@ -72,9 +73,9 @@ public enum WAVFile {
             defer { try? handle.close() }
             let layout = try readLayout(handle)
             guard let format = layout.format, format.channels > 0, format.bytesPerFrame > 0, format.sampleRate > 0 else {
-                return .unreadable("Das Format der Datei ist nicht lesbar.")
+                return .unreadable(tr("The file's format cannot be read."))
             }
-            guard let dataStart = layout.dataStart else { return .unreadable("Die Datei enthält keine Audiodaten.") }
+            guard let dataStart = layout.dataStart else { return .unreadable(tr("The file contains no audio data.")) }
             let available = layout.fileSize - dataStart
             let bytesPerFrame = UInt64(format.bytesPerFrame)
             let frames = Int64(available / bytesPerFrame)
@@ -87,11 +88,11 @@ public enum WAVFile {
             }
             return .needsRepair(format: format, frames: frames)
         } catch WAVError.notWAV {
-            return .unreadable("Die Datei ist keine WAV-Datei.")
+            return .unreadable(tr("The file is not a WAV file."))
         } catch WAVError.tooShort {
-            return .unreadable("Die Datei ist zu kurz.")
+            return .unreadable(tr("The file is too short."))
         } catch {
-            return .unreadable("Die Datei konnte nicht gelesen werden.")
+            return .unreadable(tr("The file could not be read."))
         }
     }
 
@@ -144,9 +145,9 @@ public enum WAVFile {
 
         public var errorDescription: String? {
             switch self {
-            case .tooShort: return "Die Datei ist zu kurz."
-            case .notWAV: return "Die Datei ist keine WAV-Datei."
-            case .tooLarge: return "Die Datei ist größer, als das WAV-Format erlaubt."
+            case .tooShort: return tr("The file is too short.")
+            case .notWAV: return tr("The file is not a WAV file.")
+            case .tooLarge: return tr("The file is larger than the WAV format allows.")
             }
         }
     }

@@ -1,12 +1,13 @@
+import AmpText
 import AppKit
 import SparkControl
 import SparkDesign
 import SwiftUI
 
-/// Pictures of Spark Studio's own window with the area Presets, for checking the design, without screen recording
+/// Pictures of AmpBench's own window with the area Presets, for checking the design, without screen recording
 /// permission and without ever seeing anything but this window. Only runs when started with `--snapshot`:
 ///
-///     SparkStudio --library /tmp/test --offline --appearance dark --size 1180x780 --open template:Crunch \
+///     AmpBench --library /tmp/test --offline --appearance dark --size 1180x780 --open template:Crunch \
 ///                 --focus drive --snapshot /tmp/shot.png [--delay 2] [--quit]
 ///
 /// `--offline` leaves Bluetooth off, `--library <test folder>` keeps made-up presets in its subfolder "Presets".
@@ -26,7 +27,7 @@ enum Snapshot {
     }
 
     static var isOffline: Bool { arguments["offline"] != nil }
-    /// The window to size and draw, set by Spark Studio.
+    /// The window to size and draw, set by AmpBench.
     static weak var window: NSWindow?
     private static var target: NSWindow? { window ?? NSApp.windows.first(where: { $0.isVisible }) }
     /// A test folder for presets, so pictures never show one's own presets. A new, empty one gets the templates as
@@ -36,10 +37,10 @@ enum Snapshot {
         try? library.reload()
         if library.items.isEmpty {
             for template in PresetFactory.templates {
-                try? library.save(template.preset, origin: "Vorlage")
+                try? library.save(template.preset, origin: tr("Template"))
             }
             if let first = PresetFactory.templates.first {
-                try? library.save(first.preset, origin: "Platz 2", isBackup: true)
+                try? library.save(first.preset, origin: tr("Slot %d", 2), isBackup: true)
             }
         }
         return folder

@@ -1,7 +1,8 @@
+import AmpText
 import Foundation
 import SparkControl
 
-/// Where the preset in the editor came from, and where "Auf dem Mac sichern" puts it.
+/// Where the preset in the editor came from, and where "Save to this Mac" puts it.
 enum EditSource: Equatable {
     case slot(Int)
     case saved(URL)
@@ -35,7 +36,7 @@ final class EditorModel: ObservableObject {
     /// A stored preset to switch to before anything else in the queue.
     private var pendingSlot: Int?
     var show: ((Banner.Kind, String) -> Void)?
-    /// Called with every preset opened in the editor. Spark Studio sets the metronome from its tempo.
+    /// Called with every preset opened in the editor. AmpBench sets the metronome from its tempo.
     var onOpen: ((SparkPreset) -> Void)?
 
     init(link: SparkLink) {
@@ -176,7 +177,7 @@ final class EditorModel: ObservableObject {
     func reconnected() {
         guard editor != nil, isLiveEnabled, isModified else { return }
         playNow()
-        show?(.info, "Die Verbindung war weg. Der bearbeitete Stand spielt wieder am Verstärker.")
+        show?(.info, tr("The connection was gone. The edited state plays on the amp again."))
     }
 
     // MARK: Sending
@@ -211,7 +212,7 @@ final class EditorModel: ObservableObject {
                 do {
                     try await link.select(slot: slot)
                 } catch {
-                    show?(.error, "Der Verstärker hat nicht auf Platz \(slot + 1) umgeschaltet: \(error.localizedDescription)")
+                    show?(.error, tr("The amp did not switch to slot %d: %@", slot + 1, error.localizedDescription))
                 }
                 continue
             }
@@ -229,7 +230,7 @@ final class EditorModel: ObservableObject {
             } catch {
                 queue.removeAll()
                 needsCheck = false
-                if link.status == .connected { show?(.error, "Die Änderung kam nicht am Verstärker an: \(error.localizedDescription)") }
+                if link.status == .connected { show?(.error, tr("The change did not arrive on the amp: %@", error.localizedDescription)) }
                 return
             }
             if queue.isEmpty, needsCheck { await check() }

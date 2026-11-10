@@ -1,9 +1,10 @@
+import AmpText
 import Foundation
 
 /// A preset as a REACTOR stores it, read from its answer to `02 01 00 <slot>`. Its own format, not a Spark preset:
 /// MessagePack with the slot, the preset's and the amp's name cards, the tempo, six fixed blocks for amp and
 /// equalizer and ten effect blocks, each `C4 02 <id> <on> <values>`, and a checksum of four bytes at the end
-/// (`checksum(of:)`). Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). Read only: Spark Studio
+/// (`checksum(of:)`). Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). Read only: AmpBench
 /// cannot build one.
 public struct ReactorPreset: Equatable, Sendable {
     /// Name, version, description, picture and tags, as both the preset and its amp carry them.
@@ -54,15 +55,15 @@ public struct ReactorPreset: Equatable, Sendable {
     public var ampName: String { amp.name }
     public var effectsOn: Int { effects.filter(\.isOn).count }
 
-    /// "Twin Clean · 5 Effekte an", the line under the name in a list.
+    /// "Twin Clean · 5 effects on", the line under the name in a list.
     public var summary: String {
         let on = effectsOn
-        return amp.name + " · " + (on == 0 ? "keine Effekte an" : on == 1 ? "1 Effekt an" : "\(on) Effekte an")
+        return amp.name + " · " + (on == 0 ? tr("no effects on") : on == 1 ? tr("1 effect on") : tr("%d effects on", on))
     }
 
     public struct Unreadable: LocalizedError, Equatable {
         public var text: String
-        public var errorDescription: String? { "Das REACTOR-Preset ist nicht lesbar: \(text)" }
+        public var errorDescription: String? { tr("The REACTOR preset cannot be read: %@", text) }
     }
 
     /// A REACTOR numbers its chunks with a four-byte header: count, number and the length in 16 bits. The Spark parser
@@ -89,7 +90,7 @@ public struct ReactorPreset: Equatable, Sendable {
     /// Reads the preset's own bytes.
     public init(data: [UInt8]) throws {
         var reader = Reader(data)
-        guard try reader.byte() == 0 else { throw Unreadable(text: "kein Platz am Anfang") }
+        guard try reader.byte() == 0 else { throw Unreadable(text: tr("no slot at the start")) }
         slot = Int(try reader.byte())
         preset = try reader.card()
         tempo = try reader.number()
@@ -97,7 +98,7 @@ public struct ReactorPreset: Equatable, Sendable {
         fixed = try reader.blocks()
         effects = try reader.blocks()
         trailer = reader.rest()
-        guard trailer.count == 4 else { throw Unreadable(text: "\(trailer.count) statt 4 Bytes am Ende") }
+        guard trailer.count == 4 else { throw Unreadable(text: tr("%d bytes instead of 4 at the end", trailer.count)) }
         checksumOK = Self.checksum(of: data[2..<(data.count - 4)]) == trailer
     }
 
@@ -109,13 +110,13 @@ public struct ReactorPreset: Equatable, Sendable {
         init(_ data: [UInt8]) { self.data = data }
 
         mutating func byte() throws -> UInt8 {
-            guard index < data.count else { throw Unreadable(text: "zu kurz") }
+            guard index < data.count else { throw Unreadable(text: tr("too short")) }
             defer { index += 1 }
             return data[index]
         }
 
         private mutating func bytes(_ count: Int) throws -> [UInt8] {
-            guard index + count <= data.count else { throw Unreadable(text: "zu kurz") }
+            guard index + count <= data.count else { throw Unreadable(text: tr("too short")) }
             defer { index += count }
             return Array(data[index..<index + count])
         }
@@ -126,7 +127,7 @@ public struct ReactorPreset: Equatable, Sendable {
         }
 
         mutating func binary() throws -> [UInt8] {
-            guard try byte() == 0xC4 else { throw Unreadable(text: "Kennung erwartet bei \(index - 1)") }
+            guard try byte() == 0xC4 else { throw Unreadable(text: tr("identifier expected at %d", index - 1)) }
             return try bytes(Int(try byte()))
         }
 
@@ -136,7 +137,7 @@ public struct ReactorPreset: Equatable, Sendable {
             switch type {
             case 0xA0...0xBF: count = Int(type & 0x1F)
             case 0xD9: count = Int(try byte())
-            default: throw Unreadable(text: "Text erwartet bei \(index - 1)")
+            default: throw Unreadable(text: tr("text expected at %d", index - 1))
             }
             return String(decoding: try bytes(count), as: UTF8.self)
         }
@@ -148,7 +149,7 @@ public struct ReactorPreset: Equatable, Sendable {
             case 0xDC:
                 let high = try byte(), low = try byte()
                 return Int(high) << 8 | Int(low)
-            default: throw Unreadable(text: "Liste erwartet bei \(index - 1)")
+            default: throw Unreadable(text: tr("list expected at %d", index - 1))
             }
         }
 
@@ -164,7 +165,7 @@ public struct ReactorPreset: Equatable, Sendable {
             case 0xCA:
                 let raw = try bytes(4).reduce(UInt32(0)) { $0 << 8 | UInt32($1) }
                 return Float(bitPattern: raw)
-            default: throw Unreadable(text: String(format: "Wert erwartet bei %d (%02X)", index - 1, type))
+            default: throw Unreadable(text: tr("value expected at %d (%02X)", index - 1, Int(type)))
             }
         }
 
@@ -181,9 +182,9 @@ public struct ReactorPreset: Equatable, Sendable {
         mutating func blocks() throws -> [Block] {
             try (0..<count()).map { _ in
                 let id = try binary()
-                guard id.count == 2 else { throw Unreadable(text: "Blockkennung mit \(id.count) Bytes") }
+                guard id.count == 2 else { throw Unreadable(text: tr("block identifier with %d bytes", id.count)) }
                 let flag = try byte()
-                guard flag == 0xC3 || flag == 0xC2 else { throw Unreadable(text: "an/aus erwartet bei \(index - 1)") }
+                guard flag == 0xC3 || flag == 0xC2 else { throw Unreadable(text: tr("on/off expected at %d", index - 1)) }
                 let values = try (0..<count()).map { _ in try number() }
                 return Block(id: UInt16(id[0]) << 8 | UInt16(id[1]), isOn: flag == 0xC3, values: values)
             }

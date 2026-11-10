@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// Turns a Kemper rig into a sound recipe for the Spark. A Kemper profile is a capture of one real amp; the Spark
@@ -66,13 +67,13 @@ public enum KemperTranslation {
         let gain = rig.gain ?? 5
         for rule in ampRules where gain >= rule.minimumGain {
             if let word = rule.words.first(where: { text.contains($0) }) {
-                return (rule.model, "„\(word.trimmingCharacters(in: .whitespaces))“")
+                return (rule.model, tr("“%@”", word.trimmingCharacters(in: .whitespaces)))
             }
         }
         switch Character(gain: gain) {
-        case .clean: return ("94MatchDCV2", "unbekannter Amp, clean")
-        case .crunch: return ("Plexi", "unbekannter Amp, Crunch")
-        case .drive: return ("SLO100", "unbekannter Amp, verzerrt")
+        case .clean: return ("94MatchDCV2", tr("unknown amp, clean"))
+        case .crunch: return ("Plexi", tr("unknown amp, crunch"))
+        case .drive: return ("SLO100", tr("unknown amp, distorted"))
         }
     }
 
@@ -106,24 +107,24 @@ public enum KemperTranslation {
                 chain[place] = unit
                 used.append("\(module.typeName) → \(ModelCatalog.known(unit.model)?.name ?? unit.model)")
             } else {
-                leftOut.append("\(module.typeName) (Platz \(place) schon belegt)")
+                leftOut.append(tr("%@ (place %@ already taken)", module.typeName, place))
             }
         }
         if chain["reverb"] == nil, let old = rig.oldReverb, old.isOn {
             chain["reverb"] = SoundRecipe.Unit(model: "bias.reverb", settings: [
                 "level": knob(max(old.mix * 1.5, 1.5)), "length": knob(old.time),
             ])
-            used.append("Hall → Hall")
+            used.append(tr("Reverb → Reverb"))
         }
 
-        var notes = ["Aus dem Kemper-Rig „\(rig.name)“"]
-        if !rig.ampDescription.isEmpty { notes[0] += ", Amp \(rig.ampDescription)" }
-        if let author = rig.string(KemperRig.Tag.rigAuthor) { notes[0] += ", Profil von \(author)" }
+        var notes = [tr("From the Kemper rig “%@”", rig.name)]
+        if !rig.ampDescription.isEmpty { notes[0] += tr(", amp %@", rig.ampDescription) }
+        if let author = rig.string(KemperRig.Tag.rigAuthor) { notes[0] += tr(", profile by %@", author) }
         notes[0] += "."
-        notes.append("Spark-Amp \(ModelCatalog.known(ampModel)?.name ?? ampModel) wegen \(reason). Gain \(RecipeValue.number(gain).text) wie am Kemper; Bass, Mitten und Höhen aus dem Kemper-EQ, die Präsenz halb in den Höhen.")
-        if !used.isEmpty { notes.append("Effekte: " + used.joined(separator: ", ") + ".") }
-        if !leftOut.isEmpty { notes.append("Nicht übernommen: " + leftOut.joined(separator: ", ") + ".") }
-        notes.append("Ein Profil ist eine Aufnahme des echten Amps, der Spark rechnet mit Modellen: vor dem Einsatz anhören und nachstellen.")
+        notes.append(tr("Spark amp %@ because of %@. Gain %@ as on the Kemper; bass, middle and treble from the Kemper EQ, half of the presence in the treble.", ModelCatalog.known(ampModel)?.name ?? ampModel, reason, RecipeValue.number(gain).text))
+        if !used.isEmpty { notes.append(tr("Effects: %@.", used.joined(separator: ", "))) }
+        if !leftOut.isEmpty { notes.append(tr("Not imported: %@.", leftOut.joined(separator: ", "))) }
+        notes.append(tr("A profile is a recording of the real amp, the Spark computes with models: listen and adjust before you use it."))
 
         let recipe = SoundRecipe(name: PresetFactory.fit(name ?? rig.name),
                                  description: PresetRules.fitDescription(rig.ampDescription),

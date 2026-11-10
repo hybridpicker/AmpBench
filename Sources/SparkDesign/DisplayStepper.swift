@@ -3,7 +3,7 @@ import SwiftUI
 /// A number in a small display with two engraved arrows to step it, such as the BPM of the click.
 ///
 ///     DisplayStepper("Tempo", value: $bpm, in: 40...240, step: 1, text: "\(Int(bpm))", unit: "BPM",
-///                    spokenValue: "\(Int(bpm)) Schläge pro Minute")
+///                    spokenValue: "\(Int(bpm)) beats per minute")
 ///
 /// The arrows, the arrow keys when focused, the scroll wheel and VoiceOver's adjust actions step the value.
 public struct DisplayStepper<Accessory: View>: View {
@@ -122,12 +122,12 @@ extension DisplayStepper where Accessory == EmptyView {
     }
 }
 
-#Preview("Zahl mit Pfeilen") {
+#Preview("Number with arrows") {
     PreviewPair {
         Faceplate {
             HStack(spacing: 10) {
                 DisplayStepper("Tempo", value: .constant(120), in: 40...240, step: 1, text: "120", unit: "BPM")
-                DisplayStepper("Ton", value: .constant(0), in: -12...12, step: 1, text: "+2", size: 12)
+                DisplayStepper("Pitch", value: .constant(0), in: -12...12, step: 1, text: "+2", size: 12)
             }
             .padding(14)
         }

@@ -1,10 +1,11 @@
+import AmpText
 import Foundation
 
 /// One rig of a Kemper Profiler, read from its SysEx messages: the strings (names of rig, amp and cabinet) and the
 /// numeric parameters by address page and number. Values are the Kemper's 14-bit numbers, 0 to 16383, with 8192 in
 /// the middle for knobs that go both ways.
 ///
-/// Read only. Spark Studio never sends anything to a Kemper.
+/// Read only. AmpBench never sends anything to a Kemper.
 public struct KemperRig: Equatable, Sendable {
     /// String parameter number to text, see `KemperRig.Tag`.
     public var strings: [Int: String]
@@ -59,7 +60,7 @@ public struct KemperRig: Equatable, Sendable {
 
     public func value(_ page: Int, _ parameter: Int) -> Int? { pages[page]?[parameter] }
 
-    public var name: String { string(Tag.rigName) ?? "Ohne Namen" }
+    public var name: String { string(Tag.rigName) ?? tr("No name") }
 
     /// Maker, model and name of the profiled amp, as far as the rig names them, for finding a Spark model.
     public var ampDescription: String {

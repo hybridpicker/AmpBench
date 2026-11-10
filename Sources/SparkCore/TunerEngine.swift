@@ -19,7 +19,7 @@ public final class TunerEngine: @unchecked Sendable {
     }
 
     public let tap: AudioTap
-    private let queue = DispatchQueue(label: "local.sparkstudio.tuner", qos: .userInteractive)
+    private let queue = DispatchQueue(label: "local.ampbench.tuner", qos: .userInteractive)
     private let lock = NSLock()
     private var latest = Snapshot()
     private var timer: DispatchSourceTimer?

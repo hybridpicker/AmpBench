@@ -1,0 +1,3 @@
+/* What macOS shows when it asks for the microphone and for Bluetooth. */
+"NSMicrophoneUsageDescription" = "AmpBench nimmt das Signal des gewählten Audioeingangs auf und speichert es nur lokal auf diesem Mac. Der Eingang ist nur offen, wenn du aufnimmst, ihn prüfst oder die Retro-Aufnahme einschaltest.";
+"NSBluetoothAlwaysUsageDescription" = "AmpBench verbindet sich per Bluetooth mit deinem Spark-Verstärker, wenn du die Presets öffnest oder „Verbinden“ drückst, um Presets umzuschalten, zu sichern und zu speichern. Die App sucht nur nach Spark-Verstärkern und sendet nichts ins Internet.";

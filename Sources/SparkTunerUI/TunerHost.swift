@@ -1,7 +1,8 @@
+import AmpText
 import SparkCore
 import SwiftUI
 
-/// The tuner inside Spark Studio: its content, its menus, and when it may listen.
+/// The tuner inside AmpBench: its content, its menus, and when it may listen.
 ///
 /// Studio calls `setActive(true)` while the area shows in a visible window, and `false` otherwise; only then is an
 /// input open for it. The input is the recorder's, given as `SharedInput`, or another one the user picks.
@@ -13,7 +14,7 @@ public final class TunerHost: ObservableObject {
         model = TunerModel(shared: input, defaults: defaults)
     }
 
-    /// The area "Stimmgerät".
+    /// The area "Tuner".
     public var content: AnyView { AnyView(TunerView(model: model)) }
 
     public func setActive(_ active: Bool) {
@@ -60,7 +61,7 @@ public final class TunerHost: ObservableObject {
     }
 }
 
-/// The menu "Stimmgerät". While another area shows, its keys rest and its items are dimmed.
+/// The menu "Tuner". While another area shows, its keys rest and its items are dimmed.
 public struct TunerMenus: Commands {
     @ObservedObject private var model: TunerModel
     private let isActive: Bool
@@ -71,18 +72,18 @@ public struct TunerMenus: Commands {
     }
 
     public var body: some Commands {
-        CommandMenu("Stimmgerät") {
-            Toggle("Stroboskop", isOn: $model.showsStrobe)
+        CommandMenu(tr("Tuner")) {
+            Toggle(tr("Strobe"), isOn: $model.showsStrobe)
                 .keyboardShortcut(owned(KeyboardShortcut("t", modifiers: .command)))
                 .disabled(!isActive)
             Divider()
-            Button("Kammerton 0,1 Hz höher") { model.a4 += 0.1 }
+            Button(tr("Concert pitch 0.1 Hz higher")) { model.a4 += 0.1 }
                 .keyboardShortcut(owned(KeyboardShortcut(.upArrow, modifiers: .command)))
                 .disabled(!isActive || model.a4 >= TunerInterpreter.a4Range.upperBound)
-            Button("Kammerton 0,1 Hz tiefer") { model.a4 -= 0.1 }
+            Button(tr("Concert pitch 0.1 Hz lower")) { model.a4 -= 0.1 }
                 .keyboardShortcut(owned(KeyboardShortcut(.downArrow, modifiers: .command)))
                 .disabled(!isActive || model.a4 <= TunerInterpreter.a4Range.lowerBound)
-            Button("Kammerton 440 Hz") { model.a4 = TunerInterpreter.defaultA4 }
+            Button(tr("Concert pitch 440 Hz")) { model.a4 = TunerInterpreter.defaultA4 }
                 .keyboardShortcut(owned(KeyboardShortcut("0", modifiers: .command)))
                 .disabled(!isActive || model.a4 == TunerInterpreter.defaultA4)
             Divider()

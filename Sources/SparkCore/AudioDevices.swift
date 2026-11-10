@@ -1,3 +1,4 @@
+import AmpText
 import CoreAudio
 import Foundation
 
@@ -146,7 +147,7 @@ public enum AudioDevices {
                 id: device,
                 uid: string(device, kAudioDevicePropertyDeviceUID) ?? "",
                 modelUID: string(device, kAudioDevicePropertyModelUID) ?? "",
-                name: string(device, kAudioObjectPropertyName) ?? "Unbekanntes Gerät",
+                name: string(device, kAudioObjectPropertyName) ?? tr("Unknown device"),
                 channels: formats.reduce(0) { $0 + Int($1.mChannelsPerFrame) },
                 currentRate: current,
                 maxRate: recordingRate(available: rates, current: current),
@@ -164,7 +165,7 @@ public enum AudioDevices {
                 id: device,
                 uid: string(device, kAudioDevicePropertyDeviceUID) ?? "",
                 modelUID: string(device, kAudioDevicePropertyModelUID) ?? "",
-                name: string(device, kAudioObjectPropertyName) ?? "Unbekanntes Gerät",
+                name: string(device, kAudioObjectPropertyName) ?? tr("Unknown device"),
                 channels: channelCount(outputs),
                 transport: transport(of: device)
             )

@@ -4,7 +4,7 @@ import SwiftUI
 /// green up to −18 dB, amber up to −6 dB, red above.
 ///
 ///     LEDMeter(level: meter.level, hold: meter.peakHold)
-///         .accessibilityLabel("Eingangspegel")
+///         .accessibilityLabel("Input level")
 ///         .accessibilityValue("−12 dBFS")
 ///
 /// `level` and `hold` are linear amplitudes from 0 to 1, as audio code measures them.
@@ -141,7 +141,7 @@ public struct LEDSegments: View {
     }
 }
 
-#Preview("Pegel") {
+#Preview("Level") {
     PreviewPair {
         Faceplate {
             VStack(spacing: 12) {

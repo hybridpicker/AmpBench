@@ -1,7 +1,7 @@
 import XCTest
 @testable import SparkControl
 
-/// The prompt and parser for KI-Sound: pure, no network. The HTTP call in `OllamaCloud` is not tested here.
+/// The prompt and parser for AI Sound: pure, no network. The HTTP call in `OllamaCloud` is not tested here.
 final class SoundAITests: XCTestCase {
 
     private func recipeJSON(_ chain: String = "\"amp\": { \"model\": \"Twin\", \"settings\": { \"gain\": 3 } }",
@@ -46,7 +46,7 @@ final class SoundAITests: XCTestCase {
                 return XCTFail("expected .invalid, got \(error)")
             }
             XCTAssertTrue(message.contains("Falscher Raum"), message)
-            XCTAssertTrue(message.contains("keine Auswahl"), message)
+            XCTAssertTrue(message.contains("is no choice"), message)
         }
     }
 

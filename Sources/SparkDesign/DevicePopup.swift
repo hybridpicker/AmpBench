@@ -3,11 +3,11 @@ import SwiftUI
 /// A choice on a device front: a dark recessed field with the current value and a chevron. Inside is a normal
 /// menu, so choosing works like everywhere on the Mac, with the keyboard and VoiceOver.
 ///
-///     DevicePopup("Eingang", value: input.name) {
-///         Picker("Eingang", selection: $inputID) { ... }.pickerStyle(.inline)
+///     DevicePopup("Input", value: input.name) {
+///         Picker("Input", selection: $inputID) { ... }.pickerStyle(.inline)
 ///     }
 ///
-///     DevicePopup("Taktart", selection: $beats, options: [(4, "4/4"), (3, "3/4")])
+///     DevicePopup("Time signature", selection: $beats, options: [(4, "4/4"), (3, "3/4")])
 ///
 /// No system pop-up button sits on a front directly; this is the one way to choose there.
 public struct DevicePopup<Content: View>: View {
@@ -110,14 +110,14 @@ public struct Chevron: View {
     }
 }
 
-#Preview("Auswahl am Gerät") {
+#Preview("Choice on the device") {
     PreviewPair {
         Faceplate {
             VStack(alignment: .leading, spacing: 8) {
-                DevicePopup("Eingang", value: "Spark MINI USB") { Button("Spark MINI USB") {} }
-                DevicePopup("Taktart", selection: .constant(4), options: [(3, "3/4"), (4, "4/4")])
+                DevicePopup("Input", value: "Spark MINI USB") { Button("Spark MINI USB") {} }
+                DevicePopup("Time signature", selection: .constant(4), options: [(3, "3/4"), (4, "4/4")])
                     .frame(width: 70)
-                DevicePopup("Einzähler", value: "Kein Einzähler") { Button("Kein Einzähler") {} }
+                DevicePopup("Count-in", value: "No count-in") { Button("No count-in") {} }
                     .disabled(true)
             }
             .padding(14)

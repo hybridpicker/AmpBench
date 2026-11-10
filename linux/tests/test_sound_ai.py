@@ -1,4 +1,4 @@
-"""KI-Sound: the prompt's knowledge, the wish check, corrections, variants, quick changes and the HTTP client. A port
+"""AI Sound: the prompt's knowledge, the wish check, corrections, variants, quick changes and the HTTP client. A port
 of Tests/SparkControlTests/SoundAIConversationTests.swift. Every chat and every HTTP answer is faked; nothing here
 uses the network."""
 import json
@@ -8,7 +8,7 @@ import urllib.error
 
 import pytest
 
-from spark_studio import catalog, recipe as recipemod, sound_ai
+from ampbench import catalog, i18n, recipe as recipemod, sound_ai
 
 
 class ScriptedChat:
@@ -73,13 +73,50 @@ def test_archetypes_use_only_free_catalog_models_in_chain_order():
 
 def test_system_prompt_carries_players_tempo_reverb_examples_and_catalog():
     prompt = sound_ai.messages("x")[0]["content"]
-    for part in ("The Edge (U2)", "punktierte Achtel", "Songtempo × 4/3", "Hall nach Stil", '"name":"Streets Echo"',
-                 "(Schlüssel: amp)", "`gain` (0–10)"):
+    for part in ("The Edge (U2)", "dotted eighths", "song tempo × 4/3", "Reverb by style", '"name":"Streets Echo"',
+                 "(key: amp)", "`gain` (0–10)", "Natural hall"):
         assert part in prompt, part
 
 
 def test_variants_have_three_different_directions():
-    assert len(set(sound_ai.VARIANT_HINTS)) == 3 == len(sound_ai.VARIANT_TITLES)
+    assert len(set(sound_ai.VARIANT_HINTS)) == 3 == len(sound_ai.variant_titles())
+
+
+@pytest.fixture
+def german():
+    i18n.set_language(i18n.GERMAN)
+    yield
+    i18n.set_language(i18n.ENGLISH)
+
+
+def test_the_prompt_stays_english_and_asks_for_the_users_language():
+    """The instructions are English in every language; only the language the recipe's words are written in follows
+    the user. What the user reads is German, word for word as on the Mac."""
+    english = sound_ai.messages("x")[0]["content"]
+    assert '"notes" in English' in english
+    i18n.set_language(i18n.GERMAN)
+    try:
+        german = sound_ai.messages("x")[0]["content"]
+        assert '"notes" in German' in german
+        assert german.replace("in German", "in English") == english
+        assert sound_ai.variant_titles() == ["Originalgetreu", "Druckvoller", "Reduziert"]
+        assert sound_ai.label("warmer") == "wärmer"
+        assert str(sound_ai.AIError("empty_request")) == "Beschreibe zuerst, welchen Sound du möchtest."
+        assert sound_ai.privacy_problem("an a@b.de") == ("Dein Wunsch enthält eine E-Mail-Adresse. Lass das weg – an "
+                                                         "Ollama geht nur die Beschreibung des Sounds.")
+        assert sound_ai.privacy_problem("Blues für meine Tele") is None
+    finally:
+        i18n.set_language(i18n.ENGLISH)
+
+
+def test_a_follow_up_names_the_change_in_english_and_answers_in_the_users_language(german):
+    original = sound_ai.parse(recipe(name="Crunch", treble=6))
+    chat = ScriptedChat([recipe(treble=4)])
+    sound_ai.refine(original, "warmer", "Rock", chat)
+    asked = chat.calls[0][-1]["content"]
+    assert asked.startswith("Adjust exactly this recipe: warmer.") and "in German." in asked
+    kept = sound_ai.keepsake(original, "Rock", ["warmer"])
+    assert kept["description"].startswith("KI-Sound: „Rock“") and kept["tags"] == ["KI-Sound", "wärmer"]
 
 
 # MARK: The wish
@@ -119,10 +156,10 @@ def test_history_puts_the_newest_first_once_and_stays_short():
 
 def test_keepsake_carries_the_wish_and_tags():
     kept = sound_ai.keepsake(sound_ai.parse(sound_ai.EXAMPLES[1][1]), "AC/DC – Back in Black", ["warmer", "moreGain"])
-    assert kept["description"].startswith("KI-Sound: „AC/DC – Back in Black“")
-    assert kept["tags"] == ["AC/DC", "Rock", "Crunch", "KI-Sound", "wärmer", "mehr Gain"]
+    assert kept["description"].startswith("AI Sound: “AC/DC – Back in Black”")
+    assert kept["tags"] == ["AC/DC", "Rock", "Crunch", "KI-Sound", "warmer", "more gain"]
     long = sound_ai.keepsake(sound_ai.parse(recipe()), "x" * 150)
-    assert len(long["description"].encode()) <= 80 and long["description"].endswith("…“")
+    assert len(long["description"].encode()) <= 80 and long["description"].endswith("…”")
 
 
 # MARK: Conversation
@@ -132,13 +169,13 @@ def test_an_answer_without_json_is_sent_back_once():
     chat = ScriptedChat(["Gern! Hier ist dein Sound.", recipe(name="Zweiter Versuch")])
     data, unresolved = sound_ai.converse(sound_ai.messages("Rock"), chat, 0.4)
     assert data["name"] == "Zweiter Versuch" and unresolved is None
-    assert "kein JSON-Objekt" in chat.calls[1][-1]["content"]
+    assert "no JSON object" in chat.calls[1][-1]["content"]
 
 
 def test_repeated_prose_ends_with_a_hint_about_the_model():
     with pytest.raises(sound_ai.AIError) as error:
         sound_ai.converse(sound_ai.messages("Rock"), ScriptedChat(["nur Text"] * 3), 0.4)
-    assert error.value.kind == "no_json" and "anderes Modell" in str(error.value)
+    assert error.value.kind == "no_json" and "another model" in str(error.value)
 
 
 def test_a_wrong_model_id_is_sent_back_with_the_error():
@@ -147,7 +184,7 @@ def test_a_wrong_model_id_is_sent_back_with_the_error():
     chat = ScriptedChat([json.dumps(wrong), recipe()])
     data, _ = sound_ai.converse(sound_ai.messages("Rock"), chat, 0.4)
     assert data["chain"]["amp"]["model"] == "Plexi"
-    assert "„Marshall“ gibt es nicht" in chat.calls[1][-1]["content"]
+    assert "no model “Marshall”" in chat.calls[1][-1]["content"]
 
 
 def wait_for(condition, timeout=3.0):
@@ -165,14 +202,14 @@ def test_variants_arrive_and_a_sound_alike_one_is_sent_back():
     assert wait_for(lambda: len(ready) + len(failed) == 3)
     amps = [d["chain"]["amp"]["model"] for d in ready.values()]
     assert len(set(amps)) == 3, "every variant has its own amp"
-    assert any("zu ähnlich" in call[-1]["content"] for call in chat.calls)
+    assert any("too much like" in call[-1]["content"] for call in chat.calls)
 
 
 def test_one_failing_variant_does_not_stop_the_others():
     def chat(messages, temperature):
-        if "Variante B" in messages[1]["content"]:
-            raise sound_ai.CloudError("unauthorized", "Ollama hat den API-Schlüssel abgelehnt.")
-        return recipe(amp="Twin" if "Variante A" in messages[1]["content"] else "SLO100")
+        if "Variant B" in messages[1]["content"]:
+            raise sound_ai.CloudError("unauthorized", "Ollama refused the API key.")
+        return recipe(amp="Twin" if "Variant A" in messages[1]["content"] else "SLO100")
 
     ready, failed = {}, {}
     sound_ai.variants("Rock", chat, lambda i, d: ready.__setitem__(i, d), lambda i, e: failed.__setitem__(i, e))
@@ -206,14 +243,14 @@ def test_refine_keeps_the_sound_and_makes_the_change():
     assert new["name"] == "Crunch" and new["chain"]["amp"]["settings"]["treble"] == 4 and note is None
     sent = chat.calls[0]
     assert [m["role"] for m in sent] == ["system", "user", "assistant", "user"]
-    assert '"Crunch"' in sent[2]["content"] and "wärmer" in sent[3]["content"]
+    assert '"Crunch"' in sent[2]["content"] and "warmer" in sent[3]["content"]
 
 
 def test_refine_sends_back_an_amp_swap_and_turns_the_knob_itself_when_needed():
     original = sound_ai.parse(recipe(amp="Plexi", treble=6))
     chat = ScriptedChat([recipe(amp="Twin", treble=4), recipe(amp="Plexi", treble=4.5)])
     new, _ = sound_ai.refine(original, "warmer", "Rock", chat)
-    assert new["chain"]["amp"]["model"] == "Plexi" and "ersetzt" in chat.calls[1][-1]["content"]
+    assert new["chain"]["amp"]["model"] == "Plexi" and "replaced" in chat.calls[1][-1]["content"]
     unchanged = recipe(treble=6)
     new, note = sound_ai.refine(original, "warmer", "Rock", ScriptedChat([unchanged] * 3))
     assert new["chain"]["amp"]["settings"]["treble"] == 4.5 and note
@@ -254,7 +291,7 @@ def test_request_carries_only_the_chat_and_a_generic_agent():
     request = sound_ai.make_request("gpt-oss:120b", " key ", [{"role": "user", "content": "Blues"}], 0.3)
     assert request.full_url == sound_ai.ENDPOINT
     assert request.get_header("Authorization") == "Bearer key"
-    assert request.get_header("User-agent") == "SparkStudio"
+    assert request.get_header("User-agent") == "AmpBench"
     body = json.loads(request.data)
     assert set(body) == {"model", "messages", "stream", "format", "options"} and body["stream"] is False
     assert b"key" not in request.data, "the key stays in the header"
@@ -294,3 +331,4 @@ def test_a_timeout_and_an_empty_or_broken_answer_are_reported():
         with pytest.raises(sound_ai.CloudError) as error:
             sound_ai.complete("m", "k", [], transport=ScriptedTransport([step]), retry=())
         assert error.value.kind == kind
+    assert "time limit" in str(sound_ai._cloud_error("timeout"))

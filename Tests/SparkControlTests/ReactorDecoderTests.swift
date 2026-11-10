@@ -1,4 +1,5 @@
 @testable import SparkControl
+import AmpText
 import XCTest
 
 /// The REACTOR's own messages, built as it sends them (Spark frames without block header), with the contents seen on
@@ -126,11 +127,11 @@ final class ReactorDecoderTests: XCTestCase {
         // The same slot again keeps what was read since.
         decode([wire(SparkProtocol.Sub.hardwarePreset, [0x00, 0x01])], into: &state)
         XCTAssertEqual(state.knobs, [.treble: 0.25])
-        // Bank key: Rot 2 to Grün 4.
+        // Bank key: Red 2 to Green 4.
         decode([wire(SparkProtocol.Sub.hardwarePreset, [0x00, 0x07])], into: &state)
         XCTAssertEqual(state.slot, 7)
         XCTAssertEqual(state.bank, 1)
-        XCTAssertEqual(DeviceProfile.reactor50.slotName(state.slot!), "Grün 4")
+        XCTAssertEqual(DeviceProfile.reactor50.slotName(state.slot!), "Green 4")
         XCTAssertTrue(state.knobs.isEmpty)
         // There is no ninth slot.
         decode([wire(SparkProtocol.Sub.hardwarePreset, [0x00, 0x08])], into: &state)
@@ -174,7 +175,12 @@ final class ReactorDecoderTests: XCTestCase {
                 wire(ReactorState.selectedEffect, [4, 0xC3]), parameter("ChorusCloner", 0, 0.5),
                 float(SparkProtocol.Sub.tapTempo, 120)], into: &state)
         let lines = state.lines().map { "\($0.label): \($0.value)" }
-        XCTAssertEqual(lines, ["Platz: Grün 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 von 5", "Gain: 7,5",
-                               "Mod ChorusCloner: an, Level 5,0", "Tempo: 120 BPM"])
+        XCTAssertEqual(lines, ["Slot: Green 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 of 5", "Gain: 7.5",
+                               "Mod ChorusCloner: on, Level 5.0", "Tempo: 120 BPM"])
+        Texts.language = .german
+        defer { Texts.language = .english }
+        XCTAssertEqual(state.lines().map { "\($0.label): \($0.value)" },
+                       ["Platz: Grün 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 von 5", "Gain: 7,5",
+                        "Mod ChorusCloner: an, Level 5,0", "Tempo: 120 BPM"])
     }
 }

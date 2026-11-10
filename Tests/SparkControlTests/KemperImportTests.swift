@@ -203,10 +203,10 @@ final class KemperTranslationTests: XCTestCase {
         XCTAssertEqual(amp.settings["treble"], .number(6), "half the presence goes to the treble")
         XCTAssertEqual(result.character, .drive)
         XCTAssertEqual(result.recipe.tags, ["kemper", "drive"])
-        XCTAssertTrue(result.recipe.notes.contains("anhören"))
+        XCTAssertTrue(result.recipe.notes.contains("listen and adjust"))
     }
 
-    /// Every amp rule and every effect the translation knows must make a recipe Spark Studio reads without problems.
+    /// Every amp rule and every effect the translation knows must make a recipe AmpBench reads without problems.
     func testEveryMappingMakesAValidRecipe() throws {
         for rule in KemperTranslation.ampRules {
             XCTAssertNotNil(ModelCatalog.known(rule.model), rule.model)
@@ -236,7 +236,7 @@ final class KemperTranslationTests: XCTestCase {
         let result = KemperTranslation.translate(try rig("FX", amp: "Fender Twin", gain: 3, modules: [
             (58, 151, true), (60, 145, true),
         ]))
-        XCTAssertEqual(result.leftOut, ["Loop Pitch Delay (Platz delay schon belegt)"])
+        XCTAssertEqual(result.leftOut, ["Loop Pitch Delay (place delay already taken)"])
     }
 }
 

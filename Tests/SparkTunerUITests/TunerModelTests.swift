@@ -1,3 +1,4 @@
+import AmpText
 import SparkCore
 import XCTest
 @testable import SparkTunerUI
@@ -49,8 +50,8 @@ final class TunerModelTests: XCTestCase {
     private var defaults: UserDefaults!
 
     override func setUp() async throws {
-        defaults = UserDefaults(suiteName: "local.sparkstudio.tuner.unittests")
-        defaults.removePersistentDomain(forName: "local.sparkstudio.tuner.unittests")
+        defaults = UserDefaults(suiteName: "local.ampbench.tuner.unittests")
+        defaults.removePersistentDomain(forName: "local.ampbench.tuner.unittests")
     }
 
     private static let spark = InputDevice(id: 77, uid: "spark-uid", modelUID: "spark", name: "Spark MINI", channels: 2,
@@ -118,14 +119,28 @@ final class TunerModelTests: XCTestCase {
     func testSpokenReadoutIsShortAndCalm() {
         let e = Note(midi: 40)
         let low = TunerReadout(frequency: 81, note: e, string: 6, cents: -2.6, flats: false, isHeld: false, isInTune: false)
-        XCTAssertEqual(TunerModel.spoken(low), "E, 6. Saite, 3 Cent zu tief")
+        XCTAssertEqual(TunerModel.spoken(low), "E, string 6, 3 cents too low")
         let close = TunerReadout(frequency: 82.4, note: e, string: 6, cents: 0.74, flats: false, isHeld: false, isInTune: false)
-        XCTAssertEqual(TunerModel.spoken(close), "E, 6. Saite, 0,7 Cent zu hoch")
+        XCTAssertEqual(TunerModel.spoken(close), "E, string 6, \(TunerText.decimal(0.7, digits: 1)) cents too high")
         let tuned = TunerReadout(frequency: 82.4, note: e, string: 6, cents: 0.1, flats: false, isHeld: false, isInTune: true)
-        XCTAssertEqual(TunerModel.spoken(tuned), "E, 6. Saite, gestimmt")
+        XCTAssertEqual(TunerModel.spoken(tuned), "E, string 6, in tune")
         let flat = TunerReadout(frequency: 77.8, note: Note(midi: 39), string: 6, cents: 1.2, flats: true, isHeld: false,
                                 isInTune: false)
-        XCTAssertEqual(TunerModel.spoken(flat), "Es, 6. Saite, 1,2 Cent zu hoch")
+        // The note's spoken name and the decimal sign come from SparkCore.
+        XCTAssertEqual(TunerModel.spoken(flat), "\(Note(midi: 39).spokenName(flats: true)), string 6, "
+                       + "\(TunerText.decimal(1.2, digits: 1)) cents too high")
+    }
+
+    func testSpokenReadoutAndInputNamesInGerman() {
+        Texts.language = .german
+        defer { Texts.language = .english }
+        let e = Note(midi: 40)
+        let low = TunerReadout(frequency: 81, note: e, string: 6, cents: -2.6, flats: false, isHeld: false, isInTune: false)
+        XCTAssertEqual(TunerModel.spoken(low), "E, 6. Saite, 3 Cent zu tief")
+        let tuned = TunerReadout(frequency: 82.4, note: e, string: 6, cents: 0.1, flats: false, isHeld: false, isInTune: true)
+        XCTAssertEqual(TunerModel.spoken(tuned), "E, 6. Saite, gestimmt")
+        XCTAssertEqual(tr("%@ tuner", "Spark NEO"), "Stimmgerät des Spark NEO")
+        XCTAssertEqual(tr("Automatic: %@", tr("No Spark")), "Automatisch: Kein Spark")
     }
 
     /// The demo for the window pictures feeds the real pipeline with a synthetic string and opens no input.
@@ -154,7 +169,7 @@ final class TunerModelTests: XCTestCase {
 
         model.choose(.amp)
         XCTAssertEqual(amp.asked, [true])
-        XCTAssertEqual(model.inputName, "Stimmgerät des Spark NEO")
+        XCTAssertEqual(model.inputName, "Spark NEO tuner")
         let listening = await waitUntil { model.status == .listening }
         XCTAssertTrue(listening)
         for _ in 0..<6 { amp.onAmpTunerReading?(9, 4) }
@@ -186,7 +201,7 @@ final class TunerModelTests: XCTestCase {
         let gone = await waitUntil { model.status == .noInput }
         XCTAssertTrue(gone)
         XCTAssertEqual(amp.asked.last, false)
-        XCTAssertEqual(model.inputName, "Kein Verstärker verbunden")
+        XCTAssertEqual(model.inputName, "No amp connected")
         amp.ampTunerDevice = "Spark MINI"
         let back = await waitUntil { model.status == .listening }
         XCTAssertTrue(back)
@@ -204,7 +219,7 @@ final class TunerModelTests: XCTestCase {
         XCTAssertTrue(listening)
         XCTAssertEqual(model.current, .amp, "a device without USB audio is heard through its own tuner")
         XCTAssertEqual(amp.asked, [true])
-        XCTAssertEqual(model.inputName, "Automatisch: Stimmgerät des Spark NEO")
+        XCTAssertEqual(model.inputName, "Automatic: Spark NEO tuner")
         model.setActive(false)
         XCTAssertEqual(amp.asked, [true, false])
     }

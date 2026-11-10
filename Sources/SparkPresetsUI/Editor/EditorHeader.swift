@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -43,7 +44,7 @@ struct EditorHeader: View {
                         Text("·").foregroundStyle(Theme.device.amberDim).accessibilityHidden(true)
                         ZStack(alignment: .leading) {
                             if description.isEmpty && field != .description {
-                                Text("Beschreibung hinzufügen")
+                                Text(tr("Add a description"))
                                     .foregroundStyle(Theme.device.lampOffText)
                                     .lineLimit(1)
                                     .accessibilityHidden(true)
@@ -54,12 +55,12 @@ struct EditorHeader: View {
                                 .focused($field, equals: .description)
                                 .onSubmit(commitDescription)
                                 .disabled(editor.isLocked)
-                                .accessibilityLabel("Beschreibung")
+                                .accessibilityLabel(tr("Description"))
                         }
                         .font(.system(size: 11))
                     }
                     HStack(spacing: 8) {
-                        PanelLabel("Übertragung", color: Theme.device.lampOffText)
+                        PanelLabel(tr("Transfer"), color: Theme.device.lampOffText)
                         LoadMeter(transfer: link.transfer, height: 4)
                     }
                     .padding(.top, 2)
@@ -80,28 +81,28 @@ struct EditorHeader: View {
     }
 
     private var nameField: some View {
-        TextField("Name", text: $name)
+        TextField(tr("Name"), text: $name)
             .textFieldStyle(.plain)
             .font(Theme.Fonts.title(23))
             .foregroundStyle(Theme.device.amber)
             .focused($field, equals: .name)
             .onSubmit(commitName)
             .disabled(editor.isLocked)
-            .accessibilityLabel("Name des Presets")
+            .accessibilityLabel(tr("Preset name"))
     }
 
     private var lamps: some View {
         HStack(spacing: 10) {
             if editor.showsOriginal {
-                Lamp("A · Gespeichert", tone: .amber, isOn: true, size: 6)
+                Lamp(tr("A · Saved"), tone: .amber, isOn: true, size: 6)
             } else {
-                Lamp("Geändert", tone: .hot, isOn: editor.isModified, size: 6)
-                    .accessibilityLabel(editor.isModified ? "Geändert" : "Unverändert")
+                Lamp(tr("Changed"), tone: .hot, isOn: editor.isModified, size: 6)
+                    .accessibilityLabel(editor.isModified ? tr("Changed") : tr("Unchanged"))
             }
             Lamp("Live", tone: .on, isOn: editor.isHeard, size: 6)
-                .help(editor.isHeard ? "Der Verstärker spielt diesen Stand, Änderungen sind sofort hörbar."
-                                     : "Die erste Änderung schickt das Preset zum Verstärker, ohne einen Platz zu überschreiben.")
-                .accessibilityLabel(editor.isHeard ? "Live am Verstärker" : "Nicht am Verstärker")
+                .help(editor.isHeard ? tr("The amp plays this state, changes can be heard at once.")
+                                     : tr("The first change sends the preset to the amp, without overwriting a slot."))
+                .accessibilityLabel(editor.isHeard ? tr("Live on the amp") : tr("Not on the amp"))
         }
     }
 
@@ -132,44 +133,44 @@ struct EditorHeader: View {
                 .buttonStyle(.hardwareKey(keycap: "⌘Z"))
                 .fixedSize()
                 .disabled(!editor.canUndo || editor.showsOriginal)
-                .help("Rückgängig (⌘Z)")
-                .accessibilityLabel("Rückgängig")
+                .help(tr("Undo (⌘Z)"))
+                .accessibilityLabel(tr("Undo"))
             Button { editor.redo() } label: { Image(systemName: "arrow.uturn.forward") }
                 .buttonStyle(.hardwareKey())
                 .fixedSize()
                 .disabled(!editor.canRedo || editor.showsOriginal)
-                .help("Wiederholen (⇧⌘Z)")
-                .accessibilityLabel("Wiederholen")
+                .help(tr("Redo (⇧⌘Z)"))
+                .accessibilityLabel(tr("Redo"))
             Button(editor.showsOriginal ? "A" : "A / B") { editor.toggleComparison() }
                 .buttonStyle(.hardwareKey(editor.showsOriginal ? .on : .normal, keycap: "⌘B"))
                 .fixedSize()
                 .disabled(!editor.isModified && !editor.showsOriginal)
-                .help("Vergleicht mit dem gespeicherten Stand (⌘B)")
-                .accessibilityLabel("Mit dem gespeicherten Stand vergleichen")
-                .accessibilityValue(editor.showsOriginal ? "gespeicherter Stand" : "bearbeiteter Stand")
-            Button("Sichern") { model.saveOnMac() }
+                .help(tr("Compares with the saved state (⌘B)"))
+                .accessibilityLabel(tr("Compare with the saved state"))
+                .accessibilityValue(editor.showsOriginal ? tr("saved state") : tr("edited state"))
+            Button(tr("Save")) { model.saveOnMac() }
                 .buttonStyle(.hardwareKey(.primary, keycap: "⌘S"))
                 .fixedSize()
                 .disabled(editor.showsOriginal)
-                .help("Auf dem Mac sichern (⌘S)")
+                .help(tr("Save to this Mac (⌘S)"))
             Menu {
-                Button("Sichern unter …") { model.beginSaveAs() }
+                Button(tr("Save as …")) { model.beginSaveAs() }
                 Divider()
                 ForEach(Array(link.profile.slots), id: \.self) { slot in
-                    Button("Auf \(link.profile.slotName(slot)) speichern …\(link.slots[safe: slot].flatMap { $0 }.map { " (jetzt „\($0.name)“)" } ?? "")") {
+                    Button(storeTitle(slot)) {
                         model.askToStoreEdited(in: slot)
                     }
                     .disabled(!model.canUse(.store))
                 }
                 Divider()
-                Button("Auf den REACTOR spielen …") { model.askToPlayOnReactor() }
+                Button(tr("Play on the REACTOR …")) { model.askToPlayOnReactor() }
                     .disabled(!model.canPlayOnReactor)
-                    .help("Stellt am verbundenen REACTOR den nächstliegenden Amp, Gain, Klangregler und Effekte ein. Kein Preset wird übertragen, nichts gespeichert.")
-                Button("Text für REACTOR kopieren") { model.copyToneText() }
-                    .help("Beschreibt den Sound auf Englisch für „Text to Tone“ in der REACTOR-App. Der REACTOR deutet den Text selbst.")
+                    .help(tr("Sets the closest amp, gain, tone controls and effects on the connected REACTOR. No preset is transferred, nothing is stored."))
+                Button(tr("Copy text for REACTOR")) { model.copyToneText() }
+                    .help(tr("Describes the sound in English for “Text to Tone” in the REACTOR app. The REACTOR interprets the text itself."))
                 Divider()
-                Button("Änderungen verwerfen") { editor.revert() }.disabled(!editor.isModified)
-                Button("Duplizieren") { model.duplicateCurrent() }
+                Button(tr("Discard changes")) { editor.revert() }.disabled(!editor.isModified)
+                Button(tr("Duplicate")) { model.duplicateCurrent() }
             } label: {
                 Text("⋯")
                     .font(.system(size: 12, weight: .bold))
@@ -183,18 +184,26 @@ struct EditorHeader: View {
             .menuIndicator(.hidden)
             .fixedSize()
             .disabled(editor.showsOriginal)
-            .help("Sichern unter, auf einem Platz speichern, Text für REACTOR, verwerfen, duplizieren")
-            .accessibilityLabel("Weitere Aktionen")
+            .help(tr("Save as, store on a slot, text for REACTOR, discard, duplicate"))
+            .accessibilityLabel(tr("More actions"))
         }
     }
 
     private var sourceText: String {
         switch editor.source {
         case .slot(let slot): model.origin(slot: slot)
-        case .saved: "Auf dem Mac"
-        case .draft: "Neu, noch nicht gesichert"
+        case .saved: tr("On this Mac")
+        case .draft: tr("New, not saved yet")
         case nil: ""
         }
+    }
+
+    private func storeTitle(_ slot: Int) -> String {
+        let place = link.profile.slotName(slot)
+        if let current = link.slots[safe: slot] ?? nil {
+            return tr("Store on %@ … (now “%@”)", place, current.name)
+        }
+        return tr("Store on %@ …", place)
     }
 
     private func load() {

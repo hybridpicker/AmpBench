@@ -1,3 +1,4 @@
+import AmpText
 import AppKit
 import Foundation
 import SparkControl
@@ -7,7 +8,7 @@ enum TagSetting {
     static let pinnedKey = "Pinned Preset Tags"
 }
 
-/// A song from an import, for Spark Studio to make a piece of: the title and its parts, each naming its preset.
+/// A song from an import, for AmpBench to make a piece of: the title and its parts, each naming its preset.
 public struct ImportedSong: Sendable {
     public struct Part: Sendable {
         public let name: String
@@ -89,7 +90,7 @@ extension PresetsModel {
             try library.updateDetails(item, change)
             reloadLibrary()
         } catch {
-            show(.error, "„\(item.name)“ ließ sich nicht ändern: \(error.localizedDescription)")
+            show(.error, tr("“%@” could not be changed: %@", item.name, error.localizedDescription))
         }
     }
 }
@@ -100,8 +101,8 @@ extension PresetsModel {
     /// Asks for a Kemper backup or rig file and reads it into a plan the sheet shows. Nothing is written yet.
     func chooseKemperFile() {
         let panel = NSOpenPanel()
-        panel.title = "Kemper-Backup oder Rig wählen"
-        panel.message = "Ein Backup vom USB-Stick (.kpabackup) oder ein einzelnes Rig (.kipr). Spark Studio liest nur."
+        panel.title = tr("Choose a Kemper backup or rig")
+        panel.message = tr("A backup from the USB stick (.kpabackup) or a single rig (.kipr). AmpBench only reads.")
         panel.allowedContentTypes = ["kpabackup", "kipr"].compactMap { UTType(filenameExtension: $0) }
         panel.allowsOtherFileTypes = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -122,7 +123,7 @@ extension PresetsModel {
             switch result {
             case .success(let plan):
                 kemperPlan = plan
-                if plan.performances.isEmpty && plan.rigs.isEmpty { kemperError = "In der Datei sind keine Rigs." }
+                if plan.performances.isEmpty && plan.rigs.isEmpty { kemperError = tr("There are no rigs in the file.") }
             case .failure(let error):
                 kemperError = error.localizedDescription
             }
@@ -157,7 +158,7 @@ extension PresetsModel {
         kemperFileName = nil
     }
 
-    /// Writes the plan's sounds as presets and hands its songs to Spark Studio. A sound that is already in the
+    /// Writes the plan's sounds as presets and hands its songs to AmpBench. A sound that is already in the
     /// library under the same name and with the same chain only gets the new tags, so importing twice adds nothing.
     func performKemperImport() {
         guard let plan = kemperPlan else { return }
@@ -189,11 +190,11 @@ extension PresetsModel {
                                              presetName: preset.name)
                 })
             }
-            var message = "Kemper-Import: \(new) neue Presets"
-            if output.sounds.count > new { message += ", \(output.sounds.count - new) schon vorhandene ergänzt" }
-            message += "."
+            let updated = output.sounds.count - new
+            var message = updated > 0 ? tr("Kemper import: %d new presets, %d existing ones updated.", new, updated)
+                                      : tr("Kemper import: %d new presets.", new)
             if !songs.isEmpty {
-                message += " " + (onImportSongs?(songs) ?? "\(songs.count) Songs ließen sich nicht als Stücke anlegen.")
+                message += " " + (onImportSongs?(songs) ?? tr("%d songs could not be created as pieces.", songs.count))
             }
             for tag in ["basis", "song", "unterricht"] where !isPinned(tag) && output.sounds.contains(where: {
                 $0.tags.contains(tag)
@@ -201,7 +202,7 @@ extension PresetsModel {
                 pinnedTags.append(tag)
             }
             closeKemperImport()
-            show(.info, message + " Jeder Sound ist eine Annäherung: am Verstärker anhören.")
+            show(.info, message + " " + tr("Every sound is an approximation: listen to it on the amp."))
         } catch {
             kemperError = error.localizedDescription
         }
@@ -238,10 +239,9 @@ extension PresetsModel {
             guard let self else { return }
             do {
                 try await link.play(sound)
-                show(.info, "Am \(device) eingestellt: \(sound.summary). Master und Volume bleiben, wie sie sind. "
-                     + "Der Sound gilt, bis der Platz wechselt; gespeichert wird nur am Gerät, und das überschreibt den Platz.")
+                show(.info, tr("Set on the %@: %@. Master and Volume stay as they are. The sound holds until the slot changes; storing happens only on the device, and that overwrites the slot.", device, sound.summary))
             } catch {
-                show(.error, "Der Sound kam nicht ganz am \(device) an: \(error.localizedDescription)")
+                show(.error, tr("The sound did not fully arrive on the %@: %@", device, error.localizedDescription))
             }
         }
     }

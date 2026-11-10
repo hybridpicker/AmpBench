@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SwiftUI
 
@@ -13,7 +14,7 @@ struct ContentView: View {
             EditorView()
                 .overlay(alignment: .bottom) { BannerView().padding(14) }
         }
-        .searchable(text: $model.search, placement: .toolbar, prompt: "Presets suchen")
+        .searchable(text: $model.search, placement: .toolbar, prompt: tr("Search presets"))
         .sheet(item: $model.renameTarget) { _ in RenameSheet() }
         .sheet(isPresented: saveAsShown) { SaveAsSheet() }
         .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }
@@ -22,40 +23,40 @@ struct ContentView: View {
             KemperImportSheet()
         }
         .confirmationDialog(storeTitle, isPresented: storeDialogShown, presenting: model.storeRequest) { request in
-            Button("Auf \(link.profile.slotName(request.slot)) speichern") { model.store(request) }
-            Button("Abbrechen", role: .cancel) { model.storeRequest = nil }
+            Button(tr("Store on %@", link.profile.slotName(request.slot))) { model.store(request) }
+            Button(tr("Cancel"), role: .cancel) { model.storeRequest = nil }
         } message: { request in
-            Text("Was jetzt auf \(link.profile.slotName(request.slot)) liegt\(slotName(request.slot)), wird vorher frisch vom Verstärker gelesen und auf dem Mac gesichert. Danach wird der Platz zur Kontrolle zurückgelesen.")
+            Text(storeMessage(request.slot))
         }
-        .confirmationDialog("Diesen Sound am \(link.profile.displayName) einstellen?",
+        .confirmationDialog(tr("Set this sound on the %@?", link.profile.displayName),
                             isPresented: Binding(get: { model.reactorRequest != nil },
                                                  set: { if !$0 { model.reactorRequest = nil } }),
                             presenting: model.reactorRequest) { sound in
-            Button("Einstellen") { model.playOnReactor(sound) }
-            Button("Abbrechen", role: .cancel) { model.reactorRequest = nil }
+            Button(tr("Set")) { model.playOnReactor(sound) }
+            Button(tr("Cancel"), role: .cancel) { model.reactorRequest = nil }
         } message: { sound in
-            Text("\(sound.summary).\n\nDreh vorher Volume am Gerät herunter: Ein anderer Amp kann lauter sein. Der Master wird nicht verändert. Der jetzige Sound des Platzes ist danach verstellt, bis du den Platz wechselst; gespeichert wird nichts.")
+            Text(tr("%@.\n\nTurn Volume down on the device first: another amp can be louder. The master is not changed. The slot’s current sound is then altered until you change the slot; nothing is stored.", sound.summary))
         }
         .confirmationDialog(unsavedTitle, isPresented: unsavedShown) {
-            Button("Auf dem Mac sichern") { model.resolvePending(save: true) }
-            Button("Verwerfen", role: .destructive) { model.resolvePending(save: false) }
-            Button("Abbrechen", role: .cancel) { model.pendingSelection = nil }
+            Button(tr("Save to this Mac")) { model.resolvePending(save: true) }
+            Button(tr("Discard"), role: .destructive) { model.resolvePending(save: false) }
+            Button(tr("Cancel"), role: .cancel) { model.pendingSelection = nil }
         } message: {
-            Text("Ohne Sichern gehen die Änderungen verloren.")
+            Text(tr("Without saving, the changes are lost."))
         }
         .confirmationDialog(lossTitle, isPresented: lossShown) {
-            Button("Als Preset sichern, dann \(model.pendingDisconnect ? "trennen" : "wechseln")") {
+            Button(model.pendingDisconnect ? tr("Save as a preset, then disconnect") : tr("Save as a preset, then switch")) {
                 model.resolveDeviceChange(save: true)
             }
-            Button("Ohne Sichern \(model.pendingDisconnect ? "trennen" : "wechseln")", role: .destructive) {
+            Button(model.pendingDisconnect ? tr("Disconnect without saving") : tr("Switch without saving"), role: .destructive) {
                 model.resolveDeviceChange(save: false)
             }
-            Button("Abbrechen", role: .cancel) {
+            Button(tr("Cancel"), role: .cancel) {
                 model.pendingDevice = nil
                 model.pendingDisconnect = false
             }
         } message: {
-            Text("Er spielt dann wieder seinen gespeicherten Platz. Gesichert landet der Sound auf dem Mac unter „Auf dem Mac“.")
+            Text(tr("It then plays its stored slot again. When saved, the sound goes to this Mac under “On this Mac”."))
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             model.reloadLibrary()
@@ -80,19 +81,23 @@ struct ContentView: View {
     }
 
     private var lossTitle: String {
-        "Der Sound auf dem \(link.profile.displayName) geht beim Trennen verloren. Vorher als Preset sichern?"
+        tr("The sound on the %@ is lost when it disconnects. Save it as a preset first?", link.profile.displayName)
     }
 
     private var storeTitle: String {
         guard let request = model.storeRequest else { return "" }
-        return "„\(request.preset.name)“ auf \(link.profile.slotName(request.slot)) speichern?"
+        return tr("Store “%@” on %@?", request.preset.name, link.profile.slotName(request.slot))
     }
 
     private var unsavedTitle: String {
-        "„\(model.editor.preset?.name ?? "Preset")“ hat ungesicherte Änderungen."
+        tr("“%@” has unsaved changes.", model.editor.preset?.name ?? "Preset")
     }
 
-    private func slotName(_ slot: Int) -> String {
-        (link.slots[safe: slot] ?? nil).map { ", „\($0.name)“" } ?? ""
+    private func storeMessage(_ slot: Int) -> String {
+        let place = link.profile.slotName(slot)
+        if let preset = link.slots[safe: slot] ?? nil {
+            return tr("What is on %@ now, “%@”, is first read fresh from the amp and saved to this Mac. Then the slot is read back as a check.", place, preset.name)
+        }
+        return tr("What is on %@ now is first read fresh from the amp and saved to this Mac. Then the slot is read back as a check.", place)
     }
 }

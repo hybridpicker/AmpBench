@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "spark-sound-recipe-1",
   "title": "Spark sound recipe, version 1",
-  "description": "A guitar sound for Positive Grid Spark amps, described by model and settings. Model ids and parameter keys are in spark-catalog.json. Spark Studio checks the parts this schema cannot, such as which keys a model has: SparkStudio --recipe-check <file>.",
+  "description": "A guitar sound for Positive Grid Spark amps, described by model and settings. Model ids and parameter keys are in spark-catalog.json. AmpBench checks the parts this schema cannot, such as which keys a model has: AmpBench --recipe-check <file>.",
   "type": "object",
   "required": ["format", "version", "name", "chain"],
   "additionalProperties": false,

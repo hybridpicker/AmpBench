@@ -160,7 +160,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
 }
 
 /// A piece, song or exercise: its takes, and what it takes to play it (artist, tempo, key, notes, parts with their
-/// sounds). Spark Studio's "Stück" and Spark Presets' planned "Song" are this one thing.
+/// sounds). AmpBench's "Stück" and Spark Presets' planned "Song" are this one thing.
 public struct Piece: Codable, Identifiable, Equatable, Sendable {
     public var id: UUID
     /// The title.

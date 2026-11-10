@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// The device facts the feedback check needs. Independent of Core Audio so it can be tested with any combination.
@@ -59,9 +60,9 @@ public enum FeedbackGuard {
         case .none:
             return nil
         case .sameHardware:
-            return "Ausgabe und Eingang sind dasselbe Gerät. Der Ton könnte in der Aufnahme landen, deshalb ist die Ausgabe dort während einer Aufnahme gesperrt."
+            return tr("Output and input are the same device. The sound could end up in the recording, so output there is locked while recording.")
         case .acoustic:
-            return "Der Lautsprecher würde vom Mikrofon mit aufgenommen. Wähle während der Aufnahme Kopfhörer."
+            return tr("The microphone would pick up the speaker. Choose headphones while recording.")
         }
     }
 

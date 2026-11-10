@@ -1,6 +1,6 @@
 import Foundation
 
-/// The amp's own tuner, as Spark Studio's tuner sees it: a device that can switch it on, and its readings.
+/// The amp's own tuner, as AmpBench's tuner sees it: a device that can switch it on, and its readings.
 ///
 /// Spark MINI and NEO have a tuner inside. Switched on over Bluetooth they mute their output and report the note
 /// and its deviation about 15 times a second. That is how a NEO, which has no USB audio, can be tuned in Studio.

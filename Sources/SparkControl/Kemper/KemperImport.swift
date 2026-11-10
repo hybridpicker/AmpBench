@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// What to make of a Kemper backup: which performances become songs, which are basic setups or lessons, and which
@@ -18,14 +19,14 @@ public struct KemperImportPlan: Equatable, Sendable {
 
         public var label: String {
             switch self {
-            case .song: "Song"
-            case .basis: "Basis-Setup"
-            case .lesson: "Unterricht"
-            case .skip: "Nicht übernehmen"
+            case .song: tr("Song")
+            case .basis: tr("Basic setup")
+            case .lesson: tr("Lessons")
+            case .skip: tr("Do not import")
             }
         }
 
-        /// The tag its sounds get.
+        /// The tag its sounds get. A stored value, the same in every language.
         public var tag: String? {
             switch self {
             case .song: "song"
@@ -158,12 +159,12 @@ public struct KemperImportPlan: Equatable, Sendable {
             var parts: [(String, Int)] = []
             for slot in performance.slots {
                 let index = try add(slot.translation, tags: tags,
-                                    origin: "Kemper · \(performance.name) · Platz \(slot.number)")
+                                    origin: tr("Kemper · %@ · slot %d", performance.name, slot.number))
                 parts.append((slot.name, index))
             }
             if performance.kind == .song {
                 songs.append(Song(title: performance.name, parts: parts,
-                                  notes: "Aus der Kemper-Performance \(performance.number) „\(performance.name)“."))
+                                  notes: tr("From the Kemper performance %d “%@”.", performance.number, performance.name)))
             }
         }
         for rig in rigs where rig.isChosen {

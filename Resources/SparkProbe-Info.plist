@@ -7,8 +7,8 @@
 	<key>CFBundleName</key>
 	<string>spark-probe</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>spark-probe verbindet sich per Bluetooth LE mit dem Spark-Verstärker, um Presets zu lesen und umzuschalten. Es sendet nichts ins Internet.</string>
+	<string>spark-probe connects to the Spark amp over Bluetooth LE to read and switch presets. It sends nothing to the internet.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>spark-probe hört beim Vergleich des Stimmgeräts den USB-Eingang des Spark mit. Es nimmt nichts auf und sendet nichts ins Internet.</string>
+	<string>spark-probe listens to the Spark's USB input when it compares the tuner. It records nothing and sends nothing to the internet.</string>
 </dict>
 </plist>

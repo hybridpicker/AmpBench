@@ -13,7 +13,7 @@ public struct PresetFile: Codable, Equatable, Sendable {
     /// Stable across renames, so songs can refer to the preset. Nil in older files until they are written again.
     public var id: String?
     public var savedAt: Date
-    /// Where it came from, such as "Platz 2 · Spark MINI".
+    /// Where it came from, such as "Slot 2 · Spark MINI".
     public var origin: String
     /// True for the copy made automatically before a slot was overwritten.
     public var isBackup: Bool

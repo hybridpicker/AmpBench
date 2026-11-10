@@ -128,7 +128,7 @@ public struct MiniKnob: View {
     }
 }
 
-#Preview("Reglerkopf") {
+#Preview("Knob face") {
     PreviewPair {
         Faceplate(radius: Theme.Radius.panel) {
             HStack(spacing: 16) {

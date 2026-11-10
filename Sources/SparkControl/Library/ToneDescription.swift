@@ -27,7 +27,7 @@ extension SoundRecipe {
             // The reverb's type is its name: "large hall reverb".
             if let (typeIndex, type) = info.settableParameters.first(where: { $0.info.key == "type" }),
                let value = effect.parameters.first(where: { Int($0.index) == typeIndex })?.value {
-                what = "\(Self.labels[type.display(value)] ?? type.display(value)) reverb"
+                what = "\(Self.labels[type.englishDisplay(value)] ?? type.englishDisplay(value)) reverb"
             }
             let line = values.isEmpty ? what : "\(what), " + values.joined(separator: ", ")
             lines.append("\(Self.role(place)): \(line).")
@@ -63,7 +63,7 @@ extension SoundRecipe {
 
     private static func englishName(_ info: ModelInfo) -> String {
         if let name = plainNames[info.id] { return name }
-        guard let inspiration = info.inspiration else { return info.name }
+        guard let inspiration = info.inspiration else { return info.englishName }
         let kind: String = switch info.place {
         case .amp: "amp"
         case .drive: "pedal"
@@ -73,18 +73,18 @@ extension SoundRecipe {
         return kind.isEmpty ? "\(inspiration) style" : "\(inspiration) style \(kind)"
     }
 
-    /// German option labels of the catalog in English.
+    /// The catalog's option labels as they read in a sentence.
     private static let labels: [String: String] = [
-        "Raum A": "small room", "Raum B": "room", "Kammer": "chamber", "Saal natürlich": "natural hall",
-        "Saal mittel": "medium hall", "Saal weit": "large hall", "Platte kurz": "short plate",
-        "Platte satt": "rich plate", "Platte lang": "long plate", "Frei": "free time", "BPM": "synced to tempo",
-        "Kompr.": "compress", "Limit": "limit", "Wenig": "low", "Viel": "high", "1 Takt": "1 bar",
-        "Aus": "off", "An": "on",
+        "Room A": "small room", "Room B": "room", "Chamber": "chamber", "Natural hall": "natural hall",
+        "Medium hall": "medium hall", "Wide hall": "large hall", "Short plate": "short plate",
+        "Rich plate": "rich plate", "Long plate": "long plate", "Free": "free time", "BPM": "synced to tempo",
+        "Comp.": "compress", "Limit": "limit", "Low": "low", "High": "high", "1 bar": "1 bar",
+        "Off": "off", "On": "on",
     ]
 
     private static func words(_ parameter: ParameterInfo, _ value: Float) -> String {
-        let label = parameter.display(value)
-        switch parameter.kind {
+        let label = parameter.englishDisplay(value)
+        switch parameter.englishKind {
         case .toggle, .selector:
             let english = labels[label] ?? label
             return parameter.key == "sync" ? english : "\(spoken(parameter.key)) \(english)"

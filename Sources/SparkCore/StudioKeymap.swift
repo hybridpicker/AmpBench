@@ -1,14 +1,15 @@
+import AmpText
 import Foundation
 
-/// Where a shortcut works in Spark Studio, the app that joins Spark Recorder and Spark Presets.
+/// Where a shortcut works in AmpBench, the app that joins Spark Recorder and Spark Presets.
 public enum KeyScope: String, CaseIterable, Sendable {
     /// In the whole window, whichever area shows. Single keys still step aside while text is being typed.
     case everywhere
-    /// Only while the area "Aufnahme" shows.
+    /// Only while the area "Record" shows.
     case recording
     /// Only while the area "Presets" shows.
     case presets
-    /// Only while the area "Stimmgerät" shows.
+    /// Only while the area "Tuner" shows.
     case tuner
 
     public func overlaps(_ other: KeyScope) -> Bool {
@@ -32,14 +33,14 @@ public struct KeyModifiers: OptionSet, Hashable, Sendable {
     }
 }
 
-/// One shortcut of Spark Studio. Keys are lowercase characters or the names in `StudioShortcut.namedKeys`.
+/// One shortcut of AmpBench. Keys are lowercase characters or the names in `StudioShortcut.namedKeys`.
 public struct StudioShortcut: Hashable, Sendable {
     public var key: String
     public var modifiers: KeyModifiers
     public var scope: KeyScope
     /// What it does, as the menu or the shortcut list says it.
     public var action: String
-    /// When it works, if not always, such as "Bluetooth verbunden".
+    /// When it works, if not always, such as "Bluetooth connected".
     public var condition: String?
 
     public init(_ key: String, _ modifiers: KeyModifiers = [], _ scope: KeyScope, _ action: String,
@@ -51,10 +52,10 @@ public struct StudioShortcut: Hashable, Sendable {
         self.condition = condition
     }
 
-    public static let namedKeys: [String: String] = [
-        "space": "Leertaste", "escape": "Esc", "left": "←", "right": "→", "up": "↑", "down": "↓",
+    public static var namedKeys: [String: String] { [
+        "space": tr("Space"), "escape": "Esc", "left": "←", "right": "→", "up": "↑", "down": "↓",
         "delete": "⌫", "forwardDelete": "⌦",
-    ]
+    ] }
 
     public var display: String {
         modifiers.symbols + (Self.namedKeys[key] ?? key.uppercased())
@@ -64,98 +65,99 @@ public struct StudioShortcut: Hashable, Sendable {
     public var isSingleKey: Bool { modifiers.isDisjoint(with: [.command, .control, .option]) }
 }
 
-/// Every shortcut of Spark Studio, taken from its areas, with the scope decided in docs/STUDIO.md.
+/// Every shortcut of AmpBench, taken from its areas, with the scope decided in docs/STUDIO.md. The lists are computed,
+/// so their texts follow the language.
 ///
 /// Today's apps do not read this list yet. It is the plan that the Studio key handling will follow, and the tests
 /// keep it free of conflicts.
 public enum StudioKeymap {
-    public static let all: [StudioShortcut] = everywhere + recording + presets + tuner
+    public static var all: [StudioShortcut] { everywhere + recording + presets + tuner }
 
     /// Slots that get ⌘ and ⌥⌘ with their digit: as many as the device with the most slots has (REACTOR, 8), and no
     /// more than the map holds without a conflict. A device with fewer slots simply has fewer menu items. SparkControl's
     /// `DeviceProfile.largestSlotCount` must not exceed it.
     public static let slotKeys = 8
 
-    static let everywhere: [StudioShortcut] = [
-        StudioShortcut("r", [], .everywhere, "Aufnahme starten oder stoppen, auch „Nochmal“"),
-        StudioShortcut("space", [], .everywhere, "Abspielen oder anhalten; während der Aufnahme stoppen und anhören"),
-        StudioShortcut("1", [.command, .shift], .everywhere, "Bereich Aufnahme"),
-        StudioShortcut("2", [.command, .shift], .everywhere, "Bereich Presets"),
-        StudioShortcut("3", [.command, .shift], .everywhere, "Bereich Stimmgerät"),
-        StudioShortcut("/", .command, .everywhere, "Tastaturkürzel"),
-        StudioShortcut("z", .command, .everywhere, "Rückgängig, im aktiven Bereich"),
-        StudioShortcut("z", [.command, .shift], .everywhere, "Wiederholen, im aktiven Bereich"),
-        StudioShortcut("s", .command, .everywhere, "Preset im Editor auf dem Mac sichern", when: "Preset offen"),
+    static var everywhere: [StudioShortcut] { [
+        StudioShortcut("r", [], .everywhere, tr("Start or stop recording, also “Again”")),
+        StudioShortcut("space", [], .everywhere, tr("Play or pause; while recording, stop and listen")),
+        StudioShortcut("1", [.command, .shift], .everywhere, tr("Record area")),
+        StudioShortcut("2", [.command, .shift], .everywhere, tr("Presets area")),
+        StudioShortcut("3", [.command, .shift], .everywhere, tr("Tuner area")),
+        StudioShortcut("/", .command, .everywhere, tr("Keyboard shortcuts")),
+        StudioShortcut("z", .command, .everywhere, tr("Undo, in the active area")),
+        StudioShortcut("z", [.command, .shift], .everywhere, tr("Redo, in the active area")),
+        StudioShortcut("s", .command, .everywhere, tr("Save the preset in the editor to this Mac"), when: tr("Preset open")),
     ] + (1...slotKeys).map {
-        StudioShortcut("\($0)", .command, .everywhere, "Platz \($0) spielen",
-                       when: $0 <= 4 ? "Bluetooth verbunden" : "Gerät mit \($0) Plätzen verbunden, das umschalten darf")
-    }
+        StudioShortcut("\($0)", .command, .everywhere, tr("Play slot %d", $0),
+                       when: $0 <= 4 ? tr("Bluetooth connected") : tr("Device with %d slots connected that may switch", $0))
+    } }
 
-    static let recording: [StudioShortcut] = [
-        StudioShortcut("escape", [], .recording, "Textfeld verlassen"),
-        StudioShortcut("l", [], .recording, "Schleife: A, B, aus"),
-        StudioShortcut("m", [], .recording, "Marker setzen, auch während der Aufnahme"),
-        StudioShortcut("k", [], .recording, "Take behalten"),
-        StudioShortcut("f", [], .recording, "Favorit"),
-        StudioShortcut("b", [], .recording, "Beim Vergleich zum anderen Take wechseln"),
-        StudioShortcut("n", [], .recording, "Klick an oder aus"),
-        StudioShortcut("t", [], .recording, "Tap-Tempo"),
-        StudioShortcut("g", [], .recording, "Retro-Puffer speichern", when: "Retro an"),
-        StudioShortcut("g", .command, .recording, "Retro-Puffer speichern", when: "Retro an"),
-        StudioShortcut("-", [], .recording, "Langsamer"),
-        StudioShortcut("+", [], .recording, "Schneller"),
-        StudioShortcut("0", [], .recording, "Tempo und Tonhöhe zurücksetzen"),
-        StudioShortcut("left", [], .recording, "5 Sekunden zurück"),
-        StudioShortcut("right", [], .recording, "5 Sekunden vor"),
-        StudioShortcut("left", .shift, .recording, "1 Sekunde zurück"),
-        StudioShortcut("right", .shift, .recording, "1 Sekunde vor"),
-        StudioShortcut("delete", [], .recording, "Gewählte Takes verwerfen (Papierkorb)", when: "nicht während der Aufnahme"),
-        StudioShortcut("forwardDelete", [], .recording, "Gewählte Takes verwerfen (Papierkorb)",
-                       when: "nicht während der Aufnahme"),
-        StudioShortcut("delete", .command, .recording, "Gewählte Takes verwerfen (Papierkorb)",
-                       when: "nicht während der Aufnahme"),
-        StudioShortcut("e", .command, .recording, "Take umbenennen"),
-        StudioShortcut("r", [.command, .shift], .recording, "Take im Finder zeigen"),
-        StudioShortcut("f", .command, .recording, "Aufnahmen suchen"),
-    ] + (1...5).map { StudioShortcut("\($0)", [], .recording, "Mit \($0) bewerten") }
+    static var recording: [StudioShortcut] { [
+        StudioShortcut("escape", [], .recording, tr("Leave the text field")),
+        StudioShortcut("l", [], .recording, tr("Loop: A, B, off")),
+        StudioShortcut("m", [], .recording, tr("Set a marker, also while recording")),
+        StudioShortcut("k", [], .recording, tr("Keep take")),
+        StudioShortcut("f", [], .recording, tr("Favorite")),
+        StudioShortcut("b", [], .recording, tr("Switch to the other take when comparing")),
+        StudioShortcut("n", [], .recording, tr("Click on or off")),
+        StudioShortcut("t", [], .recording, tr("Tap tempo")),
+        StudioShortcut("g", [], .recording, tr("Save the retro buffer"), when: tr("Retro on")),
+        StudioShortcut("g", .command, .recording, tr("Save the retro buffer"), when: tr("Retro on")),
+        StudioShortcut("-", [], .recording, tr("Slower")),
+        StudioShortcut("+", [], .recording, tr("Faster")),
+        StudioShortcut("0", [], .recording, tr("Reset tempo and pitch")),
+        StudioShortcut("left", [], .recording, tr("Back 5 seconds")),
+        StudioShortcut("right", [], .recording, tr("Forward 5 seconds")),
+        StudioShortcut("left", .shift, .recording, tr("Back 1 second")),
+        StudioShortcut("right", .shift, .recording, tr("Forward 1 second")),
+        StudioShortcut("delete", [], .recording, tr("Discard selected takes (Trash)"), when: tr("not while recording")),
+        StudioShortcut("forwardDelete", [], .recording, tr("Discard selected takes (Trash)"),
+                       when: tr("not while recording")),
+        StudioShortcut("delete", .command, .recording, tr("Discard selected takes (Trash)"),
+                       when: tr("not while recording")),
+        StudioShortcut("e", .command, .recording, tr("Rename take")),
+        StudioShortcut("r", [.command, .shift], .recording, tr("Show take in Finder")),
+        StudioShortcut("f", .command, .recording, tr("Search takes")),
+    ] + (1...5).map { StudioShortcut("\($0)", [], .recording, tr("Rate with %d", $0)) } }
 
-    static let presets: [StudioShortcut] = [
-        StudioShortcut("n", .command, .presets, "Neues Preset"),
-        StudioShortcut("n", [.command, .shift], .presets, "Neues Preset aus Vorlage …"),
-        StudioShortcut("d", .command, .presets, "Preset duplizieren", when: "Preset offen"),
-        StudioShortcut("s", [.command, .shift], .presets, "Preset sichern unter …", when: "Preset offen"),
-        StudioShortcut("e", .command, .presets, "Preset umbenennen", when: "Preset gewählt"),
-        StudioShortcut("delete", .command, .presets, "Preset in den Papierkorb", when: "Preset gewählt"),
-        StudioShortcut("r", [.command, .shift], .presets, "Preset im Finder zeigen"),
-        StudioShortcut("b", .command, .presets, "Mit gespeichertem Stand vergleichen (A/B)", when: "geändert"),
-        StudioShortcut("l", [.command, .shift], .presets, "Änderungen live hören an oder aus"),
-        StudioShortcut("r", .command, .presets, "Verstärker neu lesen", when: "Bluetooth verbunden"),
-        StudioShortcut("0", .control, .presets, "Gewähltes Gerät der Kette an oder aus", when: "Preset offen"),
-        StudioShortcut("left", [], .presets, "Regler kleiner", when: "Regler hat den Fokus"),
-        StudioShortcut("right", [], .presets, "Regler größer", when: "Regler hat den Fokus"),
-        StudioShortcut("down", [], .presets, "Regler kleiner", when: "Regler hat den Fokus"),
-        StudioShortcut("up", [], .presets, "Regler größer", when: "Regler hat den Fokus"),
-        StudioShortcut("left", .shift, .presets, "Regler in großen Schritten kleiner", when: "Regler hat den Fokus"),
-        StudioShortcut("right", .shift, .presets, "Regler in großen Schritten größer", when: "Regler hat den Fokus"),
-        StudioShortcut("down", .shift, .presets, "Regler in großen Schritten kleiner", when: "Regler hat den Fokus"),
-        StudioShortcut("up", .shift, .presets, "Regler in großen Schritten größer", when: "Regler hat den Fokus"),
+    static var presets: [StudioShortcut] { [
+        StudioShortcut("n", .command, .presets, tr("New preset")),
+        StudioShortcut("n", [.command, .shift], .presets, tr("New preset from template…")),
+        StudioShortcut("d", .command, .presets, tr("Duplicate preset"), when: tr("Preset open")),
+        StudioShortcut("s", [.command, .shift], .presets, tr("Save preset as…"), when: tr("Preset open")),
+        StudioShortcut("e", .command, .presets, tr("Rename preset"), when: tr("Preset selected")),
+        StudioShortcut("delete", .command, .presets, tr("Move preset to Trash"), when: tr("Preset selected")),
+        StudioShortcut("r", [.command, .shift], .presets, tr("Show preset in Finder")),
+        StudioShortcut("b", .command, .presets, tr("Compare with the saved state (A/B)"), when: tr("changed")),
+        StudioShortcut("l", [.command, .shift], .presets, tr("Hear changes live on or off")),
+        StudioShortcut("r", .command, .presets, tr("Read the amp again"), when: tr("Bluetooth connected")),
+        StudioShortcut("0", .control, .presets, tr("Selected device of the chain on or off"), when: tr("Preset open")),
+        StudioShortcut("left", [], .presets, tr("Decrease control"), when: tr("Control has the focus")),
+        StudioShortcut("right", [], .presets, tr("Increase control"), when: tr("Control has the focus")),
+        StudioShortcut("down", [], .presets, tr("Decrease control"), when: tr("Control has the focus")),
+        StudioShortcut("up", [], .presets, tr("Increase control"), when: tr("Control has the focus")),
+        StudioShortcut("left", .shift, .presets, tr("Decrease control in large steps"), when: tr("Control has the focus")),
+        StudioShortcut("right", .shift, .presets, tr("Increase control in large steps"), when: tr("Control has the focus")),
+        StudioShortcut("down", .shift, .presets, tr("Decrease control in large steps"), when: tr("Control has the focus")),
+        StudioShortcut("up", .shift, .presets, tr("Increase control in large steps"), when: tr("Control has the focus")),
     ] + (1...slotKeys).map {
-        StudioShortcut("\($0)", [.command, .option], .presets, "Auf Platz \($0) speichern …",
-                       when: $0 <= 4 ? "Bluetooth verbunden, Preset offen"
-                           : "Gerät mit \($0) Plätzen verbunden, das speichern darf, Preset offen")
+        StudioShortcut("\($0)", [.command, .option], .presets, tr("Save to slot %d…", $0),
+                       when: $0 <= 4 ? tr("Bluetooth connected, preset open")
+                           : tr("Device with %d slots connected that may save, preset open", $0))
     } + (1...7).map {
-        StudioShortcut("\($0)", .control, .presets, "Gerät \($0) der Kette wählen", when: "Preset offen")
-    }
+        StudioShortcut("\($0)", .control, .presets, tr("Select device %d of the chain", $0), when: tr("Preset open"))
+    } }
 
     /// The tuner has no single keys: R and Space keep recording and playing from there, as everywhere.
-    static let tuner: [StudioShortcut] = [
-        StudioShortcut("t", .command, .tuner, "Zeiger oder Stroboskop"),
-        StudioShortcut("up", .command, .tuner, "Kammerton 0,1 Hz höher"),
-        StudioShortcut("down", .command, .tuner, "Kammerton 0,1 Hz tiefer"),
-        StudioShortcut("0", .command, .tuner, "Kammerton 440 Hz"),
+    static var tuner: [StudioShortcut] { [
+        StudioShortcut("t", .command, .tuner, tr("Needle or strobe")),
+        StudioShortcut("up", .command, .tuner, tr("Reference pitch 0.1 Hz higher")),
+        StudioShortcut("down", .command, .tuner, tr("Reference pitch 0.1 Hz lower")),
+        StudioShortcut("0", .command, .tuner, tr("Reference pitch 440 Hz")),
     ] + Tuning.allCases.enumerated().map { index, tuning in
-        StudioShortcut("\(index + 1)", .control, .tuner, "Stimmung \(tuning.title)")
-    }
+        StudioShortcut("\(index + 1)", .control, .tuner, tr("Tuning %@", tuning.title))
+    } }
 
     /// Pairs of shortcuts that would fire on the same keys in the same area. Empty when the map is sound.
     public static func conflicts(in shortcuts: [StudioShortcut] = all) -> [(StudioShortcut, StudioShortcut)] {

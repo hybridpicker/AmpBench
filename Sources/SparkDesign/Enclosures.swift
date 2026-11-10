@@ -1,3 +1,4 @@
+import AmpText
 import SwiftUI
 
 /// The body of a pedal. All pedals have the same dark body; the accent color of the place shows only on the
@@ -181,7 +182,7 @@ public struct Grille: View {
 
 /// A metal stomp switch.
 ///
-///     Footswitch(isOn: effect.isOn, label: "Verzerrer an oder aus") { toggle() }
+///     Footswitch(isOn: effect.isOn, label: "Drive on or off") { toggle() }
 public struct Footswitch: View {
     let isOn: Bool
     let label: String
@@ -210,9 +211,9 @@ public struct Footswitch: View {
         .buttonStyle(PressStyle())
         .disabled(!isEnabled)
         .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "an" : "aus")
-        .accessibilityHint("Schaltet den Effekt an oder aus")
-        .help(isOn ? "Ausschalten" : "Einschalten")
+        .accessibilityValue(isOn ? tr("on") : tr("off"))
+        .accessibilityHint(tr("Switches the effect on or off"))
+        .help(isOn ? tr("Switch off") : tr("Switch on"))
     }
 }
 
@@ -230,7 +231,7 @@ public struct CableRail: View {
     }
 }
 
-#Preview("Pedal und Amp") {
+#Preview("Pedal and amp") {
     PreviewPair {
         ZStack {
             Theme.device.board.color

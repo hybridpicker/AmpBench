@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// A chat message for Ollama's `/api/chat`.
@@ -12,14 +13,14 @@ public struct OllamaChatMessage: Codable, Equatable, Sendable {
 }
 
 /// A minimal client for Ollama's cloud API (https://ollama.com), used only to turn a description into a sound recipe.
-/// The app makes this request when the user asks for a KI-Sound, and nothing else.
+/// The app makes this request when the user asks for an AI Sound, and nothing else.
 ///
 /// What leaves the Mac: the model name, the chat messages (rules, catalog, the user's wish and, for a follow-up, the
 /// recipe being adjusted) and the temperature. The API key goes only into the Authorization header. The user agent is
 /// a fixed name, so the request does not carry the app's or the system's build numbers.
 public enum OllamaCloud {
     public static let endpoint = URL(string: "https://ollama.com/api/chat")!
-    public static let userAgent = "SparkStudio"
+    public static let userAgent = "AmpBench"
     /// How long one request may take before it counts as failed. Without streaming the cloud sends nothing until the
     /// answer is complete, so this is the time for the whole answer.
     public static let requestTimeout: TimeInterval = 120
@@ -54,27 +55,25 @@ public enum OllamaCloud {
         public var errorDescription: String? {
             switch self {
             case .missingAPIKey:
-                return "Kein Ollama-API-Schlüssel. Hole einen unter ollama.com/settings/keys und trage ihn ein."
+                return tr("No Ollama API key. Get one at ollama.com/settings/keys and enter it.")
             case .unauthorized:
-                return "Ollama hat den API-Schlüssel abgelehnt. Prüfe ihn unter ollama.com/settings/keys und trage ihn "
-                    + "neu ein (Erweitert → Schlüssel entfernen)."
+                return tr("Ollama refused the API key. Check it at ollama.com/settings/keys and enter it again (Advanced → Remove key).")
             case .modelNotFound(let model):
-                return "Das Modell „\(model)“ gibt es bei Ollama Cloud nicht. Wähle unter „Erweitert“ ein anderes."
+                return tr("Ollama Cloud has no model “%@”. Choose another one under “Advanced”.", model)
             case .rateLimited:
-                return "Ollama ist gerade ausgelastet oder dein Kontingent ist aufgebraucht. Warte kurz und versuch es noch einmal."
+                return tr("Ollama is busy right now or your quota is used up. Wait a moment and try again.")
             case .http(let status, let detail):
                 let body = detail.trimmingCharacters(in: .whitespacesAndNewlines)
-                return body.isEmpty ? "Ollama antwortete mit Status \(status)."
-                                    : "Ollama antwortete mit Status \(status): \(body)"
+                return body.isEmpty ? tr("Ollama answered with status %d.", status)
+                                    : tr("Ollama answered with status %d: %@", status, body)
             case .noContent:
-                return "Ollama antwortete ohne Inhalt. Versuch es noch einmal."
+                return tr("Ollama answered without content. Try again.")
             case .unreadableResponse:
-                return "Die Antwort von Ollama war nicht lesbar. Versuch es noch einmal."
+                return tr("The answer from Ollama could not be read. Try again.")
             case .timeout:
-                return "Ollama hat nicht rechtzeitig geantwortet (Zeitlimit \(Int(OllamaCloud.requestTimeout)) s). "
-                    + "Versuch es noch einmal oder wähle unter „Erweitert“ ein schnelleres Modell."
+                return tr("Ollama did not answer in time (time limit %d s). Try again or choose a faster model under “Advanced”.", Int(OllamaCloud.requestTimeout))
             case .transport(let message):
-                return "Keine Verbindung zu Ollama: \(message)"
+                return tr("No connection to Ollama: %@", message)
             }
         }
 

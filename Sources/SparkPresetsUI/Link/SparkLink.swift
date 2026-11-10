@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 import OSLog
 import SparkControl
@@ -26,19 +27,19 @@ enum LinkError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .refused(let problems):
-            "Nicht gesendet, damit der Verstärker nichts Unbekanntes spielt: " + problems.joined(separator: " ")
-        case .notAllowed(let device): "An \(device) sendet Spark Studio nichts. Er wird nur mitgelesen."
-        case .notSupported(let device): "Das kann Spark Studio mit \(device) noch nicht; es ist dort nicht geprüft."
-        case .notConnected: "Der Verstärker ist nicht verbunden."
-        case .noAnswer: "Der Verstärker hat nicht geantwortet."
-        case .unreadable(let detail): "Der Verstärker hat ein Preset geschickt, das nicht lesbar ist (\(detail))."
+            tr("Not sent, so the amp plays nothing unknown: %@", problems.joined(separator: " "))
+        case .notAllowed(let device): tr("AmpBench sends nothing to %@. It is only read.", device)
+        case .notSupported(let device): tr("AmpBench cannot do that with %@ yet; it is not checked there.", device)
+        case .notConnected: tr("The amp is not connected.")
+        case .noAnswer: tr("The amp did not answer.")
+        case .unreadable(let detail): tr("The amp sent a preset that cannot be read (%@).", detail)
         case .verifyFailed(let name):
-            "Beim Zurücklesen enthielt der Platz nicht „\(name)“. Die Sicherung liegt in der Bibliothek."
+            tr("When read back, the slot did not hold “%@”. The backup is in the library.", name)
         }
     }
 }
 
-/// A device Spark Studio has been connected to, remembered by its Bluetooth identifier so two devices of the same kind
+/// A device AmpBench has been connected to, remembered by its Bluetooth identifier so two devices of the same kind
 /// stay apart.
 struct KnownDevice: Codable, Equatable, Identifiable {
     let id: UUID
@@ -48,7 +49,7 @@ struct KnownDevice: Codable, Equatable, Identifiable {
     var profile: DeviceProfile { DeviceProfile.profile(kind) }
 }
 
-/// The devices Spark Studio knows and the one last chosen, kept in UserDefaults.
+/// The devices AmpBench knows and the one last chosen, kept in UserDefaults.
 @MainActor
 final class DeviceMemory {
     private let defaults: UserDefaults
@@ -97,7 +98,7 @@ struct DeviceEntry: Identifiable, Equatable {
 @MainActor
 final class SparkLink: NSObject, ObservableObject {
     enum Status: Equatable {
-        /// `off`: disconnected on request, in Spark Studio. The link does not look for the amp until started again.
+        /// `off`: disconnected on request, in AmpBench. The link does not look for the amp until started again.
         case starting, unauthorized, bluetoothOff, unsupported, searching, connecting, connected, off
     }
 
@@ -498,10 +499,10 @@ final class SparkLink: NSObject, ObservableObject {
     }
 
     /// Every preset that goes to the amp, readable afterwards with
-    /// `log show --predicate 'subsystem == "local.sparkstudio" AND category == "amp"' --info --last 1h`.
+    /// `log show --predicate 'subsystem == "local.ampbench" AND category == "amp"' --info --last 1h`.
     /// Only the sound itself is written: name, lengths, models and values, and the kind of device.
-    private static let ampLog = Logger(subsystem: "local.sparkstudio", category: "amp")
-    private static let linkLog = Logger(subsystem: "local.sparkstudio", category: "link")
+    private static let ampLog = Logger(subsystem: "local.ampbench", category: "amp")
+    private static let linkLog = Logger(subsystem: "local.ampbench", category: "link")
 
     private static func log(_ preset: SparkPreset, original: SparkPreset, to place: SparkPresetPlace, chunks: Int,
                             device: String) {
@@ -550,7 +551,7 @@ final class SparkLink: NSObject, ObservableObject {
     /// Reads everything the window shows: firmware, the preset playing and the slots.
     func loadAll() async {
         guard can(.read) else { return }
-        activity = "Lese \(shownName) …"
+        activity = tr("Reading %@ …", shownName)
         defer { activity = nil }
         if let message = try? await request({ [SparkProtocol.getFirmware(sequence: $0)] },
                                             answer: SparkProtocol.Sub.firmware) {
@@ -562,7 +563,7 @@ final class SparkLink: NSObject, ObservableObject {
             activeSlot = Int(slot)
         }
         for slot in profile.slots {
-            activity = "Lese \(profile.slotName(slot)) …"
+            activity = tr("Reading %@ …", profile.slotName(slot))
             await refresh(slot: slot)
         }
     }
@@ -575,7 +576,7 @@ final class SparkLink: NSObject, ObservableObject {
     func select(slot: Int) async throws {
         try require(.switchSlot)
         guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
-        activity = "Schalte auf \(profile.slotName(slot)) …"
+        activity = tr("Switching to %@ …", profile.slotName(slot))
         defer { activity = nil }
         try await switchTo(UInt8(slot))
         activeSlot = slot
@@ -586,7 +587,7 @@ final class SparkLink: NSObject, ObservableObject {
     /// Plays a preset without storing it. Switching to any slot ends it.
     func tryOut(_ preset: SparkPreset) async throws {
         try require(.playTemporary)
-        activity = "Sende „\(preset.name)“ …"
+        activity = tr("Sending “%@” …", preset.name)
         defer { activity = nil }
         try await send(preset, to: .temporary)
         try await switchTo(0x7F)
@@ -600,7 +601,7 @@ final class SparkLink: NSObject, ObservableObject {
     /// Plays the editor's preset on the temporary place. Changes after it are heard at once.
     func playForEditing(_ preset: SparkPreset) async throws {
         try require(.playTemporary)
-        activity = "Sende „\(preset.name)“ zum Bearbeiten …"
+        activity = tr("Sending “%@” for editing …", preset.name)
         defer { activity = nil }
         try await send(preset, to: .temporary)
         try await switchTo(0x7F)
@@ -616,7 +617,7 @@ final class SparkLink: NSObject, ObservableObject {
         switch change {
         case .parameter(let effect, let index, let value):
             try require(.liveEdit)
-            guard AmpGuard.value(value) != nil else { throw LinkError.refused(["Der Wert ist keine Zahl."]) }
+            guard AmpGuard.value(value) != nil else { throw LinkError.refused([tr("The value is not a number.")]) }
             try await sendOnly({ [SparkProtocol.setParameter(effect: effect, index: index, value: value, sequence: $0)] },
                                gap: LivePacing.parameterGap)
             return true
@@ -643,14 +644,14 @@ final class SparkLink: NSObject, ObservableObject {
     func store(_ preset: SparkPreset, in slot: Int) async throws {
         try require(.store)
         guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
-        activity = "Speichere „\(preset.name)“ auf \(profile.slotName(slot)) …"
+        activity = tr("Storing “%@” on %@ …", preset.name, profile.slotName(slot))
         defer { activity = nil }
         try await send(preset, to: .slot(UInt8(slot)))
         try await switchTo(UInt8(slot))
         activeSlot = slot
         tryingOut = nil
         isEditingLive = false
-        activity = "Prüfe \(profile.slotName(slot)) …"
+        activity = tr("Checking %@ …", profile.slotName(slot))
         let stored = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = stored
         // What went out had its description cut to the length the amp takes.
@@ -778,8 +779,9 @@ final class SparkLink: NSObject, ObservableObject {
                 activeSlot = Int(slot)
                 tryingOut = nil
                 isEditingLive = false
-                let name = slots[Int(slot)].map { " „\($0.name)“" } ?? ""
-                onAmpEvent?("Am \(shownName) gewählt: \(profile.slotName(Int(slot)))\(name)")
+                let place = profile.slotName(Int(slot))
+                onAmpEvent?(slots[Int(slot)].map { tr("Chosen on the %@: %@ “%@”", shownName, place, $0.name) }
+                            ?? tr("Chosen on the %@: %@", shownName, place))
                 onAmpSelected?(Int(slot))
             }
         }
@@ -791,9 +793,9 @@ final class SparkLink: NSObject, ObservableObject {
         reactor.apply(message)
         guard reactor.slot != before, let slot = reactor.slot else { return }
         activeSlot = slot
-        let name = (reactorPresets[safe: slot] ?? nil).map { " „\($0.name)“" }
-        onAmpEvent?("Am \(profile.displayName) gewählt: \(profile.slotName(slot))"
-                    + (name ?? ". Der Inhalt des Presets ist unbekannt."))
+        let place = profile.slotName(slot)
+        onAmpEvent?((reactorPresets[safe: slot] ?? nil).map { tr("Chosen on the %@: %@ “%@”", profile.displayName, place, $0.name) }
+                    ?? tr("Chosen on the %@: %@. The content of the preset is unknown.", profile.displayName, place))
     }
 
     /// One read request to a REACTOR and its answer. Only for a profile with `reactorPresets`; it has no `send`, so
@@ -822,7 +824,7 @@ final class SparkLink: NSObject, ObservableObject {
     /// read stays unknown, and the rest is not asked for.
     func loadReactorPresets() async {
         guard status == .connected, profile.can(.reactorPresets) else { return }
-        activity = "Lese \(shownName) …"
+        activity = tr("Reading %@ …", shownName)
         defer { activity = nil }
         for slot in profile.slots {
             do {

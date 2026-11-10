@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// New presets: empty, from a template, or as a copy.
@@ -20,7 +21,7 @@ public enum PresetFactory {
     }
 
     /// A clean amp, everything else switched off.
-    public static func empty(name: String = "Neues Preset") -> SparkPreset {
+    public static func empty(name: String = tr("New preset")) -> SparkPreset {
         SparkPreset(name: name, effects: [
             effect("bias.noisegate", on: false), effect("BlueComp", on: false), effect("DistortionTS9", on: false),
             effect("Twin", on: true), effect("ChorusAnalog", on: false), effect("DelayMono", on: false),
@@ -28,48 +29,49 @@ public enum PresetFactory {
         ])
     }
 
-    public static let templates: [Template] = [
-        Template(name: "Clean", summary: "Klarer Amp, etwas Kompression und ein kleiner Raum", preset: SparkPreset(
+    /// The summaries are in the app's language; the names are the presets' names and stay.
+    public static var templates: [Template] { [
+        Template(name: "Clean", summary: tr("Clear amp, a little compression and a small room"), preset: SparkPreset(
             name: "Clean", bpm: 100, effects: [
                 effect("bias.noisegate", on: false), effect("BlueComp", on: true), effect("DistortionTS9", on: false),
                 effect("Twin", on: true, [0: 0.4]), effect("ChorusAnalog", on: false), effect("DelayMono", on: false),
                 effect("bias.reverb", on: true, [0: 0.25, 6: 0]),
             ])),
-        Template(name: "Crunch", summary: "Britischer Crunch, vom Overdrive angeschoben", preset: SparkPreset(
+        Template(name: "Crunch", summary: tr("British crunch, pushed by the overdrive"), preset: SparkPreset(
             name: "Crunch", bpm: 120, effects: [
                 effect("bias.noisegate", on: true, [0: 0.15]), effect("Compressor", on: false),
                 effect("DistortionTS9", on: true, [0: 0.35, 2: 0.6]), effect("Plexi", on: true),
                 effect("ChorusAnalog", on: false), effect("DelayMono", on: false),
                 effect("bias.reverb", on: true, [0: 0.2, 6: 0.2]),
             ])),
-        Template(name: "Lead", summary: "Singender High Gain mit Echo für Soli", preset: SparkPreset(
+        Template(name: "Lead", summary: tr("Singing high gain with echo for solos"), preset: SparkPreset(
             name: "Lead", bpm: 120, effects: [
                 effect("bias.noisegate", on: true, [0: 0.25]), effect("Compressor", on: false),
                 effect("Booster", on: true, [0: 0.6]), effect("SLO100", on: true),
                 effect("ChorusAnalog", on: false), effect("DelayMono", on: true, [0: 0.3, 4: 1]),
                 effect("bias.reverb", on: true, [0: 0.25, 6: 0.4]),
             ])),
-        Template(name: "Ambient", summary: "Weiter Clean mit Chorus, langem Echo und viel Hall", preset: SparkPreset(
+        Template(name: "Ambient", summary: tr("Wide clean with chorus, long echo and lots of reverb"), preset: SparkPreset(
             name: "Ambient", bpm: 80, effects: [
                 effect("bias.noisegate", on: false), effect("BBEOpticalComp", on: true), effect("DistortionTS9", on: false),
                 effect("94MatchDCV2", on: true, [0: 0.35]), effect("ChorusAnalog", on: true, [0: 0.5]),
                 effect("DelayRe201", on: true, [0: 0.6, 4: 1]),
                 effect("bias.reverb", on: true, [0: 0.55, 5: 0.85, 6: 0.5]),
             ])),
-        Template(name: "Funk", summary: "Trockener, knackiger Clean mit viel Kompression", preset: SparkPreset(
+        Template(name: "Funk", summary: tr("Dry, snappy clean with lots of compression"), preset: SparkPreset(
             name: "Funk", bpm: 105, effects: [
                 effect("bias.noisegate", on: true, [0: 0.1]), effect("LA2AComp", on: true),
                 effect("DistortionTS9", on: false), effect("RolandJC120", on: true, [0: 0.35, 2: 0.6]),
                 effect("Phaser", on: false), effect("DelayMono", on: false),
                 effect("bias.reverb", on: true, [0: 0.12, 6: 0]),
             ])),
-    ]
+    ] }
 
     /// A copy with a new identity and a name that says so.
     public static func duplicate(_ preset: SparkPreset, name: String? = nil) -> SparkPreset {
         var copy = preset
         copy.uuid = UUID().uuidString
-        copy.name = fit(name ?? preset.name + " Kopie")
+        copy.name = fit(name ?? tr("%@ copy", preset.name))
         return copy
     }
 

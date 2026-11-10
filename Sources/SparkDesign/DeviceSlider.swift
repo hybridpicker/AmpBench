@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A fader on a device front: a recessed track filled in amber up to the value, with a metal thumb.
 ///
-///     DeviceSlider("Tempo", value: $tempo, in: 0.5...1.5, step: 0.05, valueText: "\(Int(tempo * 100)) Prozent")
+///     DeviceSlider("Tempo", value: $tempo, in: 0.5...1.5, step: 0.05, valueText: "\(Int(tempo * 100)) percent")
 ///
 /// Drag or click on the track, scroll, use the arrow keys when focused, or VoiceOver's adjust actions.
 public struct DeviceSlider: View {
@@ -95,12 +95,12 @@ public struct DeviceSlider: View {
     }
 }
 
-#Preview("Schieber") {
+#Preview("Slider") {
     PreviewPair {
         Faceplate {
             HStack {
                 PanelLabel("Tempo")
-                DeviceSlider("Tempo", value: .constant(1), in: 0.5...1.5, step: 0.05, valueText: "100 Prozent")
+                DeviceSlider("Tempo", value: .constant(1), in: 0.5...1.5, step: 0.05, valueText: "100 percent")
                     .frame(width: 110)
             }
             .padding(14)

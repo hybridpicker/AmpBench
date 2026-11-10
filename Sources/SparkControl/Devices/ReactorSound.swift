@@ -1,8 +1,9 @@
+import AmpText
 import Foundation
 
 /// A sound for the REACTOR, as the few live commands it was heard taking on 2026-11-10: the amp selector with
 /// Push/Smooth and Heat (`01 B1`), the amp's knobs (`01 04` on Amp.Preamp and Amp.Tonestack), effects on and off
-/// (`01 15`) and the reverb's level. Not a preset: the REACTOR keeps presets in a format of its own that Spark Studio
+/// (`01 15`) and the reverb's level. Not a preset: the REACTOR keeps presets in a format of its own that AmpBench
 /// does not write. The sound plays until the slot changes; storing it is done on the device.
 ///
 /// The master is never set from here: loudness stays in the player's hand.
@@ -51,7 +52,7 @@ public struct ReactorSound: Equatable, Sendable {
     /// gain and tone knobs, and which effects are on.
     public init(preset: SparkPreset) throws {
         guard preset.effects.count == ChainPlace.allCases.count else {
-            throw Problem(text: "Das Preset hat \(preset.effects.count) statt 7 Plätze.")
+            throw Problem(text: tr("The preset has %d places instead of 7.", preset.effects.count))
         }
         func value(_ place: ChainPlace, _ key: String) -> Float? {
             let effect = preset.effects[place.rawValue]
@@ -101,11 +102,11 @@ public struct ReactorSound: Equatable, Sendable {
                                                      payload: selector, sequence: next(), header: header)))
         for place in ChainPlace.allCases {
             guard let name = Self.effectNames[place], let isOn = effects[place] else { continue }
-            steps.append(Step(text: "\(ReactorState.placeNames[place.rawValue]) \(isOn ? "an" : "aus")",
+            steps.append(Step(text: "\(ReactorState.placeNames[place.rawValue]) \(isOn ? tr("on") : tr("off"))",
                               bytes: SparkProtocol.setEffect(name, on: isOn, sequence: next(), header: header)))
         }
         if let reverbLevel, let name = Self.effectNames[.reverb] {
-            knob(name, 0, reverbLevel, "Reverb-Pegel")
+            knob(name, 0, reverbLevel, tr("Reverb level"))
         }
         return steps
     }
@@ -113,8 +114,8 @@ public struct ReactorSound: Equatable, Sendable {
     /// What will be set, in one line for the question before sending.
     public var summary: String {
         let on = ChainPlace.allCases.filter { effects[$0] == true }.map { ReactorState.placeNames[$0.rawValue] }
-        func ten(_ value: Float) -> String { String(format: "%.1f", value * 10).replacingOccurrences(of: ".", with: ",") }
-        return "Amp \(ampName), Gain \(ten(gain)), Bass \(ten(bass)), Mitten \(ten(middle)), Höhen \(ten(treble)); "
-            + (on.isEmpty ? "alle Effekte aus" : "an: " + on.joined(separator: ", "))
+        func ten(_ value: Float) -> String { String(format: "%.1f", locale: Texts.locale, value * 10) }
+        return tr("Amp %@, gain %@, bass %@, middle %@, treble %@; %@", ampName, ten(gain), ten(bass), ten(middle), ten(treble),
+                  on.isEmpty ? tr("all effects off") : tr("on: %@", on.joined(separator: ", ")))
     }
 }

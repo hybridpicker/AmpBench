@@ -1,4 +1,4 @@
-// Draws Spark Studio's icon: a dark device front with one sign on it, the glowing record key (a waveform that peaks
+// Draws AmpBench's icon: a dark device front with one sign on it, the glowing record key (a waveform that peaks
 // in a spark) set into the ring of an amber-lit control, so recording and sound are one thing.
 // Usage: swift Tools/make-icon.swift <output.icns>
 import AppKit

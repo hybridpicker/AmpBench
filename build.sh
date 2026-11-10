@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Builds "build/Spark Studio.app".
+# Builds "build/AmpBench.app".
 #
 #   ./build.sh            builds the app
 #   ./build.sh --install  also copies it to /Applications and adds it to the Dock
@@ -19,8 +19,8 @@ for argument in "$@"; do
     esac
 done
 
-name="Spark Studio"
-executable="SparkStudio"
+name="AmpBench"
+executable="AmpBench"
 icon="Resources/AppIcon.icns"
 if [[ ! -f "$icon" || "Tools/make-icon.swift" -nt "$icon" ]]; then
     swift Tools/make-icon.swift "$icon"
@@ -40,7 +40,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin_path/$executable" "$app/Contents/MacOS/$executable"
 cp Resources/Info.plist "$app/Contents/Info.plist"
 # One version for every machine and platform: VERSION at the top of the repository, and the id of what was built.
-# `SparkStudio --version` prints both, and so does `spark-studio --version` on Linux (see sync.sh).
+# `AmpBench --version` prints both, and so does `ampbench --version` on Linux (see sync.sh).
 version="$(tr -d '[:space:]' < VERSION)"
 build_id="$(Tools/build-id.sh)"
 commit_count="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
@@ -48,6 +48,11 @@ plist_buddy=/usr/libexec/PlistBuddy
 $plist_buddy -c "Set :CFBundleShortVersionString $version" -c "Set :CFBundleVersion $commit_count" \
     -c "Add :SparkBuildID string $build_id" "$app/Contents/Info.plist"
 cp "$icon" "$app/Contents/Resources/AppIcon.icns"
+# The texts macOS itself shows (permission questions), in English and German. Their presence also tells macOS
+# which languages the app speaks, so its standard menus follow.
+for language in en de; do
+    cp -R "Resources/$language.lproj" "$app/Contents/Resources/"
+done
 codesign --force --sign "${identity:--}" "$app"
 echo "Built $app ($version, $build_id)"
 

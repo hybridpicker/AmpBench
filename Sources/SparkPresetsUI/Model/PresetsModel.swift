@@ -1,3 +1,4 @@
+import AmpText
 import AppKit
 import Combine
 import Foundation
@@ -52,7 +53,7 @@ final class PresetsModel: ObservableObject {
     @Published var storeRequest: StoreRequest?
     @Published var renameTarget: SavedPreset?
     @Published var renameText = ""
-    /// The "Speichern unter" sheet, with the name to save under.
+    /// The "Save as" sheet, with the name to save under.
     @Published var saveAsName: String?
     @Published var showsTemplates = false
     /// Tags shown as sections of their own in the sidebar, in this order. Kept on this Mac.
@@ -69,10 +70,10 @@ final class PresetsModel: ObservableObject {
     @Published var kemperPlan: KemperImportPlan?
     @Published var kemperError: String?
     @Published var kemperIsBusy = false
-    /// Gets the songs of an import; Spark Studio makes pieces of them in the recorder. Returns what it did, for the
+    /// Gets the songs of an import; AmpBench makes pieces of them in the recorder. Returns what it did, for the
     /// message after the import.
     var onImportSongs: (([ImportedSong]) -> String?)?
-    // KI-Sound: a description in words becomes a recipe over Ollama's cloud API.
+    // AI Sound: a description in words becomes a recipe over Ollama's cloud API.
     @Published var showsAI = false
     @Published var aiRequest = ""
     @Published var aiModel: String = "gpt-oss:120b" {
@@ -109,11 +110,11 @@ final class PresetsModel: ObservableObject {
     private var bannerTask: Task<Void, Never>?
     private var changes: Set<AnyCancellable> = []
     private var interrupted: InterruptedStore?
-    /// The last preset played with "Ausprobieren", to know what the amp plays while `link.tryingOut` is set.
+    /// The last preset played for trying out, to know what the amp plays while `link.tryingOut` is set.
     private var lastTriedOut: SparkPreset?
     /// A device chosen while a sound plays that ending the connection would drop, waiting for a decision.
     @Published var pendingDevice: UUID?
-    /// "Trennen" asked while such a sound plays.
+    /// "Disconnect" asked while such a sound plays.
     @Published var pendingDisconnect = false
     /// Called when the device dropped a sound that was not stored, because the connection ended (the NEO).
     var onTemporaryLost: ((String) -> Void)?
@@ -140,6 +141,7 @@ final class PresetsModel: ObservableObject {
             AIKeyStore.save(legacy)
             UserDefaults.standard.removeObject(forKey: "AI Sound API Key")
         }
+        AIKeyStore.carryOverFromSparkStudio()
         AIKeyStore.bindToThisMac()
         aiAPIKey = AIKeyStore.load()
         aiHistory = UserDefaults.standard.stringArray(forKey: AISetting.historyKey) ?? []
@@ -202,7 +204,7 @@ final class PresetsModel: ObservableObject {
         do {
             try library.reload()
         } catch {
-            show(.error, "Der Ordner „\(library.folder.path)“ ist nicht lesbar: \(error.localizedDescription)")
+            show(.error, tr("The folder “%@” cannot be read: %@", library.folder.path, error.localizedDescription))
         }
         items = library.items
         unreadable = library.unreadable
@@ -292,7 +294,7 @@ final class PresetsModel: ObservableObject {
         link.stop()
     }
 
-    /// The answer to "Vorher als Preset sichern?": saves what plays, then goes on, or goes on without saving.
+    /// The answer to "Save it as a preset first?": saves what plays, then goes on, or goes on without saving.
     func resolveDeviceChange(save: Bool) {
         let device = pendingDevice
         let disconnecting = pendingDisconnect
@@ -303,10 +305,10 @@ final class PresetsModel: ObservableObject {
                 guard saveOnMac() else { return }
             } else if let preset = lastTriedOut {
                 do {
-                    _ = try library.save(preset, origin: "Vorübergehend gespielt · \(link.profile.displayName)")
+                    _ = try library.save(preset, origin: tr("Played temporarily · %@", link.profile.displayName))
                     reloadLibrary()
                 } catch {
-                    show(.error, "Das Preset konnte nicht gesichert werden: \(error.localizedDescription)")
+                    show(.error, tr("The preset could not be saved: %@", error.localizedDescription))
                     return
                 }
             }
@@ -322,14 +324,14 @@ final class PresetsModel: ObservableObject {
             let text = try SoundRecipe(preset: preset).toneDescription()
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
-            show(.info, "Der Text für REACTOR ist kopiert. Füge ihn in der REACTOR-App bei „Text to Tone“ ein; der REACTOR deutet ihn selbst und wählt eigene Modelle.")
+            show(.info, tr("The text for REACTOR is copied. Paste it into “Text to Tone” in the REACTOR app; the REACTOR interprets it itself and chooses its own models."))
         } catch {
-            show(.error, "Der Sound ließ sich nicht als Text beschreiben: \(error.localizedDescription)")
+            show(.error, tr("The sound could not be described as text: %@", error.localizedDescription))
         }
     }
 
     private func temporaryLost(on name: String) {
-        show(.warning, "\(name) ist getrennt und spielt wieder seinen gespeicherten Platz. Der vorübergehende Sound ist dort weg. Beim nächsten Verbinden liest Studio nach, was spielt.")
+        show(.warning, tr("%@ is disconnected and plays its stored slot again. The temporary sound is gone there. On the next connection AmpBench reads what plays.", name))
         onTemporaryLost?(name)
     }
 
@@ -347,7 +349,7 @@ final class PresetsModel: ObservableObject {
 
     private func openDraft(_ preset: SparkPreset) {
         if editor.isModified {
-            show(.warning, "Sichere oder verwirf zuerst die Änderungen an „\(editor.preset?.name ?? "")“.")
+            show(.warning, tr("First save or discard the changes to “%@”.", editor.preset?.name ?? ""))
             return
         }
         selection = .draft
@@ -373,19 +375,19 @@ final class PresetsModel: ObservableObject {
                 reloadLibrary()
                 editor.markSaved(as: .saved(saved.url))
                 selection = .saved(saved.url)
-                show(.info, "„\(preset.name)“ ist auf dem Mac gesichert.")
+                show(.info, tr("“%@” is saved to this Mac.", preset.name))
             } else {
-                var from = "Neu erstellt"
+                var from = tr("Newly created")
                 if case .slot(let slot) = editor.source { from = origin(slot: slot) }
                 let saved = try library.save(preset, origin: from)
                 reloadLibrary()
                 editor.markSaved(as: .saved(saved.url))
                 selection = .saved(saved.url)
-                show(.info, "„\(preset.name)“ ist als neues Preset auf dem Mac gesichert.")
+                show(.info, tr("“%@” is saved to this Mac as a new preset.", preset.name))
             }
             return true
         } catch {
-            show(.error, "Das Preset konnte nicht gesichert werden: \(error.localizedDescription)")
+            show(.error, tr("The preset could not be saved: %@", error.localizedDescription))
             return false
         }
     }
@@ -405,13 +407,13 @@ final class PresetsModel: ObservableObject {
         saveAsName = nil
         let copy = PresetFactory.duplicate(preset, name: name.trimmingCharacters(in: .whitespacesAndNewlines))
         do {
-            let saved = try library.save(copy, origin: "Gesichert als Kopie von „\(preset.name)“")
+            let saved = try library.save(copy, origin: tr("Saved as a copy of “%@”", preset.name))
             reloadLibrary()
             editor.open(copy, from: .saved(saved.url))
             selection = .saved(saved.url)
-            show(.info, "„\(copy.name)“ ist auf dem Mac gesichert.")
+            show(.info, tr("“%@” is saved to this Mac.", copy.name))
         } catch {
-            show(.error, "Das Preset konnte nicht gesichert werden: \(error.localizedDescription)")
+            show(.error, tr("The preset could not be saved: %@", error.localizedDescription))
         }
     }
 
@@ -445,15 +447,15 @@ final class PresetsModel: ObservableObject {
     func backUp(slot: Int) {
         guard let preset = link.slots[safe: slot] ?? nil else { return }
         if let existing = library.existing(preset) {
-            show(.info, "„\(preset.name)“ ist schon auf dem Mac gesichert, als „\(existing.url.deletingPathExtension().lastPathComponent)“.")
+            show(.info, tr("“%@” is already saved to this Mac, as “%@”.", preset.name, existing.url.deletingPathExtension().lastPathComponent))
             return
         }
         do {
             _ = try library.save(preset, origin: origin(slot: slot))
             reloadLibrary()
-            show(.info, "„\(preset.name)“ ist auf dem Mac gesichert.")
+            show(.info, tr("“%@” is saved to this Mac.", preset.name))
         } catch {
-            show(.error, "Das Preset konnte nicht gesichert werden: \(error.localizedDescription)")
+            show(.error, tr("The preset could not be saved: %@", error.localizedDescription))
         }
     }
 
@@ -466,7 +468,7 @@ final class PresetsModel: ObservableObject {
         lastTriedOut = item.file.preset
         run {
             try await self.link.tryOut(item.file.preset)
-            self.show(.info, "„\(item.name)“ spielt zum Ausprobieren. Gespeichert ist nichts, ein Preset-Wechsel beendet es.")
+            self.show(.info, tr("“%@” plays for trying out. Nothing is stored, a preset change ends it.", item.name))
         }
     }
 
@@ -474,19 +476,19 @@ final class PresetsModel: ObservableObject {
     /// nil when it plays, or what went wrong, for showing it where the request came from.
     func tryOut(_ preset: SparkPreset, report: (@MainActor (String?) -> Void)? = nil) {
         guard link.status == .connected else {
-            let text = "Der Verstärker ist nicht verbunden. Verbinde ihn, dann spielt der Sound auf dem vorübergehenden Platz."
+            let text = tr("The amp is not connected. Connect it, then the sound plays on the temporary place.")
             show(.warning, text)
             report?(text)
             return
         }
         guard link.profile.can(.playTemporary) else {
-            let text = "\(link.profile.displayName) spielt keinen Sound von Spark Studio. Er wird nur mitgelesen."
+            let text = tr("%@ plays no sound from AmpBench. It is only read.", link.profile.displayName)
             show(.warning, text)
             report?(text)
             return
         }
         guard canUseAmp else {
-            report?("Der Verstärker ist gerade beschäftigt. Versuch es gleich noch einmal.")
+            report?(tr("The amp is busy right now. Try again in a moment."))
             return
         }
         lastTriedOut = preset
@@ -497,7 +499,7 @@ final class PresetsModel: ObservableObject {
                 report?(error.localizedDescription)
                 throw error
             }
-            self.show(.info, "„\(preset.name)“ spielt zum Ausprobieren. Gespeichert ist nichts, ein Preset-Wechsel beendet es.")
+            self.show(.info, tr("“%@” plays for trying out. Nothing is stored, a preset change ends it.", preset.name))
             report?(nil)
         }
     }
@@ -533,7 +535,7 @@ final class PresetsModel: ObservableObject {
         run {
             let current = try await self.link.currentPreset(in: slot)
             if self.library.existing(current) == nil {
-                _ = try self.library.save(current, origin: "\(self.origin(slot: slot)), vor dem Überschreiben",
+                _ = try self.library.save(current, origin: tr("%@, before overwriting", self.origin(slot: slot)),
                                           isBackup: true)
                 self.reloadLibrary()
             }
@@ -541,13 +543,13 @@ final class PresetsModel: ObservableObject {
             do {
                 try await self.link.store(preset, in: slot)
             } catch LinkError.notConnected {
-                self.show(.error, "Die Verbindung brach beim Speichern auf \(self.link.profile.slotName(slot)) ab. Sobald der Verstärker wieder da ist, prüft die App, was dort liegt. Die Sicherung von „\(current.name)“ ist auf dem Mac.")
+                self.show(.error, tr("The connection broke while storing on %@. As soon as the amp is back, the app checks what is there. The backup of “%@” is on this Mac.", self.link.profile.slotName(slot), current.name))
                 return
             }
             self.interrupted = nil
             guard let stored = self.link.slots[slot] else { return }
             request.then?(stored)
-            self.show(.info, "„\(preset.name)“ ist auf \(self.link.profile.slotName(slot)) gespeichert und geprüft. Das bisherige „\(current.name)“ liegt als Sicherung auf dem Mac.")
+            self.show(.info, tr("“%@” is stored on %@ and checked. The previous “%@” is on this Mac as a backup.", preset.name, self.link.profile.slotName(slot), current.name))
         }
     }
 
@@ -567,14 +569,14 @@ final class PresetsModel: ObservableObject {
             self.interrupted = nil
             let slot = interrupted.slot + 1
             if now == interrupted.preset {
-                show(.info, "Platz \(slot) enthält „\(interrupted.preset.name)“ vollständig. Das Speichern ist trotz des Abbruchs angekommen.")
+                show(.info, tr("Slot %d holds “%@” completely. Storing arrived despite the break.", slot, interrupted.preset.name))
             } else if now == interrupted.backup {
-                show(.warning, "Platz \(slot) enthält noch das bisherige „\(interrupted.backup.name)“. Gespeichert wurde nichts.")
+                show(.warning, tr("Slot %d still holds the previous “%@”. Nothing was stored.", slot, interrupted.backup.name))
             } else {
-                show(.error, "Platz \(slot) enthält „\(now.name)“, weder das neue noch das bisherige Preset. Die Sicherung von „\(interrupted.backup.name)“ liegt auf dem Mac.")
+                show(.error, tr("Slot %d holds “%@”, neither the new nor the previous preset. The backup of “%@” is on this Mac.", slot, now.name, interrupted.backup.name))
             }
         }
-        // Only a connection that came back by itself gets the edit again. After "Trennen" or another device, what
+        // Only a connection that came back by itself gets the edit again. After "Disconnect" or another device, what
         // the device plays is read, not assumed.
         if byItself { editor.reconnected() }
     }
@@ -611,11 +613,11 @@ final class PresetsModel: ObservableObject {
                 selection = nil
             }
             reloadLibrary()
-            show(.info, "„\(item.name)“ liegt im Papierkorb.", undo: place.map { trashed in
+            show(.info, tr("“%@” is in the Trash.", item.name), undo: place.map { trashed in
                 { [weak self] in self?.restore(from: trashed, to: item.url) }
             })
         } catch {
-            show(.error, "„\(item.name)“ konnte nicht in den Papierkorb: \(error.localizedDescription)")
+            show(.error, tr("“%@” could not be moved to the Trash: %@", item.name, error.localizedDescription))
         }
     }
 
@@ -626,7 +628,7 @@ final class PresetsModel: ObservableObject {
             select(.saved(original))
             banner = nil
         } catch {
-            show(.error, "Die Datei konnte nicht zurückgeholt werden: \(error.localizedDescription)")
+            show(.error, tr("The file could not be brought back: %@", error.localizedDescription))
         }
     }
 
@@ -638,7 +640,7 @@ final class PresetsModel: ObservableObject {
         }
     }
 
-    // MARK: AI-Sound
+    // MARK: AI Sound
 
     private enum AISetting {
         static let modelKey = "AI Sound Model"
@@ -713,7 +715,7 @@ final class PresetsModel: ObservableObject {
                     self.updateOffer(index) { $0.state = .ready(recipe) }
                     if !remembered { remembered = true; self.rememberAIRequest(request) }
                 case .failed(let index, let error):
-                    let text = SoundAI.message(for: error) ?? "Abgebrochen."
+                    let text = SoundAI.message(for: error) ?? tr("Cancelled.")
                     self.updateOffer(index) { $0.state = .failed(text) }
                 }
             }
@@ -731,7 +733,7 @@ final class PresetsModel: ObservableObject {
                 return nil
             }
             self.aiOffers = []
-            self.aiError = reasons.first ?? "Es kam kein Vorschlag zurück. Versuch es noch einmal."
+            self.aiError = reasons.first ?? tr("No suggestion came back. Try again.")
         }
     }
 
@@ -779,7 +781,7 @@ final class PresetsModel: ObservableObject {
         }
     }
 
-    /// Changes one offered sound with a follow-up request (wärmer, mehr Gain, …) instead of writing it anew. If it
+    /// Changes one offered sound with a follow-up request (warmer, more gain, …) instead of writing it anew. If it
     /// plays on the amp, the changed sound plays right away.
     func refineAIOffer(_ id: Int, _ adjustment: SoundAI.Adjustment) {
         guard aiOfferTasks[id] == nil, let offer = aiOffers.first(where: { $0.id == id }),
@@ -865,14 +867,13 @@ final class PresetsModel: ObservableObject {
         let url = try library.addRecipe(recipe)
         reloadLibrary()
         guard let item = items.first(where: { $0.url.lastPathComponent == url.lastPathComponent }) else {
-            throw SoundAI.Error.unreadable("Das Rezept ließ sich nicht als Preset lesen.")
+            throw SoundAI.Error.unreadable(tr("The recipe could not be read as a preset."))
         }
         select(.saved(item.url))
-        let verbunden = link.status == .connected
-        let play = verbunden ? " Es spielt am Verstärker." : " Verbinde den Verstärker, um es zu hören."
+        let play = link.status == .connected ? tr("It plays on the amp.") : tr("Connect the amp to hear it.")
         let note = recipe.notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        let hint = note.isEmpty ? "" : " Hinweis: \(note)"
-        show(.info, "„\(recipe.name)“ ist bereit." + play + hint)
+        let hint = note.isEmpty ? "" : " " + tr("Note: %@", note)
+        show(.info, tr("“%@” is ready.", recipe.name) + " " + play + hint)
     }
 
     // MARK: Helpers

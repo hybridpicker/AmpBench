@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -13,7 +14,7 @@ struct BannerView: View {
                 Text(banner.text).fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
                 if let undo = banner.undo {
-                    Button("Rückgängig") { undo() }
+                    Button(tr("Undo")) { undo() }
                 }
                 Button {
                     model.banner = nil
@@ -21,7 +22,7 @@ struct BannerView: View {
                     Image(systemName: "xmark")
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel("Schließen")
+                .accessibilityLabel(tr("Close"))
             }
             .padding(12)
             .frame(maxWidth: 640)
@@ -53,7 +54,7 @@ struct RenameSheet: View {
     @EnvironmentObject private var model: PresetsModel
 
     var body: some View {
-        NameSheet(title: "Preset umbenennen", action: "Umbenennen", text: $model.renameText,
+        NameSheet(title: tr("Rename preset"), action: tr("Rename"), text: $model.renameText,
                   commit: model.commitRename, cancel: { model.renameTarget = nil })
     }
 }
@@ -62,7 +63,7 @@ struct SaveAsSheet: View {
     @EnvironmentObject private var model: PresetsModel
 
     var body: some View {
-        NameSheet(title: "Als neues Preset sichern", action: "Sichern",
+        NameSheet(title: tr("Save as a new preset"), action: tr("Save"),
                   text: Binding(get: { model.saveAsName ?? "" }, set: { model.saveAsName = $0 }),
                   commit: model.commitSaveAs, cancel: { model.saveAsName = nil })
     }
@@ -78,18 +79,18 @@ private struct NameSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(title).font(.headline)
-            TextField("Name", text: $text)
+            TextField(tr("Name"), text: $text)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 320)
                 .onSubmit(commit)
-            Text(PresetRules.problem(withName: text) ?? "Höchstens \(PresetRules.nameLimit) Zeichen. Der Name gilt auch auf dem Verstärker, sobald das Preset auf einem Platz liegt.")
+            Text(PresetRules.problem(withName: text) ?? tr("At most %d characters. The name also applies on the amp once the preset is on a slot.", PresetRules.nameLimit))
                 .font(.caption)
                 .foregroundStyle(PresetRules.problem(withName: text) == nil ? Color.secondary : Color.red)
                 .frame(width: 320, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Abbrechen", action: cancel).keyboardShortcut(.cancelAction)
+                Button(tr("Cancel"), action: cancel).keyboardShortcut(.cancelAction)
                 Button(action, action: commit)
                     .keyboardShortcut(.defaultAction)
                     .disabled(PresetRules.problem(withName: text) != nil)
@@ -106,11 +107,11 @@ struct TemplateSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Neues Preset").font(.title2.weight(.semibold))
-            Text("Eine Vorlage ist nur ein Anfang. Alles lässt sich danach ändern.")
+            Text(tr("New preset")).font(.title2.weight(.semibold))
+            Text(tr("A template is only a start. Everything can be changed afterwards."))
                 .foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
-                card(name: "Leer", summary: "Clean-Amp, alle Effekte aus", preset: PresetFactory.empty()) {
+                card(name: tr("Empty"), summary: tr("Clean amp, all effects off"), preset: PresetFactory.empty()) {
                     model.newPreset()
                 }
                 ForEach(PresetFactory.templates) { template in
@@ -121,7 +122,7 @@ struct TemplateSheet: View {
             }
             HStack {
                 Spacer()
-                Button("Abbrechen") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(tr("Cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(22)

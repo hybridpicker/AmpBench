@@ -12,7 +12,7 @@ final class StudioFoldersTests: XCTestCase {
         folder = try TemporaryFolder()
         oldRecordings = folder.file("Spark Recorder")
         oldPresets = folder.file("Spark Presets")
-        studio = StudioFolders(root: folder.file("Spark Studio"))
+        studio = StudioFolders(root: folder.file("AmpBench"))
     }
 
     private func makeOldFolders() throws {
@@ -96,11 +96,87 @@ final class StudioFoldersTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: studio.root.path))
     }
 
+    // MARK: The folder of the former name
+
+    private var formerRoot: URL { folder.file(StudioFolders.formerRootName) }
+
+    private func makeFormerRoot() throws {
+        let manager = FileManager.default
+        let recordings = formerRoot.appendingPathComponent(StudioFolders.recordingsName)
+        try manager.createDirectory(at: recordings.appendingPathComponent(".wellenformen"), withIntermediateDirectories: true)
+        try manager.createDirectory(at: formerRoot.appendingPathComponent(StudioFolders.presetsName),
+                                    withIntermediateDirectories: true)
+        try Synthetic.writeWAV(to: recordings.appendingPathComponent("Take 1.wav"), seconds: 0.1)
+        try Data("{\"schemaVersion\": 1}".utf8).write(to: recordings.appendingPathComponent("Bibliothek.json"))
+        try Data("{\"preset\": {}}".utf8).write(to: formerRoot.appendingPathComponent("Presets/Crunch.json"))
+        try Data("{}".utf8).write(to: formerRoot.appendingPathComponent(StudioFolders.markerName))
+    }
+
+    func testTheFolderOfTheFormerNameIsRenamed() throws {
+        try makeFormerRoot()
+        let before = try checksums(formerRoot)
+        XCTAssertFalse(before.isEmpty)
+
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .renamed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: formerRoot.path), "moved, not copied")
+        XCTAssertEqual(try checksums(studio.root), before, "every file arrived, hidden ones included")
+
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .ready,
+                       "the next start finds the folder under its new name")
+        XCTAssertEqual(try checksums(studio.root), before)
+    }
+
+    /// The renamed folder wins over the folders of the still older apps: they were taken over into it long ago.
+    func testTheRenamedFolderIsNotMixedWithTheOlderApps() throws {
+        try makeFormerRoot()
+        try makeOldFolders()
+        let before = try checksums(formerRoot)
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .renamed)
+        XCTAssertEqual(try checksums(studio.root), before)
+    }
+
+    func testWhenBothFoldersExistNothingIsMoved() throws {
+        try makeFormerRoot()
+        try FileManager.default.createDirectory(at: studio.recordings, withIntermediateDirectories: true)
+        try Data("new".utf8).write(to: studio.recordings.appendingPathComponent("Neu.wav"))
+        let formerBefore = try checksums(formerRoot)
+        let newBefore = try checksums(studio.root)
+
+        XCTAssertEqual(try studio.adoptFormerRoot(), .nothingToDo)
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .ready)
+        XCTAssertEqual(try checksums(formerRoot), formerBefore, "the former folder stays as it was")
+        XCTAssertEqual(try checksums(studio.root), newBefore, "nothing was overwritten or added")
+    }
+
+    /// Even a plain file of the new name is in the way, and is never replaced.
+    func testAFileOfTheNewNameIsNotReplaced() throws {
+        try makeFormerRoot()
+        try Data("not a folder".utf8).write(to: studio.root)
+        XCTAssertEqual(try studio.adoptFormerRoot(), .nothingToDo)
+        XCTAssertEqual(try Data(contentsOf: studio.root), Data("not a folder".utf8))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: formerRoot.path))
+    }
+
+    func testWithoutAFormerFolderNothingHappens() throws {
+        XCTAssertEqual(try studio.adoptFormerRoot(), .nothingToDo)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: studio.root.path))
+    }
+
+    /// While the app still runs under its former name, it holds its library's lock. Nothing is renamed under it.
+    func testARunningFormerAppBlocksTheRename() throws {
+        try makeFormerRoot()
+        let other = LibraryStore(folder: formerRoot.appendingPathComponent(StudioFolders.recordingsName))
+        XCTAssertTrue(other.acquireProcessLock())
+        XCTAssertEqual(try studio.prepare(formerRecordings: oldRecordings, formerPresets: oldPresets), .blocked)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: formerRoot.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: studio.root.path))
+    }
+
     // MARK: Settings
 
     func testSettingsOfTheFormerAppsAreCopiedOnce() throws {
-        let domain = "local.sparkstudio.tests.former-\(UUID().uuidString)"
-        let targetName = "local.sparkstudio.tests.target-\(UUID().uuidString)"
+        let domain = "local.ampbench.tests.former-\(UUID().uuidString)"
+        let targetName = "local.ampbench.tests.target-\(UUID().uuidString)"
         let former = try XCTUnwrap(UserDefaults(suiteName: domain))
         former.set(96.0, forKey: "bpm")
         former.set("Spark", forKey: "input")

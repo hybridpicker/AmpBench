@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Tabs as a segment on the desk: a recessed bar with the chosen tab raised. It follows the system's appearance.
 ///
-///     SegmentTabs("Ansicht der Bibliothek", selection: $tab, options: [(.recordings, "Aufnahmen"), (.pieces, "Stücke")])
+///     SegmentTabs("Library view", selection: $tab, options: [(.recordings, "Takes"), (.pieces, "Pieces")])
 ///
 /// Each tab is a button; VoiceOver reads the chosen one as selected.
 public struct SegmentTabs<Value: Hashable>: View {
@@ -54,6 +54,6 @@ public struct SegmentTabs<Value: Hashable>: View {
 
 #Preview("Tabs") {
     PreviewPair {
-        SegmentTabs("Ansicht", selection: .constant(0), options: [(0, "Aufnahmen"), (1, "Stücke"), (2, "Statistik")])
+        SegmentTabs("View", selection: .constant(0), options: [(0, "Takes"), (1, "Pieces"), (2, "Statistics")])
     }
 }

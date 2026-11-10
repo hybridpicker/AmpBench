@@ -1,8 +1,9 @@
+import AmpText
 import SparkCore
 import SparkDesign
 import SwiftUI
 
-/// The area "Stimmgerät": one dark front on the desk. On top the readout, the note large in amber and the deviation
+/// The area "Tuner": one dark front on the desk. On top the readout, the note large in amber and the deviation
 /// and frequency in SF Mono, with lamps for signal, too low, in tune and too high; below it the needle field or the
 /// strobe; at the bottom the modules input, tuning, concert pitch and display.
 struct TunerView: View {
@@ -34,13 +35,15 @@ struct TunerView: View {
 
     private var caption: String {
         if model.usesAmp {
-            let name = model.ampName ?? "Verstärkers"
-            return "Das Stimmgerät des \(name) ist an, solange dieser Bereich vorn ist, und der Verstärker ist dabei stumm. Seine Werte kommen über Bluetooth und sind gröber als über USB, auf ganze Cent."
+            guard let name = model.ampName else {
+                return tr("The amp’s tuner is on while this area is in front, and the amp is muted meanwhile. Its readings come over Bluetooth and are coarser than over USB, in whole cents.")
+            }
+            return tr("The %@ tuner is on while this area is in front, and the amp is muted meanwhile. Its readings come over Bluetooth and are coarser than over USB, in whole cents.", name)
         }
         if model.status == .noInput, model.source != .automatic, let name = model.ampName {
-            return "Ohne USB-Ton misst das Stimmgerät des \(name): im Eingang „Stimmgerät des \(name)“ wählen. Der Verstärker ist dann stumm, solange dieser Bereich vorn ist."
+            return tr("Without USB audio the %1$@ tuner can measure: choose “%1$@ tuner” under Input. The amp is then muted while this area is in front.", name)
         }
-        return "Das Stimmgerät hört nur, solange dieser Bereich vorn ist. Es sendet nichts an den Verstärker, gibt keinen Ton aus und speichert nichts."
+        return tr("The tuner listens only while this area is in front. It sends nothing to the amp, plays no sound and stores nothing.")
     }
 
     private var centReading: CentReading? {
@@ -95,40 +98,40 @@ struct TunerView: View {
             .frame(maxHeight: .infinity)
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Note")
+        .accessibilityLabel(tr("Note name"))
         .accessibilityValue(noteSpoken)
     }
 
     private var stringLine: String {
         guard let reading else { return statusLine }
-        guard reading.knowsOctave else { return "VOM VERSTÄRKER · \(reading.noteName)" }
+        guard reading.knowsOctave else { return tr("FROM THE AMP · %@", reading.noteName) }
         let target = "\(reading.noteName)\(reading.note.octave)"
-        if let string = reading.string { return "\(string). SAITE · \(target)" }
-        return model.tuning == .chromatic ? "CHROMATISCH · \(target)" : "KEINE SAITE · \(target)"
+        if let string = reading.string { return tr("STRING %1$d · %2$@", string, target) }
+        return model.tuning == .chromatic ? tr("CHROMATIC · %@", target) : tr("NO STRING · %@", target)
     }
 
     private var noteSpoken: String {
         guard let reading else { return statusLine }
         var parts = [reading.note.spokenName(flats: reading.flats) + (reading.knowsOctave ? " \(reading.note.octave)" : "")]
-        if let string = reading.string { parts.append("\(string). Saite") }
-        if reading.isHeld { parts.append("gehalten") }
+        if let string = reading.string { parts.append(tr("string %d", string)) }
+        if reading.isHeld { parts.append(tr("held")) }
         return parts.joined(separator: ", ")
     }
 
     private var statusLine: String {
         if model.usesAmp {
             switch model.status {
-            case .idle, .opening: return "SCHALTE DAS STIMMGERÄT EIN …"
-            case .listening, .demo: return model.hasSignal ? "MISST …" : "SPIELE EINE SAITE"
-            case .noInput, .noPermission, .failed: return "KEIN VERSTÄRKER VERBUNDEN"
+            case .idle, .opening: return tr("SWITCHING THE TUNER ON …")
+            case .listening, .demo: return model.hasSignal ? tr("MEASURING …") : tr("PLAY A STRING")
+            case .noInput, .noPermission, .failed: return tr("NO AMP CONNECTED")
             }
         }
         return switch model.status {
-        case .idle, .opening: "ÖFFNE DEN EINGANG …"
-        case .listening, .demo: model.hasSignal ? "HÖRE ZU …" : "SPIELE EINE SAITE"
-        case .noInput: model.inputName == "Kein Spark" ? "KEIN SPARK VERBUNDEN" : "EINGANG FEHLT"
-        case .noPermission: "MIKROFONZUGRIFF FEHLT"
-        case .failed: "EINGANG LÄSST SICH NICHT ÖFFNEN"
+        case .idle, .opening: tr("OPENING THE INPUT …")
+        case .listening, .demo: model.hasSignal ? tr("LISTENING …") : tr("PLAY A STRING")
+        case .noInput: model.inputName == tr("No Spark") ? tr("NO SPARK CONNECTED") : tr("INPUT MISSING")
+        case .noPermission: tr("NO MICROPHONE ACCESS")
+        case .failed: tr("THE INPUT CANNOT BE OPENED")
         }
     }
 
@@ -138,17 +141,17 @@ struct TunerView: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(reading.map { $0.isFromAmp ? TunerText.wholeCents($0.cents) : TunerText.cents($0.cents) }
-                             ?? (model.usesAmp ? "–" : "–,–"))
+                             ?? (model.usesAmp ? "–" : tr("–.–")))
                             .font(Theme.Fonts.mono(56, weight: .semibold))
                             .foregroundStyle(textColor)
                             .lineLimit(1)
                             .fixedSize()
-                        Text("CENT")
+                        Text(tr("CENTS"))
                             .font(Theme.Fonts.lamp(11))
                             .foregroundStyle(Theme.device.amberDim)
                     }
                     HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(reading.flatMap { $0.knowsOctave ? TunerText.hertz($0.frequency) : nil } ?? "–,––")
+                        Text(reading.flatMap { $0.knowsOctave ? TunerText.hertz($0.frequency) : nil } ?? tr("–.––"))
                             .font(Theme.Fonts.mono(22, weight: .medium))
                             .foregroundStyle(textColor)
                         Text("HZ")
@@ -162,14 +165,14 @@ struct TunerView: View {
                         .lineLimit(1)
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Abweichung und Frequenz")
+                .accessibilityLabel(tr("Deviation and frequency"))
                 .accessibilityValue(valueSpoken)
                 Spacer(minLength: 8)
                 VStack(alignment: .leading, spacing: 12) {
-                    Lamp("Signal", isOn: model.hasSignal, size: 9, textSize: 11)
-                    Lamp("Zu tief", isOn: isLive && reading?.direction == .low, size: 9, textSize: 11)
-                    Lamp("Gestimmt", tone: .on, isOn: isLive && reading?.isInTune == true, size: 9, textSize: 11)
-                    Lamp("Zu hoch", isOn: isLive && reading?.direction == .high, size: 9, textSize: 11)
+                    Lamp(tr("Signal"), isOn: model.hasSignal, size: 9, textSize: 11)
+                    Lamp(tr("Too low"), isOn: isLive && reading?.direction == .low, size: 9, textSize: 11)
+                    Lamp(tr("In tune"), tone: .on, isOn: isLive && reading?.isInTune == true, size: 9, textSize: 11)
+                    Lamp(tr("Too high"), isOn: isLive && reading?.direction == .high, size: 9, textSize: 11)
                 }
                 .padding(.top, 4)
             }
@@ -181,22 +184,22 @@ struct TunerView: View {
 
     private var targetLine: String {
         guard let reading else {
-            return model.usesAmp ? "VOM VERSTÄRKER · A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ"
-                : "KAMMERTON A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ"
+            return model.usesAmp ? tr("FROM THE AMP · A4 = %@ HZ", TunerText.hertz(model.a4, digits: 1))
+                : tr("CONCERT PITCH A4 = %@ HZ", TunerText.hertz(model.a4, digits: 1))
         }
         let target = reading.note.frequency(a4: model.a4)
-        let held = reading.isHeld ? " · GEHALTEN" : ""
+        let held = reading.isHeld ? " · " + tr("HELD") : ""
         if reading.isFromAmp {
-            return reading.knowsOctave ? "ZIEL \(TunerText.hertz(target)) HZ · VOM VERSTÄRKER\(held)" : "VOM VERSTÄRKER\(held)"
+            return (reading.knowsOctave ? tr("TARGET %@ HZ · FROM THE AMP", TunerText.hertz(target)) : tr("FROM THE AMP")) + held
         }
-        return "ZIEL \(TunerText.hertz(target)) HZ · A4 = \(TunerText.hertz(model.a4, digits: 1)) HZ\(held)"
+        return tr("TARGET %1$@ HZ · A4 = %2$@ HZ", TunerText.hertz(target), TunerText.hertz(model.a4, digits: 1)) + held
     }
 
     private var valueSpoken: String {
-        guard let reading else { return "kein Ton" }
+        guard let reading else { return tr("no tone") }
         let cents = CentReading(cents: reading.cents, isInTune: reading.isInTune, isHeld: reading.isHeld).spoken
-        guard reading.knowsOctave else { return cents + ", vom Verstärker" }
-        return "\(cents), \(TunerText.hertz(reading.frequency)) Hertz"
+        guard reading.knowsOctave else { return cents + ", " + tr("from the amp") }
+        return cents + ", " + tr("%@ hertz", TunerText.hertz(reading.frequency))
     }
 
     // MARK: Modules
@@ -221,28 +224,28 @@ struct TunerView: View {
     }
 
     private var inputModule: some View {
-        FaceplateModule("Eingang") {
-            Lamp(model.usesAmp ? "Misst" : model.isSharedWithRecording ? "Geteilt" : "Hört", tone: .listening,
+        FaceplateModule(tr("Input")) {
+            Lamp(model.usesAmp ? tr("Measuring") : model.isSharedWithRecording ? tr("Shared") : tr("Listening"), tone: .listening,
                  isOn: model.status == .listening)
                 .help(model.usesAmp
-                      ? "Das Stimmgerät des Verstärkers ist an, der Verstärker ist stumm."
+                      ? tr("The amp’s tuner is on, the amp is muted.")
                       : model.isSharedWithRecording
-                      ? "Das Stimmgerät liest den Eingang der Aufnahme mit, ohne ihn zu verändern."
-                      : "Der Eingang ist offen, solange dieser Bereich vorn ist.")
+                      ? tr("The tuner reads the recording’s input along with it, without changing it.")
+                      : tr("The input is open while this area is in front."))
         } content: {
             VStack(alignment: .leading, spacing: 8) {
-                DevicePopup("Eingang", value: model.inputName) {
-                    Button("Automatisch (USB-Ton, sonst Stimmgerät des Verstärkers)") { model.choose(.automatic) }
+                DevicePopup(tr("Input"), value: model.inputName) {
+                    Button(tr("Automatic (USB audio, otherwise the amp’s tuner)")) { model.choose(.automatic) }
                     Divider()
-                    Button(model.deckInputName.map { "\($0) (wie im Deck)" } ?? "Spark aus dem Deck") {
+                    Button(model.deckInputName.map { tr("%@ (as in the deck)", $0) } ?? tr("Spark from the deck")) {
                         model.choose(.deck)
                     }
                     if let name = model.ampName {
                         Divider()
-                        Button("Stimmgerät des \(name) (Verstärker stumm)") { model.choose(.amp) }
+                        Button(tr("%@ tuner (amp muted)", name)) { model.choose(.amp) }
                     } else if model.usesAmp {
                         Divider()
-                        Button("Stimmgerät des Verstärkers (keiner verbunden)") {}
+                        Button(tr("The amp’s tuner (none connected)")) {}
                             .disabled(true)
                     }
                     if !model.otherInputs.isEmpty {
@@ -254,7 +257,7 @@ struct TunerView: View {
                 }
                 .padding(.top, 6)
                 if model.usesAmp {
-                    Text("VERSTÄRKER STUMM, SOLANGE ES MISST")
+                    Text(tr("AMP MUTED WHILE IT MEASURES"))
                         .font(Theme.Fonts.lamp(9))
                         .foregroundStyle(Theme.device.lampOffText)
                         .lineLimit(1)
@@ -269,20 +272,20 @@ struct TunerView: View {
                     .padding(.vertical, 5)
                     .background(DisplayGlass(radius: 5))
                     .accessibilityElement()
-                    .accessibilityLabel("Pegel")
-                    .accessibilityValue(model.hasSignal ? "Signal" : "kein Signal")
+                    .accessibilityLabel(tr("Level"))
+                    .accessibilityValue(model.hasSignal ? tr("Signal") : tr("no signal"))
                 }
             }
         }
     }
 
     private var tuningModule: some View {
-        FaceplateModule("Stimmung") {
-            DevicePopup("Stimmung", selection: $model.tuning, options: Tuning.allCases.map { ($0, $0.title) })
+        FaceplateModule(tr("Tuning")) {
+            DevicePopup(tr("Tuning"), selection: $model.tuning, options: Tuning.allCases.map { ($0, $0.title) })
                 .padding(.top, 6)
             HStack(spacing: 0) {
                 if model.tuning.strings.isEmpty {
-                    Text("ALLE TÖNE, MIT NAME UND OKTAVE")
+                    Text(tr("ALL NOTES, WITH NAME AND OCTAVE"))
                         .font(Theme.Fonts.lamp(9.5))
                         .foregroundStyle(Theme.device.lampOffText)
                 } else {
@@ -297,7 +300,7 @@ struct TunerView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel("\(number). Saite, \(note.spokenName(flats: model.tuning.prefersFlats))")
+                        .accessibilityLabel(tr("string %d", number) + ", " + note.spokenName(flats: model.tuning.prefersFlats))
                         .accessibilityAddTraits(isFound ? .isSelected : [])
                     }
                 }
@@ -308,19 +311,19 @@ struct TunerView: View {
     }
 
     private var pitchModule: some View {
-        FaceplateModule("Kammerton") {
+        FaceplateModule(tr("Concert pitch")) {
             HStack(spacing: 8) {
-                DisplayStepper("Kammerton A4", value: $model.a4, in: TunerInterpreter.a4Range, step: 0.1,
+                DisplayStepper(tr("Concert pitch A4"), value: $model.a4, in: TunerInterpreter.a4Range, step: 0.1,
                                text: TunerText.hertz(model.a4, digits: 1), unit: "HZ",
-                               spokenValue: "\(TunerText.hertz(model.a4, digits: 1)) Hertz")
+                               spokenValue: tr("%@ hertz", TunerText.hertz(model.a4, digits: 1)))
                 Button("440") { model.a4 = TunerInterpreter.defaultA4 }
                     .buttonStyle(.hardwareKey(keycap: "⌘0", size: .small))
                     .disabled(model.a4 == TunerInterpreter.defaultA4)
-                    .help("Kammerton 440 Hz (⌘0)")
-                    .accessibilityLabel("Kammerton 440 Hertz")
+                    .help(tr("Concert pitch 440 Hz (⌘0)"))
+                    .accessibilityLabel(tr("Concert pitch 440 hertz"))
             }
             .padding(.top, 6)
-            Text("⌘↑ ⌘↓ IN ZEHNTEL HERTZ")
+            Text(tr("⌘↑ ⌘↓ IN TENTHS OF A HERTZ"))
                 .font(Theme.Fonts.lamp(9))
                 .foregroundStyle(Theme.device.lampOffText)
                 .padding(.top, 9)
@@ -330,13 +333,13 @@ struct TunerView: View {
     }
 
     private var displayModule: some View {
-        FaceplateModule("Anzeige") {
-            Button("Stroboskop") { model.showsStrobe.toggle() }
+        FaceplateModule(tr("Display")) {
+            Button(tr("Strobe")) { model.showsStrobe.toggle() }
                 .buttonStyle(.hardwareKey(model.showsStrobe ? .on : .normal, keycap: "⌘T"))
-                .help("Zwischen Zeiger und Stroboskop wechseln (⌘T)")
-                .accessibilityValue(model.showsStrobe ? "an" : "aus")
+                .help(tr("Switch between needle and strobe (⌘T)"))
+                .accessibilityValue(model.showsStrobe ? tr("on") : tr("off"))
                 .padding(.top, 6)
-            Text(model.showsStrobe ? "STEHT STILL, WENN GESTIMMT" : "ZEIGER ±50 CENT")
+            Text(model.showsStrobe ? tr("STANDS STILL WHEN IN TUNE") : tr("NEEDLE ±50 CENTS"))
                 .font(Theme.Fonts.lamp(9))
                 .foregroundStyle(Theme.device.lampOffText)
                 .padding(.top, 9)

@@ -103,7 +103,7 @@ public struct EngravedDivider: View {
 
 /// A module on a front: an engraved title, an optional lamp or key on the right, and its controls below.
 ///
-///     FaceplateModule("Spark") { Lamp("Verbunden", tone: .on, isOn: true) } content: { ... }
+///     FaceplateModule("Spark") { Lamp("Connected", tone: .on, isOn: true) } content: { ... }
 public struct FaceplateModule<Trailing: View, Content: View>: View {
     let title: String
     @ViewBuilder let trailing: Trailing
@@ -141,12 +141,12 @@ extension FaceplateModule where Trailing == EmptyView {
         VStack(spacing: 16) {
             Faceplate {
                 HStack(spacing: 0) {
-                    FaceplateModule("Pegel") { Lamp("Kein Signal", isOn: false) } content: {
+                    FaceplateModule("Level") { Lamp("No signal", isOn: false) } content: {
                         Spacer().frame(height: 40)
                     }
                     .padding(.horizontal, 18)
                     EngravedDivider()
-                    FaceplateModule("Spark") { Lamp("Verbunden", tone: .on, isOn: true) } content: {
+                    FaceplateModule("Spark") { Lamp("Connected", tone: .on, isOn: true) } content: {
                         Spacer().frame(height: 40)
                     }
                     .padding(.horizontal, 18)

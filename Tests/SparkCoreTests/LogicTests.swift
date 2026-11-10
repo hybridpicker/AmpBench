@@ -1,3 +1,4 @@
+import AmpText
 import XCTest
 @testable import SparkCore
 
@@ -118,7 +119,7 @@ final class StatsTests: XCTestCase {
             PracticeEntry(date: date(5), seconds: 60, pieceID: UUID()),
         ]
         let totals = PracticeStats.minutesPerPiece(log, pieces: [piece])
-        XCTAssertEqual(totals.map(\.name), ["Etüde", "Ohne Stück"])
+        XCTAssertEqual(totals.map(\.name), ["Etüde", "No piece"])
         XCTAssertEqual(totals.map(\.minutes), [10, 2])
     }
 
@@ -148,12 +149,12 @@ final class StatsTests: XCTestCase {
 final class QualityTextTests: XCTestCase {
     func testSourceAndFileAreStatedSeparately() {
         let source = SourceFormat(deviceName: "Spark MINI USB", bits: 16, sampleRate: 44_100, channels: 1)
-        XCTAssertEqual(QualityText.source(source), "16 Bit · 44,1 kHz · Mono")
-        XCTAssertEqual(QualityText.file(bits: 24, sampleRate: 44_100, channels: 1), "WAV 24 Bit · 44,1 kHz · Mono")
+        XCTAssertEqual(QualityText.source(source), "16-bit · 44.1 kHz · Mono")
+        XCTAssertEqual(QualityText.file(bits: 24, sampleRate: 44_100, channels: 1), "WAV 24-bit · 44.1 kHz · Mono")
     }
 
     func testUnknownSourceIsNotGuessed() {
-        XCTAssertEqual(QualityText.source(nil), "nicht erfasst")
+        XCTAssertEqual(QualityText.source(nil), "not captured")
     }
 
     func testNothingClaimsHiRes() {
@@ -167,7 +168,32 @@ final class QualityTextTests: XCTestCase {
 
     func testWholeKilohertzRatesHaveNoDecimals() {
         XCTAssertEqual(QualityText.rate(48_000), "48 kHz")
-        XCTAssertEqual(QualityText.rate(44_100), "44,1 kHz")
+        XCTAssertEqual(QualityText.rate(44_100), "44.1 kHz")
+    }
+
+    /// German reads as it did before English became the language of the code.
+    func testGermanTextsAndNumbers() {
+        Texts.language = .german
+        defer { Texts.language = .english }
+        let source = SourceFormat(deviceName: "Spark MINI USB", bits: 16, sampleRate: 44_100, channels: 1)
+        XCTAssertEqual(QualityText.source(source), "16 Bit · 44,1 kHz · Mono")
+        XCTAssertEqual(QualityText.file(bits: 24, sampleRate: 96_000, channels: 6), "WAV 24 Bit · 96 kHz · 6 Kanäle")
+        XCTAssertEqual(QualityText.source(nil), "nicht erfasst")
+        XCTAssertEqual(TimeText.clock(83.46, tenths: true), "01:23,4")
+        XCTAssertEqual(TimeText.spoken(125), "2 Minuten 5 Sekunden")
+        XCTAssertEqual(ExportFormat.wav24.label, "WAV, 24 Bit")
+        XCTAssertEqual(LibraryError.nameTaken("Riff.wav").errorDescription,
+                       "Es gibt bereits eine Datei mit dem Namen „Riff.wav“.")
+        XCTAssertEqual(CaptureError.coreAudio(step: tr("Creating the file"), status: -50).errorDescription,
+                       "Anlegen der Datei ist fehlgeschlagen (Fehler -50).")
+    }
+
+    func testErrorsAreEnglishByDefault() {
+        XCTAssertEqual(LibraryError.nameTaken("Riff.wav").errorDescription, "A file named “Riff.wav” already exists.")
+        XCTAssertEqual(CaptureError.coreAudio(step: tr("Creating the file"), status: -50).errorDescription,
+                       "Creating the file failed (error -50).")
+        XCTAssertEqual(TimeText.spoken(125), "2 minutes 5 seconds")
+        XCTAssertEqual(LatencyProbeError.unstable(spreadMilliseconds: 2.3).errorDescription?.contains("2.3 ms"), true)
     }
 }
 
@@ -239,7 +265,7 @@ final class TimeTextTests: XCTestCase {
     func testClock() {
         XCTAssertEqual(TimeText.clock(0), "00:00")
         XCTAssertEqual(TimeText.clock(83.4), "01:23")
-        XCTAssertEqual(TimeText.clock(83.46, tenths: true), "01:23,4")
+        XCTAssertEqual(TimeText.clock(83.46, tenths: true), "01:23.4")
         XCTAssertEqual(TimeText.clock(3723), "1:02:03")
         XCTAssertEqual(TimeText.clock(.nan), "00:00")
         XCTAssertEqual(TimeText.clock(-5), "00:00")

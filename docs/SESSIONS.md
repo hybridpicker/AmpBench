@@ -1,18 +1,18 @@
-# Sessions in diesem Arbeitsbaum
+# Sessions in this working tree
 
-Jede Session trägt sich ein, aktualisiert vor und nach jedem Commit und löscht ihren Block, wenn sie fertig ist.
-Vor jedem Commit: diese Datei lesen. Fremde Dateien „in Arbeit“ nicht anfassen. Kein stash, reset, checkout oder
-Branchwechsel, nur eigene Dateien und Hunks committen.
+Every session enters itself here, updates its block before and after every commit and deletes it when it is done.
+Before every commit: read this file. Do not touch another session's files that are "in progress". No stash, reset,
+checkout or branch change; commit only your own files and hunks.
 
-Vorlage für einen Block:
+Template for a block:
 
 ```
-## <Name> (<Auftrag>)
-- Stand: <Datum Uhrzeit> – <ein Satz>
-- In Arbeit: <Dateien oder Ordner>
-- Fertig und committet: <Hashes>
-- Baut oder testet gerade: ja/nein
-- Bitten an die andere Session: <…>
+## <Name> (<assignment>)
+- Status: <date time> – <one sentence>
+- In progress: <files or folders>
+- Done and committed: <hashes>
+- Building or testing right now: yes/no
+- Requests to the other session: <…>
 ```
 
-Zurzeit arbeitet keine Session hier. Design (docs/DESIGN.md) und Studio (docs/STUDIO.md) sind abgeschlossen.
+No session is working here at the moment. Design (docs/DESIGN.md) and Studio (docs/STUDIO.md) are finished.

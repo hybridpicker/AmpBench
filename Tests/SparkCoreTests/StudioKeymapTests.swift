@@ -1,8 +1,14 @@
+import AmpText
 import XCTest
 @testable import SparkCore
 
-/// The keyboard plan for Spark Studio: no two shortcuts on the same keys in the same area.
+/// The keyboard plan for AmpBench: no two shortcuts on the same keys in the same area.
 final class StudioKeymapTests: XCTestCase {
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
+    }
+
     func testNoConflicts() {
         let conflicts = StudioKeymap.conflicts()
         XCTAssertTrue(conflicts.isEmpty, conflicts.map { "\($0.0.display): \($0.0.action) / \($0.1.action)" }
@@ -56,13 +62,13 @@ final class StudioKeymapTests: XCTestCase {
         }
         let slots = StudioKeymap.all.filter { $0.modifiers == .command && ["1", "2", "3", "4"].contains($0.key) }
         XCTAssertEqual(slots.count, 4)
-        XCTAssertTrue(slots.allSatisfy { $0.scope == .everywhere && $0.condition == "Bluetooth verbunden" })
+        XCTAssertTrue(slots.allSatisfy { $0.scope == .everywhere && $0.condition == "Bluetooth connected" })
     }
 
     /// The REACTOR has 8 slots. Every one of them gets ⌘ and ⌥⌘ with its digit, without a conflict anywhere.
     func testSlotKeysCoverTheDeviceWithTheMostSlots() {
         XCTAssertEqual(StudioKeymap.slotKeys, 8)
-        let play = StudioKeymap.all.filter { $0.modifiers == .command && Int($0.key) != nil && $0.action.hasSuffix("spielen") }
+        let play = StudioKeymap.all.filter { $0.modifiers == .command && Int($0.key) != nil && $0.action.hasPrefix("Play slot") }
         XCTAssertEqual(play.map(\.key), (1...8).map(String.init))
         let store = StudioKeymap.all.filter { $0.modifiers == [.command, .option] && Int($0.key) != nil }
         XCTAssertEqual(store.map(\.key), (1...8).map(String.init))
@@ -82,6 +88,20 @@ final class StudioKeymapTests: XCTestCase {
     func testDisplayUsesMenuOrder() {
         XCTAssertEqual(StudioShortcut("1", [.command, .option], .presets, "").display, "⌥⌘1")
         XCTAssertEqual(StudioShortcut("z", [.shift, .command], .everywhere, "").display, "⇧⌘Z")
+        XCTAssertEqual(StudioShortcut("space", [], .everywhere, "").display, "Space")
+    }
+
+    /// The list is in the app's language: German reads as it did before English became the language of the code.
+    func testTheListIsGermanInGerman() {
+        XCTAssertEqual(StudioKeymap.shortcuts(in: .everywhere).first?.action, "Start or stop recording, also “Again”")
+        Texts.language = .german
+        XCTAssertEqual(StudioKeymap.shortcuts(in: .everywhere).first?.action,
+                       "Aufnahme starten oder stoppen, auch „Nochmal“")
         XCTAssertEqual(StudioShortcut("space", [], .everywhere, "").display, "Leertaste")
+        let third = StudioKeymap.all.first { $0.modifiers == .command && $0.key == "3" }
+        XCTAssertEqual(third?.action, "Platz 3 spielen")
+        XCTAssertEqual(third?.condition, "Bluetooth verbunden")
+        XCTAssertTrue(StudioKeymap.shortcuts(in: .tuner).contains { $0.action == "Stimmung Halbton tiefer" })
+        XCTAssertTrue(StudioKeymap.conflicts().isEmpty)
     }
 }

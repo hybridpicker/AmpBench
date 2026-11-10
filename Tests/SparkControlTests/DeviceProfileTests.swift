@@ -98,11 +98,11 @@ final class DeviceProfileTests: XCTestCase {
     }
 
     func testSlotNamesWithAndWithoutBanks() {
-        XCTAssertEqual(DeviceProfile.sparkNEO.slotName(2), "Platz 3")
-        XCTAssertEqual(DeviceProfile.reactor50.slotName(0), "Rot 1")
-        XCTAssertEqual(DeviceProfile.reactor50.slotName(3), "Rot 4")
-        XCTAssertEqual(DeviceProfile.reactor50.slotName(4), "Grün 1")
-        XCTAssertEqual(DeviceProfile.reactor50.slotName(7), "Grün 4")
+        XCTAssertEqual(DeviceProfile.sparkNEO.slotName(2), "Slot 3")
+        XCTAssertEqual(DeviceProfile.reactor50.slotName(0), "Red 1")
+        XCTAssertEqual(DeviceProfile.reactor50.slotName(3), "Red 4")
+        XCTAssertEqual(DeviceProfile.reactor50.slotName(4), "Green 1")
+        XCTAssertEqual(DeviceProfile.reactor50.slotName(7), "Green 4")
         XCTAssertEqual(DeviceProfile.reactor50.bank(of: 5), 1)
         XCTAssertNil(DeviceProfile.sparkMini.bank(of: 1))
         XCTAssertEqual(DeviceProfile.largestSlotCount, 8)

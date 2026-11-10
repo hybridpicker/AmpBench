@@ -9,12 +9,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
-from spark_studio import factory  # noqa: E402
-from spark_studio.fake_amp import FakeAmp  # noqa: E402
-from spark_studio.library import PresetLibrary  # noqa: E402
-from spark_studio.qtlink import QtLink  # noqa: E402
-from spark_studio.ui import theme  # noqa: E402
-from spark_studio.ui.main_window import MainWindow  # noqa: E402
+from ampbench import factory, i18n  # noqa: E402
+from ampbench.fake_amp import FakeAmp  # noqa: E402
+from ampbench.library import PresetLibrary  # noqa: E402
+from ampbench.qtlink import QtLink  # noqa: E402
+from ampbench.ui import theme  # noqa: E402
+from ampbench.ui.main_window import MainWindow  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -23,6 +23,12 @@ def app():
     app.setStyle("Fusion")
     app.setStyleSheet(theme.stylesheet())
     return app
+
+
+@pytest.fixture(autouse=True)
+def english_again():
+    yield
+    i18n.set_language(i18n.ENGLISH)
 
 
 def wait_for(condition, timeout=4000):
@@ -38,9 +44,9 @@ def window(app, tmp_path, monkeypatch):
     amp = FakeAmp()
     link = QtLink(lambda: amp)
     lib = PresetLibrary(tmp_path, trash=lambda p: p.unlink())
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
-    from spark_studio.store import LibraryStore
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
     recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
     w = MainWindow(link, lib, auto_connect=True, recorder=recorder)
     w.show()
@@ -132,9 +138,9 @@ def test_model_change_updates_the_chain(window):
 
 
 def test_record_a_take_through_the_window(app, tmp_path):
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
-    from spark_studio.store import LibraryStore
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
     amp = FakeAmp()
     recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
@@ -144,7 +150,7 @@ def test_record_a_take_through_the_window(app, tmp_path):
         QTest.keyClick(w, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key_R)
         wait_for(lambda: recorder.is_recording)
         wait_for(lambda: recorder.engine.meter.seconds > 0.5)
-        assert w.deck.time_label.text() != "00:00,0"
+        assert w.deck.time_label.text() != "00:00.0"
         QTest.keyClick(w, __import__("PySide6.QtCore", fromlist=["Qt"]).Qt.Key_R)
         wait_for(lambda: not recorder.is_recording and w.recordings.table.rowCount() == 1)
         take = recorder.store.document["recordings"][0]
@@ -156,11 +162,11 @@ def test_record_a_take_through_the_window(app, tmp_path):
 
 def test_recording_page_review_keys_and_undo(app, tmp_path, monkeypatch):
     from PySide6.QtCore import Qt
-    from spark_studio import trash
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
-    from spark_studio.store import LibraryStore
-    monkeypatch.setattr("spark_studio.trash.trash_root", lambda: tmp_path / "Trash")
+    from ampbench import trash
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
+    monkeypatch.setattr("ampbench.trash.trash_root", lambda: tmp_path / "Trash")
     recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     w.show()
@@ -199,11 +205,11 @@ def test_recording_page_review_keys_and_undo(app, tmp_path, monkeypatch):
 
 def test_library_views_rate_search_pieces_and_sound(app, tmp_path, monkeypatch):
     from PySide6.QtCore import Qt
-    from spark_studio import factory, protocol, store as storemod
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
-    from spark_studio.store import LibraryStore
-    monkeypatch.setattr("spark_studio.trash.trash_root", lambda: tmp_path / "Trash")
+    from ampbench import factory, protocol, store as storemod
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
+    monkeypatch.setattr("ampbench.trash.trash_root", lambda: tmp_path / "Trash")
     recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
     amp = FakeAmp()
     w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=True, recorder=recorder)
@@ -261,7 +267,7 @@ def test_tags_filter_and_pinned_sections(window, monkeypatch):
     w, _ = window
     from PySide6.QtCore import QSettings
     from PySide6.QtWidgets import QInputDialog
-    QSettings("local.sparkstudio", "Spark Studio").remove("pinnedTags")
+    QSettings("local.ampbench", "AmpBench").remove("pinnedTags")
     w.sidebar.pinned = []
     clean = w.library.save(factory.empty("Clean A"), "Test", tags=["#basis", "clean"])
     w.library.save(factory.empty("Lead B"), "Test", tags=["song"])
@@ -288,11 +294,11 @@ def test_tags_filter_and_pinned_sections(window, monkeypatch):
 def test_the_kemper_import_writes_presets_and_pieces(window, tmp_path):
     w, _ = window
     from test_kemper import _library
-    from spark_studio import kemper
-    from spark_studio.ui.kemper_dialog import KemperDialog
+    from ampbench import kemper
+    from ampbench.ui.kemper_dialog import KemperDialog
     plan = kemper.Plan(_library(tmp_path))
     dialog = KemperDialog(plan, "test.kpabackup", w)
-    assert dialog.summary.text() == "1 Songs, 2 Setups, 0 Rigs"
+    assert dialog.summary.text() == "1 songs, 2 setups, 0 rigs"
     dialog.kind_boxes[2][1].setCurrentIndex(list(kemper.KINDS).index("skip"))
     w._run_kemper_import(dialog.apply())
     names = sorted(i.name for i in w.library.items)
@@ -340,7 +346,7 @@ def test_the_amps_own_tuner_is_on_only_while_the_area_shows(window):
 
 def test_tuner_settings_are_kept(window):
     w, _ = window
-    from spark_studio.tuner import TunerModel
+    from ampbench.tuner import TunerModel
     tuner = w.tuner
     tuner.set_a4(441.26)
     tuner.set_tuning("dadgad")
@@ -360,12 +366,12 @@ def test_tuner_settings_are_kept(window):
 def test_the_ai_sound_window_offers_plays_and_keeps(window, monkeypatch, tmp_path):
     w, amp = window
     from PySide6.QtCore import QSettings
-    from spark_studio import sound_ai
-    from spark_studio.ui import ai_sound_dialog
+    from ampbench import sound_ai
+    from ampbench.ui import ai_sound_dialog
     from test_sound_ai import recipe
     monkeypatch.setattr(ai_sound_dialog.ai_key, "load", lambda: "test-key")
-    answers = {"Variante A": recipe(name="Rock A", amp="Plexi"), "Variante B": recipe(name="Rock B", amp="SLO100"),
-               "Variante C": recipe(name="Rock C", amp="Twin")}
+    answers = {"Variant A": recipe(name="Rock A", amp="Plexi"), "Variant B": recipe(name="Rock B", amp="SLO100"),
+               "Variant C": recipe(name="Rock C", amp="Twin")}
 
     def factory(model, key, cancelled):
         assert key == "test-key"
@@ -384,7 +390,7 @@ def test_the_ai_sound_window_offers_plays_and_keeps(window, monkeypatch, tmp_pat
     assert played and played[0].name == "Rock B" and dialog.listening == 1
     dialog.pick(1)
     assert kept[0]["name"] == "Rock B" and "KI-Sound" in kept[0]["tags"]
-    assert kept[0]["description"].startswith("KI-Sound: „Rock für die Telecaster“")
+    assert kept[0]["description"].startswith("AI Sound: “Rock für die Telecaster”")
     sound_ai.recipemod.to_preset(kept[0])
 
 
@@ -397,3 +403,57 @@ def test_kept_ai_sound_lands_in_the_library(window):
     w._refresh_library()
     item = next(i for i in w.library.items if i.path == path)
     assert item.is_recipe and item.name == "KI Probe"
+
+
+def test_the_window_speaks_english(window):
+    w, _ = window
+    assert w.windowTitle() == "AmpBench"
+    assert [a.text() for a in w.menuBar().actions()] == ["View", "Presets", "Edit", "Amp", "Chain", "Tuner", "Help"]
+    assert w.tabs.names == ["Record", "Presets", "Tuner"]
+    assert w.recordings.library_tabs.names == ["Takes", "Pieces", "Statistics"]
+    assert w.save_key.text() == "Save" and w.connect_key.text() == "Disconnect"
+    assert w.recordings.play_key.text() == "Play" and w.deck.check_key.text() == "Check input"
+    assert w.tuner_view.lamp_in_tune.text == "In tune"
+    assert w.deck.time_label.text() == "00:00.0"
+    assert w.recordings.takes.COLUMNS[:3] == ["Name", "Date", "Length"]
+
+
+def test_the_window_speaks_german_when_asked(app, tmp_path):
+    from datetime import datetime
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
+    from ampbench.ui import formats
+    i18n.set_language(i18n.GERMAN)
+    recorder = RecorderModel(LibraryStore(tmp_path / "Aufnahmen"), demo_engine(), demo_devices)
+    w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
+    try:
+        assert [a.text() for a in w.menuBar().actions()][:4] == ["Darstellung", "Presets", "Bearbeiten", "Verstärker"]
+        assert w.tabs.names == ["Aufnahme", "Presets", "Stimmgerät"]
+        assert w.save_key.text() == "Sichern" and w.connect_key.text() == "Verbinden"
+        assert w.recordings.library_tabs.names == ["Aufnahmen", "Stücke", "Statistik"]
+        assert w.deck.time_label.text() == "00:00,0"
+        assert w.tuner_view.lamp_in_tune.text == "Gestimmt"
+        day = datetime(2026, 11, 5, 14, 3, 9)
+        assert formats.date_time(day) == "5. Nov. 2026, 14:03" and formats.khz(44100) == "44,1 kHz"
+        assert formats.signed(-1.5) + " dB" == "-1,5 dB" and formats.minutes_text(75) == "1 Std. 15 Min."
+        i18n.set_language(i18n.ENGLISH)
+        assert formats.date_time(day) == "Nov 5, 2026, 14:03" and formats.khz(44100) == "44.1 kHz"
+        assert formats.signed(-1.5) + " dB" == "-1.5 dB" and formats.minutes_text(75) == "1 h 15 min"
+    finally:
+        w.close()
+
+
+def test_the_language_menu_stores_the_choice(window, tmp_path, monkeypatch):
+    w, _ = window
+    from PySide6.QtCore import QSettings
+    from ampbench.ui import main_window
+    settings = lambda: QSettings(str(tmp_path / "language.ini"), QSettings.IniFormat)
+    monkeypatch.setattr(main_window, "app_settings", settings)
+    assert [a.text() for a in w.language_actions.values()] == ["System", "English", "Deutsch"]
+    w.language_actions[i18n.GERMAN].trigger()
+    assert settings().value(i18n.SETTINGS_KEY) == "de" and w.language_actions[i18n.GERMAN].isChecked()
+    assert w.banner.label.text() == "The language changes after you restart AmpBench."
+    assert i18n.language() == i18n.ENGLISH, "the running window keeps its language"
+    w.language_actions[None].trigger()
+    assert settings().value(i18n.SETTINGS_KEY) is None and w.language_actions[None].isChecked()

@@ -1,3 +1,4 @@
+import AmpText
 import AudioToolbox
 import CSparkRT
 import CoreAudio
@@ -13,13 +14,13 @@ public enum CaptureError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .noAudioUnit: return "Der Audioeingang konnte nicht geöffnet werden."
-        case .coreAudio(let step, let status): return "\(step) ist fehlgeschlagen (Fehler \(status))."
-        case .noInputFormat: return "Das Gerät liefert kein nutzbares Eingangssignal."
-        case .notOpen: return "Der Audioeingang ist nicht geöffnet."
-        case .alreadyRecording: return "Es läuft bereits eine Aufnahme."
+        case .noAudioUnit: return tr("The audio input could not be opened.")
+        case .coreAudio(let step, let status): return tr("%@ failed (error %d).", step, Int(status))
+        case .noInputFormat: return tr("The device delivers no usable input signal.")
+        case .notOpen: return tr("The audio input is not open.")
+        case .alreadyRecording: return tr("A recording is already running.")
         case .inputNotAllowed(let name):
-            return "„\(name)“ ist als Eingang nicht erlaubt. Spark Recorder nimmt nur von einem Spark über USB auf."
+            return tr("“%@” is not allowed as an input. AmpBench records only from a Spark over USB.", name)
         }
     }
 }
@@ -115,7 +116,7 @@ public final class CaptureEngine {
         )
         guard let component = AudioComponentFindNext(nil, &description) else { throw CaptureError.noAudioUnit }
         var newUnit: AudioUnit?
-        try check("Öffnen des Audioeingangs", AudioComponentInstanceNew(component, &newUnit))
+        try check(tr("Opening the audio input"), AudioComponentInstanceNew(component, &newUnit))
         guard let unit = newUnit else { throw CaptureError.noAudioUnit }
         self.unit = unit
 
@@ -123,32 +124,32 @@ public final class CaptureEngine {
         var enabled: UInt32 = 1
         var disabled: UInt32 = 0
         let flagSize = UInt32(MemoryLayout<UInt32>.size)
-        try check("Aktivieren des Eingangs", AudioUnitSetProperty(
+        try check(tr("Enabling the input"), AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enabled, flagSize))
-        try check("Deaktivieren des Ausgangs", AudioUnitSetProperty(
+        try check(tr("Disabling the output"), AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Output, 0, &disabled, flagSize))
 
         var device = deviceID
-        try check("Auswählen des Geräts", AudioUnitSetProperty(
+        try check(tr("Selecting the device"), AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
             &device, UInt32(MemoryLayout<AudioDeviceID>.size)))
 
         var hardware = AudioStreamBasicDescription()
         var formatSize = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-        try check("Lesen des Geräteformats", AudioUnitGetProperty(
+        try check(tr("Reading the device format"), AudioUnitGetProperty(
             unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 1, &hardware, &formatSize))
         guard hardware.mChannelsPerFrame > 0, hardware.mSampleRate > 0 else { throw CaptureError.noInputFormat }
 
         var client = Self.clientFormat(rate: hardware.mSampleRate, channels: hardware.mChannelsPerFrame)
-        try check("Setzen des Aufnahmeformats", AudioUnitSetProperty(
+        try check(tr("Setting the recording format"), AudioUnitSetProperty(
             unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1,
             &client, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)))
 
-        try check("Initialisieren des Audioeingangs", AudioUnitInitialize(unit))
+        try check(tr("Initializing the audio input"), AudioUnitInitialize(unit))
 
         var maxFrames: UInt32 = 0
         var maxFramesSize = flagSize
-        try check("Lesen der Puffergröße", AudioUnitGetProperty(
+        try check(tr("Reading the buffer size"), AudioUnitGetProperty(
             unit, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, &maxFramesSize))
 
         let retroFrames = UInt64(max(retroSeconds, 0) * hardware.mSampleRate)
@@ -169,14 +170,14 @@ public final class CaptureEngine {
             inputProc: spark_capture_input_callback,
             inputProcRefCon: UnsafeMutableRawPointer(newCapture)
         )
-        try check("Registrieren der Aufnahme", AudioUnitSetProperty(
+        try check(tr("Registering the recording"), AudioUnitSetProperty(
             unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 0,
             &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size)))
 
         sampleRate = hardware.mSampleRate
         channels = Int(hardware.mChannelsPerFrame)
         retroCapacitySeconds = retroSeconds
-        try check("Starten des Eingangs", AudioOutputUnitStart(unit))
+        try check(tr("Starting the input"), AudioOutputUnitStart(unit))
     }
 
     static func clientFormat(rate: Double, channels: UInt32) -> AudioStreamBasicDescription {
@@ -273,16 +274,16 @@ public final class CaptureEngine {
             mReserved: 0
         )
         var newFile: ExtAudioFileRef?
-        try check("Anlegen der Datei", ExtAudioFileCreateWithURL(
+        try check(tr("Creating the file"), ExtAudioFileCreateWithURL(
             destination as CFURL, kAudioFileWAVEType, &fileFormat, nil, AudioFileFlags.eraseFile.rawValue, &newFile))
         guard let newFile else { throw CaptureError.noInputFormat }
         do {
             var client = Self.clientFormat(rate: sampleRate, channels: channelCount)
-            try check("Setzen des Dateiformats", ExtAudioFileSetProperty(
+            try check(tr("Setting the file format"), ExtAudioFileSetProperty(
                 newFile, kExtAudioFileProperty_ClientDataFormat,
                 UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client))
             // The first call allocates the async buffers, which must not happen on the realtime thread.
-            try check("Vorbereiten der Datei", ExtAudioFileWriteAsync(newFile, 0, nil))
+            try check(tr("Preparing the file"), ExtAudioFileWriteAsync(newFile, 0, nil))
         } catch {
             ExtAudioFileDispose(newFile)
             try? FileManager.default.removeItem(at: destination)
@@ -480,14 +481,14 @@ public enum WAVWriter {
         let status = ExtAudioFileCreateWithURL(url as CFURL, kAudioFileWAVEType, &fileFormat, nil,
                                                AudioFileFlags.eraseFile.rawValue, &created)
         guard status == noErr, let file = created else {
-            throw CaptureError.coreAudio(step: "Anlegen der Datei", status: status)
+            throw CaptureError.coreAudio(step: tr("Creating the file"), status: status)
         }
         defer { ExtAudioFileDispose(file) }
         var client = CaptureEngine.clientFormat(rate: sampleRate, channels: channelCount)
         let formatStatus = ExtAudioFileSetProperty(file, kExtAudioFileProperty_ClientDataFormat,
                                                    UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client)
         guard formatStatus == noErr else {
-            throw CaptureError.coreAudio(step: "Setzen des Dateiformats", status: formatStatus)
+            throw CaptureError.coreAudio(step: tr("Setting the file format"), status: formatStatus)
         }
         var samples = samples
         let frames = UInt32(samples.count / channels)
@@ -500,7 +501,7 @@ public enum WAVWriter {
             return ExtAudioFileWrite(file, frames, &list)
         }
         guard writeStatus == noErr else {
-            throw CaptureError.coreAudio(step: "Schreiben der Datei", status: writeStatus)
+            throw CaptureError.coreAudio(step: tr("Writing the file"), status: writeStatus)
         }
     }
 }

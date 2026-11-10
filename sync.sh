@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Puts the same Spark Studio on this Mac and on the Omarchy laptop, and checks that both report the same version.
+# Puts the same AmpBench on this Mac and on the Omarchy laptop, and checks that both report the same version.
 #
 #   ./sync.sh            builds and installs here, then ships the Linux app and installs it there
 #   ./sync.sh --check    only compares what is installed on both machines
@@ -11,8 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 host="${SPARK_LINUX_HOST:-linux-host}"
-mac_app="/Applications/Spark Studio.app/Contents/MacOS/SparkStudio"
-linux_bin=".local/bin/spark-studio"
+mac_app="/Applications/AmpBench.app/Contents/MacOS/AmpBench"
+linux_bin=".local/bin/ampbench"
 check_only=""
 case "${1:-}" in
     "") ;;
@@ -55,9 +55,9 @@ echo "== Linux ($host) =="
 # docs/ai/examples: a Linux test reads an example recipe from it.
 files=(linux VERSION docs/ai/spark-catalog.json docs/ai/examples Resources/AppIcon.png)
 git ls-files -z -co --exclude-standard -- $files | COPYFILE_DISABLE=1 tar -c --no-xattrs --null -T - -f - \
-    | ssh "$host" 'rm -rf ~/.cache/spark-studio-sync && mkdir -p ~/.cache/spark-studio-sync && tar -x -C ~/.cache/spark-studio-sync'
-ssh "$host" "~/.cache/spark-studio-sync/linux/install.sh '$build_id'"
-ssh "$host" 'rm -rf ~/.cache/spark-studio-sync'
+    | ssh "$host" 'rm -rf ~/.cache/ampbench-sync && mkdir -p ~/.cache/ampbench-sync && tar -x -C ~/.cache/ampbench-sync'
+ssh "$host" "~/.cache/ampbench-sync/linux/install.sh '$build_id'"
+ssh "$host" 'rm -rf ~/.cache/ampbench-sync'
 
 echo "== Vergleich =="
 compare && echo "Gleiche Version auf beiden Rechnern." || { echo "Die Versionen unterscheiden sich!" >&2; exit 1; }

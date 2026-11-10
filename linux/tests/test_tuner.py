@@ -1,13 +1,13 @@
-"""The tuner's precision and behaviour, with synthetic signals only (spark_studio/tuner_signal.py). A port of
+"""The tuner's precision and behaviour, with synthetic signals only (ampbench/tuner_signal.py). A port of
 Tests/SparkCoreTests/TunerAccuracyTests.swift and TunerBehaviorTests.swift. No test reads a recording or an input."""
 import math
 
 import numpy as np
 import pytest
 
-from spark_studio import tuner_signal as signals
-from spark_studio.pitch import PitchTracker
-from spark_studio.tuning import (Note, PitchReading, Tuning, TunerInterpreter, cents_text, hertz_text,
+from ampbench import i18n, tuner_signal as signals
+from ampbench.pitch import PitchTracker
+from ampbench.tuning import (Note, PitchReading, Tuning, TunerInterpreter, cents_text, hertz_text,
                                  spoken_cents)
 
 RATE = 48_000.0
@@ -178,12 +178,32 @@ def test_every_string_of_every_tuning_is_found():
 
 def test_tunings_are_what_they_are_called():
     summaries = {t.key: t.summary for t in Tuning.all()}
-    assert summaries == {"standard": "E A D G H E", "dropD": "D A D G H E", "dadgad": "D A D G A D",
-                         "openG": "D G D G H D", "halfStepDown": "E♭ A♭ D♭ G♭ B E♭", "chromatic": "Alle Töne"}
+    assert summaries == {"standard": "E A D G B E", "dropD": "D A D G B E", "dadgad": "D A D G A D",
+                         "openG": "D G D G B D", "halfStepDown": "E♭ A♭ D♭ G♭ B♭ E♭", "chromatic": "All notes"}
+    assert Tuning("halfStepDown").title == "Half step down"
     assert Tuning("standard").strings[0].frequency(440) == pytest.approx(82.4069, abs=1e-4)
 
 
+def test_chromatic_names_in_english():
+    interpreter = TunerInterpreter(Tuning("chromatic"))
+    for frequency, name in ((30.868, "B"), (233.08, "A♯"), (277.18, "C♯")):
+        assert interpreter.interpret(PitchReading(frequency), 0).note_name == name
+    assert Note(70).name(flats=True) == "B♭" and Note(63).spoken_name(flats=True) == "E flat"
+    assert Note(66).spoken_name() == "F sharp"
+
+
 def test_chromatic_names_in_german():
+    i18n.set_language(i18n.GERMAN)
+    try:
+        _chromatic_names_in_german()
+        summaries = {t.key: t.summary for t in Tuning.all()}
+        assert summaries["standard"] == "E A D G H E" and summaries["halfStepDown"] == "E♭ A♭ D♭ G♭ B E♭"
+        assert summaries["chromatic"] == "Alle Töne" and Tuning("halfStepDown").title == "Halbton tiefer"
+    finally:
+        i18n.set_language(i18n.ENGLISH)
+
+
+def _chromatic_names_in_german():
     interpreter = TunerInterpreter(Tuning("chromatic"))
     for frequency, name, octave in ((30.868, "H", 0), (246.94, "H", 3), (233.08, "A♯", 3), (440, "A", 4),
                                     (277.18, "C♯", 4), (1396.91, "F", 6)):
@@ -214,6 +234,13 @@ def test_in_tune_needs_time_and_precision():
 
 
 def test_text_of_the_numbers():
-    assert [cents_text(v) for v in (0.34, -12.04, -0.04, 49.96)] == ["+0,3", "−12,0", "±0,0", "+50,0"]
-    assert hertz_text(82.4069) == "82,41" and hertz_text(440, 1) == "440,0"
-    assert spoken_cents(-2.25) == "minus 2,3 Cent"
+    assert [cents_text(v) for v in (0.34, -12.04, -0.04, 49.96)] == ["+0.3", "−12.0", "±0.0", "+50.0"]
+    assert hertz_text(82.4069) == "82.41" and hertz_text(440, 1) == "440.0"
+    assert spoken_cents(-2.25) == "minus 2.3 cents"
+    i18n.set_language(i18n.GERMAN)
+    try:
+        assert [cents_text(v) for v in (0.34, -12.04, -0.04, 49.96)] == ["+0,3", "−12,0", "±0,0", "+50,0"]
+        assert hertz_text(82.4069) == "82,41" and hertz_text(440, 1) == "440,0"
+        assert spoken_cents(-2.25) == "minus 2,3 Cent"
+    finally:
+        i18n.set_language(i18n.ENGLISH)

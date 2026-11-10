@@ -2,8 +2,8 @@ import SwiftUI
 
 /// An engraved caption on a device front: 9.5 to 10 pt bold capitals with 0.09 em letter spacing, in #8E8E96.
 ///
-///     PanelLabel("Pegel")
-///     PanelLabel("Verzerrer · Platz 3 von 7", color: accent)
+///     PanelLabel("Level")
+///     PanelLabel("Drive · slot 3 of 7", color: accent)
 ///
 /// It is decoration by default and hidden from VoiceOver, because the control next to it carries the label.
 /// Pass `isAccessible: true` when the caption is the only place the information appears.
@@ -34,7 +34,7 @@ public struct PanelLabel: View {
 
 /// A caption above a field on the desk: the same capitals as an engraving, but in the system's secondary color.
 ///
-///     DeskCaption("Titel, auch der Dateiname")
+///     DeskCaption("Title, also the file name")
 public struct DeskCaption: View {
     let text: String
 
@@ -52,18 +52,18 @@ public struct DeskCaption: View {
     }
 }
 
-#Preview("Gravur") {
+#Preview("Engraving") {
     PreviewPair {
         VStack(alignment: .leading, spacing: 8) {
             Faceplate {
                 HStack(spacing: 16) {
-                    PanelLabel("Pegel")
-                    PanelLabel("Quelle")
-                    PanelLabel("Verzerrer · Platz 3 von 7", color: Color.orange)
+                    PanelLabel("Level")
+                    PanelLabel("Source")
+                    PanelLabel("Drive · slot 3 of 7", color: Color.orange)
                 }
                 .padding(14)
             }
-            DeskCaption("Titel, auch der Dateiname")
+            DeskCaption("Title, also the file name")
         }
     }
 }

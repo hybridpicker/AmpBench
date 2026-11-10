@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -10,7 +11,7 @@ struct EditorView: View {
 
     var body: some View {
         // A device that is only listened to shows what it reports. A preset from the Mac still opens in the editor,
-        // for "Text für REACTOR kopieren"; nothing of it goes to the device.
+        // for "Copy text for REACTOR"; nothing of it goes to the device.
         if link.status == .connected, !link.profile.canSend, editor.preset == nil || model.selectedSlot != nil {
             ReactorPanel()
         } else if let preset = editor.preset {
@@ -31,7 +32,7 @@ struct EditorView: View {
                         ChainStrip(preset: preset)
                         UnitPanel(preset: preset)
                         if preset.effects.count != ChainPlace.allCases.count {
-                            Text("Dieses Preset hat \(preset.effects.count) statt 7 Effekte. Die Plätze sind daher nummeriert.")
+                            Text(tr("This preset has %d effects instead of 7. The places are therefore numbered.", preset.effects.count))
                                 .font(.caption)
                                 .foregroundStyle(Theme.device.labelDim)
                         }
@@ -63,8 +64,8 @@ struct EditorView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
             HStack {
-                Button("Neues Preset") { model.newPreset() }
-                Button("Aus Vorlage …") { model.showsTemplates = true }
+                Button(tr("New preset")) { model.newPreset() }
+                Button(tr("From template …")) { model.showsTemplates = true }
             }
         }
         .padding(30)
@@ -74,8 +75,8 @@ struct EditorView: View {
     private var placeholderText: String {
         if case .slot(let slot) = model.selection, (link.slots[safe: slot] ?? nil) == nil {
             let name = link.profile.slotName(slot)
-            return link.can(.read) ? "\(name) wird gelesen …" : "\(name) ist nicht gelesen."
+            return link.can(.read) ? tr("%@ is being read …", name) : tr("%@ has not been read.", name)
         }
-        return "Wähle links einen Platz am Verstärker oder ein Preset auf dem Mac, oder lege ein neues an."
+        return tr("Choose a slot on the amp or a preset on this Mac on the left, or create a new one.")
     }
 }

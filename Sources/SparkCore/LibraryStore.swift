@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import Foundation
 
@@ -28,13 +29,13 @@ public enum LibraryError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .trashFailed: return "Die Datei konnte nicht in den Papierkorb gelegt werden."
-        case .notFound: return "Die Aufnahme wurde nicht gefunden."
-        case .invalidName: return "Dieser Name ist als Dateiname nicht möglich."
-        case .nameTaken(let name): return "Es gibt bereits eine Datei mit dem Namen „\(name)“."
-        case .restoreFailed: return "Die Datei liegt nicht mehr im Papierkorb."
+        case .trashFailed: return tr("The file could not be moved to the Trash.")
+        case .notFound: return tr("The take was not found.")
+        case .invalidName: return tr("This name cannot be used as a file name.")
+        case .nameTaken(let name): return tr("A file named “%@” already exists.", name)
+        case .restoreFailed: return tr("The file is no longer in the Trash.")
         case .newerSchema(let version):
-            return "Die Bibliothek stammt von einer neueren Version der App (Schema \(version)). Sie bleibt unverändert."
+            return tr("The library comes from a newer version of the app (schema %d). It stays unchanged.", version)
         }
     }
 }

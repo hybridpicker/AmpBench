@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from spark_studio import capture, store, wav
-from spark_studio.demo_input import demo_devices, demo_engine
+from ampbench import capture, store, wav
+from ampbench.demo_input import demo_devices, demo_engine
 
 FMT = wav.Format(48000, 2, 24)
 

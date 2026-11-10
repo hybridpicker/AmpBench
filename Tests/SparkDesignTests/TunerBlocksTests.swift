@@ -1,14 +1,29 @@
+import AmpText
 import XCTest
 @testable import SparkDesign
 
 /// The needle field and the strobe: what VoiceOver hears, and which way the strobe drifts.
 final class TunerBlocksTests: XCTestCase {
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
+    }
+
     func testDeviationInWords() {
+        XCTAssertEqual(CentReading(cents: 0.34).spoken, "plus 0.3 cents, too high")
+        XCTAssertEqual(CentReading(cents: -12.04).spoken, "minus 12.0 cents, too low")
+        XCTAssertEqual(CentReading(cents: 0.2, isInTune: true).spoken, "plus 0.2 cents, in tune")
+        XCTAssertEqual(CentReading(cents: -3, isHeld: true).spoken, "minus 3.0 cents, too low, held")
+        XCTAssertEqual(CentReading(cents: 0.02).spoken, "0.0 cents, centered")
+    }
+
+    /// German as before the texts moved to tables, with the decimal comma.
+    func testDeviationInGermanWords() {
+        Texts.language = .german
         XCTAssertEqual(CentReading(cents: 0.34).spoken, "plus 0,3 Cent, zu hoch")
-        XCTAssertEqual(CentReading(cents: -12.04).spoken, "minus 12,0 Cent, zu tief")
-        XCTAssertEqual(CentReading(cents: 0.2, isInTune: true).spoken, "plus 0,2 Cent, gestimmt")
         XCTAssertEqual(CentReading(cents: -3, isHeld: true).spoken, "minus 3,0 Cent, zu tief, gehalten")
         XCTAssertEqual(CentReading(cents: 0.02).spoken, "0,0 Cent, mittig")
+        XCTAssertEqual(CentReading(cents: 0.2, isInTune: true).spoken, "plus 0,2 Cent, gestimmt")
     }
 
     func testStrobeDriftsRightWhenSharpAndStandsStillInTune() {

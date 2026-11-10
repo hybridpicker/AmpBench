@@ -2,8 +2,8 @@ import SwiftUI
 
 /// A hardware key, the one button style on a device. Its shortcut is engraved on it as a keycap.
 ///
-///     Button("Behalten", action: keep).buttonStyle(.hardwareKey(.primary, keycap: "K"))
-///     Button("Verwerfen", action: discard).buttonStyle(.hardwareKey(.danger, keycap: "⌫"))
+///     Button("Keep", action: keep).buttonStyle(.hardwareKey(.primary, keycap: "K"))
+///     Button("Discard", action: discard).buttonStyle(.hardwareKey(.danger, keycap: "⌫"))
 ///     Button(action: toggleLoop) { Text("Loop") }.buttonStyle(.hardwareKey(isOn ? .on : .normal, keycap: "L"))
 ///
 /// Roles: `.normal` is dark, `.primary` is the one amber main action of a group, `.on` is a switched-on state,
@@ -141,21 +141,21 @@ public struct PressStyle: ButtonStyle {
     }
 }
 
-#Preview("Tasten") {
+#Preview("Keys") {
     PreviewPair {
         Faceplate {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
-                    Button {} label: { Label("Abspielen", systemImage: "play.fill") }
+                    Button {} label: { Label("Play", systemImage: "play.fill") }
                         .buttonStyle(.hardwareKey(keycap: "␣"))
                     Button("Loop 00:10 – 00:17") {}.buttonStyle(.hardwareKey(.on, keycap: "L"))
-                    Button("Behalten") {}.buttonStyle(.hardwareKey(.primary, keycap: "K"))
-                    Button("Verwerfen") {}.buttonStyle(.hardwareKey(.danger, keycap: "⌫"))
+                    Button("Keep") {}.buttonStyle(.hardwareKey(.primary, keycap: "K"))
+                    Button("Discard") {}.buttonStyle(.hardwareKey(.danger, keycap: "⌫"))
                 }
                 HStack(spacing: 8) {
-                    Button("Nochmal") {}.buttonStyle(.hardwareKey(keycap: "R", size: .small))
-                    Button("Gesperrt") {}.buttonStyle(.hardwareKey(size: .small)).disabled(true)
-                    Button("Sichern") {}.buttonStyle(.hardwareKey(.primary, keycap: "⌘S")).disabled(true)
+                    Button("Again") {}.buttonStyle(.hardwareKey(keycap: "R", size: .small))
+                    Button("Disabled") {}.buttonStyle(.hardwareKey(size: .small)).disabled(true)
+                    Button("Save") {}.buttonStyle(.hardwareKey(.primary, keycap: "⌘S")).disabled(true)
                 }
             }
             .padding(14)

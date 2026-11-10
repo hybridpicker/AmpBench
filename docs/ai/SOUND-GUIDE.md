@@ -1,8 +1,8 @@
 # Building Spark sounds with an AI assistant
 
 This folder lets Claude or any other AI assistant build guitar sounds for Positive Grid Spark amps. The sounds can be
-checked without the amp and then played in Spark Studio. The assistant writes a **sound recipe**, a small JSON file that
-names a model and settings for each place of the signal chain. Spark Studio reads recipes from its presets folder like
+checked without the amp and then played in AmpBench. The assistant writes a **sound recipe**, a small JSON file that
+names a model and settings for each place of the signal chain. AmpBench reads recipes from its presets folder like
 any preset. It plays them on the amp's temporary place and stores them in a slot only when you ask.
 
 | File | What it is |
@@ -17,21 +17,21 @@ any preset. It plays them on the amp's temporary place and stores them in a slot
 
 1. Read `spark-catalog.json`. Use only model ids and parameter keys from it, with their exact spelling.
 2. Write the recipe. Start from the closest example and change it, rather than writing every value from scratch.
-3. Check it. With Spark Studio installed:
+3. Check it. With AmpBench installed:
    ```bash
-   "/Applications/Spark Studio.app/Contents/MacOS/SparkStudio" --recipe-check my-sound.json
+   "/Applications/AmpBench.app/Contents/MacOS/AmpBench" --recipe-check my-sound.json
    ```
-   In this repository, `swift run SparkStudio --recipe-check my-sound.json` does the same. The check prints every value the amp will
+   In this repository, `swift run AmpBench --recipe-check my-sound.json` does the same. The check prints every value the amp will
    get, lists what it corrected, and exits with 1 when a recipe cannot be read.
-4. Put the file into `~/Music/Spark Studio/Presets`. It shows up in Studio's area Presets when the window comes to the
+4. Put the file into `~/Music/AmpBench/Presets`. It shows up in AmpBench's area Presets when the window comes to the
    front, marked with a wand. Clicking it plays it on the amp's temporary place without overwriting a slot. Saving it
-   in the editor turns it into an ordinary preset file. A recipe with errors is listed under "Nicht lesbar".
+   in the editor turns it into an ordinary preset file. A recipe with errors is listed under "Not readable".
 5. Describe in `notes` what to adjust by ear. The assistant cannot hear the result, the player can.
 
 The reverse works too. This command describes a saved preset as a recipe, so an assistant can read a sound and change it:
 
 ```bash
-"/Applications/Spark Studio.app/Contents/MacOS/SparkStudio" --recipe-from "~/Music/Spark Studio/Presets/Jazz.json"
+"/Applications/AmpBench.app/Contents/MacOS/AmpBench" --recipe-from "~/Music/AmpBench/Presets/Jazz.json"
 ```
 
 ## The format
@@ -59,9 +59,9 @@ The reverse works too. This command describes a saved preset as a recipe, so an 
 - **`settings`** maps parameter keys to values. A key left out keeps the amp's start value from the catalog.
   - Knobs take a number from 0 to 10, like the editor. Values outside are clamped, and the check says so.
   - Switches take `true` or `false`, or one of the labels in the catalog's `off` and `on`, such as `"BPM"`.
-  - Choices take one of the option labels, such as `"Saal weit"` for the reverb type. Labels are German, copy them from
-    the catalog.
-- **`name`** may have at most 31 bytes, and umlauts count twice. Longer names are cut.
+  - Choices take one of the option labels, such as `"Saal weit"` for the reverb type. These labels are stored names and are German in
+    this release, in both UI languages; copy them from the catalog.
+- **`name`** may have at most 31 bytes, and non-ASCII letters such as umlauts count twice. Longer names are cut.
 - **`bpm`** goes from 40 to 250. Delays and modulations whose `sync` is on follow it.
 - An unknown model, a model at the wrong place or an unknown key is an error, so a typo never goes unnoticed.
 
@@ -129,8 +129,8 @@ These are starting points from general guitar practice, not measurements of the 
   `sustain` sets how many repeats; 2 to 4 gives a few, above 7 it runs away.
 - With `sync` on, the echo follows the preset's `bpm`. Set `bpm` to the song's tempo.
 - Reverb: `level` 1.5 to 3 for rhythm, 3 to 5 for clean and ambient. `length` 3 to 5 is a room, 7 to 9 a large hall.
-  `type`: Raum A/B and Kammer are small, Saal natürlich, Saal mittel, Saal weit get larger, Platte kurz, Platte satt and Platte lang are
-  plates, bright and smooth.
+  `type` (German labels, see above): `Raum A`, `Raum B` (rooms) and `Kammer` (chamber) are small; the halls `Saal natürlich`,
+  `Saal mittel` and `Saal weit` get larger; `Platte kurz`, `Platte satt` and `Platte lang` are plates, bright and smooth.
 - Modulation: chorus `effect` 3 to 5 for a subtle widening, `rate` low for slow movement. Tremolo `speed` 4 to 6 for a
   surf pulse.
 
@@ -139,7 +139,7 @@ These are starting points from general guitar practice, not measurements of the 
 ## What an assistant should know
 
 - **It cannot hear.** Every recipe is a reasoned first guess. Say in `notes` which one or two knobs to turn first.
-- **Changes reach the amp slowly.** Spark Studio paces model changes, because a long series of them once made a Spark
+- **Changes reach the amp slowly.** AmpBench paces model changes, because a long series of them once made a Spark
   MINI hang. Never ask the player to step through many presets quickly.
 - **Start values are from a Spark MINI.** They were read back from a Spark MINI with firmware 1.11.2.75. The models and
   their parameters are shared by the Spark family, but only the MINI was checked.
@@ -153,25 +153,25 @@ A recipe names models and settings, not the bytes of one amp. How it reaches a d
 
 | Device | How a recipe gets there | Checked |
 |---|---|---|
-| Spark MINI | Spark Studio over Bluetooth: play on the temporary place, store in a slot | Yes, firmware 1.11.2.75 |
+| Spark MINI | AmpBench over Bluetooth: play on the temporary place, store in a slot | Yes, firmware 1.11.2.75 |
 | Other Spark amps (Spark 40, GO, 2, LIVE) | Same way, if they know the model ids | No. Newer amps may know models the catalog lacks |
-| Spark NEO | Spark Studio over Bluetooth, the same way as the MINI | Yes, firmware 1.16.1.60 (its factory models; storing and live changes heard) |
-| REACTOR (50 and 100) | As text for its "Text to Tone", see below. Spark Studio listens to it over Bluetooth; for the REACTOR 50 its editor can also set the nearest amp, gain, tone and effect switches from a preset ("Auf den REACTOR spielen"), never a preset | Text route not tried on the amp; single live commands heard on 2026-11-10 |
+| Spark NEO | AmpBench over Bluetooth, the same way as the MINI | Yes, firmware 1.16.1.60 (its factory models; storing and live changes heard) |
+| REACTOR (50 and 100) | As text for its "Text to Tone", see below. AmpBench listens to it over Bluetooth; for the REACTOR 50 its editor can also set the nearest amp, gain, tone and effect switches from a preset ("Play on the REACTOR"), never a preset | Text route not tried on the amp; single live commands heard on 2026-11-10 |
 
 ### REACTOR
 
 REACTOR is Positive Grid's combo amp with "Amp Intelligence". Its tones come from the REACTOR app, which builds them
 from text, a photo or audio. Positive Grid calls it a separate product line, not compatible with Spark. As of
 2026-11-08 its product page names no preset file format, no import or export and no interface for other software.
-Spark Studio can therefore not send a recipe to it as a preset. A description as text travels well.
+AmpBench can therefore not send a recipe to it as a preset. A description as text travels well.
 Its Bluetooth control speaks the Spark message format on another service. On 2026-11-10 the REACTOR 50 answered read
-requests and took single live commands (amp selector, gain and tone knobs, effect switches), so Studio's editor can
-set the nearest sound on it with "⋯ → Auf den REACTOR spielen". Its presets are a format of its own that is only
-partly understood, so a Spark preset must never be sent to it. In the editor, "⋯ → Text für REACTOR
-kopieren" puts the same text on the pasteboard.
+requests and took single live commands (amp selector, gain and tone knobs, effect switches), so AmpBench's editor can
+set the nearest sound on it with "⋯ → Play on the REACTOR". Its presets are a format of its own that is only
+partly understood, so a Spark preset must never be sent to it. In the editor, "⋯ → Copy text for REACTOR"
+puts the same text on the pasteboard.
 
 ```bash
-"/Applications/Spark Studio.app/Contents/MacOS/SparkStudio" --recipe-prompt docs/ai/examples/texas-blues.json
+"/Applications/AmpBench.app/Contents/MacOS/AmpBench" --recipe-prompt docs/ai/examples/texas-blues.json
 ```
 
 ```text
@@ -183,7 +183,7 @@ Notes: ...
 ```
 
 Paste that into the app's Text to Tone and refine there by typing, such as "less bass". The command also takes a saved
-preset file, so every sound in Spark Studio can be described this way. The result is REACTOR's own reading of the
+preset file, so every sound in AmpBench can be described this way. The result is REACTOR's own reading of the
 description, not a copy: it chooses from its own amp models, and its knobs are not calibrated like the Spark's. An
 assistant writing for REACTOR should name the real amp and pedals the sound is modeled after, give the amp's five
 knobs, and describe the character in words. It can skip the Spark model ids.

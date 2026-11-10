@@ -1,7 +1,8 @@
+import AmpText
 import XCTest
 @testable import SparkControl
 
-/// KI-Sound beyond the parser: the prompt's knowledge, the wish check, corrections, variants that arrive one by one,
+/// AI Sound beyond the parser: the prompt's knowledge, the wish check, corrections, variants that arrive one by one,
 /// quick changes and the HTTP client. Every chat and every HTTP answer is faked; nothing here uses the network.
 final class SoundAIConversationTests: XCTestCase {
 
@@ -102,10 +103,28 @@ final class SoundAIConversationTests: XCTestCase {
     func testSystemPromptCarriesPlayersTempoReverbAndExamples() {
         let prompt = SoundAI.messages(request: "x", catalog: CatalogReference())[0].content
         XCTAssertTrue(prompt.contains("The Edge (U2)"))
-        XCTAssertTrue(prompt.contains("punktierte Achtel"))
-        XCTAssertTrue(prompt.contains("Songtempo × 4/3"))
-        XCTAssertTrue(prompt.contains("Hall nach Stil"))
+        XCTAssertTrue(prompt.contains("dotted eighths"))
+        XCTAssertTrue(prompt.contains("song tempo × 4/3"))
+        XCTAssertTrue(prompt.contains("Reverb by style"))
         XCTAssertTrue(prompt.contains("\"name\":\"Streets Echo\""))
+    }
+
+    /// The instructions are English in every language; only the language the recipe's words are written in follows
+    /// the user. What the user reads is German.
+    func testThePromptStaysEnglishAndAsksForTheUsersLanguage() {
+        let english = SoundAI.messages(request: "x", catalog: CatalogReference())[0].content
+        XCTAssertTrue(english.contains("\"notes\" in English"))
+        Texts.language = .german
+        defer { Texts.language = .english }
+        let german = SoundAI.messages(request: "x", catalog: CatalogReference())[0].content
+        XCTAssertTrue(german.contains("\"notes\" in German"))
+        XCTAssertEqual(german.replacingOccurrences(of: "in German", with: "in English"), english)
+        XCTAssertEqual(SoundAI.variantTitles, ["Originalgetreu", "Druckvoller", "Reduziert"])
+        XCTAssertEqual(SoundAI.Adjustment.warmer.label, "wärmer")
+        XCTAssertEqual(SoundAI.Error.emptyRequest.errorDescription, "Beschreibe zuerst, welchen Sound du möchtest.")
+        XCTAssertEqual(SoundAI.privacyProblem(in: "an a@b.de"),
+                       "Dein Wunsch enthält eine E-Mail-Adresse. Lass das weg – an Ollama geht nur die Beschreibung des Sounds.")
+        XCTAssertNil(SoundAI.privacyProblem(in: "Blues für meine Tele"))
     }
 
     func testVariantsHaveThreeDifferentDirections() {
@@ -167,8 +186,8 @@ final class SoundAIConversationTests: XCTestCase {
         sound.description = "Plexi-Crunch"
         sound.tags = ["Rock"]
         let kept = SoundAI.keepsake(sound, request: "AC/DC – Back in Black", adjustments: [.warmer, .moreGain])
-        XCTAssertEqual(kept.description, "KI-Sound: „AC/DC – Back in Black“. Plexi-Crunch")
-        XCTAssertEqual(kept.tags, ["Rock", "KI-Sound", "wärmer", "mehr Gain"])
+        XCTAssertEqual(kept.description, "AI Sound: “AC/DC – Back in Black”. Plexi-Crunch")
+        XCTAssertEqual(kept.tags, ["Rock", "KI-Sound", "warmer", "more gain"])
 
         sound.description = String(repeating: "ä", count: 200)
         XCTAssertLessThanOrEqual(SoundAI.keepsake(sound, request: "x").description.utf8.count,
@@ -180,14 +199,14 @@ final class SoundAIConversationTests: XCTestCase {
         var sound = try parsed(recipe())
         sound.description = "Originalgetreuer The-Edge-Sound: glänzender Vox-Clean mit punktiertem Achtel-Echo"
         let kept = SoundAI.keepsake(sound, request: "U2 - where the streets have no name.")
-        XCTAssertEqual(kept.description, "KI-Sound: „U2 - where the streets have no name.“")
+        XCTAssertEqual(kept.description, "AI Sound: “U2 - where the streets have no name.”")
         XCTAssertLessThanOrEqual(try kept.preset().preset.description.utf8.count, PresetRules.descriptionLimit)
 
         let long = String(repeating: "Wunsch ", count: 30)
         let cut = SoundAI.keepsake(sound, request: long).description
         XCTAssertLessThanOrEqual(cut.utf8.count, PresetRules.descriptionLimit)
-        XCTAssertTrue(cut.hasPrefix("KI-Sound: „Wunsch"))
-        XCTAssertTrue(cut.hasSuffix("…“"))
+        XCTAssertTrue(cut.hasPrefix("AI Sound: “Wunsch"))
+        XCTAssertTrue(cut.hasSuffix("…”"))
     }
 
     // MARK: Corrections
@@ -197,7 +216,7 @@ final class SoundAIConversationTests: XCTestCase {
         let sound = try await SoundAI.generate(request: "Rock", chat: chat.chat)
         XCTAssertEqual(sound.chain["amp"]?.model, "Plexi")
         XCTAssertEqual(chat.calls.count, 2)
-        XCTAssertTrue(chat.calls[1].last?.content.contains("kein JSON") ?? false)
+        XCTAssertTrue(chat.calls[1].last?.content.contains("no JSON object") ?? false)
         XCTAssertEqual(chat.calls[1].dropLast().last?.role, "assistant")
     }
 
@@ -208,7 +227,7 @@ final class SoundAIConversationTests: XCTestCase {
             XCTFail("expected .noJSON")
         } catch {
             XCTAssertEqual(error as? SoundAI.Error, .noJSON)
-            XCTAssertTrue(SoundAI.message(for: error)?.contains("anderes Modell") ?? false)
+            XCTAssertTrue(SoundAI.message(for: error)?.contains("another model") ?? false)
         }
         XCTAssertEqual(chat.calls.count, 3)
     }
@@ -226,17 +245,17 @@ final class SoundAIConversationTests: XCTestCase {
         { messages, _ in
             let first = messages[1].content
             let last = messages.last?.content ?? ""
-            let key = ["Variante A", "Variante B", "Variante C"].first { first.contains($0) } ?? ""
+            let key = ["Variant A", "Variant B", "Variant C"].first { first.contains($0) } ?? ""
             if let delay = delays[key] { try await Task.sleep(nanoseconds: delay) }
             return answer(key, last)
         }
     }
 
     func testVariantsArriveAsSoonAsEachIsDone() async throws {
-        let chat = variantChat(delays: ["Variante A": 400_000_000, "Variante C": 150_000_000]) { key, _ in
+        let chat = variantChat(delays: ["Variant A": 400_000_000, "Variant C": 150_000_000]) { key, _ in
             switch key {
-            case "Variante A": self.recipe(name: "A", amp: "Twin", gain: 3)
-            case "Variante B": self.recipe(name: "B", amp: "Plexi")
+            case "Variant A": self.recipe(name: "A", amp: "Twin", gain: 3)
+            case "Variant B": self.recipe(name: "B", amp: "Plexi")
             default: self.recipe(name: "C", amp: "RolandJC120", gain: 2)
             }
         }
@@ -249,9 +268,9 @@ final class SoundAIConversationTests: XCTestCase {
     }
 
     func testASoundAlikeVariantIsSentBackToBeMadeDifferent() async throws {
-        let chat = variantChat(delays: ["Variante B": 100_000_000, "Variante C": 250_000_000]) { key, last in
-            guard last.contains("zu ähnlich") else { return self.recipe(name: key, amp: "Twin", gain: 3) }
-            return self.recipe(name: key, amp: key == "Variante B" ? "Plexi" : "RolandJC120")
+        let chat = variantChat(delays: ["Variant B": 100_000_000, "Variant C": 250_000_000]) { key, last in
+            guard last.contains("too much like") else { return self.recipe(name: key, amp: "Twin", gain: 3) }
+            return self.recipe(name: key, amp: key == "Variant B" ? "Plexi" : "RolandJC120")
         }
         var amps: [Int: String] = [:]
         for await event in try SoundAI.variants(request: "Clean", chat: chat) {
@@ -263,8 +282,8 @@ final class SoundAIConversationTests: XCTestCase {
 
     func testOneFailingVariantDoesNotStopTheOthers() async throws {
         let chat: SoundAI.Chat = { messages, _ in
-            if messages[1].content.contains("Variante C") { throw OllamaCloud.Error.rateLimited }
-            return messages[1].content.contains("Variante A") ? self.recipe(amp: "Twin") : self.recipe(amp: "Plexi")
+            if messages[1].content.contains("Variant C") { throw OllamaCloud.Error.rateLimited }
+            return messages[1].content.contains("Variant A") ? self.recipe(amp: "Twin") : self.recipe(amp: "Plexi")
         }
         var ready: Set<Int> = []
         var failed: [Int: String] = [:]
@@ -276,7 +295,7 @@ final class SoundAIConversationTests: XCTestCase {
         }
         XCTAssertEqual(ready, [0, 1])
         XCTAssertEqual(failed.keys.sorted(), [2])
-        XCTAssertTrue(failed[2]?.contains("ausgelastet") ?? false)
+        XCTAssertTrue(failed[2]?.contains("busy") ?? false)
     }
 
     func testCancellingStopsTheRequests() async throws {
@@ -311,7 +330,7 @@ final class SoundAIConversationTests: XCTestCase {
         let sent = chat.calls[0]
         XCTAssertEqual(sent.map(\.role), ["system", "user", "assistant", "user"])
         XCTAssertTrue(sent[2].content.contains("\"Crunch\""), "the current recipe goes along")
-        XCTAssertTrue(sent[3].content.contains("wärmer"))
+        XCTAssertTrue(sent[3].content.contains("warmer"))
     }
 
     func testRefineSendsBackAnAmpSwap() async throws {
@@ -320,7 +339,7 @@ final class SoundAIConversationTests: XCTestCase {
         let result = try await SoundAI.refine(original, .warmer, request: "Rock", chat: chat.chat)
         XCTAssertEqual(result.recipe.chain["amp"]?.model, "Plexi")
         XCTAssertEqual(chat.calls.count, 2)
-        XCTAssertTrue(chat.calls[1].last?.content.contains("ersetzt") ?? false)
+        XCTAssertTrue(chat.calls[1].last?.content.contains("replaced") ?? false)
     }
 
     func testRefineTurnsTheKnobItselfWhenTheModelDoesNot() async throws {
@@ -379,7 +398,7 @@ final class SoundAIConversationTests: XCTestCase {
                                                   temperature: 0.3)
         XCTAssertEqual(request.url, OllamaCloud.endpoint)
         XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer key")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "SparkStudio")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "AmpBench")
         XCTAssertEqual(request.timeoutInterval, OllamaCloud.requestTimeout)
         let body = try XCTUnwrap(JSONSerialization.jsonObject(with: request.httpBody ?? Data()) as? [String: Any])
         XCTAssertEqual(Set(body.keys), ["model", "messages", "stream", "format", "options"])
@@ -441,7 +460,7 @@ final class SoundAIConversationTests: XCTestCase {
             XCTFail("expected .timeout")
         } catch {
             XCTAssertEqual(error as? OllamaCloud.Error, .timeout)
-            XCTAssertTrue(error.localizedDescription.contains("Zeitlimit"))
+            XCTAssertTrue(error.localizedDescription.contains("time limit"))
         }
         XCTAssertEqual(transport.count, 1)
     }

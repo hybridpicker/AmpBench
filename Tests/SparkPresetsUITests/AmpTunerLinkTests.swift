@@ -10,7 +10,7 @@ final class AmpTunerLinkTests: XCTestCase {
     private var suite = ""
 
     override func setUp() async throws {
-        suite = "local.sparkstudio.tests.amptuner.\(UUID().uuidString)"
+        suite = "local.ampbench.tests.amptuner.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 

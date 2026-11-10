@@ -43,7 +43,7 @@ final class ReactorPresetTests: XCTestCase {
         XCTAssertEqual(preset.fixed[1].values, [0, 0.5, 0.5, 0])
         XCTAssertEqual(preset.effects.count, 10)
         XCTAssertEqual(preset.effects[0].values, [0.25, 1, 0])
-        XCTAssertEqual(preset.summary, "Twin Clean · 2 Effekte an")
+        XCTAssertEqual(preset.summary, "Twin Clean · 2 effects on")
         XCTAssertTrue(preset.checksumOK)
     }
 

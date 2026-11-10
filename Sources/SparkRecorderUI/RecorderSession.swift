@@ -1,3 +1,4 @@
+import AmpText
 import AppKit
 import SparkCore
 import SparkDesign
@@ -29,7 +30,7 @@ struct LaunchOptions {
     }()
 }
 
-/// The recorder's part of an app's life: the model, the window that shows the deck, starting and ending. Spark Studio
+/// The recorder's part of an app's life: the model, the window that shows the deck, starting and ending. AmpBench
 /// makes the window and hands it over with `adopt`; the self-test, the key router and "the window closed while
 /// recording" refer to it.
 @MainActor
@@ -41,7 +42,7 @@ final class RecorderSession: NSObject, NSWindowDelegate {
     /// `--library` still wins.
     static func makeModel(folder: URL? = nil, inputNames: [String]? = nil) -> AppModel {
         var options = LaunchOptions.current
-        // A real library records from the devices Spark Studio knows; a test library keeps its test devices.
+        // A real library records from the devices AmpBench knows; a test library keeps its test devices.
         if !options.isTestLibrary, let inputNames { options.inputPolicy = .usbDevices(named: inputNames) }
         let defaults = options.isTestLibrary
             ? (UserDefaults(suiteName: "local.sparkrecorder.tests") ?? .standard)
@@ -86,7 +87,7 @@ final class RecorderSession: NSObject, NSWindowDelegate {
     }
 }
 
-/// Everything below the deck: waveform, transport, library. Spark Studio shows it as its area "Aufnahme".
+/// Everything below the deck: waveform, transport, library. AmpBench shows it as its area "Record".
 struct RecorderWorkspace: View {
     var body: some View {
         VStack(spacing: 0) {
@@ -98,7 +99,7 @@ struct RecorderWorkspace: View {
 }
 
 extension View {
-    /// The recorder's sheets and questions. Spark Studio attaches them to its whole window, so they also appear when
+    /// The recorder's sheets and questions. AmpBench attaches them to its whole window, so they also appear when
     /// a menu asks for them while the other area shows.
     func recorderPresentations() -> some View { modifier(RecorderPresentations()) }
 }
@@ -110,23 +111,23 @@ private struct RecorderPresentations: ViewModifier {
         content
         .sheet(isPresented: $model.showLoopbackInfo) { LoopbackSheet() }
         .sheet(isPresented: $model.showLatencyInfo) { LatencySheet() }
-        .alert("Aufnahme umbenennen", isPresented: Binding(
+        .alert(tr("Rename this take"), isPresented: Binding(
             get: { model.renameTarget != nil },
             set: { if !$0 { model.renameTarget = nil } }
         )) {
-            TextField("Name", text: $model.renameText)
-            Button("Umbenennen", action: model.commitRename)
-            Button("Abbrechen", role: .cancel) {}
+            TextField(tr("Name"), text: $model.renameText)
+            Button(tr("Rename"), action: model.commitRename)
+            Button(tr("Cancel"), role: .cancel) {}
         } message: {
-            Text("Die Datei im Ordner bekommt denselben Namen.")
+            Text(tr("The file in the folder gets the same name."))
         }
-        .alert("Neues Stück", isPresented: Binding(
+        .alert(tr("New piece"), isPresented: Binding(
             get: { model.newPieceTargets != nil },
             set: { if !$0 { model.newPieceTargets = nil } }
         )) {
-            TextField("Titel", text: $model.newPieceName)
-            Button("Anlegen", action: model.commitNewPiece)
-            Button("Abbrechen", role: .cancel) {}
+            TextField(tr("Title"), text: $model.newPieceName)
+            Button(tr("Create"), action: model.commitNewPiece)
+            Button(tr("Cancel"), role: .cancel) {}
         } message: {
             Text(newPieceMessage)
         }
@@ -135,9 +136,9 @@ private struct RecorderPresentations: ViewModifier {
     private var newPieceMessage: String {
         let count = model.newPieceTargets?.count ?? 0
         switch count {
-        case 0: return "Neue Aufnahmen landen dann in diesem Stück."
-        case 1: return "Die markierte Aufnahme kommt in dieses Stück."
-        default: return "Die \(count) markierten Aufnahmen kommen in dieses Stück."
+        case 0: return tr("New takes then go into this piece.")
+        case 1: return tr("The selected take goes into this piece.")
+        default: return tr("The %d selected takes go into this piece.", count)
         }
     }
 }
@@ -146,111 +147,111 @@ private struct RecorderPresentations: ViewModifier {
 
 struct AppCommands: Commands {
     @ObservedObject var model: AppModel
-    /// False while Spark Studio shows another area: the keys both areas use then belong to it.
+    /// False while AmpBench shows another area: the keys both areas use then belong to it.
     var isActive = true
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {}
-        // After the pasteboard group: Spark Studio replaces the undo group for Presets, which drops groups placed
+        // After the pasteboard group: AmpBench replaces the undo group for Presets, which drops groups placed
         // after it.
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button("In den Papierkorb legen", action: discardOrEditText)
+            Button(tr("Move to Trash"), action: discardOrEditText)
                 .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
                 .disabled(model.isRecording || !isActive)
-            Button("Zuletzt Verworfenes wiederherstellen", action: model.restoreLastTrashed)
+            Button(tr("Restore last discarded"), action: model.restoreLastTrashed)
                 .disabled(!model.canRestoreLastTrashed)
         }
-        CommandMenu("Aufnahme") {
+        CommandMenu(tr("Record")) {
             Button(recordTitle + "  (R)", action: model.toggleRecord)
                 .disabled(!model.libraryIsUsable)
-            Button("Marker setzen  (M)", action: model.addMarker)
-            Button("Gewählte Takte neu aufnehmen", action: model.recordSelectedBars)
+            Button(tr("Add marker  (M)"), action: model.addMarker)
+            Button(tr("Record selected bars again"), action: model.recordSelectedBars)
                 .disabled(!model.canRecordBars)
-            Button("Behalten  (K)") { model.keep() }
+            Button(tr("Keep  (K)")) { model.keep() }
                 .disabled(model.current?.status != .open)
             Divider()
-            Button(model.isMonitoring ? "Eingang prüfen beenden" : "Eingang prüfen", action: model.toggleMonitor)
+            Button(model.isMonitoring ? tr("Stop checking input") : tr("Check input"), action: model.toggleMonitor)
                 .disabled(model.isRecording || model.isRetroOn)
-            Button(model.isRetroOn ? "Retro-Aufnahme ausschalten" : "Retro-Aufnahme einschalten", action: model.toggleRetro)
+            Button(model.isRetroOn ? tr("Turn off Retro recording") : tr("Turn on Retro recording"), action: model.toggleRetro)
                 .disabled(model.isRecording)
-            Menu("Das eben war gut") {
-                Button("Ganzer Puffer  (G)") { model.saveRetro() }
-                Button("Letzte 30 Sekunden") { model.saveRetro(seconds: 30) }
-                Button("Letzte Minute") { model.saveRetro(seconds: 60) }
-                Button("Letzte 2 Minuten") { model.saveRetro(seconds: 120) }
+            Menu(tr("That was good")) {
+                Button(tr("Whole buffer  (G)")) { model.saveRetro() }
+                Button(tr("Last 30 seconds")) { model.saveRetro(seconds: 30) }
+                Button(tr("Last minute")) { model.saveRetro(seconds: 60) }
+                Button(tr("Last 2 minutes")) { model.saveRetro(seconds: 120) }
             }
             .disabled(!model.isRetroOn)
             Divider()
-            Toggle("Pegel neuer Aufnahmen automatisch anheben", isOn: Binding(
+            Toggle(tr("Raise the level of new takes automatically"), isOn: Binding(
                 get: { model.autoLevelDefault },
                 set: {
                     model.autoLevelDefault = $0
                     model.defaults.set($0, forKey: "autoLevel")
                 }
             ))
-            Picker("Aktuelles Stück", selection: Binding(get: { model.currentPieceID }, set: { model.setCurrentPiece($0) })) {
-                Text("Kein Stück").tag(UUID?.none)
+            Picker(tr("Current piece"), selection: Binding(get: { model.currentPieceID }, set: { model.setCurrentPiece($0) })) {
+                Text(tr("None")).tag(UUID?.none)
                 ForEach(model.pieces) { Text($0.name).tag(UUID?.some($0.id)) }
             }
             Divider()
-            Button("Rückkopplung messen …") { model.showLoopbackInfo = true }
+            Button(tr("Measure feedback …")) { model.showLoopbackInfo = true }
                 .disabled(!model.canMeasureLoopback)
-            Button("Messungen vergessen", action: model.forgetLoopbackMeasurements)
-            Button("Klick-Latenz messen …") { model.showLatencyInfo = true }
+            Button(tr("Forget measurements"), action: model.forgetLoopbackMeasurements)
+            Button(tr("Measure click latency …")) { model.showLatencyInfo = true }
                 .disabled(!model.canMeasureLatency)
         }
-        CommandMenu("Wiedergabe") {
-            Button("Abspielen oder anhalten  (Leertaste)", action: model.togglePlay)
-            Button("Schleife A, B, aus  (L)", action: model.toggleLoop)
+        CommandMenu(tr("Playback")) {
+            Button(tr("Play or pause  (Space)"), action: model.togglePlay)
+            Button(tr("Loop A, B, off  (L)"), action: model.toggleLoop)
                 .disabled(model.current == nil)
-            Button("Gewählte Takte loopen", action: model.toggleBarLoop)
+            Button(tr("Loop selected bars"), action: model.toggleBarLoop)
                 .disabled(model.barSelection == nil)
             Divider()
-            Button("5 Sekunden zurück  (←)") { model.nudge(by: -5) }
-            Button("5 Sekunden vor  (→)") { model.nudge(by: 5) }
+            Button(tr("Back 5 seconds  (←)")) { model.nudge(by: -5) }
+            Button(tr("Forward 5 seconds  (→)")) { model.nudge(by: 5) }
             Divider()
-            Button("Langsamer  (-)") { model.setTempo(model.tempo - 0.05) }
-            Button("Schneller  (+)") { model.setTempo(model.tempo + 0.05) }
-            Button("Tempo und Tonhöhe zurücksetzen  (0)", action: model.resetTempoAndPitch)
+            Button(tr("Slower  (-)")) { model.setTempo(model.tempo - 0.05) }
+            Button(tr("Faster  (+)")) { model.setTempo(model.tempo + 0.05) }
+            Button(tr("Reset tempo and pitch  (0)"), action: model.resetTempoAndPitch)
             Divider()
-            Button("Klick an oder aus  (N)", action: model.toggleClick)
-            Button("Tap-Tempo  (T)", action: model.tap)
+            Button(tr("Click on or off  (N)"), action: model.toggleClick)
+            Button(tr("Tap tempo  (T)"), action: model.tap)
             Divider()
-            Button("Zwei Takes vergleichen", action: model.startCompare)
+            Button(tr("Compare two takes"), action: model.startCompare)
                 .disabled(!model.canCompare)
-            Button("Zum anderen Take wechseln  (B)", action: model.switchCompare)
+            Button(tr("Switch to the other take  (B)"), action: model.switchCompare)
                 .disabled(model.compareIDs.isEmpty)
         }
-        CommandMenu("Bibliothek") {
-            Button("Suchen") { model.tab = .recordings }
-            Button("Umbenennen …") { model.beginRename() }
+        CommandMenu(tr("Library")) {
+            Button(tr("Search")) { model.tab = .recordings }
+            Button(tr("Rename …")) { model.beginRename() }
                 .keyboardShortcut(owned(KeyboardShortcut("e", modifiers: .command)))
                 .disabled(model.current == nil || !isActive)
-            Button("Im Finder zeigen") { model.reveal() }
+            Button(tr("Show in Finder")) { model.reveal() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: [.command, .shift])))
                 .disabled(model.current == nil || !isActive)
             Divider()
-            Menu("Exportieren") {
-                Button("WAV, 24 Bit …") { model.export(.wav24) }
-                Button("AAC, 192 kbit/s …") { model.export(.aac(bitRate: 192_000)) }
-                Button("AAC, 256 kbit/s …") { model.export(.aac(bitRate: 256_000)) }
+            Menu(tr("Export as")) {
+                Button(tr("WAV, 24-bit …")) { model.export(.wav24) }
+                Button(tr("AAC, 192 kbit/s …")) { model.export(.aac(bitRate: 192_000)) }
+                Button(tr("AAC, 256 kbit/s …")) { model.export(.aac(bitRate: 256_000)) }
             }
             .disabled(model.current == nil || model.isRecording)
             Divider()
-            Button("Favorit  (F)") { model.toggleFavorite() }
+            Button(tr("Favorite  (F)")) { model.toggleFavorite() }
                 .disabled(model.current == nil)
-            Menu("Bewertung  (1 bis 5)") {
+            Menu(tr("Rating  (1 to 5)")) {
                 ForEach(1...5, id: \.self) { rating in
                     Button(String(repeating: "★", count: rating)) { model.setRating(rating) }
                 }
             }
             .disabled(model.current == nil)
             Divider()
-            Button("Neues Stück …") { model.beginNewPiece() }
-            Button("Ordner prüfen") { model.scanFolder() }
+            Button(tr("New piece …")) { model.beginNewPiece() }
+            Button(tr("Check folder")) { model.scanFolder() }
                 .disabled(model.isRecording)
-            Button("Bibliotheksordner im Finder zeigen", action: model.revealLibraryFolder)
+            Button(tr("Show library folder in Finder"), action: model.revealLibraryFolder)
         }
     }
 
@@ -261,9 +262,9 @@ struct AppCommands: Commands {
 
     private var recordTitle: String {
         switch model.phase {
-        case .idle, .preparing: return "Aufnahme starten"
-        case .countIn: return "Einzähler abbrechen"
-        case .recording: return "Aufnahme stoppen"
+        case .idle, .preparing: return tr("Start recording")
+        case .countIn: return tr("Cancel count-in")
+        case .recording: return tr("Stop recording")
         }
     }
 
@@ -284,20 +285,21 @@ private struct LatencySheet: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        SheetPanel("Klick-Latenz messen") {
-            Text("Damit die Takte auf die Millisekunde stimmen, misst die App, wie lange ein Klick von „\(model.clickOutput?.name ?? "–")“ bis in die Aufnahme von „\(model.selectedInput?.name ?? "–")“ braucht. Der Amp verzögert die Gitarre intern, und das melden die Geräte nicht.")
+        SheetPanel(tr("Measure click latency")) {
+            Text(tr("So that the bars are right to the millisecond, the app measures how long a click takes from “%@” into the recording from “%@”. The amp delays the guitar internally, and the devices do not report that.",
+                    model.clickOutput?.name ?? "–", model.selectedInput?.name ?? "–"))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Steck dafür ein Kabel vom Kopfhörerausgang in den Gitarreneingang des Amps, mit 3,5-mm-Klinke am Mac und 6,3-mm-Klinke am Amp. Ohne Kabel geht auch ein Kopfhörer direkt auf dem Tonabnehmer, bei abgedämpften Saiten. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.")
+            Text(tr("For this, run a cable from the headphone output to the amp's guitar input, with a 3.5 mm plug at the Mac and a 6.3 mm plug at the amp. Without a cable, headphones held directly on the pickup work too, with the strings muted. Choose a preset without delay, reverb and noise gate and set the output to medium volume. The measurement takes about ten seconds; nothing is saved."))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Das Ergebnis gilt für genau diese beiden Geräte und für Aufnahmen, die danach entstehen.")
+            Text(tr("The result applies to exactly these two devices and to takes recorded afterwards."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Abbrechen", role: .cancel) { model.showLatencyInfo = false }
+                Button(tr("Cancel"), role: .cancel) { model.showLatencyInfo = false }
                     .keyboardShortcut(.cancelAction)
-                Button("Messen") {
+                Button(tr("Measure")) {
                     model.showLatencyInfo = false
                     model.measureLatency()
                 }
@@ -312,16 +314,17 @@ private struct LoopbackSheet: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        SheetPanel("Rückkopplung messen") {
-            Text("Die App spielt rund drei Sekunden lang leise Klicks über „\(model.effectiveOutput?.name ?? "–")“ und misst, ob sie am Eingang „\(model.selectedInput?.name ?? "–")“ ankommen. Es wird nichts gespeichert.")
+        SheetPanel(tr("Measure feedback")) {
+            Text(tr("The app plays quiet clicks through “%@” for about three seconds and measures whether they arrive at the input “%@”. Nothing is saved.",
+                    model.effectiveOutput?.name ?? "–", model.selectedInput?.name ?? "–"))
                 .fixedSize(horizontal: false, vertical: true)
-            Text("Dreh die Gitarre vorher leise oder steck sie aus. Das Ergebnis gilt nur für diese beiden Geräte.")
+            Text(tr("Turn the guitar down or unplug it first. The result applies only to these two devices."))
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Abbrechen", role: .cancel) { model.showLoopbackInfo = false }
+                Button(tr("Cancel"), role: .cancel) { model.showLoopbackInfo = false }
                     .keyboardShortcut(.cancelAction)
-                Button("Messen") {
+                Button(tr("Measure")) {
                     model.showLoopbackInfo = false
                     model.measureLoopback()
                 }

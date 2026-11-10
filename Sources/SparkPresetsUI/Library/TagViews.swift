@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -23,7 +24,9 @@ struct TagChip: View {
         .padding(.vertical, 2.5)
         .background(Capsule().fill(isOn ? AnyShapeStyle(Theme.desk.amber) : AnyShapeStyle(Color.secondary.opacity(0.15))))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Tag \(tag)\(count.map { ", \($0) Presets" } ?? "")\(isOn ? ", Filter an" : "")\(isPinned ? ", angeheftet" : "")")
+        .accessibilityLabel([tr("Tag %@", tag), count.map { $0 == 1 ? tr("1 preset") : tr("%d presets", $0) },
+                             isOn ? tr("filter on") : nil, isPinned ? tr("pinned") : nil]
+            .compactMap { $0 }.joined(separator: ", "))
     }
 }
 
@@ -50,15 +53,15 @@ struct TagFilterBar: View {
                                 isPinned: model.isPinned(entry.tag))
                     }
                     .buttonStyle(.plain)
-                    .help("Nur Presets mit #\(entry.tag) zeigen. Rechtsklick: als Abschnitt anheften.")
+                    .help(tr("Show only presets with #%@. Right-click: pin as a section.", entry.tag))
                     .contextMenu {
-                        Button(model.isPinned(entry.tag) ? "Abschnitt lösen" : "Als Abschnitt anheften") {
+                        Button(model.isPinned(entry.tag) ? tr("Unpin section") : tr("Pin as a section")) {
                             model.togglePin(entry.tag)
                         }
                     }
                 }
                 if !more.isEmpty {
-                    Menu("+ \(more.count) weitere") {
+                    Menu(tr("+ %d more", more.count)) {
                         ForEach(more, id: \.tag) { entry in
                             Button("#\(entry.tag) (\(entry.count))") { model.toggleFilter(entry.tag) }
                         }
@@ -66,10 +69,10 @@ struct TagFilterBar: View {
                     .menuStyle(.borderlessButton)
                     .fixedSize()
                     .font(.system(size: 10.5))
-                    .help("Weitere Tags zum Filtern")
+                    .help(tr("More tags to filter by"))
                 }
                 if !model.tagFilter.isEmpty {
-                    Button("Alle zeigen") { model.tagFilter = [] }
+                    Button(tr("Show all")) { model.tagFilter = [] }
                         .buttonStyle(.link)
                         .font(.system(size: 10.5))
                 }
@@ -103,16 +106,16 @@ struct PresetDetailsBar: View {
                                 Image(systemName: "xmark").font(.system(size: 8, weight: .bold))
                             }
                             .buttonStyle(.borderless)
-                            .help("#\(tag) entfernen")
-                            .accessibilityLabel("Tag \(tag) entfernen")
+                            .help(tr("Remove #%@", tag))
+                            .accessibilityLabel(tr("Remove tag %@", tag))
                         }
                         .contextMenu {
-                            Button(model.isPinned(tag) ? "Abschnitt lösen" : "Als Abschnitt anheften") {
+                            Button(model.isPinned(tag) ? tr("Unpin section") : tr("Pin as a section")) {
                                 model.togglePin(tag)
                             }
                         }
                     }
-                    TextField("#tag hinzufügen", text: $newTags)
+                    TextField(tr("Add #tag"), text: $newTags)
                         .textFieldStyle(.plain)
                         .font(.system(size: 11))
                         .frame(width: 130)
@@ -120,17 +123,17 @@ struct PresetDetailsBar: View {
                             model.addTags(newTags, to: item)
                             newTags = ""
                         }
-                        .accessibilityLabel("Tags hinzufügen")
+                        .accessibilityLabel(tr("Add tags"))
                 }
                 Spacer(minLength: 0)
-                Button(showsNotes ? "Notizen ausblenden" : (item.file.notes.isEmpty ? "Notiz …" : "Notizen")) {
+                Button(showsNotes ? tr("Hide notes") : (item.file.notes.isEmpty ? tr("Note …") : tr("Notes"))) {
                     showsNotes.toggle()
                 }
                 .buttonStyle(.link)
                 .font(.system(size: 11))
             }
             if showsNotes {
-                TextField("Notizen: woher der Sound kommt, wofür er passt, was zu probieren ist", text: $notes,
+                TextField(tr("Notes: where the sound comes from, what it suits, what to try"), text: $notes,
                           axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: 11))

@@ -1,8 +1,9 @@
+import AmpText
 import AVFoundation
 import AppKit
 import SparkCore
 
-/// Headless commands for checking the audio path without the UI, in Spark Recorder and Spark Studio:
+/// Headless commands for checking the audio path without the UI, in Spark Recorder and AmpBench:
 ///   --list
 ///   --record <device name part> <seconds> <output.wav>
 ///   --play-tone <device name part> <seconds> [frequency] [amplitude]
@@ -21,40 +22,41 @@ func runCommandLine(_ arguments: [String]) -> Int32? {
     switch command {
     case "--inspect":
         guard arguments.count == 2 else {
-            print("usage: --inspect <file.wav>")
+            print(tr("usage: --inspect <file.wav>"))
             return 64
         }
         print(WAVFile.inspect(URL(fileURLWithPath: arguments[1])))
         return 0
     case "--list":
         for device in AudioDevices.inputDevices() {
-            let allowed = InputPolicy.sparkOnly.allows(device) ? "allowed" : "not allowed"
-            print("input \(device.name) [\(allowed)]: \(device.channels) ch, \(device.physicalBits) bit, current \(device.currentRate) Hz, max \(device.maxRate) Hz")
+            let allowed = InputPolicy.sparkOnly.allows(device) ? tr("allowed") : tr("not allowed")
+            print(tr("input %@ [%@]: %@ ch, %@ bit, current %@ Hz, max %@ Hz", device.name, allowed,
+                     "\(device.channels)", "\(device.physicalBits)", "\(device.currentRate)", "\(device.maxRate)"))
         }
         for device in AudioDevices.outputDevices() {
-            print("output \(device.name): \(device.channels) ch")
+            print(tr("output %@: %@ ch", device.name, "\(device.channels)"))
         }
-        print("spark devices without input: \(AudioDevices.sparkDevicesWithoutInput())")
+        print(tr("Spark devices without input: %@", "\(AudioDevices.sparkDevicesWithoutInput())"))
         return 0
     case "--play-tone":
         return playTone(arguments)
     case "--record":
         return record(arguments)
     default:
-        print("unknown command")
+        print(tr("unknown command"))
         return 64
     }
 }
 
 private func record(_ arguments: [String]) -> Int32 {
     guard arguments.count == 4, let seconds = Double(arguments[2]) else {
-        print("usage: --record <device name part> <seconds> <output.wav>")
+        print(tr("usage: --record <device name part> <seconds> <output.wav>"))
         return 64
     }
     guard let device = AudioDevices.inputDevices().filter(InputPolicy.sparkOnly.allows).first(where: {
         $0.name.lowercased().contains(arguments[1].lowercased())
     }) else {
-        print("no matching Spark input on USB")
+        print(tr("no matching Spark input on USB"))
         return 1
     }
     let semaphore = DispatchSemaphore(value: 0)
@@ -64,26 +66,27 @@ private func record(_ arguments: [String]) -> Int32 {
         semaphore.signal()
     }
     semaphore.wait()
-    print("microphone permission: \(granted)")
+    print(tr("microphone permission: %@", granted ? tr("yes") : tr("no")))
     let capture = CaptureEngine()
     do {
         try capture.open(device: device)
         try capture.startRecording(to: URL(fileURLWithPath: arguments[3]))
     } catch {
-        print("start failed: \(error.localizedDescription)")
+        print(tr("start failed: %@", error.localizedDescription))
         return 1
     }
     RunLoop.main.run(until: Date().addingTimeInterval(seconds))
     guard let result = capture.stopRecording() else { return 1 }
     capture.close()
-    print("seconds: \(result.seconds), peak: \(result.peak), dropped: \(result.droppedFrames), write error: \(result.writeError.map(String.init) ?? "none")")
+    print(tr("seconds: %@, peak: %@, dropped: %@, write error: %@", "\(result.seconds)", "\(result.peak)",
+             "\(result.droppedFrames)", result.writeError.map(String.init) ?? tr("none")))
     return result.writeError == nil ? 0 : 1
 }
 
 /// Feeds a synthetic sine into a device, which is how UI tests get a signal through BlackHole.
 private func playTone(_ arguments: [String]) -> Int32 {
     guard arguments.count >= 3, let seconds = Double(arguments[2]) else {
-        print("usage: --play-tone <device name part> <seconds> [frequency] [amplitude]")
+        print(tr("usage: --play-tone <device name part> <seconds> [frequency] [amplitude]"))
         return 64
     }
     let frequency = arguments.count > 3 ? Double(arguments[3]) ?? 1000 : 1000
@@ -91,7 +94,7 @@ private func playTone(_ arguments: [String]) -> Int32 {
     guard let device = AudioDevices.outputDevices().first(where: {
         $0.name.lowercased().contains(arguments[1].lowercased())
     }) else {
-        print("no matching output device")
+        print(tr("no matching output device"))
         return 1
     }
     let rate = AudioDevices.currentRate(of: device.id)
@@ -108,7 +111,7 @@ private func playTone(_ arguments: [String]) -> Int32 {
         try playback.load(url: url, edit: EditList())
         try playback.play()
     } catch {
-        print("play failed: \(error.localizedDescription)")
+        print(tr("play failed: %@", error.localizedDescription))
         return 1
     }
     RunLoop.main.run(until: Date().addingTimeInterval(seconds + 0.2))

@@ -1,6 +1,7 @@
+import AmpText
 import Foundation
 
-/// What Spark Studio knows about one kind of Positive Grid device: how it is found, how many slots it has, what may
+/// What AmpBench knows about one kind of Positive Grid device: how it is found, how many slots it has, what may
 /// be sent to it and what it does on its own.
 ///
 /// Every device gets only what has been checked on it with the user. Listening (subscribing to what the device reports)
@@ -14,7 +15,7 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
         case sparkMini, sparkNEO, reactor50, reactor100, unknownSpark
     }
 
-    /// How Spark Studio reaches the device.
+    /// How AmpBench reaches the device.
     public enum Transport: String, Sendable {
         /// Bluetooth LE with Spark messages (`F0 01 … F7`) on a control service.
         case sparkBLE
@@ -51,7 +52,7 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
         public static let tuner = Capabilities(rawValue: 1 << 9)
         /// The device reports a tapped tempo.
         public static let tapTempo = Capabilities(rawValue: 1 << 10)
-        /// The device is an audio input over USB that the area Aufnahme may record from.
+        /// The device is an audio input over USB that the area Record may record from.
         public static let usbAudio = Capabilities(rawValue: 1 << 11)
         /// The device takes a sound described in words (REACTOR's Text to Tone).
         public static let textToTone = Capabilities(rawValue: 1 << 12)
@@ -77,8 +78,10 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
     public var slotCount: Int
     /// Slots per bank, for a device whose slots come in banks.
     public var bankSize: Int?
-    /// Names of the banks in order, such as "Rot" and "Grün".
-    public var bankNames: [String]
+    /// Names of the banks in order, in English, such as "Red" and "Green".
+    public var englishBankNames: [String]
+    /// The banks' names in the app's language.
+    public var bankNames: [String] { englishBankNames.map { tr($0) } }
     public var transport: Transport
     public var capabilities: Capabilities
     /// Whether the device keeps a sound on the temporary place when the control connection ends. Nil: not checked,
@@ -88,10 +91,12 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
     public var confirmsParameters: Bool
     /// The firmware it was checked with. Nil when never read.
     public var checkedFirmware: String?
-    /// Parts of the USB audio name the area Aufnahme may record from. Empty: none is known, so none is allowed.
+    /// Parts of the USB audio name the area Record may record from. Empty: none is known, so none is allowed.
     public var usbAudioNames: [String]
-    /// What was checked on the device, in one sentence.
-    public var checked: String
+    /// What was checked on the device, in one sentence, in English.
+    public var englishChecked: String
+    /// What was checked on the device, in the app's language.
+    public var checked: String { tr(englishChecked) }
     /// Text fields as they were heard working on this device, stricter than `AmpGuard`'s limits for every device. Nil:
     /// only those. The NEO sits on the ears, so nothing longer than what it played goes to it (docs/STUDIO.md).
     public var checkedText: CheckedText? = nil
@@ -115,9 +120,9 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
     /// The slots as numbers from 0, for loops over them.
     public var slots: Range<Int> { 0..<slotCount }
 
-    /// "Platz 3", or with banks "Grün 1" for slot 4.
+    /// "Slot 3", or with banks "Green 1" for slot 4.
     public func slotName(_ slot: Int) -> String {
-        guard let size = bankSize, size > 0, slot >= 0, slot / size < bankNames.count else { return "Platz \(slot + 1)" }
+        guard let size = bankSize, size > 0, slot >= 0, slot / size < bankNames.count else { return tr("Slot %d", slot + 1) }
         return "\(bankNames[slot / size]) \(slot % size + 1)"
     }
 
@@ -136,28 +141,26 @@ public extension DeviceProfile {
     /// The services the Bluetooth search filters on. Nothing else nearby is ever seen.
     static let searchedServices = [sparkService, reactorService]
 
-    /// Checked with the user on 2026-11-07/08: everything Spark Studio does.
+    /// Checked with the user on 2026-11-07/08: everything AmpBench does.
     static let sparkMini = DeviceProfile(
         id: .sparkMini, displayName: "Spark MINI", bleService: sparkService, bleNamePrefixes: ["Spark MINI"],
-        ampNames: ["Spark MINI"], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        ampNames: ["Spark MINI"], slotCount: 4, englishBankNames: [], transport: .sparkBLE,
         capabilities: [.listen, .send, .read, .switchSlot, .playTemporary, .liveEdit, .store, .modelChange,
                        .buttonEvents, .tuner, .tapTempo, .usbAudio],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "1.11.2.75",
         usbAudioNames: ["spark"],
-        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern und das eigene Stimmgerät, "
-            + "Firmware 1.11.2.75.")
+        englishChecked: "Reading, switching, trying out, live changes, model changes, saving and its own tuner, firmware 1.11.2.75.")
 
     /// Checked with the user on 2026-11-09 with spark-probe: same protocol and preset format as the MINI. Its
-    /// headphones showed no audio device on USB-C, so the area Aufnahme cannot record from it.
+    /// headphones showed no audio device on USB-C, so the area Record cannot record from it.
     static let sparkNEO = DeviceProfile(
         id: .sparkNEO, displayName: "Spark NEO", bleService: sparkService, bleNamePrefixes: ["Spark NEO"],
-        ampNames: ["Spark NEO"], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        ampNames: ["Spark NEO"], slotCount: 4, englishBankNames: [], transport: .sparkBLE,
         capabilities: [.listen, .send, .read, .switchSlot, .playTemporary, .liveEdit, .store, .modelChange,
                        .buttonEvents, .tuner],
         keepsTemporaryAfterDisconnect: false, confirmsParameters: false, checkedFirmware: "1.16.1.60",
         usbAudioNames: [],
-        checked: "Lesen, Umschalten, Ausprobieren, Live-Ändern, Modellwechsel, Speichern, die mittlere Taste und das "
-            + "eigene Stimmgerät, Firmware 1.16.1.60. Trennen verwirft den vorübergehenden Sound.",
+        englishChecked: "Reading, switching, trying out, live changes, model changes, saving, the middle button and its own tuner, firmware 1.16.1.60. Disconnecting discards the temporary sound.",
         // Heard on 2026-11-09: factory names of at most 7 bytes and spark-probe's copies "SOLO Test" and
         // "HI GAIN Test" (12 bytes), never a description, version "0.7", icon "icon.png".
         checkedText: CheckedText(nameBytes: 12, descriptionBytes: 0, version: "0.7", icon: "icon.png"))
@@ -167,14 +170,13 @@ public extension DeviceProfile {
     /// level, and the amp selector (`01 B1`). So it takes a `ReactorSound`, and still nothing else: no `send`.
     static let reactor50 = DeviceProfile(
         id: .reactor50, displayName: "REACTOR 50", bleService: reactorService, bleNamePrefixes: ["Reactor 50"],
-        ampNames: [], slotCount: 8, bankSize: 4, bankNames: ["Rot", "Grün"], transport: .sparkBLE,
+        ampNames: [], slotCount: 8, bankSize: 4, englishBankNames: ["Red", "Green"], transport: .sparkBLE,
         capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound,
                        .reactorPresets],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "0.1.4.85",
         // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
         usbAudioNames: [],
-        checked: "Mitgelesen: Regler, Amp-Wahl, Push/Smooth, Heat, Effekte, TAP, Preset, Bank und Stimmgerät. "
-            + "Gesendet und gehört (2026-11-10): Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl. Kein Preset.")
+        englishChecked: "Read along: knobs, amp choice, Push/Smooth, Heat, effects, TAP, preset, bank and tuner. Sent and heard (2026-11-10): gain, bass, reverb on/off and level, amp choice. No preset.")
 
     /// Like the REACTOR 50, but never checked.
     static let reactor100: DeviceProfile = {
@@ -185,18 +187,18 @@ public extension DeviceProfile {
         // Never checked: it is only listened to, whatever the 50 takes.
         profile.capabilities.remove([.liveSound, .reactorPresets])
         profile.checkedFirmware = nil
-        profile.checked = "Nicht geprüft. Wie der REACTOR 50 behandelt: nur mitlesen, nichts senden."
+        profile.englishChecked = "Not checked. Treated like the REACTOR 50: read only, send nothing."
         return profile
     }()
 
     /// A Spark device nobody has checked yet: it may be read and switched, nothing more.
     static let unknownSpark = DeviceProfile(
         id: .unknownSpark, displayName: "Spark", bleService: sparkService, bleNamePrefixes: ["Spark"],
-        ampNames: [], slotCount: 4, bankNames: [], transport: .sparkBLE,
+        ampNames: [], slotCount: 4, englishBankNames: [], transport: .sparkBLE,
         capabilities: [.listen, .send, .read, .switchSlot, .buttonEvents],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: nil,
         usbAudioNames: [],
-        checked: "Nicht geprüft. Nur Lesen und Umschalten, bis das Gerät mit dem Nutzer geprüft ist.")
+        englishChecked: "Not checked. Reading and switching only, until the device is checked with the user.")
 
     static let all: [DeviceProfile] = [sparkMini, sparkNEO, reactor50, reactor100, unknownSpark]
 
@@ -236,7 +238,7 @@ public extension DeviceProfile {
         return name
     }
 
-    /// Parts of USB audio names the area Aufnahme may record from, from every profile.
+    /// Parts of USB audio names the area Record may record from, from every profile.
     static var recordableUSBNames: [String] {
         var names: [String] = []
         for name in all.flatMap(\.usbAudioNames) where !names.contains(name) { names.append(name) }

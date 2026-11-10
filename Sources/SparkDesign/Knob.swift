@@ -1,3 +1,4 @@
+import AmpText
 import AppKit
 import SwiftUI
 
@@ -136,7 +137,7 @@ public struct Knob: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
         .accessibilityValue(display(value))
-        .accessibilityHint("Ziehen, scrollen oder Pfeiltasten. Doppelklick setzt den Startwert.")
+        .accessibilityHint(tr("Drag, scroll or use the arrow keys. A double-click sets the default value."))
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: step(1, big: true)
@@ -144,7 +145,7 @@ public struct Knob: View {
             @unknown default: break
             }
         }
-        .accessibilityAction(named: "Startwert") { reset() }
+        .accessibilityAction(named: tr("Default value")) { reset() }
     }
 
     private var drag: some Gesture {
@@ -222,14 +223,14 @@ public struct Knob: View {
     private func clamp(_ value: Float) -> Float { min(max(value, 0), 1) }
 }
 
-#Preview("Regler") {
+#Preview("Knobs") {
     PreviewPair {
         Faceplate(radius: Theme.Radius.panel) {
             HStack(spacing: 22) {
                 Knob(name: "Gain", value: 0.7, accent: Swatch(hex: 0xF28A3C).color,
                      display: { String(format: "%.1f", $0 * 10) }, onChange: { _ in })
                 Knob(name: "Tone", value: 0.5, display: { String(format: "%.1f", $0 * 10) }, onChange: { _ in })
-                Knob(name: "Typ", value: 0.5, mode: .steps([0, 0.5, 1]), display: { _ in "B" }, onChange: { _ in })
+                Knob(name: "Type", value: 0.5, mode: .steps([0, 0.5, 1]), display: { _ in "B" }, onChange: { _ in })
             }
             .padding(20)
         }

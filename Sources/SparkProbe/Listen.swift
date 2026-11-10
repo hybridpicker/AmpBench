@@ -49,7 +49,7 @@ final class ListenLink: NSObject {
                 MainActor.assumeIsolated {
                     guard let self, self.started == nil else { return }
                     self.finish("No Spark or REACTOR connected within 20 seconds. Is it on, and is every other app "
-                                + "(Spark Studio, the Spark or REACTOR app on the phone) disconnected?")
+                                + "(AmpBench, the Spark or REACTOR app on the phone) disconnected?")
                 }
             }
         }

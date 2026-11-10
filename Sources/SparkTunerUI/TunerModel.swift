@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import AppKit
 import QuartzCore
@@ -9,8 +10,8 @@ import SparkCore
 /// own input through `SharedInput`, never through a second audio unit. Another input, such as a USB interface or the
 /// Mac's microphone, gets its own engine, but only while nothing of the recorder is involved. The tuner sends nothing
 /// to the amp, plays no sound, stores no audio and has no network access, with one exception the user picks: the
-/// source "Stimmgerät des Verstärkers" switches the amp's own tuner on while the area shows, and off when it is left.
-/// The amp is silent then; its readings come over Bluetooth, so a NEO without USB audio can be tuned too. "Automatisch",
+/// source "the amp's tuner" switches the amp's own tuner on while the area shows, and off when it is left.
+/// The amp is silent then; its readings come over Bluetooth, so a NEO without USB audio can be tuned too. "Automatic",
 /// the default, takes the Spark's USB input when the connected amp has one, and the amp's own tuner otherwise.
 @MainActor
 final class TunerModel: ObservableObject {
@@ -57,7 +58,7 @@ final class TunerModel: ObservableObject {
     }
     /// What the user chose.
     @Published private(set) var source: Source
-    /// What is used now: the choice, or what "Automatisch" stands for at the moment. Never `.automatic`.
+    /// What is used now: the choice, or what "Automatic" stands for at the moment. Never `.automatic`.
     @Published private(set) var current: Source = .deck
     @Published private(set) var readout: TunerReadout?
     @Published private(set) var hasSignal = false
@@ -184,7 +185,7 @@ final class TunerModel: ObservableObject {
         }
     }
 
-    /// What "Automatisch" stands for now.
+    /// What "Automatic" stands for now.
     private var resolved: Source {
         guard source == .automatic else { return source }
         guard let amp, ampName != nil else { return .deck }
@@ -194,20 +195,20 @@ final class TunerModel: ObservableObject {
     var inputName: String {
         if source == .automatic {
             let now = switch resolved {
-            case .amp: ampName.map { "Stimmgerät des \($0)" } ?? "Stimmgerät"
-            default: deckInputName ?? "Kein Spark"
+            case .amp: ampName.map { tr("%@ tuner", $0) } ?? tr("Tuner")
+            default: deckInputName ?? tr("No Spark")
             }
-            return "Automatisch: \(now)"
+            return tr("Automatic: %@", now)
         }
         return name(of: source)
     }
 
     private func name(of source: Source) -> String {
         switch source {
-        case .automatic: return "Automatisch"
-        case .deck: return deckInputName ?? "Kein Spark"
-        case .other(let uid): return otherInputs.first { $0.uid == uid }?.name ?? "Eingang fehlt"
-        case .amp: return ampName.map { "Stimmgerät des \($0)" } ?? "Kein Verstärker verbunden"
+        case .automatic: return tr("Automatic")
+        case .deck: return deckInputName ?? tr("No Spark")
+        case .other(let uid): return otherInputs.first { $0.uid == uid }?.name ?? tr("Input missing")
+        case .amp: return ampName.map { tr("%@ tuner", $0) } ?? tr("No amp connected")
         }
     }
 
@@ -404,17 +405,17 @@ final class TunerModel: ObservableObject {
         ])
     }
 
-    /// "E, 6. Saite, 2 Cent zu tief" or "E, 6. Saite, gestimmt". Whole cents above two, tenths below, so a calm
+    /// "E, string 6, 2 cents too low" or "E, string 6, in tune". Whole cents above two, tenths below, so a calm
     /// reading does not change its words with every tenth.
     static func spoken(_ readout: TunerReadout) -> String {
         var parts = [readout.note.spokenName(flats: readout.flats)]
-        if let string = readout.string { parts.append("\(string). Saite") }
+        if let string = readout.string { parts.append(tr("string %d", string)) }
         if readout.isInTune {
-            parts.append("gestimmt")
+            parts.append(tr("in tune"))
         } else {
             let amount = abs(readout.cents)
-            let text = amount >= 2 ? "\(Int(amount.rounded())) Cent" : TunerText.decimal(amount, digits: 1) + " Cent"
-            parts.append(text + (readout.cents < 0 ? " zu tief" : " zu hoch"))
+            let text = amount >= 2 ? String(Int(amount.rounded())) : TunerText.decimal(amount, digits: 1)
+            parts.append(readout.cents < 0 ? tr("%@ cents too low", text) : tr("%@ cents too high", text))
         }
         return parts.joined(separator: ", ")
     }

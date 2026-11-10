@@ -1,3 +1,4 @@
+import AmpText
 import AudioToolbox
 import CSparkRT
 import CoreAudio
@@ -105,18 +106,18 @@ public final class ClickEngine {
         )
         guard let component = AudioComponentFindNext(nil, &description) else { throw CaptureError.noAudioUnit }
         var newUnit: AudioUnit?
-        try check("Öffnen des Klicks", AudioComponentInstanceNew(component, &newUnit))
+        try check(tr("Opening the click"), AudioComponentInstanceNew(component, &newUnit))
         guard let unit = newUnit else { throw CaptureError.noAudioUnit }
         self.unit = unit
         do {
             var mutableDevice = device
-            try check("Auswählen des Geräts", AudioUnitSetProperty(
+            try check(tr("Selecting the device"), AudioUnitSetProperty(
                 unit, kAudioOutputUnitProperty_CurrentDevice, kAudioUnitScope_Global, 0,
                 &mutableDevice, UInt32(MemoryLayout<AudioDeviceID>.size)))
 
             var hardware = AudioStreamBasicDescription()
             var size = UInt32(MemoryLayout<AudioStreamBasicDescription>.size)
-            try check("Lesen des Ausgabeformats", AudioUnitGetProperty(
+            try check(tr("Reading the output format"), AudioUnitGetProperty(
                 unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 0, &hardware, &size))
             guard hardware.mSampleRate > 0 else { throw CaptureError.noInputFormat }
 
@@ -132,7 +133,7 @@ public final class ClickEngine {
                 mBitsPerChannel: 32,
                 mReserved: 0
             )
-            try check("Setzen des Klickformats", AudioUnitSetProperty(
+            try check(tr("Setting the click format"), AudioUnitSetProperty(
                 unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, 0,
                 &client, UInt32(MemoryLayout<AudioStreamBasicDescription>.size)))
 
@@ -147,11 +148,11 @@ public final class ClickEngine {
                 inputProc: spark_click_output_callback,
                 inputProcRefCon: UnsafeMutableRawPointer(newClick)
             )
-            try check("Registrieren des Klicks", AudioUnitSetProperty(
+            try check(tr("Registering the click"), AudioUnitSetProperty(
                 unit, kAudioUnitProperty_SetRenderCallback, kAudioUnitScope_Input, 0,
                 &callback, UInt32(MemoryLayout<AURenderCallbackStruct>.size)))
-            try check("Initialisieren des Klicks", AudioUnitInitialize(unit))
-            try check("Starten des Klicks", AudioOutputUnitStart(unit))
+            try check(tr("Initializing the click"), AudioUnitInitialize(unit))
+            try check(tr("Starting the click"), AudioOutputUnitStart(unit))
         } catch {
             stop()
             throw error

@@ -1,3 +1,4 @@
+import AmpText
 import AppKit
 import Combine
 import SparkControl
@@ -16,7 +17,7 @@ public struct HeardSound {
     public let listened: [(label: String, value: String)]?
 }
 
-/// Spark Presets inside another app, Spark Studio: the same model, content and menus as the app, plus what Studio
+/// Spark Presets inside another app, AmpBench: the same model, content and menus as the app, plus what Studio
 /// needs to tie takes, tempo and the deck to the presets.
 ///
 /// Bluetooth starts only when the content first shows, from its own start task, and `disconnect` ends the
@@ -35,9 +36,9 @@ public final class PresetsHost: ObservableObject {
         }
         // A test library keeps its devices apart from the real ones; `--demo-devices` shows simulated devices only.
         let link: SparkLink? = testFolder.map { _ in
-            let defaults = UserDefaults(suiteName: "local.sparkstudio.devices.tests") ?? .standard
+            let defaults = UserDefaults(suiteName: "local.ampbench.devices.tests") ?? .standard
             let demo = Snapshot.arguments["demo-devices"]
-            if demo != nil { defaults.removePersistentDomain(forName: "local.sparkstudio.devices.tests") }
+            if demo != nil { defaults.removePersistentDomain(forName: "local.ampbench.devices.tests") }
             return SparkLink(transport: demo.map { _ in SimulatedDevice([.mini, .neo, .reactor]) as LinkTransport },
                              memory: DeviceMemory(defaults: defaults))
         }
@@ -83,13 +84,13 @@ public final class PresetsHost: ObservableObject {
     public var connectionText: String {
         switch model.link.status {
         case .connected: model.link.shownName
-        case .starting: model.link.wanted ? "Bluetooth startet" : "getrennt"
-        case .searching: "Suche den Verstärker"
-        case .connecting: "Verbinde"
-        case .off: "getrennt"
-        case .unauthorized: "kein Bluetooth-Zugriff"
-        case .bluetoothOff: "Bluetooth ist aus"
-        case .unsupported: "kein Bluetooth LE"
+        case .starting: model.link.wanted ? tr("Bluetooth is starting") : tr("disconnected")
+        case .searching: tr("Searching for the amp")
+        case .connecting: tr("Connecting")
+        case .off: tr("disconnected")
+        case .unauthorized: tr("no Bluetooth access")
+        case .bluetoothOff: tr("Bluetooth is off")
+        case .unsupported: tr("no Bluetooth LE")
         }
     }
 
@@ -100,7 +101,7 @@ public final class PresetsHost: ObservableObject {
     // MARK: The amp's own tuner
 
     /// Starts the Bluetooth link as the area Presets does on its first showing, for the tuner shown first. Does
-    /// nothing once started, also not after "Trennen".
+    /// nothing once started, also not after "Disconnect".
     public func startLinkOnce() {
         let model = model
         Task { await PresetsContent.startOnce(model) }
@@ -149,7 +150,7 @@ public final class PresetsHost: ObservableObject {
                               listened: state.lines(profile: link.profile))
         }
         guard let heard = model.heardPreset, let sha256 = try? heard.preset.sha256Hex() else { return nil }
-        let origin = heard.slot.map { model.origin(slot: $0 - 1) } ?? "Vorübergehend · \(device)"
+        let origin = heard.slot.map { model.origin(slot: $0 - 1) } ?? tr("Temporary · %@", device)
         guard let snapshot = try? PresetFile.snapshotData(for: heard.preset, origin: origin) else { return nil }
         return HeardSound(name: heard.preset.name, slot: heard.slot, sha256: sha256, snapshot: snapshot,
                           device: device, listened: nil)
@@ -165,7 +166,7 @@ public final class PresetsHost: ObservableObject {
     /// what went wrong.
     public func play(snapshot: Data, report: @escaping @MainActor (String?) -> Void) {
         guard let file = try? PresetFile.read(snapshot) else {
-            report("Die Einstellungen dieses Sounds sind nicht lesbar.")
+            report(tr("This sound’s settings cannot be read."))
             return
         }
         model.tryOut(file.preset, report: report)
@@ -196,7 +197,7 @@ public final class PresetsHost: ObservableObject {
         let item = model.items.first { $0.file.id != nil && $0.file.id == presetID }
             ?? model.items.first { $0.url.lastPathComponent == fileName }
         guard let item else {
-            report("Dieses Preset ist nicht mehr auf dem Mac. Wähle einen anderen Sound.")
+            report(tr("This preset is no longer on this Mac. Choose another sound."))
             return
         }
         model.tryOut(item.file.preset, report: report)
@@ -223,7 +224,7 @@ public final class PresetsHost: ObservableObject {
     }
 }
 
-/// Spark Presets' menus for Spark Studio, with "Verbinden" and "Trennen" in the amp menu. While the other window is
+/// Spark Presets' menus for AmpBench, with "Connect" and "Disconnect" in the amp menu. While the other window is
 /// in front, Presets' own keys rest and the keys both apps use are left to it.
 public struct PresetMenus: Commands {
     private let model: PresetsModel

@@ -12,9 +12,64 @@
     }
   ],
   "format" : "spark-catalog",
+  "groups" : [
+    {
+      "de" : {
+        "title" : "Clean"
+      },
+      "key" : "clean",
+      "title" : "Clean"
+    },
+    {
+      "de" : {
+        "title" : "Brillant"
+      },
+      "key" : "bright",
+      "title" : "Bright"
+    },
+    {
+      "de" : {
+        "title" : "Crunch"
+      },
+      "key" : "crunch",
+      "title" : "Crunch"
+    },
+    {
+      "de" : {
+        "title" : "High Gain"
+      },
+      "key" : "highGain",
+      "title" : "High Gain"
+    },
+    {
+      "de" : {
+        "title" : "Metal"
+      },
+      "key" : "metal",
+      "title" : "Metal"
+    },
+    {
+      "de" : {
+        "title" : "Akustik"
+      },
+      "key" : "acoustic",
+      "title" : "Acoustic"
+    },
+    {
+      "de" : {
+        "title" : "Bass"
+      },
+      "key" : "bass",
+      "title" : "Bass"
+    }
+  ],
   "models" : [
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Noise Gate",
+        "summary" : "Schneidet Rauschen in Spielpausen ab"
+      },
       "defaults" : [
         0.2,
         0.5,
@@ -29,25 +84,35 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Schwelle"
+          },
           "index" : 0,
           "key" : "threshold",
           "kind" : "knob",
-          "label" : "Schwelle",
+          "label" : "Threshold",
           "start" : 2
         },
         {
+          "de" : {
+            "label" : "Abklingen"
+          },
           "index" : 1,
           "key" : "decay",
           "kind" : "knob",
-          "label" : "Abklingen",
+          "label" : "Decay",
           "start" : 5
         }
       ],
       "place" : "gate",
-      "summary" : "Schneidet Rauschen in Spielpausen ab"
+      "summary" : "Cuts noise when you are not playing"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Studio-Kompressor",
+        "summary" : "Optischer Studio-Kompressor, weich"
+      },
       "defaults" : [
         0,
         0.7,
@@ -58,20 +123,28 @@
       "mirrors" : [
 
       ],
-      "name" : "Studio-Kompressor",
+      "name" : "Studio Compressor",
       "pack" : false,
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Modus",
+            "off" : "Kompr.",
+            "on" : "Limit"
+          },
           "index" : 0,
           "key" : "mode",
           "kind" : "switch",
-          "label" : "Modus",
-          "off" : "Kompr.",
+          "label" : "Mode",
+          "off" : "Comp.",
           "on" : "Limit",
-          "start" : "Kompr."
+          "start" : "Comp."
         },
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 1,
           "key" : "gain",
           "kind" : "knob",
@@ -79,18 +152,25 @@
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Reduktion"
+          },
           "index" : 2,
           "key" : "reduction",
           "kind" : "knob",
-          "label" : "Reduktion",
+          "label" : "Reduction",
           "start" : 7
         }
       ],
       "place" : "compressor",
-      "summary" : "Optischer Studio-Kompressor, weich"
+      "summary" : "Optical studio compressor, soft"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Sustainer",
+        "summary" : "Kompressor für langes Sustain"
+      },
       "defaults" : [
         0.486,
         0.525,
@@ -107,20 +187,29 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 4.9
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 5.2
         },
         {
+          "de" : {
+            "label" : "Attack"
+          },
           "index" : 2,
           "key" : "attack",
           "kind" : "knob",
@@ -128,6 +217,9 @@
           "start" : 4.9
         },
         {
+          "de" : {
+            "label" : "Sustain"
+          },
           "index" : 3,
           "key" : "sustain",
           "kind" : "knob",
@@ -136,10 +228,14 @@
         }
       ],
       "place" : "compressor",
-      "summary" : "Kompressor für langes Sustain"
+      "summary" : "Compressor for long sustain"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Kompressor",
+        "summary" : "Einfacher, knackiger Kompressor"
+      },
       "defaults" : [
         0.644,
         0.648
@@ -149,30 +245,40 @@
       "mirrors" : [
 
       ],
-      "name" : "Kompressor",
+      "name" : "Compressor",
       "pack" : false,
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6.4
         },
         {
+          "de" : {
+            "label" : "Empfindlichkeit"
+          },
           "index" : 1,
           "key" : "sensitivity",
           "kind" : "knob",
-          "label" : "Empfindlichkeit",
+          "label" : "Sensitivity",
           "start" : 6.5
         }
       ],
       "place" : "compressor",
-      "summary" : "Einfacher, knackiger Kompressor"
+      "summary" : "Simple, snappy compressor"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass-Kompressor",
+        "summary" : "Kompressor für Bass"
+      },
       "defaults" : [
         0.373,
         0.53
@@ -181,18 +287,24 @@
       "mirrors" : [
 
       ],
-      "name" : "Bass-Kompressor",
+      "name" : "Bass Compressor",
       "pack" : false,
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Kompression"
+          },
           "index" : 0,
           "key" : "compression",
           "kind" : "knob",
-          "label" : "Kompression",
+          "label" : "Compression",
           "start" : 3.7
         },
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 1,
           "key" : "gain",
           "kind" : "knob",
@@ -201,10 +313,14 @@
         }
       ],
       "place" : "compressor",
-      "summary" : "Kompressor für Bass"
+      "summary" : "Compressor for bass"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Opto-Kompressor",
+        "summary" : "Optischer Kompressor, transparent"
+      },
       "defaults" : [
         0.65,
         0.4,
@@ -215,25 +331,36 @@
       "mirrors" : [
 
       ],
-      "name" : "Opto-Kompressor",
+      "name" : "Opto Compressor",
       "pack" : false,
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6.5
         },
         {
+          "de" : {
+            "label" : "Kompression"
+          },
           "index" : 1,
           "key" : "compression",
           "kind" : "knob",
-          "label" : "Kompression",
+          "label" : "Compression",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Pad",
+            "off" : "0 dB",
+            "on" : "−15 dB"
+          },
           "index" : 2,
           "key" : "pad",
           "kind" : "switch",
@@ -244,10 +371,14 @@
         }
       ],
       "place" : "compressor",
-      "summary" : "Optischer Kompressor, transparent"
+      "summary" : "Optical compressor, transparent"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Wah",
+        "summary" : "Wah mit Auto-Modus"
+      },
       "defaults" : [
 
       ],
@@ -261,87 +392,138 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Form"
+          },
           "index" : 0,
           "key" : "shape",
           "kind" : "choice",
-          "label" : "Form",
+          "label" : "Shape",
           "options" : [
             {
+              "de" : {
+                "label" : "1"
+              },
               "label" : "1",
               "value" : 0
             },
             {
+              "de" : {
+                "label" : "2"
+              },
               "label" : "2",
               "value" : 2
             },
             {
+              "de" : {
+                "label" : "3"
+              },
               "label" : "3",
               "value" : 4
             },
             {
+              "de" : {
+                "label" : "4"
+              },
               "label" : "4",
               "value" : 6
             },
             {
+              "de" : {
+                "label" : "5"
+              },
               "label" : "5",
               "value" : 8
             },
             {
+              "de" : {
+                "label" : "Auto"
+              },
               "label" : "Auto",
               "value" : 10
             }
           ]
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 1,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM"
         },
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 2,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit"
+          "label" : "Time"
         },
         {
+          "de" : {
+            "label" : "Note"
+          },
           "index" : 3,
           "key" : "note",
           "kind" : "choice",
           "label" : "Note",
           "options" : [
             {
+              "de" : {
+                "label" : "1/8"
+              },
               "label" : "1/8",
               "value" : 0
             },
             {
+              "de" : {
+                "label" : "1/4"
+              },
               "label" : "1/4",
               "value" : 2.5
             },
             {
+              "de" : {
+                "label" : "1/2"
+              },
               "label" : "1/2",
               "value" : 5
             },
             {
-              "label" : "1 Takt",
+              "de" : {
+                "label" : "1 Takt"
+              },
+              "label" : "1 bar",
               "value" : 7.5
             }
           ]
         },
         {
+          "de" : {
+            "label" : "Empfindlichkeit"
+          },
           "index" : 4,
           "key" : "sensitivity",
           "kind" : "knob",
-          "label" : "Empfindlichkeit"
+          "label" : "Sensitivity"
         }
       ],
       "place" : "compressor",
-      "summary" : "Wah mit Auto-Modus"
+      "summary" : "Wah with auto mode"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Booster",
+        "summary" : "Sauberer Lautstärke-Schub"
+      },
       "defaults" : [
         0.767
       ],
@@ -354,6 +536,9 @@
       "parameterCount" : 1,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -362,10 +547,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Sauberer Lautstärke-Schub"
+      "summary" : "Clean volume boost"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Transparent Drive",
+        "summary" : "Leichte, offene Verzerrung"
+      },
       "defaults" : [
         0.5,
         0.5,
@@ -381,20 +570,29 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 2,
           "key" : "gain",
           "kind" : "knob",
@@ -403,10 +601,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Leichte, offene Verzerrung"
+      "summary" : "Light, open drive"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Mid Drive",
+        "summary" : "Mittiger Overdrive, der den Amp anschiebt"
+      },
       "defaults" : [
         0.57,
         0.5,
@@ -423,6 +625,9 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Drive"
+          },
           "index" : 0,
           "key" : "drive",
           "kind" : "knob",
@@ -430,25 +635,35 @@
           "start" : 5.7
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 2,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6.2
         }
       ],
       "place" : "drive",
-      "summary" : "Mittiger Overdrive, der den Amp anschiebt"
+      "summary" : "Mid-focused overdrive that pushes the amp"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Overdrive",
+        "summary" : "Klassischer Overdrive"
+      },
       "defaults" : [
         0.59,
         0.7,
@@ -463,20 +678,29 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 5.9
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Drive"
+          },
           "index" : 2,
           "key" : "drive",
           "kind" : "knob",
@@ -485,10 +709,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Klassischer Overdrive"
+      "summary" : "Classic overdrive"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Germanium Fuzz",
+        "summary" : "Runder, alter Fuzz"
+      },
       "defaults" : [
         0.44,
         0.84
@@ -503,13 +731,19 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 4.4
         },
         {
+          "de" : {
+            "label" : "Fuzz"
+          },
           "index" : 1,
           "key" : "fuzz",
           "kind" : "knob",
@@ -518,10 +752,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Runder, alter Fuzz"
+      "summary" : "Round, old fuzz"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Filter Distortion",
+        "summary" : "Harte Verzerrung mit Filter"
+      },
       "defaults" : [
         0.71,
         0.5,
@@ -537,6 +775,9 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Distortion"
+          },
           "index" : 0,
           "key" : "distortion",
           "kind" : "knob",
@@ -544,6 +785,9 @@
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Filter"
+          },
           "index" : 1,
           "key" : "filter",
           "kind" : "knob",
@@ -551,18 +795,25 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 2,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6.6
         }
       ],
       "place" : "drive",
-      "summary" : "Harte Verzerrung mit Filter"
+      "summary" : "Hard distortion with a filter"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass Sustain Fuzz",
+        "summary" : "Dichter Fuzz für Bass"
+      },
       "defaults" : [
         0.33,
         0.77,
@@ -578,20 +829,29 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 3.3
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 7.7
         },
         {
+          "de" : {
+            "label" : "Sustain"
+          },
           "index" : 2,
           "key" : "sustain",
           "kind" : "knob",
@@ -600,10 +860,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Dichter Fuzz für Bass"
+      "summary" : "Thick fuzz for bass"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Sustain Fuzz",
+        "summary" : "Dichter, singender Fuzz"
+      },
       "defaults" : [
         0.51,
         0.5,
@@ -619,20 +883,29 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Sustain"
+          },
           "index" : 2,
           "key" : "sustain",
           "kind" : "knob",
@@ -641,10 +914,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Dichter, singender Fuzz"
+      "summary" : "Thick, singing fuzz"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brass Bass",
+        "summary" : "Bass-Fuzz mit Bläser-Charakter"
+      },
       "defaults" : [
         0.4,
         0.76,
@@ -660,6 +937,9 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Brass"
+          },
           "index" : 0,
           "key" : "brass",
           "kind" : "knob",
@@ -667,13 +947,19 @@
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Empfindlichkeit"
+          },
           "index" : 1,
           "key" : "sensitivity",
           "kind" : "knob",
-          "label" : "Empfindlichkeit",
+          "label" : "Sensitivity",
           "start" : 7.6
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 2,
           "key" : "bass",
           "kind" : "knob",
@@ -682,10 +968,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Bass-Fuzz mit Bläser-Charakter"
+      "summary" : "Bass fuzz with a brass character"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Amp-in-a-Box",
+        "summary" : "Verzerrer wie ein kleiner Amp"
+      },
       "defaults" : [
         0.4,
         0.45,
@@ -701,20 +991,29 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 1,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Drive"
+          },
           "index" : 2,
           "key" : "drive",
           "kind" : "knob",
@@ -722,6 +1021,11 @@
           "start" : 8
         },
         {
+          "de" : {
+            "label" : "Filter",
+            "off" : "LP",
+            "on" : "HP"
+          },
           "index" : 3,
           "key" : "filter",
           "kind" : "switch",
@@ -732,10 +1036,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Verzerrer wie ein kleiner Amp"
+      "summary" : "Drive like a small amp"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Axis Fuzz",
+        "summary" : "Fuzz der späten 60er"
+      },
       "defaults" : [
 
       ],
@@ -749,12 +1057,18 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel"
+          "label" : "Level"
         },
         {
+          "de" : {
+            "label" : "Drive"
+          },
           "index" : 1,
           "key" : "drive",
           "kind" : "knob",
@@ -762,10 +1076,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Fuzz der späten 60er"
+      "summary" : "Fuzz of the late 60s"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Super Fuzz",
+        "summary" : "Breiter Fuzz mit Filter"
+      },
       "defaults" : [
 
       ],
@@ -779,12 +1097,18 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel"
+          "label" : "Level"
         },
         {
+          "de" : {
+            "label" : "Filter"
+          },
           "index" : 1,
           "key" : "filter",
           "kind" : "knob",
@@ -792,10 +1116,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Breiter Fuzz mit Filter"
+      "summary" : "Wide fuzz with a filter"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Octave Fuzz",
+        "summary" : "Fuzz mit Oktave darüber"
+      },
       "defaults" : [
 
       ],
@@ -809,12 +1137,18 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel"
+          "label" : "Level"
         },
         {
+          "de" : {
+            "label" : "Fuzz"
+          },
           "index" : 1,
           "key" : "fuzz",
           "kind" : "knob",
@@ -822,10 +1156,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Fuzz mit Oktave darüber"
+      "summary" : "Fuzz with an octave above"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Fuzz Tone",
+        "summary" : "Früher, kratziger Fuzz"
+      },
       "defaults" : [
 
       ],
@@ -839,12 +1177,18 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel"
+          "label" : "Level"
         },
         {
+          "de" : {
+            "label" : "Attack"
+          },
           "index" : 1,
           "key" : "attack",
           "kind" : "knob",
@@ -852,10 +1196,14 @@
         }
       ],
       "place" : "drive",
-      "summary" : "Früher, kratziger Fuzz"
+      "summary" : "Early, scratchy fuzz"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Solid Clean",
+        "summary" : "Transistor-Clean, glasklar und trocken"
+      },
       "defaults" : [
         0.709,
         0.354,
@@ -874,6 +1222,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -881,27 +1232,39 @@
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 3.3
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -910,10 +1273,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Transistor-Clean, glasklar und trocken"
+      "summary" : "Solid-state clean, crystal clear and dry"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "US Clean",
+        "summary" : "Großer Clean-Combo mit viel Headroom"
+      },
       "defaults" : [
         0.696,
         0.372,
@@ -932,6 +1299,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -939,27 +1309,39 @@
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -968,10 +1350,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Großer Clean-Combo mit viel Headroom"
+      "summary" : "Big clean combo with lots of headroom"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brit Clean",
+        "summary" : "Britischer Clean-Kanal, warm und rund"
+      },
       "defaults" : [
         0.677,
         0.57,
@@ -990,6 +1376,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -997,27 +1386,39 @@
           "start" : 6.8
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.4
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1026,10 +1427,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer Clean-Kanal, warm und rund"
+      "summary" : "British clean channel, warm and round"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Boutique Clean",
+        "summary" : "Class-A-Clean mit Biss"
+      },
       "defaults" : [
         0.5,
         0.354,
@@ -1048,6 +1453,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1055,27 +1463,39 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.2
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 4.4
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1084,10 +1504,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Class-A-Clean mit Biss"
+      "summary" : "Class A clean with bite"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Silk Clean",
+        "summary" : "Seidiger Clean-Ton, der weich anzerrt"
+      },
       "defaults" : [
         0.71,
         0.38,
@@ -1106,6 +1530,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1113,27 +1540,39 @@
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.8
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1142,10 +1581,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Seidiger Clean-Ton, der weich anzerrt"
+      "summary" : "Silky clean tone that breaks up softly"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Tweed 4×10",
+        "summary" : "Tweed-Combo, knackig und offen"
+      },
       "defaults" : [
         0.582,
         0.663,
@@ -1164,6 +1607,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1171,27 +1617,39 @@
           "start" : 5.8
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.7
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1200,10 +1658,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Tweed-Combo, knackig und offen"
+      "summary" : "Tweed combo, crisp and open"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brit Chime",
+        "summary" : "Glockiger Class-A-Ton"
+      },
       "defaults" : [
         0.492,
         0.469,
@@ -1222,6 +1684,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1229,27 +1694,39 @@
           "start" : 4.9
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.9
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1258,10 +1735,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Glockiger Class-A-Ton"
+      "summary" : "Chiming class A tone"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Vintage Combo",
+        "summary" : "Kleiner Röhren-Combo aus den 60ern"
+      },
       "defaults" : [
         0.748,
         0.522,
@@ -1280,6 +1761,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1287,27 +1771,39 @@
           "start" : 7.5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.2
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 3.7
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1316,10 +1812,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Kleiner Röhren-Combo aus den 60ern"
+      "summary" : "Small tube combo from the 60s"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Studio Glass",
+        "summary" : "Moderner Boutique-Ton, sehr klar"
+      },
       "defaults" : [
         0.581,
         0.508,
@@ -1338,6 +1838,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1345,27 +1848,39 @@
           "start" : 5.8
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 6.1
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1374,10 +1889,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Moderner Boutique-Ton, sehr klar"
+      "summary" : "Modern boutique tone, very clear"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "US Deluxe",
+        "summary" : "Kleiner US-Combo, der früh bricht"
+      },
       "defaults" : [
         0.68,
         0.4,
@@ -1396,6 +1915,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1403,27 +1925,39 @@
           "start" : 6.8
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 2
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.8
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1432,10 +1966,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Kleiner US-Combo, der früh bricht"
+      "summary" : "Small US combo that breaks up early"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Plexi Crunch",
+        "summary" : "Klassischer britischer Rock-Crunch"
+      },
       "defaults" : [
         0.727,
         0.433,
@@ -1454,6 +1992,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1461,27 +2002,39 @@
           "start" : 7.3
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.3
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.7
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.9
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1490,10 +2043,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Klassischer britischer Rock-Crunch"
+      "summary" : "Classic British rock crunch"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brit 45",
+        "summary" : "Früher britischer Röhren-Crunch"
+      },
       "defaults" : [
         0.652,
         0.657,
@@ -1512,6 +2069,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1519,27 +2079,39 @@
           "start" : 6.5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.6
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.2
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1548,10 +2120,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Früher britischer Röhren-Crunch"
+      "summary" : "Early British tube crunch"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "US Crunch",
+        "summary" : "Aufgerissener US-Combo"
+      },
       "defaults" : [
         0.256,
         0.23,
@@ -1570,6 +2146,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1577,27 +2156,39 @@
           "start" : 2.6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 2.3
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 2.8
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.8
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1606,10 +2197,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Aufgerissener US-Combo"
+      "summary" : "Cranked US combo"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Blues Combo",
+        "summary" : "Kleiner Blues-Combo, mittig"
+      },
       "defaults" : [
         0.66,
         0.45,
@@ -1628,6 +2223,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1635,27 +2233,39 @@
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1664,10 +2274,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Kleiner Blues-Combo, mittig"
+      "summary" : "Small blues combo, mid-focused"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Boutique Lead",
+        "summary" : "Singender Lead-Kanal mit Tiefe"
+      },
       "defaults" : [
         0.656,
         0.597,
@@ -1686,6 +2300,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1693,27 +2310,39 @@
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1722,10 +2351,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Singender Lead-Kanal mit Tiefe"
+      "summary" : "Singing lead channel with depth"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brit 30 Drive",
+        "summary" : "Britischer Zerrkanal, rau und dicht"
+      },
       "defaults" : [
         0.675,
         0.357,
@@ -1744,6 +2377,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1751,27 +2387,39 @@
           "start" : 6.8
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1780,10 +2428,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer Zerrkanal, rau und dicht"
+      "summary" : "British drive channel, raw and thick"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "US Lead",
+        "summary" : "Amerikanischer High Gain mit Druck"
+      },
       "defaults" : [
         0.616,
         0.431,
@@ -1802,6 +2454,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1809,27 +2464,39 @@
           "start" : 6.2
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.3
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.6
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1838,10 +2505,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Amerikanischer High Gain mit Druck"
+      "summary" : "American high gain with punch"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Super Lead",
+        "summary" : "Flüssiger, cremiger Lead"
+      },
       "defaults" : [
         0.591,
         0.385,
@@ -1860,6 +2531,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1867,27 +2541,39 @@
           "start" : 5.9
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.8
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1896,10 +2582,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Flüssiger, cremiger Lead"
+      "summary" : "Fluid, creamy lead"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Shred 100",
+        "summary" : "Britischer Lead für schnelle Linien"
+      },
       "defaults" : [
         0.604,
         0.5,
@@ -1918,6 +2608,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1925,27 +2618,39 @@
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 3.8
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6.2
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -1954,10 +2659,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer Lead für schnelle Linien"
+      "summary" : "British lead for fast lines"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Rectified",
+        "summary" : "Tiefer, breiter Modern-Metal-Ton"
+      },
       "defaults" : [
         0.669,
         0.577,
@@ -1976,6 +2685,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -1983,27 +2695,39 @@
           "start" : 6.7
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.8
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.6
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2012,10 +2736,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Tiefer, breiter Modern-Metal-Ton"
+      "summary" : "Deep, wide modern metal tone"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Brown Lead",
+        "summary" : "Heißer, warmer Hard-Rock-Ton"
+      },
       "defaults" : [
         0.502,
         0.7,
@@ -2034,6 +2762,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2041,27 +2772,39 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 6.3
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 3.3
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2070,10 +2813,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Heißer, warmer Hard-Rock-Ton"
+      "summary" : "Hot, warm hard rock tone"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Thrash Head",
+        "summary" : "Aggressiver Metal-Kanal"
+      },
       "defaults" : [
         0.66,
         0.5,
@@ -2092,6 +2839,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2099,27 +2849,39 @@
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2128,10 +2890,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Aggressiver Metal-Kanal"
+      "summary" : "Aggressive metal channel"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Switch Lead",
+        "summary" : "Mittiger 80er-Lead"
+      },
       "defaults" : [
         0.597,
         0.5,
@@ -2150,6 +2916,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2157,27 +2926,39 @@
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2186,10 +2967,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Mittiger 80er-Lead"
+      "summary" : "Mid-focused 80s lead"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Rock Verb",
+        "summary" : "Britischer Rock mit vollen Bässen"
+      },
       "defaults" : [
         0.597,
         0.508,
@@ -2208,6 +2993,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2215,27 +3003,39 @@
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 3.9
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6.2
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2244,10 +3044,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer Rock mit vollen Bässen"
+      "summary" : "British rock with full bass"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Modern Brit",
+        "summary" : "Moderner britischer High Gain, straff"
+      },
       "defaults" : [
         0.571,
         0.561,
@@ -2266,6 +3070,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2273,27 +3080,39 @@
           "start" : 5.7
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 6.5
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2302,10 +3121,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Moderner britischer High Gain, straff"
+      "summary" : "Modern British high gain, tight"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Akustik pur",
+        "summary" : "Neutraler Akustik-Klang"
+      },
       "defaults" : [
         0.64,
         0.478,
@@ -2318,11 +3141,14 @@
       "mirrors" : [
 
       ],
-      "name" : "Akustik pur",
+      "name" : "Pure Acoustic",
       "pack" : false,
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2330,27 +3156,39 @@
           "start" : 6.4
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.8
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2359,10 +3197,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Neutraler Akustik-Klang"
+      "summary" : "Neutral acoustic sound"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Akustik-Combo",
+        "summary" : "Akustik-Verstärker mit Wärme"
+      },
       "defaults" : [
         0.406,
         0.407,
@@ -2376,11 +3218,14 @@
       "mirrors" : [
 
       ],
-      "name" : "Akustik-Combo",
+      "name" : "Acoustic Combo",
       "pack" : false,
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2388,27 +3233,39 @@
           "start" : 4.1
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.1
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 1.4
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2417,10 +3274,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Akustik-Verstärker mit Wärme"
+      "summary" : "Acoustic amp with warmth"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Akustik voll",
+        "summary" : "Voller Klang wie eine Jumbo-Gitarre"
+      },
       "defaults" : [
         0.532,
         0.469,
@@ -2433,11 +3294,14 @@
       "mirrors" : [
 
       ],
-      "name" : "Akustik voll",
+      "name" : "Full Acoustic",
       "pack" : false,
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2445,27 +3309,39 @@
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.8
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2474,10 +3350,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Voller Klang wie eine Jumbo-Gitarre"
+      "summary" : "Full sound like a jumbo guitar"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Akustik flach",
+        "summary" : "Flacher, unauffälliger Akustik-Klang"
+      },
       "defaults" : [
         0.669,
         0.446,
@@ -2490,11 +3370,14 @@
       "mirrors" : [
 
       ],
-      "name" : "Akustik flach",
+      "name" : "Flat Acoustic",
       "pack" : false,
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2502,27 +3385,39 @@
           "start" : 6.7
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 5.6
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2531,10 +3426,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Flacher, unauffälliger Akustik-Klang"
+      "summary" : "Flat, unobtrusive acoustic sound"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass 800",
+        "summary" : "Transistor-Bass, präsent und straff"
+      },
       "defaults" : [
         0.548,
         0.419,
@@ -2553,6 +3452,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2560,27 +3462,39 @@
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 4.2
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 3.7
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2589,10 +3503,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Transistor-Bass, präsent und straff"
+      "summary" : "Solid-state bass, present and tight"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass Vintage",
+        "summary" : "Röhren-Bass der 70er, fett"
+      },
       "defaults" : [
         0.501,
         0.599,
@@ -2611,6 +3529,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2618,27 +3539,39 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 4.2
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 5.1
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2647,10 +3580,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Röhren-Bass der 70er, fett"
+      "summary" : "70s tube bass, fat"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass Studio",
+        "summary" : "Sauberer, moderner Bass"
+      },
       "defaults" : [
         0.503,
         0.374,
@@ -2669,6 +3606,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2676,27 +3616,39 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 3.7
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 2.7
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6.3
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2705,10 +3657,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Sauberer, moderner Bass"
+      "summary" : "Clean, modern bass"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass Modern",
+        "summary" : "Moderner Bass mit Punch"
+      },
       "defaults" : [
         0.544,
         0.524,
@@ -2727,6 +3683,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
@@ -2734,27 +3693,39 @@
           "start" : 5.4
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen",
+          "label" : "Treble",
           "start" : 5.2
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten",
+          "label" : "Middle",
           "start" : 2.9
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe",
+          "label" : "Bass",
           "start" : 6.8
         },
         {
+          "de" : {
+            "label" : "Master"
+          },
           "index" : 4,
           "key" : "master",
           "kind" : "knob",
@@ -2763,10 +3734,14 @@
         }
       ],
       "place" : "amp",
-      "summary" : "Moderner Bass mit Punch"
+      "summary" : "Modern bass with punch"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH 45/100",
+        "summary" : "Britischer Röhren-Crunch der späten 60er"
+      },
       "defaults" : [
 
       ],
@@ -2781,41 +3756,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer Röhren-Crunch der späten 60er"
+      "summary" : "British tube crunch of the late 60s"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Super Lead",
+        "summary" : "Britischer 100-Watt-Rock"
+      },
       "defaults" : [
 
       ],
@@ -2830,41 +3824,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer 100-Watt-Rock"
+      "summary" : "British 100-watt rock"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Showman",
+        "summary" : "Großer US-Clean mit viel Headroom"
+      },
       "defaults" : [
 
       ],
@@ -2879,41 +3892,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Großer US-Clean mit viel Headroom"
+      "summary" : "Big US clean with lots of headroom"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH 100S",
+        "summary" : "Lauter US-Röhren-Amp"
+      },
       "defaults" : [
 
       ],
@@ -2928,41 +3960,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Lauter US-Röhren-Amp"
+      "summary" : "Loud US tube amp"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Bassman",
+        "summary" : "Silverface-Combo, offen"
+      },
       "defaults" : [
 
       ],
@@ -2977,41 +4028,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Silverface-Combo, offen"
+      "summary" : "Silverface combo, open"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH City 100",
+        "summary" : "Britischer 100-Watt-Amp, rau"
+      },
       "defaults" : [
 
       ],
@@ -3026,41 +4096,60 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Gain"
+          },
           "index" : 0,
           "key" : "gain",
           "kind" : "knob",
           "label" : "Gain"
         },
         {
+          "de" : {
+            "label" : "Höhen"
+          },
           "index" : 1,
           "key" : "treble",
           "kind" : "knob",
-          "label" : "Höhen"
+          "label" : "Treble"
         },
         {
+          "de" : {
+            "label" : "Mitten"
+          },
           "index" : 2,
           "key" : "middle",
           "kind" : "knob",
-          "label" : "Mitten"
+          "label" : "Middle"
         },
         {
+          "de" : {
+            "label" : "Bässe"
+          },
           "index" : 3,
           "key" : "bass",
           "kind" : "knob",
-          "label" : "Bässe"
+          "label" : "Bass"
         },
         {
+          "de" : {
+            "label" : "Lautstärke"
+          },
           "index" : 4,
           "key" : "volume",
           "kind" : "knob",
-          "label" : "Lautstärke"
+          "label" : "Volume"
         }
       ],
       "place" : "amp",
-      "summary" : "Britischer 100-Watt-Amp, rau"
+      "summary" : "British 100-watt amp, raw"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Tremolo",
+        "summary" : "Lautstärke pulsiert wie im alten Combo"
+      },
       "defaults" : [
         0.454,
         0.7,
@@ -3075,32 +4164,45 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 4.5
         },
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 1,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 2,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6
         }
       ],
       "place" : "modulation",
-      "summary" : "Lautstärke pulsiert wie im alten Combo"
+      "summary" : "Volume pulses as in an old combo"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Chorus",
+        "summary" : "Schwebender, breiter Klang"
+      },
       "defaults" : [
         0.761,
         0.28,
@@ -3116,13 +4218,19 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Effekt"
+          },
           "index" : 0,
           "key" : "effect",
           "kind" : "knob",
-          "label" : "Effekt",
+          "label" : "Effect",
           "start" : 7.6
         },
         {
+          "de" : {
+            "label" : "Rate"
+          },
           "index" : 1,
           "key" : "rate",
           "kind" : "knob",
@@ -3130,25 +4238,35 @@
           "start" : 2.8
         },
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 2,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 7.5
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 3,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 5.7
         }
       ],
       "place" : "modulation",
-      "summary" : "Schwebender, breiter Klang"
+      "summary" : "Shimmering, wide sound"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Flanger",
+        "summary" : "Düsenartiges Rauschen"
+      },
       "defaults" : [
         0.414,
         0.663,
@@ -3163,6 +4281,9 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Rate"
+          },
           "index" : 0,
           "key" : "rate",
           "kind" : "knob",
@@ -3170,6 +4291,9 @@
           "start" : 4.1
         },
         {
+          "de" : {
+            "label" : "Mix"
+          },
           "index" : 1,
           "key" : "mix",
           "kind" : "knob",
@@ -3177,18 +4301,25 @@
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 2,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 6.5
         }
       ],
       "place" : "modulation",
-      "summary" : "Düsenartiges Rauschen"
+      "summary" : "Jet-like whoosh"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Phaser",
+        "summary" : "Kreisende Phasen"
+      },
       "defaults" : [
         0.55,
         0.62,
@@ -3205,25 +4336,35 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 1,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität",
+          "label" : "Intensity",
           "start" : 6.2
         }
       ],
       "place" : "modulation",
-      "summary" : "Kreisende Phasen"
+      "summary" : "Swirling phases"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Vibrato",
+        "summary" : "Tonhöhe schwankt leicht"
+      },
       "defaults" : [
         0.814,
         0.527,
@@ -3238,32 +4379,45 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 8.1
         },
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 1,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 5.3
         },
         {
+          "de" : {
+            "label" : "Regler 3"
+          },
           "index" : 2,
           "key" : "knob3",
           "kind" : "knob",
-          "label" : "Regler 3",
+          "label" : "Knob 3",
           "start" : 5
         }
       ],
       "place" : "modulation",
-      "summary" : "Tonhöhe schwankt leicht"
+      "summary" : "Pitch wavers slightly"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Rotary Vibe",
+        "summary" : "Pulsierender Vibe der späten 60er"
+      },
       "defaults" : [
         0.5,
         1,
@@ -3279,34 +4433,49 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Modus",
+            "off" : "Vibrato",
+            "on" : "Chorus"
+          },
           "index" : 1,
           "key" : "mode",
           "kind" : "switch",
-          "label" : "Modus",
+          "label" : "Mode",
           "off" : "Vibrato",
           "on" : "Chorus",
           "start" : "Chorus"
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 2,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität",
+          "label" : "Intensity",
           "start" : 7
         }
       ],
       "place" : "modulation",
-      "summary" : "Pulsierender Vibe der späten 60er"
+      "summary" : "Pulsing vibe of the late 60s"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Clone Chorus",
+        "summary" : "Einfacher, dichter Chorus"
+      },
       "defaults" : [
         0.249,
         1
@@ -3321,6 +4490,9 @@
       "parameterCount" : 2,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Rate"
+          },
           "index" : 0,
           "key" : "rate",
           "kind" : "knob",
@@ -3328,20 +4500,29 @@
           "start" : 2.5
         },
         {
+          "de" : {
+            "label" : "Tiefe",
+            "off" : "Wenig",
+            "on" : "Viel"
+          },
           "index" : 1,
           "key" : "depth",
           "kind" : "switch",
-          "label" : "Tiefe",
-          "off" : "Wenig",
-          "on" : "Viel",
-          "start" : "Viel"
+          "label" : "Depth",
+          "off" : "Low",
+          "on" : "High",
+          "start" : "High"
         }
       ],
       "place" : "modulation",
-      "summary" : "Einfacher, dichter Chorus"
+      "summary" : "Simple, thick chorus"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Mini Vibe",
+        "summary" : "Kompakter Vibe"
+      },
       "defaults" : [
         0.31,
         0.256,
@@ -3358,39 +4539,55 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 3.1
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 1,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität",
+          "label" : "Intensity",
           "start" : 2.6
         },
         {
+          "de" : {
+            "label" : "Regler 3"
+          },
           "index" : 2,
           "key" : "knob3",
           "kind" : "knob",
-          "label" : "Regler 3",
+          "label" : "Knob 3",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Regler 4"
+          },
           "index" : 3,
           "key" : "knob4",
           "kind" : "knob",
-          "label" : "Regler 4",
+          "label" : "Knob 4",
           "start" : 5
         }
       ],
       "place" : "modulation",
-      "summary" : "Kompakter Vibe"
+      "summary" : "Compact vibe"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Sync Tremolo",
+        "summary" : "Tremolo, auf Wunsch im Tempo des Presets"
+      },
       "defaults" : [
         0.659,
         0.5,
@@ -3405,34 +4602,49 @@
       "parameterCount" : 3,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 0,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 6.6
         },
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 1,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 2,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
-          "start" : "Frei"
+          "start" : "Free"
         }
       ],
       "place" : "modulation",
-      "summary" : "Tremolo, auf Wunsch im Tempo des Presets"
+      "summary" : "Tremolo, in the preset's tempo if you like"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Square Tremolo",
+        "summary" : "Hartes, zerhacktes Tremolo"
+      },
       "defaults" : [
         0.1,
         0.5,
@@ -3448,39 +4660,55 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo",
+          "label" : "Speed",
           "start" : 1
         },
         {
+          "de" : {
+            "label" : "Tiefe"
+          },
           "index" : 1,
           "key" : "depth",
           "kind" : "knob",
-          "label" : "Tiefe",
+          "label" : "Depth",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 2,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Regler 4"
+          },
           "index" : 3,
           "key" : "knob4",
           "kind" : "knob",
-          "label" : "Regler 4",
+          "label" : "Knob 4",
           "start" : 0
         }
       ],
       "place" : "modulation",
-      "summary" : "Hartes, zerhacktes Tremolo"
+      "summary" : "Hard, choppy tremolo"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Gitarren-EQ",
+        "summary" : "Grafischer EQ mit sechs Bändern"
+      },
       "defaults" : [
         0.5,
         0.5,
@@ -3494,18 +4722,24 @@
       "mirrors" : [
 
       ],
-      "name" : "Gitarren-EQ",
+      "name" : "Guitar EQ",
       "pack" : false,
       "parameterCount" : 7,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "100 Hz"
+          },
           "index" : 1,
           "key" : "hz100",
           "kind" : "knob",
@@ -3513,6 +4747,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "200 Hz"
+          },
           "index" : 2,
           "key" : "hz200",
           "kind" : "knob",
@@ -3520,6 +4757,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "400 Hz"
+          },
           "index" : 3,
           "key" : "hz400",
           "kind" : "knob",
@@ -3527,6 +4767,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "800 Hz"
+          },
           "index" : 4,
           "key" : "hz800",
           "kind" : "knob",
@@ -3534,25 +4777,35 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "1,6 kHz"
+          },
           "index" : 5,
           "key" : "hz1600",
           "kind" : "knob",
-          "label" : "1,6 kHz",
+          "label" : "1.6 kHz",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "3,2 kHz"
+          },
           "index" : 6,
           "key" : "hz3200",
           "kind" : "knob",
-          "label" : "3,2 kHz",
+          "label" : "3.2 kHz",
           "start" : 5
         }
       ],
       "place" : "modulation",
-      "summary" : "Grafischer EQ mit sechs Bändern"
+      "summary" : "Graphic EQ with six bands"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Bass-EQ",
+        "summary" : "Grafischer EQ für Bass mit sechs Bändern"
+      },
       "defaults" : [
         0.5,
         0.5,
@@ -3566,18 +4819,24 @@
       "mirrors" : [
 
       ],
-      "name" : "Bass-EQ",
+      "name" : "Bass EQ",
       "pack" : false,
       "parameterCount" : 7,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "50 Hz"
+          },
           "index" : 1,
           "key" : "hz50",
           "kind" : "knob",
@@ -3585,6 +4844,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "120 Hz"
+          },
           "index" : 2,
           "key" : "hz120",
           "kind" : "knob",
@@ -3592,6 +4854,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "400 Hz"
+          },
           "index" : 3,
           "key" : "hz400",
           "kind" : "knob",
@@ -3599,6 +4864,9 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "800 Hz"
+          },
           "index" : 4,
           "key" : "hz800",
           "kind" : "knob",
@@ -3606,13 +4874,19 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "4,5 kHz"
+          },
           "index" : 5,
           "key" : "hz4500",
           "kind" : "knob",
-          "label" : "4,5 kHz",
+          "label" : "4.5 kHz",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "10 kHz"
+          },
           "index" : 6,
           "key" : "hz10000",
           "kind" : "knob",
@@ -3621,10 +4895,14 @@
         }
       ],
       "place" : "modulation",
-      "summary" : "Grafischer EQ für Bass mit sechs Bändern"
+      "summary" : "Graphic EQ for bass with six bands"
     },
     {
       "checkedOnAmp" : false,
+      "de" : {
+        "name" : "JH Vibe",
+        "summary" : "Vibe mit Chorus-Mischung"
+      },
       "defaults" : [
 
       ],
@@ -3638,24 +4916,36 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Tempo"
+          },
           "index" : 0,
           "key" : "speed",
           "kind" : "knob",
-          "label" : "Tempo"
+          "label" : "Speed"
         },
         {
+          "de" : {
+            "label" : "Sweep"
+          },
           "index" : 1,
           "key" : "sweep",
           "kind" : "knob",
           "label" : "Sweep"
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 2,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität"
+          "label" : "Intensity"
         },
         {
+          "de" : {
+            "label" : "Mix"
+          },
           "index" : 3,
           "key" : "mix",
           "kind" : "knob",
@@ -3663,10 +4953,14 @@
         }
       ],
       "place" : "modulation",
-      "summary" : "Vibe mit Chorus-Mischung"
+      "summary" : "Vibe with a chorus blend"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Digital Delay",
+        "summary" : "Sauberes digitales Echo"
+      },
       "defaults" : [
         0.382,
         0.398,
@@ -3684,13 +4978,19 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Effekt"
+          },
           "index" : 0,
           "key" : "effect",
           "kind" : "knob",
-          "label" : "Effekt",
+          "label" : "Effect",
           "start" : 3.8
         },
         {
+          "de" : {
+            "label" : "Feedback"
+          },
           "index" : 1,
           "key" : "feedback",
           "kind" : "knob",
@@ -3698,31 +4998,49 @@
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 2,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Bereich"
+          },
           "index" : 3,
           "key" : "range",
           "kind" : "choice",
-          "label" : "Bereich",
+          "label" : "Range",
           "options" : [
             {
+              "de" : {
+                "label" : "50 ms"
+              },
               "label" : "50 ms",
               "value" : 3
             },
             {
+              "de" : {
+                "label" : "200 ms"
+              },
               "label" : "200 ms",
               "value" : 4
             },
             {
+              "de" : {
+                "label" : "500 ms"
+              },
               "label" : "500 ms",
               "value" : 6
             },
             {
+              "de" : {
+                "label" : "1 s"
+              },
               "label" : "1 s",
               "value" : 7.2
             }
@@ -3730,20 +5048,29 @@
           "start" : "500 ms"
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 4,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Sauberes digitales Echo"
+      "summary" : "Clean digital echo"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Filter Echo",
+        "summary" : "Echo mit Klangfilter"
+      },
       "defaults" : [
         0.55,
         0.461,
@@ -3760,13 +5087,19 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 0,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Feedback"
+          },
           "index" : 1,
           "key" : "feedback",
           "kind" : "knob",
@@ -3774,34 +5107,49 @@
           "start" : 4.6
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 2,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 7
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 3,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 4.6
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 4,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Echo mit Klangfilter"
+      "summary" : "Echo with a tone filter"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Analog Delay",
+        "summary" : "Warmes, dunkles Eimerketten-Echo"
+      },
       "defaults" : [
         0.55,
         0.647,
@@ -3817,20 +5165,29 @@
       "parameterCount" : 4,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 0,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 1,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität",
+          "label" : "Intensity",
           "start" : 6.5
         },
         {
+          "de" : {
+            "label" : "Echo"
+          },
           "index" : 2,
           "key" : "echo",
           "kind" : "knob",
@@ -3838,20 +5195,29 @@
           "start" : 7.1
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 3,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Warmes, dunkles Eimerketten-Echo"
+      "summary" : "Warm, dark bucket-brigade echo"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Reverse Delay",
+        "summary" : "Rückwärts laufendes Echo"
+      },
       "defaults" : [
         0.733,
         0.391,
@@ -3868,6 +5234,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Mix"
+          },
           "index" : 0,
           "key" : "mix",
           "kind" : "knob",
@@ -3875,13 +5244,19 @@
           "start" : 7.3
         },
         {
+          "de" : {
+            "label" : "Abklingen"
+          },
           "index" : 1,
           "key" : "decay",
           "kind" : "knob",
-          "label" : "Abklingen",
+          "label" : "Decay",
           "start" : 3.9
         },
         {
+          "de" : {
+            "label" : "Filter"
+          },
           "index" : 2,
           "key" : "filter",
           "kind" : "knob",
@@ -3889,27 +5264,39 @@
           "start" : 6.8
         },
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 3,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.7
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 4,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Rückwärts laufendes Echo"
+      "summary" : "Echo that runs backwards"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Multi Head",
+        "summary" : "Bandecho mit mehreren Köpfen"
+      },
       "defaults" : [
         0.55,
         0.605,
@@ -3926,20 +5313,29 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 0,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Intensität"
+          },
           "index" : 1,
           "key" : "intensity",
           "kind" : "knob",
-          "label" : "Intensität",
+          "label" : "Intensity",
           "start" : 6.1
         },
         {
+          "de" : {
+            "label" : "Echo"
+          },
           "index" : 2,
           "key" : "echo",
           "kind" : "knob",
@@ -3947,24 +5343,39 @@
           "start" : 5.4
         },
         {
+          "de" : {
+            "label" : "Köpfe"
+          },
           "index" : 3,
           "key" : "heads",
           "kind" : "choice",
-          "label" : "Köpfe",
+          "label" : "Heads",
           "options" : [
             {
+              "de" : {
+                "label" : "1"
+              },
               "label" : "1",
               "value" : 0
             },
             {
+              "de" : {
+                "label" : "2"
+              },
               "label" : "2",
               "value" : 3.5
             },
             {
+              "de" : {
+                "label" : "3"
+              },
               "label" : "3",
               "value" : 6.5
             },
             {
+              "de" : {
+                "label" : "4"
+              },
               "label" : "4",
               "value" : 9.5
             }
@@ -3972,20 +5383,29 @@
           "start" : "3"
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 4,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Bandecho mit mehreren Köpfen"
+      "summary" : "Tape echo with several heads"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Tape Echo",
+        "summary" : "Bandecho mit Leiern"
+      },
       "defaults" : [
         0.72,
         0.598,
@@ -4003,6 +5423,9 @@
       "parameterCount" : 5,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Sustain"
+          },
           "index" : 0,
           "key" : "sustain",
           "kind" : "knob",
@@ -4010,41 +5433,59 @@
           "start" : 7.2
         },
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 1,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 6
         },
         {
+          "de" : {
+            "label" : "Ton"
+          },
           "index" : 2,
           "key" : "tone",
           "kind" : "knob",
-          "label" : "Ton",
+          "label" : "Tone",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Zeit"
+          },
           "index" : 3,
           "key" : "time",
           "kind" : "knob",
-          "label" : "Zeit",
+          "label" : "Time",
           "start" : 5.5
         },
         {
+          "de" : {
+            "label" : "Tempo",
+            "off" : "Frei",
+            "on" : "BPM"
+          },
           "index" : 4,
           "key" : "sync",
           "kind" : "switch",
           "label" : "Tempo",
-          "off" : "Frei",
+          "off" : "Free",
           "on" : "BPM",
           "start" : "BPM"
         }
       ],
       "place" : "delay",
-      "summary" : "Bandecho mit Leiern"
+      "summary" : "Tape echo with wow and flutter"
     },
     {
       "checkedOnAmp" : true,
+      "de" : {
+        "name" : "Hall",
+        "summary" : "Raum, Kammer, Saal oder Platte"
+      },
       "defaults" : [
         0.3,
         0.4,
@@ -4059,25 +5500,34 @@
       "mirrors" : [
         7
       ],
-      "name" : "Hall",
+      "name" : "Reverb",
       "pack" : false,
       "parameterCount" : 8,
       "parameters" : [
         {
+          "de" : {
+            "label" : "Pegel"
+          },
           "index" : 0,
           "key" : "level",
           "kind" : "knob",
-          "label" : "Pegel",
+          "label" : "Level",
           "start" : 3
         },
         {
+          "de" : {
+            "label" : "Dämpfung"
+          },
           "index" : 1,
           "key" : "damping",
           "kind" : "knob",
-          "label" : "Dämpfung",
+          "label" : "Damping",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Low Cut"
+          },
           "index" : 2,
           "key" : "lowCut",
           "kind" : "knob",
@@ -4085,6 +5535,9 @@
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "High Cut"
+          },
           "index" : 3,
           "key" : "highCut",
           "kind" : "knob",
@@ -4092,71 +5545,110 @@
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Dichte"
+          },
           "index" : 4,
           "key" : "density",
           "kind" : "knob",
-          "label" : "Dichte",
+          "label" : "Density",
           "start" : 4
         },
         {
+          "de" : {
+            "label" : "Länge"
+          },
           "index" : 5,
           "key" : "length",
           "kind" : "knob",
-          "label" : "Länge",
+          "label" : "Length",
           "start" : 5
         },
         {
+          "de" : {
+            "label" : "Typ"
+          },
           "index" : 6,
           "key" : "type",
           "kind" : "choice",
-          "label" : "Typ",
+          "label" : "Type",
           "options" : [
             {
-              "label" : "Raum A",
+              "de" : {
+                "label" : "Raum A"
+              },
+              "label" : "Room A",
               "value" : 0
             },
             {
-              "label" : "Raum B",
+              "de" : {
+                "label" : "Raum B"
+              },
+              "label" : "Room B",
               "value" : 1
             },
             {
-              "label" : "Kammer",
+              "de" : {
+                "label" : "Kammer"
+              },
+              "label" : "Chamber",
               "value" : 2
             },
             {
-              "label" : "Saal natürlich",
+              "de" : {
+                "label" : "Saal natürlich"
+              },
+              "label" : "Natural hall",
               "value" : 3
             },
             {
-              "label" : "Saal mittel",
+              "de" : {
+                "label" : "Saal mittel"
+              },
+              "label" : "Medium hall",
               "value" : 4
             },
             {
-              "label" : "Saal weit",
+              "de" : {
+                "label" : "Saal weit"
+              },
+              "label" : "Wide hall",
               "value" : 5
             },
             {
-              "label" : "Platte kurz",
+              "de" : {
+                "label" : "Platte kurz"
+              },
+              "label" : "Short plate",
               "value" : 6
             },
             {
-              "label" : "Platte satt",
+              "de" : {
+                "label" : "Platte satt"
+              },
+              "label" : "Rich plate",
               "value" : 7
             },
             {
-              "label" : "Platte lang",
+              "de" : {
+                "label" : "Platte lang"
+              },
+              "label" : "Long plate",
               "value" : 8
             }
           ],
-          "start" : "Saal natürlich"
+          "start" : "Natural hall"
         }
       ],
       "place" : "reverb",
-      "summary" : "Raum, Kammer, Saal oder Platte"
+      "summary" : "Room, chamber, hall or plate"
     }
   ],
   "places" : [
     {
+      "de" : {
+        "title" : "Noise Gate"
+      },
       "index" : 0,
       "key" : "gate",
       "models" : [
@@ -4165,6 +5657,9 @@
       "title" : "Noise Gate"
     },
     {
+      "de" : {
+        "title" : "Kompressor"
+      },
       "index" : 1,
       "key" : "compressor",
       "models" : [
@@ -4175,9 +5670,12 @@
         "BBEOpticalComp",
         "JH.Vox846"
       ],
-      "title" : "Kompressor"
+      "title" : "Compressor"
     },
     {
+      "de" : {
+        "title" : "Verzerrer"
+      },
       "index" : 2,
       "key" : "drive",
       "models" : [
@@ -4196,9 +5694,12 @@
         "JH.Octavia",
         "JH.FuzzTone"
       ],
-      "title" : "Verzerrer"
+      "title" : "Drive"
     },
     {
+      "de" : {
+        "title" : "Amp"
+      },
       "index" : 3,
       "key" : "amp",
       "models" : [
@@ -4245,6 +5746,9 @@
       "title" : "Amp"
     },
     {
+      "de" : {
+        "title" : "Modulation"
+      },
       "index" : 4,
       "key" : "modulation",
       "models" : [
@@ -4265,6 +5769,9 @@
       "title" : "Modulation"
     },
     {
+      "de" : {
+        "title" : "Delay"
+      },
       "index" : 5,
       "key" : "delay",
       "models" : [
@@ -4278,14 +5785,17 @@
       "title" : "Delay"
     },
     {
+      "de" : {
+        "title" : "Hall"
+      },
       "index" : 6,
       "key" : "reverb",
       "models" : [
         "bias.reverb"
       ],
-      "title" : "Hall"
+      "title" : "Reverb"
     }
   ],
   "scale" : "Knobs go from 0 to 10, like the editor. The amp stores them as 0 to 1.",
-  "version" : 2
+  "version" : 3
 }

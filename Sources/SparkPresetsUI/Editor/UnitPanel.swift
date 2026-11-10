@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -44,7 +45,7 @@ struct UnitPanel: View {
     private func header(index: Int, place: ChainPlace, effect: SparkPreset.Effect, info: ModelInfo) -> some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                PanelLabel("\(place.title) · Platz \(index + 1) von \(preset.effects.count)", color: place.color,
+                PanelLabel(tr("%1$@ · place %2$d of %3$d", place.title, index + 1, preset.effects.count), color: place.color,
                            isAccessible: true)
                 ModelPicker(index: index, place: place, current: info)
                 Text(info.summary)
@@ -52,7 +53,7 @@ struct UnitPanel: View {
                     .foregroundStyle(Theme.device.fieldText)
                     .lineLimit(2)
                 if let inspiration = info.inspiration {
-                    Text("Vorbild: \(inspiration)")
+                    Text(tr("Modeled on: %@", inspiration))
                         .font(.system(size: 11))
                         .foregroundStyle(Theme.device.engraving)
                 }
@@ -60,11 +61,11 @@ struct UnitPanel: View {
             Spacer(minLength: 8)
             VStack(spacing: 6) {
                 LampDot(color: place.swatch, isOn: effect.isOn, size: 10)
-                Footswitch(isOn: effect.isOn, label: "\(place.title) an oder aus", size: 38,
+                Footswitch(isOn: effect.isOn, label: tr("%@ on or off", place.title), size: 38,
                            isEnabled: !editor.isLocked) {
                     editor.setOn(place: index, !effect.isOn)
                 }
-                PanelLabel(effect.isOn ? "An" : "Aus", color: effect.isOn ? Theme.device.amber : Theme.device.lampOffText)
+                PanelLabel(effect.isOn ? tr("On") : tr("Off"), color: effect.isOn ? Theme.device.amber : Theme.device.lampOffText)
             }
         }
     }
@@ -76,9 +77,9 @@ private struct OperatingHint: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("**Scrollen** dreht fein, **Ziehen** grob, **Doppelklick** setzt den Standardwert.")
+            Text(LocalizedStringKey(tr("**Scrolling** turns finely, **dragging** coarsely, a **double-click** sets the default value.")))
             if isLive {
-                Text("Jede Änderung ist sofort am Verstärker hörbar, ohne einen Platz zu überschreiben.")
+                Text(tr("Every change can be heard on the amp at once, without overwriting a slot."))
             }
         }
         .font(.system(size: 11.5))
@@ -131,8 +132,8 @@ private struct ModelPicker: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .disabled(editor.isLocked)
-        .accessibilityLabel("Modell: \(current.name)")
-        .accessibilityHint("Wählt ein anderes Modell für \(place.title)")
+        .accessibilityLabel(tr("Model: %@", current.name))
+        .accessibilityHint(tr("Chooses another model for %@", place.title))
     }
 
     private func item(_ model: ModelInfo) -> some View {
@@ -166,7 +167,7 @@ private struct ParameterGrid: View {
                 }
             }
             if visible.isEmpty {
-                Text("Dieses Modell hat keine einstellbaren Regler.")
+                Text(tr("This model has no adjustable controls."))
                     .font(.callout)
                     .foregroundStyle(Theme.device.labelDim)
             }

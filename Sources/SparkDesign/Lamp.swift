@@ -4,7 +4,7 @@ import SwiftUI
 /// has a dim word.
 ///
 ///     Lamp("Live", tone: .on, isOn: editor.isHeard)
-///     Lamp("Übersteuert", tone: .record, isOn: meter.clipped)
+///     Lamp("Clipping", tone: .record, isOn: meter.clipped)
 ///
 /// The dot is hidden from VoiceOver, the word stays. Give the lamp an `accessibilityLabel` when the word alone does
 /// not say whether it is on.
@@ -90,14 +90,14 @@ public struct LampDot: View {
     }
 }
 
-#Preview("Lämpchen") {
+#Preview("Lamps") {
     PreviewPair {
         Faceplate {
             HStack(spacing: 14) {
                 Lamp("Live", tone: .on, isOn: true)
                 Lamp("Rec", tone: .record, isOn: true)
-                Lamp("Geändert", tone: .hot, isOn: true)
-                Lamp("Klick", isOn: false)
+                Lamp("Changed", tone: .hot, isOn: true)
+                Lamp("Click", isOn: false)
             }
             .padding(14)
         }

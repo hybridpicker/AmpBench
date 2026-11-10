@@ -59,7 +59,7 @@ let usage = """
       --compare       with tuner: pair each reading with the pitch heard over USB (reads only, records nothing)
       --device <name> use the device whose name contains <name> when several are found, otherwise the first
 
-    The Spark app on the phone and Spark Studio must be disconnected, the amp accepts only one control connection.
+    The Spark app on the phone and AmpBench must be disconnected, the amp accepts only one control connection.
     From a Claude Code session in the desktop app, run it through Tools/probe-app.sh (Bluetooth access, see README).
     """
 

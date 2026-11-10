@@ -1,3 +1,4 @@
+import AmpText
 import SwiftUI
 import SparkControl
 
@@ -9,13 +10,15 @@ struct AISoundSheet: View {
     @State private var draftKey = ""
     @State private var showsAdvanced = false
 
-    private let examples = [
-        "Blues-Crunch für meine Telecaster",
-        "Metallica – Enter Sandman",
-        "Cleaner Funk mit Biss",
-        "Pink Floyd – Comfortably Numb, Solo",
-        "Warmer Jazz-Sound",
-    ]
+    private var examples: [String] {
+        [
+            tr("Blues crunch for my Telecaster"),
+            "Metallica – Enter Sandman",
+            tr("Clean funk with bite"),
+            "Pink Floyd – Comfortably Numb, Solo",
+            tr("Warm jazz sound"),
+        ]
+    }
 
     var body: some View {
         // A real container, not a Group: a Group would hand onDisappear to each page, and going from the description
@@ -34,23 +37,23 @@ struct AISoundSheet: View {
     /// Shown while Ollama Cloud is not connected: the window where the API key goes in.
     private var connect: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Mit Ollama Cloud verbinden").font(.title2.weight(.semibold))
-            Text("Für KI-Sound braucht Spark Studio einen Ollama-API-Schlüssel. Du bekommst ihn kostenlos mit einem Ollama-Konto.")
+            Text(tr("Connect to Ollama Cloud")).font(.title2.weight(.semibold))
+            Text(tr("AI Sound needs an Ollama API key. You get one for free with an Ollama account."))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Link("Schlüssel auf ollama.com/settings/keys erstellen",
+            Link(tr("Create a key at ollama.com/settings/keys"),
                  destination: URL(string: "https://ollama.com/settings/keys")!)
-            SecureField("API-Schlüssel einfügen", text: $draftKey)
+            SecureField(tr("Paste the API key"), text: $draftKey)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(connectKey)
-            Text("Der Schlüssel liegt in deinem macOS-Schlüsselbund und wird nur an Ollama (ollama.com) gesendet, wenn du einen Sound erzeugen lässt.")
+            Text(tr("The key is kept in your macOS keychain and is sent only to Ollama (ollama.com) when you have a sound created."))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
                 Spacer()
-                Button("Abbrechen") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Verbinden", action: connectKey)
+                Button(tr("Cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(tr("Connect"), action: connectKey)
                     .keyboardShortcut(.defaultAction)
                     .disabled(draftKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
@@ -76,17 +79,17 @@ struct AISoundSheet: View {
 
     private var form: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("KI-Sound").font(.title2.weight(.semibold))
-            Text("Beschreibe den Sound mit eigenen Worten – ein Song, eine Band, eine Stimmung. Du bekommst drei verschiedene Vorschläge, hörst sie am Verstärker an, besserst nach und behältst nur, was dir gefällt.")
+            Text(tr("AI Sound")).font(.title2.weight(.semibold))
+            Text(tr("Describe the sound in your own words – a song, a band, a mood. You get three different suggestions, listen to them on the amp, refine them and keep only what you like."))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            TextField("z. B. „U2 – Where the streets have no name“", text: $model.aiRequest, axis: .vertical)
+            TextField(tr("e.g. “U2 – Where the streets have no name”"), text: $model.aiRequest, axis: .vertical)
                 .lineLimit(2...5)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit { if canCreate { model.generateAISound() } }
             if requestLength > SoundAI.requestLimit - 40 {
-                Text("\(requestLength) von \(SoundAI.requestLimit) Zeichen")
+                Text(tr("%d of %d characters", requestLength, SoundAI.requestLimit))
                     .font(.caption2)
                     .foregroundStyle(requestLength > SoundAI.requestLimit ? .red : .secondary)
             }
@@ -94,9 +97,9 @@ struct AISoundSheet: View {
             if !model.aiHistory.isEmpty {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Zuletzt gewünscht").font(.caption).foregroundStyle(.secondary)
+                        Text(tr("Asked for recently")).font(.caption).foregroundStyle(.secondary)
                         Spacer()
-                        Button("Verlauf löschen") { model.clearAIHistory() }
+                        Button(tr("Clear history")) { model.clearAIHistory() }
                             .buttonStyle(.link).font(.caption)
                     }
                     FlowRow(spacing: 6) {
@@ -112,7 +115,7 @@ struct AISoundSheet: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Ideen zum Anklicken").font(.caption).foregroundStyle(.secondary)
+                Text(tr("Ideas to click")).font(.caption).foregroundStyle(.secondary)
                 FlowRow(spacing: 6) {
                     ForEach(examples, id: \.self) { example in
                         Button(example) { model.aiRequest = example }
@@ -122,10 +125,10 @@ struct AISoundSheet: View {
                 }
             }
 
-            DisclosureGroup("Erweitert", isExpanded: $showsAdvanced) {
+            DisclosureGroup(tr("Advanced"), isExpanded: $showsAdvanced) {
                 HStack(spacing: 6) {
-                    Text("Modell").font(.caption).foregroundStyle(.secondary)
-                    TextField("gpt-oss:120b", text: $model.aiModel)
+                    Text(tr("Model")).font(.caption).foregroundStyle(.secondary)
+                    TextField(String("gpt-oss:120b"), text: $model.aiModel)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 200)
                     if !model.aiModelChoices.isEmpty {
@@ -137,7 +140,7 @@ struct AISoundSheet: View {
                             .menuStyle(.borderlessButton).fixedSize()
                     }
                     Spacer()
-                    Button("Schlüssel entfernen") { model.aiAPIKey = "" }
+                    Button(tr("Remove key")) { model.aiAPIKey = "" }
                         .buttonStyle(.link).font(.caption)
                 }
                 .padding(.top, 6)
@@ -152,11 +155,11 @@ struct AISoundSheet: View {
             }
 
             HStack {
-                Text("Nur dein Text geht an Ollama (ollama.com) – keine Presets, Namen oder Gerätedaten.")
+                Text(tr("Only your text goes to Ollama (ollama.com) – no presets, names or device data."))
                     .font(.caption2).foregroundStyle(.secondary)
                 Spacer()
-                Button("Abbrechen") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Vorschläge erstellen") { model.generateAISound() }
+                Button(tr("Cancel")) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(tr("Create suggestions")) { model.generateAISound() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canCreate)
             }
@@ -170,8 +173,8 @@ struct AISoundSheet: View {
 
     private var results: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Hör dir die Vorschläge an").font(.title2.weight(.semibold))
-            Text("„\(model.aiAsked)“ – jeder Vorschlag erscheint, sobald er fertig ist. „Anhören“ spielt ihn am Verstärker, gespeichert wird nichts. Die Knöpfe darunter bessern nur diesen Vorschlag nach. Erst „Behalten“ legt ihn in deine Bibliothek.")
+            Text(tr("Listen to the suggestions")).font(.title2.weight(.semibold))
+            Text(tr("“%@” – every suggestion appears as soon as it is ready. “Listen” plays it on the amp, nothing is stored. The buttons below refine only that suggestion. Only “Keep” puts it into your library.", model.aiAsked))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -192,13 +195,13 @@ struct AISoundSheet: View {
             }
 
             HStack {
-                Button("Andere Beschreibung") { model.discardAIResults() }
-                Button("Neue Vorschläge") { model.generateAISound() }.disabled(model.aiIsBusy)
+                Button(tr("Other description")) { model.discardAIResults() }
+                Button(tr("New suggestions")) { model.generateAISound() }.disabled(model.aiIsBusy)
                 if model.aiIsBusy {
-                    Button("Anfrage abbrechen", role: .cancel) { model.cancelAI() }
+                    Button(tr("Cancel request"), role: .cancel) { model.cancelAI() }
                 }
                 Spacer()
-                Button("Schließen") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button(tr("Close")) { dismiss() }.keyboardShortcut(.cancelAction)
             }
         }
         .padding(22)
@@ -206,7 +209,7 @@ struct AISoundSheet: View {
     }
 
     private func title(_ offer: PresetsModel.AIOffer) -> String {
-        SoundAI.variantTitles.indices.contains(offer.id) ? SoundAI.variantTitles[offer.id] : "Vorschlag \(offer.id + 1)"
+        SoundAI.variantTitles.indices.contains(offer.id) ? SoundAI.variantTitles[offer.id] : tr("Suggestion %d", offer.id + 1)
     }
 
     @ViewBuilder
@@ -217,7 +220,7 @@ struct AISoundSheet: View {
             case .writing:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("\(title(offer)): wird geschrieben …").foregroundStyle(.secondary)
+                    Text(tr("%@: being written …", title(offer))).foregroundStyle(.secondary)
                 }
             case .failed(let text):
                 HStack(alignment: .firstTextBaseline) {
@@ -225,7 +228,7 @@ struct AISoundSheet: View {
                         .foregroundStyle(.red).font(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer()
-                    Button("Nochmal") { model.retryAIOffer(offer.id) }
+                    Button(tr("Again")) { model.retryAIOffer(offer.id) }
                 }
             case .ready(let recipe):
                 ready(offer, recipe, playing: playing)
@@ -244,16 +247,16 @@ struct AISoundSheet: View {
             Text(recipe.name).font(.headline)
             Text(title(offer)).font(.caption).foregroundStyle(.secondary)
             if playing {
-                Label("spielt", systemImage: "speaker.wave.2.fill")
+                Label(tr("playing"), systemImage: "speaker.wave.2.fill")
                     .font(.caption).foregroundStyle(.tint)
             }
             Spacer()
             if heard {
-                Button("Anhören") { model.listenAISound(offer.id) }
-                Button("Behalten") { model.pickAISound(offer.id) }.buttonStyle(.borderedProminent)
+                Button(tr("Listen")) { model.listenAISound(offer.id) }
+                Button(tr("Keep")) { model.pickAISound(offer.id) }.buttonStyle(.borderedProminent)
             } else {
-                Button("Behalten") { model.pickAISound(offer.id) }
-                Button("Anhören") { model.listenAISound(offer.id) }.buttonStyle(.borderedProminent)
+                Button(tr("Keep")) { model.pickAISound(offer.id) }
+                Button(tr("Listen")) { model.listenAISound(offer.id) }.buttonStyle(.borderedProminent)
             }
         }
         .disabled(offer.refining != nil)
@@ -263,7 +266,7 @@ struct AISoundSheet: View {
         }
         Text(chainSummary(recipe)).font(.caption).foregroundStyle(.secondary)
         if !recipe.notes.isEmpty {
-            Text("Tipp: \(recipe.notes)").font(.caption).foregroundStyle(.secondary)
+            Text(tr("Tip: %@", recipe.notes)).font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
         HStack(spacing: 6) {
@@ -281,10 +284,10 @@ struct AISoundSheet: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
                 .disabled(offer.refining != nil || reason != nil)
-                .help(reason ?? "Diesen Vorschlag \(adjustment.label) machen, der Rest bleibt")
+                .help(reason ?? tr("Make this suggestion %@, the rest stays", adjustment.label))
             }
             if !offer.adjustments.isEmpty {
-                Text("angepasst: " + offer.adjustments.map(\.label).joined(separator: ", "))
+                Text(tr("adjusted: %@", offer.adjustments.map(\.label).joined(separator: ", ")))
                     .font(.caption2).foregroundStyle(.secondary)
             }
         }

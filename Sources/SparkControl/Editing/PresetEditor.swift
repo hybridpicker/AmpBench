@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// Edits a preset: every change returns what to send to the amp, with undo and redo, and knows whether anything
@@ -203,8 +204,8 @@ public enum PresetRules {
     /// Nil when the name is fine, otherwise why it is not.
     public static func problem(withName name: String) -> String? {
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { return "Der Name darf nicht leer sein." }
-        if trimmed.utf8.count > nameLimit { return "Höchstens \(nameLimit) Zeichen (Umlaute zählen doppelt)." }
+        if trimmed.isEmpty { return tr("The name must not be empty.") }
+        if trimmed.utf8.count > nameLimit { return tr("At most %d characters (umlauts count double).", nameLimit) }
         return nil
     }
 }

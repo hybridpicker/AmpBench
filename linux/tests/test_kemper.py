@@ -5,7 +5,7 @@ import tarfile
 
 import pytest
 
-from spark_studio import catalog, kemper, library, recipe, store as storemod
+from ampbench import catalog, i18n, kemper, library, recipe, store as storemod
 
 
 def _var(value: int) -> bytes:
@@ -201,7 +201,7 @@ def test_importing_twice_adds_nothing_and_songs_become_pieces(tmp_path):
     presets.reload()
     written, new = presets.import_kemper(sounds)
     assert new == len(sounds) == 2 and all(w.id for w in written)
-    assert written[0].tags[:2] == ["kemper", "clean"] and "anhören" in written[0].notes
+    assert written[0].tags[:2] == ["kemper", "clean"] and "listen and adjust" in written[0].notes
     again, new_again = presets.import_kemper(sounds)
     assert new_again == 0 and len(presets.items) == 2
     assert ("kemper", 2) in presets.tag_counts()
@@ -221,3 +221,27 @@ def test_importing_twice_adds_nothing_and_songs_become_pieces(tmp_path):
 def test_tags_are_kept_without_the_hash():
     assert library.parse_tags("#Basis basis, #clean  ") == ["Basis", "clean"]
     assert kemper.hashtag("Can't Stop") == "CantStop" and kemper.hashtag("180er Band") == "180erBand"
+
+
+def test_the_list_reads_like_the_mac(tmp_path, capsys):
+    file = tmp_path / "all.kpabackup"
+    clean = rig_events("Comping", "LDW39", "Divided By 13", gain=2.5)
+    solo = rig_events("Solo", "JMP", "Marshall", gain=7)
+    data = database([("Can't Stop", _fill([clean, solo])), ("Licks", _fill([solo]))], tmp_path=tmp_path)
+    file.write_bytes(tar([("Rigs/Comping.kipr", rig_file(clean)), ("repository.kdb", data)]))
+    assert kemper.list_file(str(file)) == 0
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "1 rigs, 2 performances, 2 of your own"
+    assert lines[1] == "1. Can't Stop  [Song]" and "2. Licks  [Lessons]" in lines
+    assert lines[2].startswith("   1 Comping → ") and lines[2].endswith("(“divided by 13”), clean")
+    assert lines[-1] == "Result: 2 presets, 1 pieces"
+    assert kemper.list_file(str(tmp_path / "nothing.txt")) == 1
+    assert capsys.readouterr().out.startswith("not possible: “nothing.txt” is not a Kemper file")
+    i18n.set_language(i18n.GERMAN)
+    try:
+        assert kemper.list_file(str(file)) == 0
+        lines = capsys.readouterr().out.splitlines()
+        assert lines[0] == "1 Rigs, 2 Performances, 2 eigene" and lines[-1] == "Ergebnis: 2 Presets, 1 Stücke"
+        assert "2. Licks  [Unterricht]" in lines and list(kemper.KINDS) == ["song", "basis", "lesson", "skip"]
+    finally:
+        i18n.set_language(i18n.ENGLISH)

@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 public enum PresetLibraryError: LocalizedError {
@@ -6,8 +7,8 @@ public enum PresetLibraryError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .emptyName: "Der Name darf nicht leer sein."
-        case .nameTooLong(let limit): "Der Name ist zu lang. Der Verstärker nimmt höchstens \(limit) Zeichen."
+        case .emptyName: tr("The name must not be empty.")
+        case .nameTooLong(let limit): tr("The name is too long. The amp takes at most %d characters.", limit)
         }
     }
 }
@@ -75,6 +76,7 @@ public final class PresetLibrary {
             let formatter = DateFormatter()
             formatter.locale = Locale(identifier: "en_US_POSIX")
             formatter.dateFormat = "yyyy-MM-dd HH.mm"
+            // A name on disk: backups made before the app spoke English are called like this, so it stays.
             base += " – Sicherung \(formatter.string(from: date))"
         }
         let url = uniqueURL(base)
@@ -180,12 +182,12 @@ public final class PresetLibrary {
     }
 
     /// A sound recipe in the folder as a preset file. Saving it in the editor writes it as an ordinary preset file.
-    /// Nil when it is no recipe or has a problem; `SparkStudio --recipe-check` says which.
+    /// Nil when it is no recipe or has a problem; `AmpBench --recipe-check` says which.
     static func recipeFile(_ data: Data, url: URL) -> PresetFile? {
         guard let recipe = try? SoundRecipe.decodeIfRecipe(data),
               let conversion = try? recipe.preset(identity: data) else { return nil }
         let date = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? Date()
-        return PresetFile(id: nil, savedAt: date, origin: "Rezept", tags: PresetFile.normalized(recipe.tags),
+        return PresetFile(id: nil, savedAt: date, origin: tr("Recipe"), tags: PresetFile.normalized(recipe.tags),
                           notes: recipe.notes, preset: conversion.preset)
     }
 

@@ -14,7 +14,7 @@ public struct TakeSound {
     }
 }
 
-/// What the inspector can do with a take's sound in Spark Studio. Each closure gets the take's snapshot and reports
+/// What the inspector can do with a take's sound in AmpBench. Each closure gets the take's snapshot and reports
 /// itself what went wrong, such as an amp that is not connected.
 public struct SoundActions {
     /// Plays the sound on the amp's temporary place 7F, never in a slot.
@@ -34,7 +34,7 @@ struct BannerAction {
     let run: @MainActor () -> Void
 }
 
-/// Spark Recorder inside another app, Spark Studio. It is built from the same parts as the app: the model from the
+/// Spark Recorder inside another app, AmpBench. It is built from the same parts as the app: the model from the
 /// launch options, the key router, and the app delegate as an ordinary object. Studio puts the deck and the workspace
 /// into its own window and hands that window over with `adopt`.
 @MainActor
@@ -54,7 +54,7 @@ public final class RecorderHost {
     /// The deck: recording, level, Spark, click. Set `\.deckBluetooth` on it to show the amp's connection.
     public var deck: AnyView { AnyView(DeckView().recorderEnvironment(model)) }
 
-    /// Waveform, transport and library: the area "Aufnahme".
+    /// Waveform, transport and library: the area "Record".
     public var workspace: AnyView { AnyView(RecorderWorkspace().recorderEnvironment(model)) }
 
     /// The recorder's message, for showing it while the other area is in front.
@@ -92,7 +92,7 @@ public final class RecorderHost {
         KeyRouter.allowsKey = allows
     }
 
-    // MARK: Sound and tempo, for Spark Studio
+    // MARK: Sound and tempo, for AmpBench
 
     /// Asked at the start of every take for what the amp plays.
     public func provideSound(_ provider: @escaping @MainActor () -> TakeSound?) {
@@ -117,7 +117,7 @@ public final class RecorderHost {
 
     public var tempo: Double { model.metronome.bpm }
 
-    /// What "⌘/ Tastenkürzel" in the library's status line does.
+    /// What "⌘/ Keyboard shortcuts" in the library's status line does.
     public func onShowShortcuts(_ handler: @escaping @MainActor () -> Void) {
         model.showShortcuts = handler
     }
@@ -127,7 +127,7 @@ public final class RecorderHost {
         model.setTempoFromPreset(bpm)
     }
 
-    /// A message with one key, such as "Übernehmen".
+    /// A message with one key, such as "Apply".
     public func ask(_ text: String, action title: String, run: @escaping @MainActor () -> Void) {
         model.show(.info, text, action: BannerAction(title: title, run: run))
     }
@@ -203,7 +203,7 @@ private struct RecorderBannerSlot: View {
     }
 }
 
-/// Spark Recorder's menus for Spark Studio. While the other window is in front, the keys both apps use are left to it.
+/// Spark Recorder's menus for AmpBench. While the other window is in front, the keys both apps use are left to it.
 public struct RecorderMenus: Commands {
     private let model: AppModel
     private let isActive: Bool

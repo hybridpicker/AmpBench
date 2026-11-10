@@ -4,7 +4,7 @@ import SwiftUI
 /// square; during the count-in it shows the beats left. With "Reduce motion" it does not pulse.
 ///
 ///     RecordKey(state: .recording, action: toggleRecord)
-///         .accessibilityLabel("Aufnahme stoppen (R)")
+///         .accessibilityLabel("Stop recording (R)")
 public struct RecordKey: View {
     public enum State: Equatable, Sendable {
         case idle
@@ -96,7 +96,7 @@ private struct RecordGlow: View {
     }
 }
 
-#Preview("Record-Taste") {
+#Preview("Record key") {
     PreviewPair {
         Faceplate {
             HStack(spacing: 18) {

@@ -1,9 +1,10 @@
+import AmpText
 import Foundation
 
 /// Turns a natural-language request into a sound recipe with an AI assistant over Ollama's cloud API.
 ///
 /// It builds a prompt that contains the exact model catalog (ids, places, parameter keys and their labels), typical
-/// signal chains and a few valid examples, so the assistant writes a recipe Spark Studio can read without guessing,
+/// signal chains and a few valid examples, so the assistant writes a recipe AmpBench can read without guessing,
 /// then parses and checks the answer. The chat itself is passed in as a function (`Chat`): `ollama(model:apiKey:)`
 /// talks to the cloud, tests pass a fake, so nothing here needs a network.
 ///
@@ -37,13 +38,12 @@ public enum SoundAI {
 
         public var errorDescription: String? {
             switch self {
-            case .emptyRequest: "Beschreibe zuerst, welchen Sound du möchtest."
-            case .tooLong(let limit): "Beschreibe den Sound in höchstens \(limit) Zeichen."
+            case .emptyRequest: tr("First describe the sound you want.")
+            case .tooLong(let limit): tr("Describe the sound in at most %d characters.", limit)
             case .privacy(let message): message
-            case .emptyAnswer: "Das Modell hat nichts geantwortet. Versuch es noch einmal."
+            case .emptyAnswer: tr("The model did not answer. Try again.")
             case .noJSON:
-                "Das Modell hat kein Sound-Rezept (JSON) geliefert, sondern freien Text – auch nach einer Nachfrage. "
-                    + "Versuch es noch einmal oder wähle unter „Erweitert“ ein anderes Modell."
+                tr("The model gave free text instead of a sound recipe (JSON) – even when asked again. Try again or choose another model under “Advanced”.")
             case .unreadable(let message): message
             case .invalid(let message): message
             case .notPossible(let message): message
@@ -79,17 +79,17 @@ public enum SoundAI {
             let range = NSRange(text.startIndex..., in: text)
             return regex.matches(in: text, range: range).compactMap { Range($0.range, in: text).map { String(text[$0]) } }
         }
-        let tail = " Lass das weg – an Ollama geht nur die Beschreibung des Sounds."
+        let tail = " " + tr("Leave that out – only the description of the sound goes to Ollama.")
         if !matches(#"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}"#).isEmpty {
-            return "Dein Wunsch enthält eine E-Mail-Adresse." + tail
+            return tr("Your wish contains an e-mail address.") + tail
         }
         if matches(#"\+?\d[\d \t/().-]{6,}\d"#).contains(where: { $0.filter(\.isNumber).count >= 8 }) {
-            return "Dein Wunsch enthält etwas wie eine Telefonnummer." + tail
+            return tr("Your wish contains something like a phone number.") + tail
         }
         // A run of 24 or more letters and digits without spaces or hyphens, mixed, is a key or token, not a song.
         let tokens = matches(#"[A-Za-z0-9_+/=]{24,}"#)
         if tokens.contains(where: { $0.filter(\.isNumber).count >= 4 && $0.filter(\.isLetter).count >= 4 }) {
-            return "Dein Wunsch enthält etwas, das wie ein Schlüssel oder Passwort aussieht." + tail
+            return tr("Your wish contains something that looks like a key or password.") + tail
         }
         return nil
     }
@@ -102,7 +102,11 @@ public enum SoundAI {
         return Array(([trimmed] + rest).prefix(limit))
     }
 
-    /// The recipe as it goes into the library: the wish in the description, marked as a KI-Sound, with the
+    /// The tag every sound made here carries. A stored value that the library filters by, so it is the same in every
+    /// language.
+    public static let aiTag = "KI-Sound"
+
+    /// The recipe as it goes into the library: the wish in the description, marked as an AI Sound, with the
     /// adjustments that were made as tags. The description fits `PresetRules.descriptionLimit`, so what is kept is
     /// what plays: the wish first, the recipe's own words only when there is room.
     public static func keepsake(_ recipe: SoundRecipe, request: String, adjustments: [Adjustment] = []) -> SoundRecipe {
@@ -112,7 +116,7 @@ public enum SoundAI {
         let limit = PresetRules.descriptionLimit
         var description = own
         if !wish.isEmpty {
-            let marked = "KI-Sound: „\(wish)“"
+            let marked = tr("AI Sound: “%@”", wish)
             let both = own.isEmpty ? marked : "\(marked). \(own)"
             if both.utf8.count <= limit {
                 description = both
@@ -120,13 +124,13 @@ public enum SoundAI {
                 description = marked
             } else {
                 var cut = wish
-                while "KI-Sound: „\(cut)…“".utf8.count > limit { cut.removeLast() }
-                description = "KI-Sound: „\(cut)…“"
+                while tr("AI Sound: “%@…”", cut).utf8.count > limit, !cut.isEmpty { cut.removeLast() }
+                description = tr("AI Sound: “%@…”", cut)
             }
         }
         kept.description = PresetRules.fitDescription(description)
         var tags: [String] = []
-        for tag in recipe.tags + ["KI-Sound"] + adjustments.map(\.label)
+        for tag in recipe.tags + [aiTag] + adjustments.map(\.label)
         where !tags.contains(where: { $0.caseInsensitiveCompare(tag) == .orderedSame }) {
             tags.append(tag)
         }
@@ -138,42 +142,47 @@ public enum SoundAI {
 
     /// The messages for one `/api/chat` request: a system prompt with the rules and the catalog, then the request.
     public static func messages(request: String, catalog: CatalogReference, hint: String = "") -> [OllamaChatMessage] {
-        let suffix = hint.isEmpty ? "" : "\n\nAusrichtung dieser Variante: \(hint)"
+        let suffix = hint.isEmpty ? "" : "\n\nDirection of this variant: \(hint)"
         return [
             OllamaChatMessage(role: "system", content: systemPrompt(catalog: catalog)),
-            OllamaChatMessage(role: "user", content: "Nutzerwunsch: \(request)\(suffix)"),
+            OllamaChatMessage(role: "user", content: "User's wish: \(request)\(suffix)"),
         ]
     }
 
     /// Three directions for the same wish, so the user gets sounds that differ audibly instead of three takes of one.
     public static let variantHints = [
-        "Variante A – originalgetreu: der Verstärker, der Verzerrer und die Effekte, die das Vorbild oder das Genre "
-            + "typischerweise nutzt. Gib dem Sound einen eigenen Namen.",
-        "Variante B – druckvoller: eine Gain-Stufe mehr als die naheliegende Wahl (clean → angezerrt, Crunch → Lead) "
-            + "und ein anderes Verstärker-Modell als das naheliegendste; mehr Mitten und Präsenz. Gib dem Sound einen "
-            + "eigenen Namen, der das ausdrückt.",
-        "Variante C – reduziert und offen: weniger Gain als die naheliegende Wahl, ein anderes Verstärker-Modell, "
-            + "höchstens zwei Effekte und eine andere Raum-Idee (zum Beispiel Bandecho statt Digital-Delay, Platte statt "
-            + "Saal). Dynamisch, reagiert auf den Anschlag. Gib dem Sound einen eigenen Namen, der das ausdrückt.",
+        "Variant A – faithful: the amp, the drive and the effects the player or the genre typically uses. Give the "
+            + "sound a name of its own.",
+        "Variant B – more punch: one gain stage more than the obvious choice (clean → edge of breakup, crunch → lead) "
+            + "and another amp model than the most obvious one; more mids and presence. Give the sound a name of its "
+            + "own that says so.",
+        "Variant C – reduced and open: less gain than the obvious choice, another amp model, at most two effects and "
+            + "another idea of space (for example tape echo instead of digital delay, plate instead of hall). Dynamic, "
+            + "responds to picking. Give the sound a name of its own that says so.",
     ]
 
     /// A short title for each direction, one per hint, for the cards while they are written.
-    public static let variantTitles = ["Originalgetreu", "Druckvoller", "Reduziert"]
+    public static var variantTitles: [String] { [tr("Faithful"), tr("More punch"), tr("Reduced")] }
 
+    /// The language the assistant writes the recipe's own words in: the user's.
+    static var answerLanguage: String { Texts.language == .german ? "German" : "English" }
+
+    /// The rules, the knowledge and the catalog. Written in English whatever the app's language is; the assistant
+    /// is told to write the recipe's name, description, tags and notes in the user's language.
     static func systemPrompt(catalog: CatalogReference) -> String {
         """
-        Du erstellst Gitarren-Sounds für Positive-Grid-Spark-Verstärker als „Sound-Rezept“ (ein JSON-Objekt). Der Nutzer beschreibt eine Idee, einen Song, eine Band, ein Vorbild oder eine Anweisung – zum Beispiel „Sound für U2 – Where the streets have no name“ oder „Blues-Sound für meine Telecaster“.
+        You build guitar sounds for Positive Grid Spark amps as a “sound recipe” (a JSON object). The user describes an idea, a song, a band, a player or an instruction – for example “sound for U2 – Where the streets have no name” or “blues sound for my Telecaster”. The user may write in any language.
 
-        Antworte NUR mit einem einzigen JSON-Objekt, ohne Text davor oder danach, in genau diesem Aufbau:
+        Answer ONLY with a single JSON object, with no text before or after it, in exactly this form:
 
         {
           "format": "spark-sound-recipe",
           "version": 1,
-          "name": "kurzer Name, höchstens 31 Bytes (Umlaute zählen doppelt)",
-          "description": "ein Satz, was der Sound ist",
+          "name": "short name, at most 31 bytes (umlauts count double)",
+          "description": "one sentence saying what the sound is",
           "bpm": 120,
-          "tags": ["Stil", "Stimmung"],
-          "notes": "was man zuerst nach Gehör drehen sollte und warum",
+          "tags": ["style", "mood"],
+          "notes": "what to turn first by ear, and why",
           "chain": {
             "gate":       { "model": "<id>", "on": true, "settings": { } },
             "compressor": { "model": "<id>", "on": true, "settings": { } },
@@ -185,66 +194,67 @@ public enum SoundAI {
           }
         }
 
-        Regeln:
-        - Es gibt genau diese sieben Plätze in fester Reihenfolge: gate, compressor, drive, amp, modulation, delay, reverb. Einen Platz, der nicht klingen soll, lässt du weg (kein Eintrag) oder setzt "on": false.
-        - Jeder Platz hat genau EIN "model". Nutze ausschließlich Modell-IDs aus dem Katalog unten, exakt so geschrieben (Groß-/Kleinschreibung zählt).
-        - "settings" nutzt ausschließlich die Parameter-Schlüssel dieses Modells aus dem Katalog. Regler: Zahl von 0 bis 10. Schalter: true/false oder genau die angegebenen Labels. Auswahl: genau ein angegebenes Label (deutsch).
-        - Ein weggelassener Wert behält den Startwert des Verstärkers. Setze gain, treble, middle, bass und master beim Amp immer ausdrücklich.
-        - Der EQ ist eine Modulation (GuitarEQ6 oder BassEQ6). Am Modulations-Platz steht entweder ein EQ oder ein Chorus/Phaser/Tremolo, nie beides.
-        - Das Wah des kostenpflichtigen Zusatzpakets sitzt am compressor-Platz. Vermeide Modelle mit „PACK“, außer der Nutzer verlangt sie ausdrücklich.
-        - Es gibt genau ein Hall-Modell (bias.reverb); sein „type“ wählt Raum, Kammer, Saal oder Platte. Einen Federhall gibt es nicht.
-        - Verstärker haben fünf Regler: gain, treble, middle, bass, master (Paket-Amps nennen ihn volume).
-        - Bei einem Song setze "bpm" passend zum Tempo des Songs (siehe Tempo und Delay-Zeit), sonst 120.
-        - Wenn eine „Ausrichtung dieser Variante“ dasteht, halte dich daran. Varianten sollen hörbar verschieden sein: anderer Verstärker, andere Gain-Stufe oder andere Effekt-Idee.
+        Rules:
+        - Write "name", "description", "tags" and "notes" in \(answerLanguage). Model ids, parameter keys and labels stay exactly as the catalog writes them.
+        - There are exactly these seven places in a fixed order: gate, compressor, drive, amp, modulation, delay, reverb. A place that should not sound is left out (no entry) or gets "on": false.
+        - Every place has exactly ONE "model". Use only model ids from the catalog below, written exactly like that (upper and lower case matter).
+        - "settings" uses only the parameter keys of that model from the catalog. Knob: a number from 0 to 10. Switch: true/false or exactly one of the given labels. Choice: exactly one of the given labels.
+        - A value left out keeps the amp's start value. Always set gain, treble, middle, bass and master of the amp explicitly.
+        - The EQ is a modulation (GuitarEQ6 or BassEQ6). The modulation place holds either an EQ or a chorus/phaser/tremolo, never both.
+        - The wah of the paid add-on sits in the compressor place. Avoid models marked “PACK” unless the user asks for them explicitly.
+        - There is exactly one reverb model (bias.reverb); its “type” chooses room, chamber, hall or plate. There is no spring reverb.
+        - Amps have five knobs: gain, treble, middle, bass, master (pack amps call it volume).
+        - For a song set "bpm" to fit the song's tempo (see Tempo and delay time), otherwise 120.
+        - If a “Direction of this variant” is given, follow it. Variants should differ audibly: another amp, another gain stage or another idea for the effects.
 
-        So wählst du (Ausgangspunkte, kein Gesetz):
-        - Strahlend clean, Jazz, Funk: Twin, RolandJC120, 94MatchDCV2 (clean)
-        - Clean, das beim Anschlag aufbricht: ODS50CN, Deluxe65, BluesJrTweed
-        - Britischer Glanz, 60er-Pop, Indie: AC Boost, Bassman (bright)
-        - Classic-Rock-Rhythmus: Plexi, OverDrivenJM45 (crunch)
-        - Blues-Lead: Bassman oder OverDrivenLuxVerb, angetrieben von DistortionTS9
-        - Singendes Lead, Fusion: SLO100, Bogner, ODS50CN mit Drive (highGain)
-        - 80er-Hardrock: EVH, SwitchAxeLead, YJM100
-        - Modern Metal: 6505Plus, Rectifier, BE101 (metal)
-        - Akustik: AcousticAmpV2, FatAcousticV2 · Bass: GK800, Sunny3000, W600, Hammer500
+        How to choose (starting points, not law):
+        - Sparkling clean, jazz, funk: Twin, RolandJC120, 94MatchDCV2 (clean)
+        - Clean that breaks up when you dig in: ODS50CN, Deluxe65, BluesJrTweed
+        - British chime, 60s pop, indie: AC Boost, Bassman (bright)
+        - Classic rock rhythm: Plexi, OverDrivenJM45 (crunch)
+        - Blues lead: Bassman or OverDrivenLuxVerb, pushed by DistortionTS9
+        - Singing lead, fusion: SLO100, Bogner, ODS50CN with a drive (highGain)
+        - 80s hard rock: EVH, SwitchAxeLead, YJM100
+        - Modern metal: 6505Plus, Rectifier, BE101 (metal)
+        - Acoustic: AcousticAmpV2, FatAcousticV2 · Bass: GK800, Sunny3000, W600, Hammer500
 
-        Vorbilder – typische Signalketten (Ausgangspunkte, nur mit Modellen aus dem Katalog):
+        Players and genres – typical signal chains (starting points, only with models from the catalog):
         \(archetypeText)
 
-        Gain-Staging (Regler 0–10):
-        - Clean: amp.gain 2–4 · am Rand des Aufbrechens: 4,5–6 · Crunch: 5–7 · High-Gain-Verstärker meist 5–7, über 8 wird es fizzelig und rauschig.
-        - master ist Lautstärke, nicht Verzerrung: 6–8. Ein Set soll ähnlich laut sein.
-        - High-Gain straffen: Drive davor fast ohne Gain, hoher Level (DistortionTS9 drive 0–1,5, level 7–9), oder Booster.
-        - Crunch zu Lead pushen: DistortionTS9 drive 2–4.
+        Gain staging (knobs 0–10):
+        - Clean: amp.gain 2–4 · edge of breakup: 4.5–6 · crunch: 5–7 · high-gain amps mostly 5–7, above 8 it gets fizzy and noisy.
+        - master is volume, not distortion: 6–8. The sounds of a set should be about equally loud.
+        - Tightening high gain: a drive in front with almost no gain and a high level (DistortionTS9 drive 0–1.5, level 7–9), or Booster.
+        - Pushing crunch to lead: DistortionTS9 drive 2–4.
 
-        EQ-Wörter (was der Nutzer sagt → was du drehst):
-        - wärmer/dunkler: treble 1–2 runter (bei Drives tone runter)
-        - heller/mehr Glanz: treble 1 rauf, Hall highCut rauf
-        - matschig/wummernd: bass 1–2 runter
-        - dünn/scharf: bass rauf, treble runter, weniger gain
-        - mehr Biss/Durchsetzung: middle 1–2 rauf
-        - scooped/schwerer Rhythmus: middle auf 3–4, nicht unter 3
-        - mehr Sustain: Kompressor BlueComp sustain 6–7, oder mehr gain
-        - Funk-Spank: LA2AComp oder Compressor, cleaner Amp, wenig Hall
+        EQ words (what the user says → what you turn):
+        - warmer/darker: treble down 1–2 (tone down on drives)
+        - brighter/more sparkle: treble up 1, reverb highCut up
+        - muddy/boomy: bass down 1–2
+        - thin/harsh: bass up, treble down, less gain
+        - more bite/cut: middle up 1–2
+        - scooped/heavy rhythm: middle at 3–4, not below 3
+        - more sustain: compressor BlueComp sustain 6–7, or more gain
+        - funk spank: LA2AComp or Compressor, clean amp, little reverb
 
-        Zeit-Effekte:
-        - Delay: level/mix 2–3 für Rhythmus, 3–4 für Leads; feedback 2–4 (wenige Wiederholungen), über 7 läuft es weg.
-        - Modulation: Chorus effect 3–5, rate niedrig; Tremolo speed 4–6 für Surf-Puls.
-        - Gate: threshold 1,5–3 Crunch, 3–5 High-Gain; für clean aus.
+        Time effects:
+        - Delay: level/mix 2–3 for rhythm, 3–4 for leads; feedback 2–4 (few repeats), above 7 it runs away.
+        - Modulation: chorus effect 3–5, rate low; tremolo speed 4–6 for a surf pulse.
+        - Gate: threshold 1.5–3 crunch, 3–5 high gain; off for clean.
 
-        Tempo und Delay-Zeit:
+        Tempo and delay time:
         \(tempoText)
 
-        Hall nach Stil:
+        Reverb by style:
         \(reverbText)
 
-        Halte es einfach: wenige, passende Effekte statt alles auf einmal. Wähle zuerst den Verstärker, dann baue darum herum. Schreibe in "notes", welche ein bis zwei Regler der Spieler zuerst nach Gehör drehen soll.
+        Keep it simple: a few fitting effects instead of everything at once. Choose the amp first, then build around it. Write in "notes" which one or two knobs the player should turn first by ear.
 
-        BEISPIELE – gültige Rezepte in genau der verlangten Form:
+        EXAMPLES – valid recipes in exactly the required form:
 
         \(examplesText)
 
-        KATALOG – nutze nur diese Modell-IDs, Parameter-Schlüssel und Labels:
+        CATALOG – use only these model ids, parameter keys and labels:
 
         \(catalogText(catalog))
         """
@@ -254,13 +264,13 @@ public enum SoundAI {
     static func catalogText(_ catalog: CatalogReference) -> String {
         var lines: [String] = []
         for place in catalog.places {
-            lines.append("## \(place.title) (Schlüssel: \(place.key))")
+            lines.append("## \(place.title) (key: \(place.key))")
             for id in place.models {
                 guard let model = catalog.models.first(where: { $0.id == id }) else { continue }
                 var head = "- \(model.id) · \(model.name)"
-                if let inspiration = model.inspiration, !inspiration.isEmpty { head += " · nach \(inspiration)" }
+                if let inspiration = model.inspiration, !inspiration.isEmpty { head += " · modeled on \(inspiration)" }
                 if let group = model.group, !group.isEmpty { head += " · \(group)" }
-                if model.pack { head += " · PACK (kostenpflichtig)" }
+                if model.pack { head += " · PACK (paid add-on)" }
                 lines.append(head)
                 let params = model.parameters.map(Self.describe).joined(separator: ", ")
                 if !params.isEmpty { lines.append("    \(params)") }
@@ -271,10 +281,10 @@ public enum SoundAI {
 
     private static func describe(_ parameter: CatalogReference.Parameter) -> String {
         switch parameter.kind {
-        case "switch": return "`\(parameter.key)` Schalter (\(parameter.off ?? "aus")/\(parameter.on ?? "an"))"
+        case "switch": return "`\(parameter.key)` switch (\(parameter.off ?? "Off")/\(parameter.on ?? "On"))"
         case "choice":
             let options = (parameter.options ?? []).map(\.label).joined(separator: " · ")
-            return "`\(parameter.key)` Auswahl (\(options))"
+            return "`\(parameter.key)` choice (\(options))"
         default: return "`\(parameter.key)` (0–10)"
         }
     }
@@ -308,11 +318,11 @@ public enum SoundAI {
             } catch let error as Error {
                 lastError = error
                 correction = error == .noJSON
-                    ? "Deine Antwort enthielt kein JSON-Objekt. Antworte ohne jede Erklärung."
-                    : "Dein JSON war nicht lesbar. Fehler:\n\(error.localizedDescription)"
+                    ? "Your answer contained no JSON object. Answer without any explanation."
+                    : "Your JSON could not be read. Error:\n\(error.localizedDescription)"
             }
             messages.append(OllamaChatMessage(role: "user",
-                content: correction + "\n\nAntworte erneut NUR mit dem vollständigen, korrigierten JSON-Objekt."))
+                content: correction + "\n\nAnswer again ONLY with the complete, corrected JSON object."))
         }
         if let lastValid { return lastValid }
         throw lastError
@@ -411,15 +421,15 @@ public enum SoundAI {
         guard let amp = a.chain["amp"]?.model, amp == b.chain["amp"]?.model else { return nil }
         let drive = activeModel(a, "drive")
         guard drive == activeModel(b, "drive") else { return nil }
-        return "gleicher Verstärker „\(amp)“" + (drive.map { " und gleicher Verzerrer „\($0)“" } ?? ", beide ohne Verzerrer")
+        return "same amp “\(amp)”" + (drive.map { " and same drive “\($0)”" } ?? ", both without a drive")
     }
 
     static func distinctness(of recipe: SoundRecipe, among others: [SoundRecipe]) -> String? {
         for other in others {
             guard let reason = resemblance(recipe, other) else { continue }
-            return "Dieser Vorschlag klingt zu ähnlich wie „\(other.name)“ (\(reason)). Baue eine hörbar andere "
-                + "Variante: wähle ein anderes Verstärker-Modell und passe Verzerrer und Effekte dazu an. Behalte die "
-                + "Ausrichtung dieser Variante und gib ihr einen anderen Namen."
+            return "This suggestion sounds too much like “\(other.name)” (\(reason)). Build an audibly different "
+                + "variant: choose another amp model and fit the drive and the effects to it. Keep the direction of "
+                + "this variant and give it another name."
         }
         return nil
     }
@@ -437,29 +447,39 @@ public enum SoundAI {
 
         public var id: String { rawValue }
 
-        /// The button's label, also kept as a tag.
+        /// The button's label, also kept as a tag, in the language the sound was made in.
         public var label: String {
             switch self {
-            case .warmer: "wärmer"
-            case .moreGain: "mehr Gain"
-            case .lessReverb: "weniger Hall"
-            case .brighter: "heller"
+            case .warmer: tr("warmer")
+            case .moreGain: tr("more gain")
+            case .lessReverb: tr("less reverb")
+            case .brighter: tr("brighter")
+            }
+        }
+
+        /// The same in English, for the messages to the assistant.
+        var englishLabel: String {
+            switch self {
+            case .warmer: "warmer"
+            case .moreGain: "more gain"
+            case .lessReverb: "less reverb"
+            case .brighter: "brighter"
             }
         }
 
         var instruction: String {
             switch self {
             case .warmer:
-                "Mach den Sound wärmer: amp.treble 1–2 runter, bei einem Verzerrer auch dessen tone etwas runter, "
-                    + "beim Hall highCut etwas runter."
+                "Make the sound warmer: amp.treble down 1–2, with a drive also its tone down a little, the reverb's "
+                    + "highCut down a little."
             case .moreGain:
-                "Gib dem Sound mehr Gain: amp.gain um 1–2 rauf, oder einen passenden Verzerrer einschalten bzw. dessen "
-                    + "Gain erhöhen. master höchstens etwas senken, damit es gleich laut bleibt."
+                "Give the sound more gain: amp.gain up 1–2, or switch on a fitting drive or raise its gain. Lower "
+                    + "master a little at most, so that it stays equally loud."
             case .lessReverb:
-                "Mach den Hall deutlich weniger: reverb.level um 1–2 runter, bei Bedarf auch length kürzer."
+                "Make the reverb clearly less: reverb.level down 1–2, length shorter too if needed."
             case .brighter:
-                "Mach den Sound heller: amp.treble 1–2 rauf, bei einem Verzerrer dessen tone etwas rauf, beim Hall "
-                    + "highCut etwas rauf."
+                "Make the sound brighter: amp.treble up 1–2, with a drive its tone up a little, the reverb's highCut "
+                    + "up a little."
             }
         }
 
@@ -473,10 +493,10 @@ public enum SoundAI {
             switch self {
             case .lessReverb:
                 let level = SoundAI.value(recipe, "reverb", "level", catalog: catalog) ?? 0
-                return SoundAI.activeModel(recipe, "reverb") == nil || level <= 0 ? "Der Sound hat keinen Hall." : nil
+                return SoundAI.activeModel(recipe, "reverb") == nil || level <= 0 ? tr("The sound has no reverb.") : nil
             case .moreGain:
                 let gain = SoundAI.value(recipe, "amp", "gain", catalog: catalog) ?? 0
-                return gain >= 10 && SoundAI.activeModel(recipe, "drive") != nil ? "Mehr Gain geht nicht." : nil
+                return gain >= 10 && SoundAI.activeModel(recipe, "drive") != nil ? tr("More gain is not possible.") : nil
             case .warmer, .brighter:
                 return nil
             }
@@ -518,11 +538,11 @@ public enum SoundAI {
                 guard let before = SoundAI.activeModel(old, place) else { continue }
                 if self == .lessReverb, place == "reverb", SoundAI.activeModel(new, place) == nil { continue }
                 guard SoundAI.activeModel(new, place) != before else { continue }
-                return "Du hast am Platz \(place) „\(before)“ ersetzt oder ausgeschaltet. Behalte alle Modelle und "
-                    + "ändere nur die Regler, die für „\(label)“ nötig sind."
+                return "In the place \(place) you replaced “\(before)” or switched it off. Keep all models and "
+                    + "change only the knobs that “\(englishLabel)” needs."
             }
             guard isApplied(from: old, to: new, catalog: catalog) else {
-                return "Das Rezept ist nicht „\(label)“ geworden. \(instruction)"
+                return "The recipe did not become “\(englishLabel)”. \(instruction)"
             }
             return nil
         }
@@ -556,15 +576,15 @@ public enum SoundAI {
         /// What `nudged` turns, for telling the user.
         var nudgeDescription: String {
             switch self {
-            case .warmer: "Höhen am Amp −1,5"
-            case .brighter: "Höhen am Amp +1,5"
-            case .moreGain: "Gain am Amp +1,5"
-            case .lessReverb: "Hall-Pegel −1,5"
+            case .warmer: tr("amp treble −1.5")
+            case .brighter: tr("amp treble +1.5")
+            case .moreGain: tr("amp gain +1.5")
+            case .lessReverb: tr("reverb level −1.5")
             }
         }
     }
 
-    /// The adjusted sound, and a note when Spark Studio had to make the change itself.
+    /// The adjusted sound, and a note when AmpBench had to make the change itself.
     public struct Refinement: Sendable {
         public var recipe: SoundRecipe
         public var note: String?
@@ -577,15 +597,15 @@ public enum SoundAI {
         return messages(request: request, catalog: catalog) + [
             OllamaChatMessage(role: "assistant", content: json),
             OllamaChatMessage(role: "user", content: """
-                Passe genau dieses Rezept an: \(adjustment.label). \(adjustment.instruction)
-                Behalte den Namen, den Verstärker und alle anderen Modelle. Ändere nur die Regler, die dafür nötig sind, und lass alles andere unverändert. Passe "notes" in einem Satz an.
-                Antworte NUR mit dem vollständigen JSON-Objekt.
+                Adjust exactly this recipe: \(adjustment.englishLabel). \(adjustment.instruction)
+                Keep the name, the amp and all other models. Change only the knobs this needs and leave everything else as it is. Adjust "notes" in one sentence, in \(answerLanguage).
+                Answer ONLY with the complete JSON object.
                 """),
         ]
     }
 
     /// Adjusts an offered sound by a follow-up request. The answer is checked: if it changed models or did not move
-    /// in the asked direction, it goes back once; if it is still wrong, Spark Studio turns the obvious knob itself
+    /// in the asked direction, it goes back once; if it is still wrong, AmpBench turns the obvious knob itself
     /// and says so in the note. The name and tags stay.
     public static func refine(_ recipe: SoundRecipe, _ adjustment: Adjustment, request: String, chat: Chat,
                               catalog: CatalogReference = CatalogReference()) async throws -> Refinement {
@@ -600,8 +620,7 @@ public enum SoundAI {
             result = Refinement(recipe: answer.recipe)
         } else {
             result = Refinement(recipe: adjustment.nudged(recipe, catalog: catalog),
-                                note: "Das Modell hat „\(adjustment.label)“ nicht sauber umgesetzt. Spark Studio hat "
-                                    + "selbst nachgestellt (\(adjustment.nudgeDescription)).")
+                                note: tr("The model did not apply “%@” cleanly. AmpBench made the change itself (%@).", adjustment.label, adjustment.nudgeDescription))
         }
         result.recipe.name = recipe.name
         result.recipe.tags = recipe.tags
@@ -651,15 +670,16 @@ public enum SoundAI {
             switch decoding {
             case .dataCorrupted(let context):
                 let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-                return "Ungültiges JSON\(path.isEmpty ? "" : " bei „\(path)“"): \(context.debugDescription)"
+                return path.isEmpty ? tr("Invalid JSON: %@", context.debugDescription)
+                                    : tr("Invalid JSON at “%@”: %@", path, context.debugDescription)
             case .keyNotFound(let key, _):
-                return "Das Feld „\(key.stringValue)“ fehlt im JSON."
+                return tr("The field “%@” is missing in the JSON.", key.stringValue)
             case .typeMismatch(_, let context):
                 let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-                return "Falscher Typ bei „\(path.isEmpty ? "Wurzel" : path)“."
+                return tr("Wrong type at “%@”.", path.isEmpty ? tr("root") : path)
             case .valueNotFound(_, let context):
                 let path = context.codingPath.map(\.stringValue).joined(separator: ".")
-                return "Fehlender Wert bei „\(path.isEmpty ? "Wurzel" : path)“."
+                return tr("Missing value at “%@”.", path.isEmpty ? tr("root") : path)
             @unknown default:
                 break
             }

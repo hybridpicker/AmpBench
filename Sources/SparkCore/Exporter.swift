@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import AudioToolbox
 import Foundation
@@ -15,7 +16,7 @@ public enum ExportFormat: Equatable, Sendable {
 
     public var label: String {
         switch self {
-        case .wav24: return "WAV, 24 Bit"
+        case .wav24: return tr("WAV, 24-bit")
         case .aac(let bitRate): return "AAC, \(bitRate / 1000) kbit/s"
         }
     }
@@ -38,10 +39,10 @@ public enum ExportError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .sameAsOriginal: return "Der Export darf die Originalaufnahme nicht ersetzen. Wähle einen anderen Namen."
-        case .emptySelection: return "Nach dem Zuschnitt bleibt nichts übrig."
-        case .coreAudio(let step, let status): return "\(step) ist fehlgeschlagen (Fehler \(status))."
-        case .cancelled: return "Der Export wurde abgebrochen."
+        case .sameAsOriginal: return tr("The export must not replace the original recording. Choose another name.")
+        case .emptySelection: return tr("Nothing is left after trimming.")
+        case .coreAudio(let step, let status): return tr("%@ failed (error %d).", step, Int(status))
+        case .cancelled: return tr("The export was canceled.")
         }
     }
 }
@@ -100,9 +101,9 @@ public enum Exporter {
         defer { try? FileManager.default.removeItem(at: temporary) }
 
         var created: ExtAudioFileRef?
-        try check("Anlegen der Datei", ExtAudioFileCreateWithURL(
+        try check(tr("Creating the file"), ExtAudioFileCreateWithURL(
             temporary as CFURL, fileType, &fileFormat, nil, AudioFileFlags.eraseFile.rawValue, &created))
-        guard let output = created else { throw ExportError.coreAudio(step: "Anlegen der Datei", status: -1) }
+        guard let output = created else { throw ExportError.coreAudio(step: tr("Creating the file"), status: -1) }
         var outputOpen = true
         defer { if outputOpen { ExtAudioFileDispose(output) } }
 
@@ -112,13 +113,13 @@ public enum Exporter {
             _ = bitRate
             client = CaptureEngine.clientFormat(rate: processing.sampleRate, channels: 2)
         }
-        try check("Setzen des Dateiformats", ExtAudioFileSetProperty(
+        try check(tr("Setting the file format"), ExtAudioFileSetProperty(
             output, kExtAudioFileProperty_ClientDataFormat,
             UInt32(MemoryLayout<AudioStreamBasicDescription>.size), &client))
         if case .aac(let bitRate) = format { try setBitRate(bitRate, on: output) }
 
         guard let buffer = AVAudioPCMBuffer(pcmFormat: processing, frameCapacity: chunkFrames) else {
-            throw ExportError.coreAudio(step: "Anlegen des Puffers", status: -1)
+            throw ExportError.coreAudio(step: tr("Creating the buffer"), status: -1)
         }
         let outChannels = Int(client.mChannelsPerFrame)
         var interleaved = [Float](repeating: 0, count: Int(chunkFrames) * outChannels)
@@ -158,12 +159,12 @@ public enum Exporter {
                 )
                 return ExtAudioFileWrite(output, UInt32(count), &list)
             }
-            try check("Schreiben der Datei", status)
+            try check(tr("Writing the file"), status)
             position += Int64(count)
             written += Int64(count)
             progress?(Double(written) / Double(renderer.lengthFrames))
         }
-        try check("Abschließen der Datei", ExtAudioFileDispose(output))
+        try check(tr("Finishing the file"), ExtAudioFileDispose(output))
         outputOpen = false
 
         // The finished file appears in one step, so a failed export never leaves a partial file behind.
@@ -178,14 +179,14 @@ public enum Exporter {
     private static func setBitRate(_ bitRate: Int, on file: ExtAudioFileRef) throws {
         var converter: AudioConverterRef?
         var size = UInt32(MemoryLayout<AudioConverterRef?>.size)
-        try check("Lesen des Encoders", ExtAudioFileGetProperty(
+        try check(tr("Reading the encoder"), ExtAudioFileGetProperty(
             file, kExtAudioFileProperty_AudioConverter, &size, &converter))
         guard let converter else { return }
         var rate = UInt32(bitRate)
-        try check("Setzen der Bitrate", AudioConverterSetProperty(
+        try check(tr("Setting the bit rate"), AudioConverterSetProperty(
             converter, kAudioConverterEncodeBitRate, UInt32(MemoryLayout<UInt32>.size), &rate))
         var config: CFArray?
-        try check("Anwenden der Bitrate", ExtAudioFileSetProperty(
+        try check(tr("Applying the bit rate"), ExtAudioFileSetProperty(
             file, kExtAudioFileProperty_ConverterConfig, UInt32(MemoryLayout<CFArray?>.size), &config))
     }
 

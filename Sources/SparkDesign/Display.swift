@@ -54,19 +54,19 @@ public struct DisplayGlass: View {
     }
 }
 
-#Preview("Anzeige") {
+#Preview("Display") {
     PreviewPair {
         Faceplate {
             HStack(spacing: 14) {
                 Display {
                     VStack(alignment: .leading, spacing: 2) {
-                        Lamp("Bereit", isOn: true, textSize: 13)
-                        Text("00:00,0").font(Theme.Fonts.mono(26, weight: .semibold)).foregroundStyle(Theme.device.amber)
-                        Text("Taste R nimmt auf").font(Theme.Fonts.mono(10)).foregroundStyle(Theme.device.amberDim)
+                        Lamp("Ready", isOn: true, textSize: 13)
+                        Text("00:00.0").font(Theme.Fonts.mono(26, weight: .semibold)).foregroundStyle(Theme.device.amber)
+                        Text("Press R to record").font(Theme.Fonts.mono(10)).foregroundStyle(Theme.device.amberDim)
                     }
                 }
                 Display(isAlert: true) {
-                    Text("00:12,8").font(Theme.Fonts.mono(26, weight: .semibold)).foregroundStyle(.white)
+                    Text("00:12.8").font(Theme.Fonts.mono(26, weight: .semibold)).foregroundStyle(.white)
                 }
             }
             .padding(14)

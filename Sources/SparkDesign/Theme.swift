@@ -90,7 +90,7 @@ public struct DeskSwatch: ShapeStyle, Hashable, Sendable {
     }
 }
 
-/// The values of the Spark Studio design language, the one source for both apps. `docs/DESIGN.md` explains them.
+/// The values of the AmpBench design language, the one source for both apps. `docs/DESIGN.md` explains them.
 ///
 /// `Theme.device` is the instrument: deck, waveform transport, pedals, amp, knobs and every display. It looks the
 /// same in light and dark mode. `Theme.desk` is everything that follows the system, around the instrument.

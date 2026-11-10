@@ -3,8 +3,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from spark_studio import factory, protocol, store, wav
-from spark_studio.store import LibraryStore
+from ampbench import factory, protocol, store, wav
+from ampbench.store import LibraryStore
 
 
 def make_store(tmp_path):
@@ -84,8 +84,8 @@ def test_snapshot_of_a_take_sound_roundtrips(tmp_path):
 
 
 def test_a_take_is_stamped_with_the_sound_that_was_playing(tmp_path):
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
     recorder = RecorderModel(LibraryStore(tmp_path / "lib"), demo_engine(), demo_devices)
     recorder.start_library()
     recorder.refresh_devices()
@@ -104,8 +104,8 @@ def test_a_take_is_stamped_with_the_sound_that_was_playing(tmp_path):
 
 
 def test_a_failing_sound_provider_never_stops_a_recording(tmp_path):
-    from spark_studio.demo_input import demo_devices, demo_engine
-    from spark_studio.recorder import RecorderModel
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
     recorder = RecorderModel(LibraryStore(tmp_path / "lib"), demo_engine(), demo_devices)
     recorder.start_library()
     recorder.refresh_devices()

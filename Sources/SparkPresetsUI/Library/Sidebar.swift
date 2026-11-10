@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -21,14 +22,14 @@ private struct ConnectKey: View {
     @EnvironmentObject private var link: SparkLink
 
     var body: some View {
-        Button(link.wanted ? "Trennen" : "Verbinden") {
+        Button(link.wanted ? tr("Disconnect") : tr("Connect")) {
             if link.wanted { model.disconnect() } else { model.start(bluetooth: true) }
         }
         .buttonStyle(.hardwareKey(size: .small))
         .fixedSize()
         .help(link.wanted
-            ? "Trennt vom Verstärker, damit die Spark-App am Handy ihn nutzen kann."
-            : "Verbindet mit dem Verstärker. Die Spark-App am Handy darf dabei nicht verbunden sein.")
+            ? tr("Disconnects from the amp, so the Spark app on the phone can use it.")
+            : tr("Connects to the amp. The Spark app on the phone must not be connected then."))
     }
 }
 
@@ -42,7 +43,7 @@ struct Sidebar: View {
         let backups = model.visibleItems.filter(\.file.isBackup)
         List(selection: selection) {
             // The device first: the slots below are its slots.
-            Section("Gerät") {
+            Section(tr("Device")) {
                 DeviceChoice()
                     .padding(.vertical, 2)
             }
@@ -54,13 +55,13 @@ struct Sidebar: View {
                 }
             }
             if model.selection == .draft {
-                Section("Neu") {
-                    Label(model.editor.preset?.name ?? "Neues Preset", systemImage: "sparkles")
+                Section(tr("New")) {
+                    Label(model.editor.preset?.name ?? tr("New preset"), systemImage: "sparkles")
                         .tag(Selection.draft)
                 }
             }
             if !model.tagCounts.isEmpty {
-                Section("Tags") {
+                Section(tr("Tags")) {
                     TagFilterBar()
                 }
             }
@@ -72,30 +73,30 @@ struct Sidebar: View {
                         ForEach(tagged) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
                     } header: {
                         Text("#\(tag)")
-                            .contextMenu { Button("Abschnitt lösen") { model.togglePin(tag) } }
+                            .contextMenu { Button(tr("Unpin section")) { model.togglePin(tag) } }
                     }
                 }
             }
-            Section(model.pinnedTags.isEmpty ? "Auf dem Mac" : "Alle auf dem Mac") {
+            Section(model.pinnedTags.isEmpty ? tr("On this Mac") : tr("All on this Mac")) {
                 if model.items.isEmpty {
-                    Text("Noch keine Presets. Sichere einen Platz, lege ein neues an oder übernimm Sounds vom Kemper.")
+                    Text(tr("No presets yet. Save a slot, create a new one or import sounds from the Kemper."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 } else if presets.isEmpty {
-                    Text(model.tagFilter.isEmpty ? "Nichts gefunden." : "Kein Preset hat alle gewählten Tags.")
+                    Text(model.tagFilter.isEmpty ? tr("Nothing found.") : tr("No preset has all the chosen tags."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
                 ForEach(presets) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
             }
             if !backups.isEmpty {
-                Section("Sicherungen") {
+                Section(tr("Backups")) {
                     ForEach(backups) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
                 }
             }
             if !model.unreadable.isEmpty {
-                Section("Nicht lesbar") {
+                Section(tr("Unreadable")) {
                     ForEach(model.unreadable, id: \.self) { Text($0).foregroundStyle(.secondary) }
                 }
             }
@@ -127,10 +128,10 @@ struct Sidebar: View {
 }
 
 extension Sidebar {
-    /// The device's slots, in one section, or one per bank ("Rot", "Grün" on a REACTOR).
+    /// The device's slots, in one section, or one per bank ("Red", "Green" on a REACTOR).
     var slotSections: [(title: String, slots: [Int])] {
         let profile = link.profile
-        let title = "Am \(profile.displayName)"
+        let title = tr("On the %@", profile.displayName)
         guard let size = profile.bankSize, size > 0, !profile.bankNames.isEmpty else {
             return [(title, Array(profile.slots))]
         }
@@ -148,9 +149,9 @@ struct DeviceChoice: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            DevicePopup("Gerät", value: current) {
+            DevicePopup(tr("Device"), value: current) {
                 if link.devices.isEmpty {
-                    Text("Noch kein Gerät gefunden")
+                    Text(tr("No device found yet"))
                 }
                 ForEach(link.devices) { device in
                     Button {
@@ -162,12 +163,12 @@ struct DeviceChoice: View {
                 }
                 Divider()
                 if link.status == .connected {
-                    Button(link.isLookingAround ? "Suche in der Nähe …" : "Nach Geräten in der Nähe suchen") {
+                    Button(link.isLookingAround ? tr("Searching nearby …") : tr("Search for devices nearby")) {
                         link.lookAround()
                     }
                     .disabled(link.isLookingAround)
                 } else {
-                    Button(link.wanted ? "Weiter suchen" : "Nach Geräten suchen") { model.start(bluetooth: true) }
+                    Button(link.wanted ? tr("Keep searching") : tr("Search for devices")) { model.start(bluetooth: true) }
                 }
             }
             .frame(maxWidth: .infinity)
@@ -183,15 +184,15 @@ struct DeviceChoice: View {
     private var presence: DeviceEntry.Presence { chosen?.presence ?? .absent }
 
     private var current: String {
-        guard let chosen else { return link.devices.isEmpty ? "Kein Gerät gewählt" : "Gerät wählen …" }
+        guard let chosen else { return link.devices.isEmpty ? tr("No device chosen") : tr("Choose device …") }
         return chosen.name
     }
 
     static func word(_ presence: DeviceEntry.Presence) -> String {
         switch presence {
-        case .connected: "verbunden"
-        case .nearby: "in der Nähe"
-        case .absent: "nicht da"
+        case .connected: tr("connected")
+        case .nearby: tr("nearby")
+        case .absent: tr("not there")
         }
     }
 
@@ -257,16 +258,16 @@ private struct SlotRow: View {
     private var emptyText: String {
         guard link.status == .connected else { return "–" }
         // A device that is only listened to never sends its presets.
-        return link.profile.can(.read) || link.profile.can(.reactorPresets) ? "Wird gelesen …" : "Inhalt unbekannt"
+        return link.profile.can(.read) || link.profile.can(.reactorPresets) ? tr("Reading …") : tr("Content unknown")
     }
 
     private var helpText: String {
         guard link.profile.can(.switchSlot) else {
-            return "\(link.profile.slotName(slot)) am \(link.profile.displayName). Spark Studio zeigt, was dort gespeichert ist, und schaltet nicht um."
+            return tr("%1$@ on the %2$@. AmpBench shows what is stored there and does not switch.", link.profile.slotName(slot), link.profile.displayName)
         }
         return slot < DeviceProfile.largestSlotCount
-            ? "Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))"
-            : "Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten"
+            ? tr("Clicking plays this slot and opens it for editing (⌘%d)", slot + 1)
+            : tr("Clicking plays this slot and opens it for editing")
     }
 
     var body: some View {
@@ -286,16 +287,17 @@ private struct SlotRow: View {
                 Image(systemName: "speaker.wave.2.fill")
                     .font(.system(size: 10))
                     .foregroundStyle(Theme.desk.amber)
-                    .help("Spielt gerade")
+                    .help(tr("Playing now"))
             }
         }
         .padding(.vertical, 2)
         .help(helpText)
         .contextMenu {
-            Button("Auf dem Mac sichern") { model.backUp(slot: slot) }.disabled(preset == nil)
+            Button(tr("Save to this Mac")) { model.backUp(slot: slot) }.disabled(preset == nil)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(link.profile.slotName(slot)): \(shownName ?? "unbekannt")\(isActive ? ", spielt" : "")")
+        .accessibilityLabel(isActive ? tr("%@: %@, playing", link.profile.slotName(slot), shownName ?? tr("unknown"))
+                                     : tr("%@: %@", link.profile.slotName(slot), shownName ?? tr("unknown")))
     }
 }
 
@@ -312,7 +314,7 @@ private struct LibraryRow: View {
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.name).lineLimit(1)
-                Text(item.file.isBackup ? item.file.savedAt.formatted(date: .abbreviated, time: .shortened)
+                Text(item.file.isBackup ? item.file.savedAt.formatted(Date.FormatStyle(date: .abbreviated, time: .shortened).locale(Texts.locale))
                                         : ChainSummary.text(item.file.preset))
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -326,27 +328,27 @@ private struct LibraryRow: View {
             }
         }
         .padding(.vertical, 2)
-        .help("Klicken spielt das Preset zum Anhören, ohne einen Platz zu überschreiben")
+        .help(tr("Clicking plays the preset for listening, without overwriting a slot"))
         .contextMenu {
-            Menu("Auf Platz speichern") {
+            Menu(tr("Store on slot")) {
                 ForEach(Array(model.link.profile.slots), id: \.self) { slot in
                     Button(model.link.profile.slotName(slot)) { model.askToStore(item, in: slot) }
                 }
             }
             .disabled(!model.canUse(.store))
-            Menu("Tags") {
+            Menu(tr("Tags")) {
                 ForEach(model.tagCounts, id: \.tag) { entry in
                     Toggle("#\(entry.tag)", isOn: Binding(
                         get: { item.file.tags.contains { $0.caseInsensitiveCompare(entry.tag) == .orderedSame } },
                         set: { _ in model.toggleTag(entry.tag, on: item) }))
                 }
-                if model.tagCounts.isEmpty { Text("Noch keine Tags. Im Editor unter dem Namen hinzufügen.") }
+                if model.tagCounts.isEmpty { Text(tr("No tags yet. Add them in the editor below the name.")) }
             }
             .disabled(item.file.isBackup)
             Divider()
-            Button("Umbenennen …") { model.beginRename(item) }
-            Button("Im Finder zeigen") { model.reveal(item) }
-            Button("In den Papierkorb") { model.trash(item) }
+            Button(tr("Rename …")) { model.beginRename(item) }
+            Button(tr("Show in Finder")) { model.reveal(item) }
+            Button(tr("Move to Trash")) { model.trash(item) }
         }
     }
 }
@@ -356,13 +358,13 @@ private struct NewPresetMenu: View {
 
     var body: some View {
         Menu {
-            Button("Leeres Preset") { model.newPreset() }
-            Button("Aus Vorlage …") { model.showsTemplates = true }
+            Button(tr("Empty preset")) { model.newPreset() }
+            Button(tr("From template …")) { model.showsTemplates = true }
             Divider()
-            Button("KI-Sound …") { model.showsAI = true }
-            Button("Vom Kemper übernehmen …") { model.showsKemperImport = true }
+            Button(tr("AI Sound …")) { model.showsAI = true }
+            Button(tr("Import from Kemper …")) { model.showsKemperImport = true }
             Divider()
-            Button("Aktuelles duplizieren") { model.duplicateCurrent() }.disabled(model.editor.preset == nil)
+            Button(tr("Duplicate current")) { model.duplicateCurrent() }.disabled(model.editor.preset == nil)
         } label: {
             Image(systemName: "plus")
                 .font(.system(size: 11, weight: .bold))
@@ -375,8 +377,8 @@ private struct NewPresetMenu: View {
         .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Neues Preset")
-        .accessibilityLabel("Neues Preset")
+        .help(tr("New preset"))
+        .accessibilityLabel(tr("New preset"))
     }
 }
 
@@ -412,14 +414,14 @@ struct ConnectionStatus: View {
 
     private var title: String {
         switch link.status {
-        case .starting: "Starte Bluetooth …"
-        case .searching: link.chosenID == nil ? "Suche Geräte …" : "Suche \(link.profile.displayName) …"
-        case .connecting: "Verbinde …"
+        case .starting: tr("Starting Bluetooth …")
+        case .searching: link.chosenID == nil ? tr("Searching for devices …") : tr("Searching for %@ …", link.profile.displayName)
+        case .connecting: tr("Connecting …")
         case .connected: link.shownName
-        case .unauthorized: "Kein Bluetooth-Zugriff"
-        case .bluetoothOff: "Bluetooth ist aus"
-        case .unsupported: "Kein Bluetooth LE"
-        case .off: "Getrennt"
+        case .unauthorized: tr("No Bluetooth access")
+        case .bluetoothOff: tr("Bluetooth is off")
+        case .unsupported: tr("No Bluetooth LE")
+        case .off: tr("Disconnected")
         }
     }
 
@@ -428,12 +430,12 @@ struct ConnectionStatus: View {
         switch link.status {
         case .connected:
             if !link.profile.canSend {
-                return link.profile.can(.liveSound) ? "verbunden · liest mit, Sound auf Wunsch"
-                                                    : "verbunden · nur mitlesen, Studio sendet nichts"
+                return link.profile.can(.liveSound) ? tr("connected · reading along, sound on request")
+                                                    : tr("connected · read only, AmpBench sends nothing")
             }
-            return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
-        case .searching, .connecting: return "Spark-App am Handy trennen"
-        case .off: return "Die Spark-App am Handy kann ihn jetzt nutzen"
+            return link.firmware.map { tr("Firmware %@ · connected", $0) } ?? tr("connected")
+        case .searching, .connecting: return tr("Disconnect the Spark app on the phone")
+        case .off: return tr("The Spark app on the phone can use it now")
         default: return nil
         }
     }
@@ -441,8 +443,8 @@ struct ConnectionStatus: View {
     private var hint: String {
         switch link.status {
         case .searching, .connecting:
-            "Der Verstärker muss eingeschaltet sein, und die Spark-App am Handy darf nicht verbunden sein."
-        case .unauthorized: "Erlaube den Zugriff unter Systemeinstellungen → Datenschutz & Sicherheit → Bluetooth."
+            tr("The amp must be switched on, and the Spark app on the phone must not be connected.")
+        case .unauthorized: tr("Allow access in System Settings → Privacy & Security → Bluetooth.")
         default: ""
         }
     }

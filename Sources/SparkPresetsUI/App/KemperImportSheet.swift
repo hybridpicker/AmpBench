@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -12,13 +13,13 @@ struct KemperImportSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Vom Kemper übernehmen").font(.headline)
+                Text(tr("Import from Kemper")).font(.headline)
                 Spacer()
                 if let name = model.kemperFileName {
                     Text(name).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
             }
-            Text("Jeder Rig wird zum nächstliegenden Spark-Sound: passender Amp, Gain und EQ, die Effekte, die der Spark kennt. Ein Kemper-Profil ist eine Aufnahme des echten Amps, darum jeden Sound am Verstärker anhören. Zum Kemper wird nichts gesendet.")
+            Text(tr("Every rig becomes the closest Spark sound: a matching amp, gain and EQ, and the effects the Spark knows. A Kemper profile is a recording of the real amp, so listen to every sound on the amp. Nothing is sent to the Kemper."))
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -32,13 +33,13 @@ struct KemperImportSheet: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             HStack {
-                Button("Andere Datei …") { model.chooseKemperFile() }
+                Button(tr("Other file …")) { model.chooseKemperFile() }
                     .disabled(model.kemperIsBusy)
                 Spacer()
                 if let summary { Text(summary).font(.caption).foregroundStyle(.secondary) }
-                Button("Abbrechen", role: .cancel) { model.closeKemperImport() }
+                Button(tr("Cancel"), role: .cancel) { model.closeKemperImport() }
                     .keyboardShortcut(.cancelAction)
-                Button("Übernehmen") { model.performKemperImport() }
+                Button(tr("Import")) { model.performKemperImport() }
                     .keyboardShortcut(.defaultAction)
                     .disabled(!canImport)
             }
@@ -49,11 +50,11 @@ struct KemperImportSheet: View {
 
     @ViewBuilder private var content: some View {
         if model.kemperIsBusy {
-            ProgressView("Lese die Kemper-Datei …").frame(maxWidth: .infinity, maxHeight: .infinity)
+            ProgressView(tr("Reading the Kemper file …")).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if let plan = model.kemperPlan {
             List {
                 if !plan.performances.isEmpty {
-                    Section("Performances") {
+                    Section(tr("Performances")) {
                         ForEach(plan.performances) { PerformanceRow(performance: $0) }
                     }
                 }
@@ -62,7 +63,7 @@ struct KemperImportSheet: View {
                         DisclosureGroup(isExpanded: $showsRigs) {
                             ForEach(plan.rigs) { RigRow(rig: $0) }
                         } label: {
-                            Text("Einzelne Rigs (\(plan.rigs.filter(\.isChosen).count) von \(plan.rigs.count) gewählt)")
+                            Text(tr("Single rigs (%d of %d chosen)", plan.rigs.filter(\.isChosen).count, plan.rigs.count))
                         }
                     }
                 }
@@ -71,9 +72,9 @@ struct KemperImportSheet: View {
         } else {
             VStack(spacing: 12) {
                 Image(systemName: "externaldrive").font(.system(size: 34, weight: .light)).foregroundStyle(.secondary)
-                Text("Wähle ein Kemper-Backup (.kpabackup) oder ein Rig (.kipr).")
+                Text(tr("Choose a Kemper backup (.kpabackup) or a rig (.kipr)."))
                     .foregroundStyle(.secondary)
-                Button("Datei wählen …") { model.chooseKemperFile() }
+                Button(tr("Choose file …")) { model.chooseKemperFile() }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
@@ -89,7 +90,7 @@ struct KemperImportSheet: View {
         let songs = plan.performances.filter { $0.kind == .song }.count
         let others = plan.performances.filter { $0.kind == .basis || $0.kind == .lesson }.count
         let rigs = plan.rigs.filter(\.isChosen).count
-        return "\(songs) Songs, \(others) Setups, \(rigs) Rigs"
+        return tr("%d songs, %d setups, %d rigs", songs, others, rigs)
     }
 }
 
@@ -103,13 +104,13 @@ private struct PerformanceRow: View {
                 Text("\(performance.number).").monospacedDigit().foregroundStyle(.secondary)
                 Text(performance.name).fontWeight(.semibold)
                 Spacer()
-                Picker("Art", selection: Binding(get: { performance.kind },
+                Picker(tr("Kind"), selection: Binding(get: { performance.kind },
                                                  set: { model.setKind($0, ofPerformance: performance.number) })) {
                     ForEach(KemperImportPlan.Kind.allCases) { Text($0.label).tag($0) }
                 }
                 .labelsHidden()
                 .frame(width: 170)
-                .accessibilityLabel("Art von „\(performance.name)“")
+                .accessibilityLabel(tr("Kind of “%@”", performance.name))
             }
             ForEach(performance.slots, id: \.number) { slot in
                 SlotLine(number: slot.number, name: slot.name, translation: slot.translation)
@@ -148,7 +149,7 @@ private struct SlotLine: View {
                 Text("#\(translation.character.rawValue)").font(.caption).foregroundStyle(.secondary)
             }
             if !translation.leftOut.isEmpty {
-                Text("Ohne: " + translation.leftOut.joined(separator: ", "))
+                Text(tr("Without: %@", translation.leftOut.joined(separator: ", ")))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.leading, number == nil ? 0 : 20)

@@ -1,9 +1,10 @@
+import AmpText
 import SwiftUI
 
 /// What a tuner's display shows of a deviation: cents from −50 to +50, or no tone.
 public struct CentReading: Equatable, Sendable {
     public var cents: Double
-    /// Within the tolerance long enough: the center lights green, as the lamp "Gestimmt" does.
+    /// Within the tolerance long enough: the center lights green, as the lamp "In tune" does.
     public var isInTune: Bool
     /// The tone has ended and the last value stays: drawn dim and still.
     public var isHeld: Bool
@@ -14,13 +15,15 @@ public struct CentReading: Equatable, Sendable {
         self.isHeld = isHeld
     }
 
-    /// For VoiceOver: "plus 0,3 Cent, zu hoch".
+    /// For VoiceOver: "plus 0.3 cents, too high". The decimal sign follows the language.
     public var spoken: String {
         let rounded = (cents * 10).rounded() / 10
-        let amount = String(format: "%.1f", abs(rounded)).replacingOccurrences(of: ".", with: ",")
-        let sign = rounded == 0 ? "" : rounded < 0 ? "minus " : "plus "
-        let direction = isInTune ? "gestimmt" : rounded < 0 ? "zu tief" : rounded > 0 ? "zu hoch" : "mittig"
-        return "\(sign)\(amount) Cent, \(direction)\(isHeld ? ", gehalten" : "")"
+        let amount = String(format: "%.1f", locale: Texts.locale, abs(rounded))
+        let deviation = rounded == 0 ? tr("%@ cents", amount)
+            : rounded < 0 ? tr("minus %@ cents", amount) : tr("plus %@ cents", amount)
+        let direction = isInTune ? tr("in tune")
+            : rounded < 0 ? tr("too low") : rounded > 0 ? tr("too high") : tr("centered")
+        return ([deviation, direction] + (isHeld ? [tr("held")] : [])).joined(separator: ", ")
     }
 }
 
@@ -50,8 +53,8 @@ public struct CentMeter: View {
         .frame(height: height)
         .background(DisplayGlass())
         .accessibilityElement()
-        .accessibilityLabel("Abweichung")
-        .accessibilityValue(reading?.spoken ?? "kein Ton")
+        .accessibilityLabel(tr("Deviation"))
+        .accessibilityValue(reading?.spoken ?? tr("no tone"))
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize) {
@@ -154,8 +157,8 @@ public struct StrobeBand: View {
         .frame(height: height)
         .background(DisplayGlass())
         .accessibilityElement()
-        .accessibilityLabel("Stroboskop")
-        .accessibilityValue(reading?.spoken ?? "kein Ton")
+        .accessibilityLabel(tr("Strobe"))
+        .accessibilityValue(reading?.spoken ?? tr("no tone"))
     }
 
     private func draw(in context: inout GraphicsContext, size: CGSize, offsets: (Double, Double)) {
@@ -213,7 +216,7 @@ final class StrobeMotion {
     }
 }
 
-#Preview("Zeigerfeld") {
+#Preview("Needle field") {
     PreviewPair {
         Faceplate(radius: Theme.Radius.panel) {
             VStack(spacing: 12) {
@@ -228,7 +231,7 @@ final class StrobeMotion {
     }
 }
 
-#Preview("Stroboskop") {
+#Preview("Strobe") {
     PreviewPair {
         Faceplate(radius: Theme.Radius.panel) {
             VStack(spacing: 12) {

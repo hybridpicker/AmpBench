@@ -5,9 +5,9 @@ import struct
 
 import pytest
 
-from spark_studio import devices, factory, link, protocol
-from spark_studio.devices import ReactorState
-from spark_studio.fake_amp import FakeAmp, FakeDevices
+from ampbench import devices, factory, i18n, link, protocol
+from ampbench.devices import ReactorState
+from ampbench.fake_amp import FakeAmp, FakeDevices
 
 
 # MARK: Profiles
@@ -53,8 +53,8 @@ def test_names_slots_and_usb():
     assert devices.loggable_name("Reactor 50 Probenraum") == "Reactor 50"
     assert devices.loggable_name("Reactor 100 Bühne") == "Reactor 100"
     assert devices.loggable_name("Spark NEO Control") == "Spark NEO Control"
-    assert devices.REACTOR_50.slot_name(0) == "Rot 1" and devices.REACTOR_50.slot_name(7) == "Grün 4"
-    assert devices.SPARK_NEO.slot_name(2) == "Platz 3"
+    assert devices.REACTOR_50.slot_name(0) == "Red 1" and devices.REACTOR_50.slot_name(7) == "Green 4"
+    assert devices.SPARK_NEO.slot_name(2) == "Slot 3"
     assert devices.recordable_usb_names() == ["spark"]
 
 
@@ -132,8 +132,16 @@ def test_the_readings_in_words_match_the_mac():
             parameter("Amp.Preamp", 0, 0.75), on_off("ChorusCloner", True), wire(devices.SUB_SELECTED_EFFECT, [4, 0xC3]),
             parameter("ChorusCloner", 0, 0.5), number(protocol.SUB_TAP_TEMPO, 120)], state)
     assert [f"{a}: {b}" for a, b in state.lines()] == [
-        "Platz: Grün 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 von 5", "Gain: 7,5",
-        "Mod ChorusCloner: an, Level 5,0", "Tempo: 120 BPM"]
+        "Slot: Green 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 of 5", "Gain: 7.5",
+        "Mod ChorusCloner: on, Level 5.0", "Tempo: 120 BPM"]
+    i18n.set_language(i18n.GERMAN)
+    try:
+        assert [f"{a}: {b}" for a, b in state.lines()] == [
+            "Platz: Grün 1", "Amp: Hi-Gain", "Push/Smooth: Push", "Heat: 4 von 5", "Gain: 7,5",
+            "Mod ChorusCloner: an, Level 5,0", "Tempo: 120 BPM"]
+        assert devices.SPARK_NEO.slot_name(2) == "Platz 3" and devices.REACTOR_100.checked.startswith("Nicht geprüft")
+    finally:
+        i18n.set_language(i18n.ENGLISH)
 
 
 # MARK: The link
@@ -195,7 +203,7 @@ def test_the_reactor_gets_not_a_single_byte():
         core.start()
         assert await until(lambda: core.status == "connected")
         assert core.profile.id == "reactor50" and len(core.slots) == 8 and amp.listen_only is True
-        assert core.device_name == "Reactor 50 Proberaum" and core.loggable_name == "Reactor 50"
+        assert core.device_name == "Reactor 50 Rehearsal" and core.loggable_name == "Reactor 50"
         await core.load_all()
         await core.refresh(0)
         for attempt in (core.select(1), core.try_out(factory.empty("X")), core.play_for_editing(factory.empty("X")),
@@ -269,7 +277,7 @@ def test_choosing_another_device_ends_the_old_connection_first():
 def test_the_text_for_reactor_matches_the_mac():
     import json
     from pathlib import Path
-    from spark_studio import recipe
+    from ampbench import recipe
     data = json.loads((Path(__file__).resolve().parents[2] / "docs/ai/examples/texas-blues.json").read_text())
-    # Written by the Mac's `SparkStudio --recipe-prompt docs/ai/examples/texas-blues.json`.
+    # Written by the Mac's `AmpBench --recipe-prompt docs/ai/examples/texas-blues.json`.
     assert recipe.tone_description(data) == 'Guitar tone “Texas Blues: Edge-of-breakup combo pushed by a mid drive”, 96 BPM.\nDrive pedal: Ibanez TS9 style pedal, drive 3/10, tone 5.5/10, level 7/10.\nAmp: Fender Bassman ’59 style amp, gain 5/10, treble 6/10, middle 6.5/10, bass 4.5/10, master 7/10.\nReverb: room reverb, level 2.5/10, length 4/10.\nNotes: Tweed combo just breaking up, the mid drive adds push rather than gain. Too fizzy: lower drive.drive to 2. Too clean on the neck pickup: raise amp.gain to 6.\n'

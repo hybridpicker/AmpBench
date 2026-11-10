@@ -1,3 +1,4 @@
+import AmpText
 import CryptoKit
 import Foundation
 
@@ -27,7 +28,7 @@ public enum RecipeValue: Codable, Equatable, Sendable {
         }
     }
 
-    /// For tables: "4.5", "true", "Saal weit".
+    /// For tables: "4.5", "true", "Wide hall".
     public var text: String {
         switch self {
         case .number(let number): number == number.rounded() ? String(Int(number)) : String(number)
@@ -39,9 +40,10 @@ public enum RecipeValue: Codable, Equatable, Sendable {
     /// A value from 0 to 1 on the 0 to 10 scale, to one decimal.
     static func tenths(_ value: Float) -> Double { (Double(value) * 100).rounded() / 10 }
 
-    /// How a recipe writes an amp value: a number for knobs, the label for switches and choices.
+    /// How a recipe writes an amp value: a number for knobs, the English label for switches and choices, whatever
+    /// the app's language is, so a recipe reads the same everywhere.
     static func display(_ value: Float, for parameter: ParameterInfo) -> RecipeValue {
-        switch parameter.kind {
+        switch parameter.englishKind {
         case .toggle(let off, let on): .text(value < 0.5 ? off : on)
         case .selector(let options): .text(parameter.nearest(value, in: options)?.label ?? String(tenths(value)))
         default: .number(tenths(value))
@@ -50,7 +52,7 @@ public enum RecipeValue: Codable, Equatable, Sendable {
 }
 
 /// A sound described by what it is, not by the bytes of one amp: a model and settings for each place of the chain,
-/// knobs from 0 to 10. People and AI assistants write it by hand (docs/ai/SOUND-GUIDE.md). Spark Studio reads it from
+/// knobs from 0 to 10. People and AI assistants write it by hand (docs/ai/SOUND-GUIDE.md). AmpBench reads it from
 /// the presets folder like a preset, and `--recipe-check` says what is wrong with one.
 ///
 /// A place left out is switched off with its usual model. A parameter left out keeps the amp's start value.
@@ -142,17 +144,17 @@ public struct SoundRecipe: Codable, Equatable, Sendable {
         var problems: [String] = []
         var warnings: [String] = []
         if version > Self.currentVersion {
-            warnings.append("Das Rezept hat Version \(version), Spark Studio kennt bis \(Self.currentVersion).")
+            warnings.append(tr("The recipe has version %d, AmpBench knows up to %d.", version, Self.currentVersion))
         }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty { problems.append("Der Name fehlt.") }
+        if trimmed.isEmpty { problems.append(tr("The name is missing.")) }
         let fitted = PresetFactory.fit(trimmed)
         if fitted != trimmed {
-            warnings.append("Der Name war länger als \(PresetRules.nameLimit) Bytes und wurde auf „\(fitted)“ gekürzt.")
+            warnings.append(tr("The name was longer than %d bytes and was shortened to “%@”.", PresetRules.nameLimit, fitted))
         }
         for key in chain.keys where ChainPlace(key: key) == nil {
-            problems.append("„\(key)“ ist kein Platz der Kette. Erlaubt: "
-                            + ChainPlace.allCases.map(\.key).joined(separator: ", ") + ".")
+            problems.append(tr("“%@” is no place of the chain. Allowed: %@.", key,
+                               ChainPlace.allCases.map(\.key).joined(separator: ", ")))
         }
 
         var effects: [SparkPreset.Effect] = []
@@ -162,24 +164,22 @@ public struct SoundRecipe: Codable, Equatable, Sendable {
                 continue
             }
             guard let info = ModelCatalog.known(unit.model) else {
-                problems.append("\(place.key): Das Modell „\(unit.model)“ gibt es nicht. Die Modell-ids stehen in "
-                                + "docs/ai/spark-catalog.json, Groß- und Kleinschreibung zählen.")
+                problems.append(tr("%@: There is no model “%@”. The model ids are in docs/ai/spark-catalog.json; upper and lower case matter.", place.key, unit.model))
                 continue
             }
             if info.place != place {
-                problems.append("\(place.key): „\(unit.model)“ gehört an den Platz \(info.place.key).")
+                problems.append(tr("%@: “%@” belongs in the place %@.", place.key, unit.model, info.place.key))
                 continue
             }
             if info.isPack {
-                warnings.append("\(place.key): „\(unit.model)“ gehört zu einem Zusatzpaket. Ohne das Paket nimmt der "
-                                + "Verstärker es nicht.")
+                warnings.append(tr("%@: “%@” belongs to a paid add-on. Without the add-on the amp does not take it.", place.key, unit.model))
             }
             var changes: [Int: Float] = [:]
             let settable = info.settableParameters
             for (key, value) in unit.settings.sorted(by: { $0.key < $1.key }) {
                 guard let (index, parameter) = settable.first(where: { $0.info.key == key }) else {
                     let known = settable.map(\.info.key).joined(separator: ", ")
-                    problems.append("\(place.key) \(unit.model): „\(key)“ gibt es nicht. Erlaubt: \(known).")
+                    problems.append(tr("%@ %@: There is no “%@”. Allowed: %@.", place.key, unit.model, key, known))
                     continue
                 }
                 switch Self.amp(value, for: parameter) {
@@ -197,45 +197,50 @@ public struct SoundRecipe: Codable, Equatable, Sendable {
         let range = PresetRules.bpmRange
         let clampedBPM = min(max(Float(bpm.rounded()), range.lowerBound), range.upperBound)
         if Double(clampedBPM) != bpm.rounded() {
-            warnings.append("Das Tempo \(RecipeValue.number(bpm).text) liegt außerhalb von "
-                            + "\(Int(range.lowerBound))–\(Int(range.upperBound)) und wurde angepasst.")
+            warnings.append(tr("The tempo %@ is outside %d–%d and was adjusted.", RecipeValue.number(bpm).text,
+                               Int(range.lowerBound), Int(range.upperBound)))
         }
         let shortDescription = PresetRules.fitDescription(description)
         if shortDescription != description {
-            warnings.append("Die Beschreibung war länger als \(PresetRules.descriptionLimit) Bytes und wurde gekürzt.")
+            warnings.append(tr("The description was longer than %d bytes and was shortened.", PresetRules.descriptionLimit))
         }
         let preset = SparkPreset(uuid: Self.uuid(for: identity), name: fitted, description: shortDescription,
                                  bpm: clampedBPM, effects: effects)
         return Conversion(preset: preset, warnings: warnings)
     }
 
-    /// The amp's value from 0 to 1 for a recipe value, with a note when it had to be corrected.
+    /// The amp's value from 0 to 1 for a recipe value, with a note when it had to be corrected. A switch or choice
+    /// may be named by its English or its German label, so recipes written before the catalog was English still read.
     static func amp(_ value: RecipeValue, for parameter: ParameterInfo) -> Result<(Float, String?), Problems> {
         func fail(_ message: String) -> Result<(Float, String?), Problems> { .failure(Problems(messages: [message])) }
-        switch (parameter.kind, value) {
+        func names(_ text: String, _ english: String) -> Bool {
+            [english, CatalogText.german(english, .label)].contains { $0.caseInsensitiveCompare(text) == .orderedSame }
+        }
+        switch (parameter.englishKind, value) {
         case (.knob, .number(let number)):
             let clamped = min(max(number, 0), 10)
-            let note = clamped == number ? nil : "\(RecipeValue.number(number).text) liegt außerhalb von 0–10, gesetzt auf \(RecipeValue.number(clamped).text)."
+            let note = clamped == number ? nil : tr("%@ is outside 0–10, set to %@.", RecipeValue.number(number).text, RecipeValue.number(clamped).text)
             return .success((Float(clamped / 10), note))
         case (.knob, _):
-            return fail("Ein Regler braucht eine Zahl von 0 bis 10.")
+            return fail(tr("A knob needs a number from 0 to 10."))
         case (.toggle, .flag(let flag)):
             return .success((flag ? 1 : 0, nil))
         case (.toggle(let off, let on), .text(let text)):
-            if text.caseInsensitiveCompare(on) == .orderedSame { return .success((1, nil)) }
-            if text.caseInsensitiveCompare(off) == .orderedSame { return .success((0, nil)) }
-            return fail("Ein Schalter braucht true, false, „\(off)“ oder „\(on)“.")
+            if names(text, on) { return .success((1, nil)) }
+            if names(text, off) { return .success((0, nil)) }
+            return fail(tr("A switch needs true, false, “%@” or “%@”.", off, on))
         case (.toggle, .number):
-            return fail("Ein Schalter braucht true oder false.")
+            return fail(tr("A switch needs true or false."))
         case (.selector(let options), .text(let text)):
-            guard let option = options.first(where: { $0.label.caseInsensitiveCompare(text) == .orderedSame }) else {
-                return fail("„\(text)“ ist keine Auswahl. Erlaubt: " + options.map { "„\($0.label)“" }.joined(separator: ", ") + ".")
+            guard let option = options.first(where: { names(text, $0.label) }) else {
+                return fail(tr("“%@” is no choice. Allowed: %@.", text,
+                               options.map { tr("“%@”", $0.label) }.joined(separator: ", ")))
             }
             return .success((option.value, nil))
         case (.selector, _):
-            return fail("Eine Auswahl braucht einen der Namen aus dem Katalog.")
+            return fail(tr("A choice needs one of the names from the catalog."))
         case (.mirror, _), (.reserved, _):
-            return fail("Dieser Parameter wird nicht gesetzt.")
+            return fail(tr("This parameter is not set."))
         }
     }
 
@@ -258,14 +263,14 @@ extension SoundRecipe {
     /// written out. Models the catalog does not know and presets without the usual seven places cannot be described.
     public init(preset: SparkPreset, tags: [String] = [], notes: String = "") throws {
         guard preset.effects.count == ChainPlace.allCases.count else {
-            throw Problems(messages: ["Das Preset hat \(preset.effects.count) statt 7 Plätze."])
+            throw Problems(messages: [tr("The preset has %d places instead of 7.", preset.effects.count)])
         }
         var chain: [String: Unit] = [:]
         var problems: [String] = []
         for (index, effect) in preset.effects.enumerated() {
             let place = ChainPlace(rawValue: index)!
             guard let info = ModelCatalog.known(effect.name) else {
-                problems.append("\(place.key): Das Modell „\(effect.name)“ kennt der Katalog nicht.")
+                problems.append(tr("%@: The catalog does not know the model “%@”.", place.key, effect.name))
                 continue
             }
             var settings: [String: RecipeValue] = [:]

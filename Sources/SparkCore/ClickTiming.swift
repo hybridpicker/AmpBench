@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import Foundation
 
@@ -56,11 +57,11 @@ public enum LatencyProbeError: LocalizedError, Equatable {
     public var errorDescription: String? {
         switch self {
         case .clickDidNotStart:
-            return "Der Klick ist nicht angelaufen."
+            return tr("The click did not start.")
         case .noSignal:
-            return "Am Eingang kam kein Klick an. Steckt das Kabel im Gitarreneingang, oder liegt der Kopfhörer direkt auf dem Tonabnehmer? Ist der Ausgang laut genug?"
+            return tr("No click arrived at the input. Is the cable in the guitar input, or do the headphones lie directly on the pickup? Is the output loud enough?")
         case .unstable(let spread):
-            return String(format: "Die Klicks kamen ungleichmäßig an (Streuung %.1f ms). Wähle am Amp ein Preset ohne Delay, Hall und Noise Gate und miss noch einmal.", spread)
+            return tr("The clicks arrived unevenly (spread %.1f ms). Choose a preset without delay, reverb and noise gate on the amp and measure again.", spread)
         }
     }
 }

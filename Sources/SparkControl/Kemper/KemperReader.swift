@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 import SQLite3
 
@@ -7,8 +8,8 @@ public enum KemperReadError: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .notKemper(let name): "„\(name)“ ist keine Kemper-Datei (erwartet: .kipr oder .kpabackup)."
-        case .damaged(let detail): "Die Kemper-Datei ist beschädigt: \(detail)"
+        case .notKemper(let name): tr("“%@” is not a Kemper file (expected: .kipr or .kpabackup).", name)
+        case .damaged(let detail): tr("The Kemper file is damaged: %@", detail)
         }
     }
 }
@@ -27,8 +28,8 @@ public struct KemperPerformance: Equatable, Sendable {
     public func slotName(_ index: Int) -> String {
         let own = slotNames.indices.contains(index) ? slotNames[index].trimmingCharacters(in: .whitespaces) : ""
         if !own.isEmpty { return own }
-        return slots.indices.contains(index) ? slots[index]?.string(KemperRig.Tag.rigName) ?? "Platz \(index + 1)"
-                                             : "Platz \(index + 1)"
+        return slots.indices.contains(index) ? slots[index]?.string(KemperRig.Tag.rigName) ?? tr("Slot %d", index + 1)
+                                             : tr("Slot %d", index + 1)
     }
 
     /// True for the Kemper's untouched performances ("New Performance", the examples).
@@ -64,7 +65,7 @@ public enum KemperReader {
     public static func rigFile(_ data: Data) throws -> KemperRig {
         let bytes = [UInt8](data)
         guard bytes.count >= 14, ["KThd", "MThd"].contains(String(decoding: bytes[0..<4], as: UTF8.self)) else {
-            throw KemperReadError.damaged("kein Rig-Kopf")
+            throw KemperReadError.damaged(tr("no rig header"))
         }
         var index = 8 + Int(bigEndian(bytes, at: 4))
         var messages: [ArraySlice<UInt8>] = []
@@ -86,7 +87,7 @@ public enum KemperReader {
     /// A backup: rigs from "Rigs/", performances from the database "repository.kdb".
     public static func backup(_ data: Data) throws -> KemperLibrary {
         let files = try Tar.files(in: data)
-        guard !files.isEmpty else { throw KemperReadError.damaged("leeres Archiv") }
+        guard !files.isEmpty else { throw KemperReadError.damaged(tr("empty archive")) }
         var rigs: [KemperRig] = []
         for (path, content) in files.sorted(by: { $0.key < $1.key }) {
             let parts = path.split(separator: "/").filter { $0 != "." }
@@ -109,14 +110,14 @@ public enum KemperReader {
 
         var db: OpaquePointer?
         guard sqlite3_open_v2(file.path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK, let db else {
-            throw KemperReadError.damaged("Datenbank nicht lesbar")
+            throw KemperReadError.damaged(tr("database cannot be read"))
         }
         defer { sqlite3_close(db) }
 
         func rows(_ sql: String, _ bind: [Int64] = [], _ each: (OpaquePointer) -> Void) throws {
             var statement: OpaquePointer?
             guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else {
-                throw KemperReadError.damaged("Datenbank hat ein unbekanntes Schema")
+                throw KemperReadError.damaged(tr("database has an unknown schema"))
             }
             defer { sqlite3_finalize(statement) }
             for (offset, value) in bind.enumerated() { sqlite3_bind_int64(statement, Int32(offset + 1), value) }
@@ -245,13 +246,13 @@ enum Tar {
             }
             let sizeText = text(124, 12).trimmingCharacters(in: .whitespaces)
             guard let size = Int(sizeText.isEmpty ? "0" : sizeText, radix: 8) else {
-                throw KemperReadError.damaged("Archivkopf unlesbar")
+                throw KemperReadError.damaged(tr("archive header cannot be read"))
             }
             let type = bytes[index + 156]
             var name = text(0, 100)
             if text(257, 5) == "ustar", !text(345, 155).isEmpty { name = text(345, 155) + "/" + name }
             let start = index + 512
-            guard start + size <= bytes.count else { throw KemperReadError.damaged("Archiv endet zu früh") }
+            guard start + size <= bytes.count else { throw KemperReadError.damaged(tr("archive ends too early")) }
             let content = Data(bytes[start..<(start + size)])
             switch type {
             case UInt8(ascii: "L"):

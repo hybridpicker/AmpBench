@@ -1,8 +1,9 @@
+import AmpText
 import AppKit
 import SparkControl
 import SwiftUI
 
-/// Spark Studio's area "Presets": sidebar and editor, and what starts with them.
+/// AmpBench's area "Presets": sidebar and editor, and what starts with them.
 @MainActor
 enum PresetsContent {
     static func root(_ model: PresetsModel) -> some View {
@@ -16,8 +17,8 @@ enum PresetsContent {
     private static var started = false
 
     /// Bluetooth, the snapshot and the live self-test start when the content first appears, or when the tuner first
-    /// needs the amp, and only then: Spark Studio shows the content again on every switch to its area, and must not
-    /// reconnect after "Trennen".
+    /// needs the amp, and only then: AmpBench shows the content again on every switch to its area, and must not
+    /// reconnect after "Disconnect".
     static func startOnce(_ model: PresetsModel) async {
         guard !started else { return }
         started = true
@@ -30,7 +31,7 @@ enum PresetsContent {
 
 struct PresetCommands: Commands {
     @ObservedObject var model: PresetsModel
-    /// False while Spark Studio shows another area: Presets' own keys rest, the keys both areas use go to it, and
+    /// False while AmpBench shows another area: Presets' own keys rest, the keys both areas use go to it, and
     /// undo goes to the responder chain.
     var isActive = true
 
@@ -38,32 +39,32 @@ struct PresetCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("Neues Preset") { model.newPreset() }
+            Button(tr("New preset")) { model.newPreset() }
                 .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: .command)))
                 .disabled(!isActive)
-            Button("Neues Preset aus Vorlage …") { model.showsTemplates = true }
+            Button(tr("New preset from template …")) { model.showsTemplates = true }
                 .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .shift])))
                 .disabled(!isActive)
-            Button("KI-Sound aus Beschreibung …") { model.showsAI = true }
+            Button(tr("AI Sound from a description …")) { model.showsAI = true }
                 .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .option])))
                 .disabled(!isActive)
-            Button("Vom Kemper übernehmen …") { model.showsKemperImport = true }
+            Button(tr("Import from Kemper …")) { model.showsKemperImport = true }
                 .disabled(!isActive)
-            Button("Duplizieren") { model.duplicateCurrent() }
+            Button(tr("Duplicate")) { model.duplicateCurrent() }
                 .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
                 .disabled(editor.preset == nil || !isActive)
         }
         CommandGroup(replacing: .saveItem) {
-            Button("Auf dem Mac sichern") { model.saveOnMac() }
+            Button(tr("Save to this Mac")) { model.saveOnMac() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(editor.preset == nil || editor.showsOriginal)
-            Button("Sichern unter …") { model.beginSaveAs() }
+            Button(tr("Save as …")) { model.beginSaveAs() }
                 .keyboardShortcut(owned(KeyboardShortcut("s", modifiers: [.command, .shift])))
                 .disabled(editor.preset == nil || editor.showsOriginal || !isActive)
         }
         CommandGroup(replacing: .undoRedo) {
             // Text fields keep their own undo, everything else goes to the editor.
-            Button("Rückgängig") {
+            Button(tr("Undo")) {
                 if Self.textIsEditing || !isActive {
                     NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
                 } else {
@@ -71,7 +72,7 @@ struct PresetCommands: Commands {
                 }
             }
             .keyboardShortcut("z", modifiers: .command)
-            Button("Wiederholen") {
+            Button(tr("Redo")) {
                 if Self.textIsEditing || !isActive {
                     NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
                 } else {
@@ -82,51 +83,51 @@ struct PresetCommands: Commands {
         }
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button("Umbenennen …") { model.beginRename() }
+            Button(tr("Rename …")) { model.beginRename() }
                 .keyboardShortcut(owned(KeyboardShortcut("e", modifiers: .command)))
                 .disabled(model.selectedItem == nil || !isActive)
-            Button("In den Papierkorb") { model.trash() }
+            Button(tr("Move to Trash")) { model.trash() }
                 .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
                 .disabled(model.selectedItem == nil || !isActive)
-            Button("Im Finder zeigen") { model.reveal() }
+            Button(tr("Show in Finder")) { model.reveal() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: [.command, .shift])))
                 .disabled(!isActive)
         }
-        CommandMenu("Verstärker") {
+        CommandMenu(tr("Amp")) {
             // As many slots as the device has; shortcuts for at most as many as StudioKeymap holds.
             ForEach(Array(model.link.profile.slots), id: \.self) { slot in
-                Button("\(model.link.profile.slotName(slot)) spielen") { model.select(.slot(slot)) }
+                Button(tr("Play %@", model.link.profile.slotName(slot))) { model.select(.slot(slot)) }
                     .keyboardShortcut(slotKey(slot, [.command]))
                     .disabled(!model.link.can(.switchSlot))
             }
             Divider()
             ForEach(Array(model.link.profile.slots), id: \.self) { slot in
-                Button("Auf \(model.link.profile.slotName(slot)) speichern …") { model.askToStoreEdited(in: slot) }
+                Button(tr("Store on %@ …", model.link.profile.slotName(slot))) { model.askToStoreEdited(in: slot) }
                     .keyboardShortcut(isActive ? slotKey(slot, [.command, .option]) : nil)
                     .disabled(!model.canUse(.store) || editor.preset == nil || editor.showsOriginal || !isActive)
             }
             Divider()
-            Button(editor.showsOriginal ? "Bearbeiteten Stand spielen" : "Mit gespeichertem Stand vergleichen") {
+            Button(editor.showsOriginal ? tr("Play the edited state") : tr("Compare with the saved state")) {
                 editor.toggleComparison()
             }
             .keyboardShortcut(owned(KeyboardShortcut("b", modifiers: .command)))
             .disabled((!editor.isModified && !editor.showsOriginal) || !isActive)
-            Toggle("Änderungen live hören", isOn: Binding(get: { editor.isLiveEnabled }, set: { editor.isLiveEnabled = $0 }))
+            Toggle(tr("Hear changes live"), isOn: Binding(get: { editor.isLiveEnabled }, set: { editor.isLiveEnabled = $0 }))
                 .keyboardShortcut(owned(KeyboardShortcut("l", modifiers: [.command, .shift])))
                 .disabled(!isActive)
             Divider()
-            Button("Verstärker neu lesen") { model.reloadAmp() }
+            Button(tr("Read the amp again")) { model.reloadAmp() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: .command)))
                 .disabled(!model.canUse(.read) || !isActive)
             // Studio connects only on request and can disconnect again, for the Spark app on the phone.
             Divider()
             if model.link.wanted {
-                Button("Vom Verstärker trennen") { model.disconnect() }
+                Button(tr("Disconnect from the amp")) { model.disconnect() }
             } else {
-                Button("Mit dem Verstärker verbinden") { model.start(bluetooth: true) }
+                Button(tr("Connect to the amp")) { model.start(bluetooth: true) }
             }
         }
-        CommandMenu("Kette") {
+        CommandMenu(tr("Chain")) {
             ForEach(ChainPlace.allCases) { place in
                 Button(place.title) { editor.focus = place }
                     .keyboardShortcut(owned(KeyboardShortcut(KeyEquivalent(Character("\(place.rawValue + 1)")),
@@ -134,7 +135,7 @@ struct PresetCommands: Commands {
                     .disabled(editor.preset == nil || !isActive)
             }
             Divider()
-            Button("Gewähltes Gerät an oder aus") {
+            Button(tr("Selected device on or off")) {
                 if let effect = editor.preset?.effects[safe: editor.focus.rawValue] {
                     editor.setOn(place: editor.focus.rawValue, !effect.isOn)
                 }

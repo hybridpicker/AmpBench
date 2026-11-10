@@ -4,8 +4,8 @@ import time
 
 import pytest
 
-from spark_studio import peaks, player, store, trash, wav
-from spark_studio.player import Player, Track
+from ampbench import peaks, player, store, trash, wav
+from ampbench.player import Player, Track
 
 
 def test_filters_for_loop_tempo_pitch_and_gain():

@@ -1,3 +1,4 @@
+import AmpText
 import SparkDesign
 import SwiftUI
 
@@ -39,7 +40,7 @@ struct LoadMeter: View {
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Übertragung")
+        .accessibilityLabel(tr("Transfer"))
         .accessibilityValue(accessibilityText)
         .accessibilityHidden(transfer == nil)
     }
@@ -64,15 +65,15 @@ struct LoadMeter: View {
         guard let shown else { return "" }
         let count = shown.total.map { " \(min(shown.done, $0))/\($0)" } ?? ""
         switch shown.kind {
-        case .sending: return (transfer == nil ? "GELADEN" : "LÄDT") + (transfer == nil ? "" : count)
-        case .reading: return (transfer == nil ? "GELESEN" : "LIEST") + (transfer == nil ? "" : count)
-        case .switching: return transfer == nil ? "UMGESCHALTET" : "SCHALTET"
+        case .sending: return (transfer == nil ? tr("LOADED") : tr("LOADING")) + (transfer == nil ? "" : count)
+        case .reading: return (transfer == nil ? tr("READ") : tr("READING")) + (transfer == nil ? "" : count)
+        case .switching: return transfer == nil ? tr("SWITCHED") : tr("SWITCHING")
         }
     }
 
     private var accessibilityText: String {
         guard let transfer else { return "" }
-        if let fraction = transfer.fraction { return "\(Int((fraction * 100).rounded())) Prozent" }
-        return "läuft"
+        if let fraction = transfer.fraction { return tr("%d percent", Int((fraction * 100).rounded())) }
+        return tr("running")
     }
 }

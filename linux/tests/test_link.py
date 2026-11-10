@@ -2,8 +2,8 @@ import asyncio
 
 import pytest
 
-from spark_studio import editor, factory, link, protocol
-from spark_studio.fake_amp import FakeAmp
+from ampbench import editor, factory, link, protocol
+from ampbench.fake_amp import FakeAmp
 
 
 def run(coro):

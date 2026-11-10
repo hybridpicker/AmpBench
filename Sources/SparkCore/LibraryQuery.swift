@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// Search, filters and the takes they leave over. Sorting is applied by the table with its own comparators.
@@ -101,7 +102,7 @@ public enum PracticeStats {
         }
         return totals
             .map { id, seconds in
-                PieceTotal(pieceID: id, name: pieces.first { $0.id == id }?.name ?? "Ohne Stück", minutes: seconds / 60)
+                PieceTotal(pieceID: id, name: pieces.first { $0.id == id }?.name ?? tr("No piece"), minutes: seconds / 60)
             }
             .sorted { $0.minutes > $1.minutes }
     }
@@ -119,7 +120,7 @@ public enum QualityText {
         let kilohertz = rate / 1000
         let text = kilohertz.rounded() == kilohertz
             ? String(format: "%.0f", kilohertz)
-            : String(format: "%.1f", kilohertz).replacingOccurrences(of: ".", with: ",")
+            : String(format: "%.1f", locale: Texts.locale, kilohertz)
         return "\(text) kHz"
     }
 
@@ -127,23 +128,23 @@ public enum QualityText {
         switch count {
         case 1: return "Mono"
         case 2: return "Stereo"
-        default: return "\(count) Kanäle"
+        default: return tr("%d channels", count)
         }
     }
 
     public static func source(_ source: SourceFormat?) -> String {
-        guard let source else { return "nicht erfasst" }
-        let bits = source.bits > 0 ? "\(source.bits) Bit" : "Bittiefe unbekannt"
+        guard let source else { return tr("not captured") }
+        let bits = source.bits > 0 ? tr("%d-bit", source.bits) : tr("Bit depth unknown")
         return "\(bits) · \(rate(source.sampleRate)) · \(channels(source.channels))"
     }
 
     public static func source(device: InputDevice) -> String {
-        let bits = device.physicalBits > 0 ? "\(device.physicalBits) Bit" : "Bittiefe unbekannt"
+        let bits = device.physicalBits > 0 ? tr("%d-bit", device.physicalBits) : tr("Bit depth unknown")
         return "\(bits) · \(rate(device.maxRate)) · \(channels(device.channels))"
     }
 
     public static func file(container: String = "WAV", bits: Int, sampleRate: Double, channels count: Int) -> String {
-        let depth = bits > 0 ? " \(bits) Bit" : ""
+        let depth = bits > 0 ? " " + tr("%d-bit", bits) : ""
         return "\(container)\(depth) · \(rate(sampleRate)) · \(channels(count))"
     }
 }
@@ -219,7 +220,7 @@ public struct TapTempo: Sendable {
 }
 
 public enum TimeText {
-    /// 01:23 or 1:02:03, optionally with tenths.
+    /// 01:23 or 1:02:03, optionally with tenths after the language's decimal sign.
     public static func clock(_ seconds: Double, tenths: Bool = false) -> String {
         let safe = seconds.isFinite ? max(seconds, 0) : 0
         let total = Int(safe)
@@ -227,7 +228,7 @@ public enum TimeText {
             ? String(format: "%d:%02d:%02d", total / 3600, total / 60 % 60, total % 60)
             : String(format: "%02d:%02d", total / 60, total % 60)
         guard tenths else { return base }
-        return "\(base),\(Int(safe * 10) % 10)"
+        return "\(base)\(Texts.locale.decimalSeparator ?? ".")\(Int(safe * 10) % 10)"
     }
 
     /// The length in words, for VoiceOver.
@@ -235,7 +236,7 @@ public enum TimeText {
         let total = Int(max(seconds, 0))
         let minutes = total / 60
         let rest = total % 60
-        if minutes == 0 { return "\(rest) Sekunden" }
-        return "\(minutes) Minuten \(rest) Sekunden"
+        if minutes == 0 { return tr("%d seconds", rest) }
+        return tr("%d minutes %d seconds", minutes, rest)
     }
 }

@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// A state written as a small pill on the desk: amber for "Offen", green for "Geändert", gray for "Sicherung".
+/// A state written as a small pill on the desk: amber for "Open", green for "Changed", gray for "Backup".
 ///
-///     Pill("Offen")
-///     Pill("Geändert", tone: .green)
+///     Pill("Open")
+///     Pill("Changed", tone: .green)
 public struct Pill: View {
     public enum Tone: Sendable { case amber, green, gray }
 
@@ -52,12 +52,12 @@ public struct Pill: View {
     }
 }
 
-#Preview("Pillen") {
+#Preview("Pills") {
     PreviewPair {
         HStack(spacing: 6) {
-            Pill("Offen")
-            Pill("Geändert", tone: .green)
-            Pill("Sicherung", tone: .gray)
+            Pill("Open")
+            Pill("Changed", tone: .green)
+            Pill("Backup", tone: .gray)
         }
     }
 }

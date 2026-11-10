@@ -10,7 +10,7 @@ final class SparkLinkTests: XCTestCase {
     private var suite = ""
 
     override func setUp() async throws {
-        suite = "local.sparkstudio.tests.devices.\(UUID().uuidString)"
+        suite = "local.ampbench.tests.devices.\(UUID().uuidString)"
         defaults = UserDefaults(suiteName: suite)
     }
 
@@ -107,17 +107,17 @@ final class SparkLinkTests: XCTestCase {
         let (device, link) = make([.neo])
         link.start()
         _ = await ready(link)
-        var preset = PresetFactory.empty(name: "Ein sehr langer Name")
-        preset.description = String(repeating: "Beschreibung ", count: 6)
+        var preset = PresetFactory.empty(name: "Quite a long name")
+        preset.description = String(repeating: "Description ", count: 6)
         preset.version = "9.9"
         try await link.tryOut(preset)
-        XCTAssertEqual(device.temporary?.name, "Ein sehr lan")
+        XCTAssertEqual(device.temporary?.name, "Quite a long")
         XCTAssertEqual(device.temporary?.description, "")
         XCTAssertEqual(device.temporary?.version, "0.7")
         XCTAssertEqual(device.temporary?.icon, "icon.png")
         XCTAssertEqual(device.temporary?.effects, AmpGuard.prepared(preset).effects, "the sound is unchanged")
         try await link.store(preset, in: 3)
-        XCTAssertEqual(device.slots[3].name, "Ein sehr lan")
+        XCTAssertEqual(device.slots[3].name, "Quite a long")
         XCTAssertEqual(device.slots[3].description, "")
     }
 
@@ -157,7 +157,7 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(link.profile.id, .reactor50)
         XCTAssertEqual(link.slots.count, 8)
         XCTAssertEqual(device.listenOnly[device.id(.reactor)], false, "FFC1 is kept for ReactorSound only")
-        XCTAssertEqual(link.deviceName, "Reactor 50 Proberaum", "the window shows the owner's name")
+        XCTAssertEqual(link.deviceName, "Reactor 50 Rehearsal", "the window shows the owner's name")
         XCTAssertEqual(link.loggableName, "Reactor 50", "logs do not")
 
         // Everything that would send is refused.
@@ -188,7 +188,7 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertTrue(heard)
         XCTAssertEqual(link.activeSlot, 5)
         XCTAssertEqual(link.reactor.slot, 5)
-        XCTAssertEqual(link.profile.slotName(5), "Grün 2")
+        XCTAssertEqual(link.profile.slotName(5), "Green 2")
         XCTAssertEqual(reactorRequests(device), ["02 01"])
     }
 
@@ -210,7 +210,7 @@ final class SparkLinkTests: XCTestCase {
         let read = await until { link.reactorPresets.count == 8 && link.reactorPresets.allSatisfy { $0 != nil } && link.activeSlot == 6 }
         XCTAssertTrue(read)
         XCTAssertEqual(link.reactorPresets.map { $0?.name }, (1...8).map { "Sound \($0)" })
-        XCTAssertEqual(link.reactorPresets[3]?.summary, "Twin Clean · 3 Effekte an")
+        XCTAssertEqual(link.reactorPresets[3]?.summary, "Twin Clean · 3 effects on")
         XCTAssertEqual(link.slots.count, 8)
         XCTAssertTrue(link.slots.allSatisfy { $0 == nil }, "no Spark preset is made of them")
         // Eight slot requests and the playing slot: only reads.

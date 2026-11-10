@@ -1,3 +1,4 @@
+import AmpText
 import SwiftUI
 
 /// An on/off switch on a device front: a dark slot with a light thumb, amber when on.
@@ -38,14 +39,14 @@ public struct DeviceToggle: View {
         .buttonStyle(.plain)
         .help(label)
         .accessibilityLabel(label)
-        .accessibilityValue(isOn ? "an" : "aus")
+        .accessibilityValue(isOn ? tr("on") : tr("off"))
         .accessibilityAddTraits(.isToggle)
     }
 }
 
 /// A two-way lever for switch parameters, with both states written beside it.
 ///
-///     LeverSwitch(name: "Boost", isOn: on, off: "Aus", on: "An", accent: accent) { toggle() }
+///     LeverSwitch(name: "Boost", isOn: on, off: "Off", on: "On", accent: accent) { toggle() }
 public struct LeverSwitch: View {
     let name: String
     let isOn: Bool
@@ -102,13 +103,13 @@ public struct LeverSwitch: View {
     }
 }
 
-#Preview("Schalter") {
+#Preview("Switches") {
     PreviewPair {
         Faceplate {
             HStack(spacing: 18) {
                 DeviceToggle("Retro", isOn: .constant(false))
                 DeviceToggle("Retro", isOn: .constant(true))
-                LeverSwitch(name: "Boost", isOn: true, off: "Aus", on: "An", accent: .orange) {}
+                LeverSwitch(name: "Boost", isOn: true, off: "Off", on: "On", accent: .orange) {}
             }
             .padding(14)
         }

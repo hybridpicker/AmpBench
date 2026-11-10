@@ -1,8 +1,9 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
 
-/// What is set on a REACTOR, as far as it reported it by itself. Nothing here can be turned: Spark Studio only listens
+/// What is set on a REACTOR, as far as it reported it by itself. Nothing here can be turned: AmpBench only listens
 /// to the REACTOR and sends it nothing. After a slot change the REACTOR does not send the preset, so only what was
 /// turned or pressed since then is shown, and the rest says "–".
 struct ReactorPanel: View {
@@ -55,25 +56,25 @@ struct ReactorPanel: View {
                         .foregroundStyle(Theme.device.amber)
                         .lineLimit(1)
                     HStack(spacing: 12) {
-                        Lamp("Verbunden", tone: .on, isOn: link.status == .connected)
-                        Lamp(link.profile.can(.liveSound) ? "Mitlesen · Sound auf Wunsch" : "Nur mitlesen", tone: .amber,
+                        Lamp(tr("Connected"), tone: .on, isOn: link.status == .connected)
+                        Lamp(link.profile.can(.liveSound) ? tr("Reading along · sound on request") : tr("Read only"), tone: .amber,
                              isOn: true)
                     }
-                    Text(shownPreset.map { "\($0.summary) · \(Int($0.tempo)) BPM · vom \(link.shownName) gelesen. Die Regler unten zeigen, was seit dem Platzwechsel am Gerät gedreht wurde." }
-                         ?? "Preset-Inhalt unbekannt. Angezeigt wird, was seit dem letzten Platzwechsel am Gerät gedreht oder gedrückt wurde.")
+                    Text(shownPreset.map { tr("%1$@ · %2$d BPM · read from the %3$@. The knobs below show what was turned on the device since the slot change.", $0.summary, Int($0.tempo), link.shownName) }
+                         ?? tr("Preset content unknown. Shown is what was turned or pressed on the device since the last slot change."))
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.device.amberDim)
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .trailing, spacing: 2) {
-                    PanelLabel("Platz")
+                    PanelLabel(tr("Slot"))
                     Text(state.slot.map { link.profile.slotName($0) } ?? "–")
                         .font(Theme.Fonts.mono(26, weight: .bold))
                         .foregroundStyle(Theme.device.amber)
                 }
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Platz \(state.slot.map { link.profile.slotName($0) } ?? "unbekannt")")
+                .accessibilityLabel(tr("Slot %@", state.slot.map { link.profile.slotName($0) } ?? tr("unknown")))
             }
         }
     }
@@ -84,7 +85,7 @@ struct ReactorPanel: View {
         Panel(title: "Amp") {
             HStack(alignment: .top, spacing: 22) {
                 VStack(alignment: .leading, spacing: 8) {
-                    PanelLabel("Amp-Wahl")
+                    PanelLabel(tr("Amp selection"))
                     HStack(spacing: 10) {
                         ForEach(ReactorState.ampNames.indices, id: \.self) { index in
                             Lamp(ReactorState.ampNames[index], isOn: state.amp == index)
@@ -101,12 +102,12 @@ struct ReactorPanel: View {
                         ForEach(0..<5, id: \.self) { step in
                             LampDot(isOn: (state.heat ?? -1) >= step)
                         }
-                        Text(state.heat.map { "\($0 + 1) von 5" } ?? "–")
+                        Text(state.heat.map { tr("%d of 5", $0 + 1) } ?? "–")
                             .font(Theme.Fonts.mono(11))
                             .foregroundStyle(Theme.device.amberDim)
                     }
                     .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Heat \(state.heat.map { "\($0 + 1) von 5" } ?? "unbekannt")")
+                    .accessibilityLabel("Heat " + (state.heat.map { tr("%d of 5", $0 + 1) } ?? tr("unknown")))
                 }
                 HStack(spacing: 14) {
                     ForEach(ReactorState.Knob.allCases, id: \.self) { knob in
@@ -120,7 +121,7 @@ struct ReactorPanel: View {
     // MARK: Effects
 
     private var effectsModule: some View {
-        Panel(title: "Effekte") {
+        Panel(title: tr("Effects")) {
             HStack(alignment: .top, spacing: 10) {
                 ForEach(ReactorState.placeNames.indices, id: \.self) { place in
                     if place != ChainPlace.amp.rawValue { effectCell(place) }
@@ -143,7 +144,7 @@ struct ReactorPanel: View {
                 .foregroundStyle(Theme.device.amber)
                 .lineLimit(1)
                 .truncationMode(.middle)
-            Text(effect?.isOn.map { $0 ? "an" : "aus" } ?? "–")
+            Text(effect?.isOn.map { $0 ? tr("on") : tr("off") } ?? "–")
                 .font(Theme.Fonts.mono(10.5))
                 .foregroundStyle(Theme.device.amberDim)
             Text(effect?.level.map { "Level \(ReactorState.tenths($0))" } ?? " ")
@@ -162,12 +163,12 @@ struct ReactorPanel: View {
         var parts = [ReactorState.placeNames[place]]
         if let effect {
             parts.append(effect.model)
-            if let isOn = effect.isOn { parts.append(isOn ? "an" : "aus") }
+            if let isOn = effect.isOn { parts.append(isOn ? tr("on") : tr("off")) }
             if let level = effect.level { parts.append("Level \(ReactorState.tenths(level))") }
         } else {
-            parts.append("nicht gemeldet")
+            parts.append(tr("not reported"))
         }
-        if selected { parts.append("ausgewählt") }
+        if selected { parts.append(tr("selected")) }
         return parts.joined(separator: ", ")
     }
 
@@ -185,10 +186,11 @@ struct ReactorPanel: View {
     }
 
     private var tunerModule: some View {
-        Panel(title: "Stimmgerät am REACTOR") {
+        Panel(title: tr("Tuner on the REACTOR")) {
             VStack(alignment: .leading, spacing: 6) {
-                Lamp(state.tunerOn ? "An · Ausgang stumm" : "Aus", isOn: state.tunerOn)
-                Text(state.tunerOn ? "Wert \(state.tunerReading.map { String(format: "%.3f", $0) } ?? "ohne Signal")" : "Bank halten schaltet es an.")
+                Lamp(state.tunerOn ? tr("On · output muted") : tr("Off"), isOn: state.tunerOn)
+                Text(state.tunerOn ? tr("Value %@", state.tunerReading.map { String(format: "%.3f", locale: Texts.locale, $0) } ?? tr("without signal"))
+                                   : tr("Holding Bank switches it on."))
                     .font(Theme.Fonts.mono(10.5))
                     .foregroundStyle(Theme.device.amberDim)
             }
@@ -197,12 +199,12 @@ struct ReactorPanel: View {
 
     private var footnote: String {
         var text = link.profile.can(.liveSound)
-            ? "Von sich aus sendet Spark Studio nichts an den REACTOR. Einen Sound stellst du so ein: links ein Preset auf dem Mac wählen, dann im Editor „⋯ → Auf den REACTOR spielen …“. Volume, Power Control, Wah, EQ und FX-Loop meldet er nicht oder sind nicht geprüft."
-            : "Spark Studio sendet nichts an den REACTOR, auch keine Leseanfrage. Volume, Power Control, Wah, EQ und FX-Loop meldet er nicht oder sind nicht geprüft."
+            ? tr("AmpBench sends nothing to the REACTOR by itself. To set a sound, choose a preset on this Mac on the left, then “⋯ → Play on the REACTOR …” in the editor. It does not report Volume, Power Control, Wah, EQ and FX loop, or they are not checked.")
+            : tr("AmpBench sends nothing to the REACTOR, not even a read request. It does not report Volume, Power Control, Wah, EQ and FX loop, or they are not checked.")
         let unknown = state.unknown.values.reduce(0, +)
         if unknown > 0 {
             let kinds = state.unknown.keys.sorted().joined(separator: ", ")
-            text += " \(unknown) Meldungen ohne bekannte Bedeutung (\(kinds)) sind nur gezählt."
+            text += " " + tr("%d messages without a known meaning (%@) are only counted.", unknown, kinds)
         }
         return text
     }
@@ -225,7 +227,7 @@ private struct KnobReadout: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(name)
-        .accessibilityValue(value.map { ReactorState.tenths($0) + " von 10" } ?? "nicht gemeldet")
+        .accessibilityValue(value.map { tr("%@ of 10", ReactorState.tenths($0)) } ?? tr("not reported"))
     }
 }
 

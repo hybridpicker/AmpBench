@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// The last check before a preset goes to the amp. It lets through only what the amp has been heard to play.
@@ -69,22 +70,22 @@ public enum AmpGuard {
         let safe = prepared(preset, for: profile)
         var problems: [String] = []
         if safe.effects.count != effectCount {
-            problems.append("Das Preset hat \(safe.effects.count) statt \(effectCount) Effekte.")
+            problems.append(tr("The preset has %d effects instead of %d.", safe.effects.count, effectCount))
         }
-        if !safe.bpm.isFinite { problems.append("Das Tempo ist keine Zahl.") }
+        if !safe.bpm.isFinite { problems.append(tr("The tempo is not a number.")) }
         for effect in safe.effects where effect.parameters.contains(where: { !$0.value.isFinite }) {
-            problems.append("„\(effect.name)“ hat einen Wert, der keine Zahl ist.")
+            problems.append(tr("“%@” has a value that is not a number.", effect.name))
         }
-        let strings = [("Der Name", safe.name, PresetRules.nameLimit), ("Die Version", safe.version, PresetRules.nameLimit),
-                       ("Das Symbol", safe.icon, PresetRules.nameLimit), ("Die Kennung", safe.uuid, uuidLimit)]
-            + safe.effects.map { ("Der Effektname „\($0.name.prefix(20))“", $0.name, PresetRules.nameLimit) }
+        let strings = [(tr("The name"), safe.name, PresetRules.nameLimit),
+                       (tr("The version"), safe.version, PresetRules.nameLimit),
+                       (tr("The icon"), safe.icon, PresetRules.nameLimit), (tr("The identifier"), safe.uuid, uuidLimit)]
+            + safe.effects.map { (tr("The effect name “%@”", String($0.name.prefix(20))), $0.name, PresetRules.nameLimit) }
         for (label, text, limit) in strings where text.utf8.count > min(limit, stringLimit) {
-            problems.append("\(label) ist mit \(text.utf8.count) Bytes zu lang (höchstens \(min(limit, stringLimit))).")
+            problems.append(tr("%@ is too long with %d bytes (at most %d).", label, text.utf8.count, min(limit, stringLimit)))
         }
         let bytes = size(of: safe)
         if bytes > payloadLimit {
-            problems.append("Das Preset ist mit \(bytes) Bytes größer als die \(payloadLimit), die der Verstärker "
-                            + "sicher verträgt.")
+            problems.append(tr("The preset has %d bytes, more than the %d the amp safely takes.", bytes, payloadLimit))
         }
         return problems
     }

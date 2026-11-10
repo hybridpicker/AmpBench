@@ -1,3 +1,4 @@
+import AmpText
 import AVFoundation
 import AudioToolbox
 import CoreAudio
@@ -76,10 +77,10 @@ public enum PlaybackError: LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .noFile: return "Es ist keine Aufnahme geladen."
-        case .unsupportedFormat: return "Dieses Dateiformat lässt sich nicht abspielen."
-        case .device(let status): return "Das Ausgabegerät konnte nicht gewählt werden (Fehler \(status))."
-        case .engine(let text): return "Die Wiedergabe konnte nicht starten: \(text)"
+        case .noFile: return tr("No take is loaded.")
+        case .unsupportedFormat: return tr("This file format cannot be played.")
+        case .device(let status): return tr("The output device could not be selected (error %d).", Int(status))
+        case .engine(let text): return tr("Playback could not start: %@", text)
         }
     }
 }

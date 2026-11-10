@@ -1,3 +1,4 @@
+import AmpText
 import CSparkRT
 import XCTest
 @testable import SparkCore
@@ -6,6 +7,11 @@ import XCTest
 /// Synthetic signals only.
 final class TunerBehaviorTests: XCTestCase {
     private let rate = 48_000.0
+
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
+    }
     private typealias Accuracy = TunerAccuracyTests
 
     private func string(_ frequency: Double, seconds: Double, seed: UInt64 = 7) -> [Float] {
@@ -124,12 +130,12 @@ final class TunerBehaviorTests: XCTestCase {
     }
 
     func testTuningsAreWhatTheyAreCalled() {
-        XCTAssertEqual(Tuning.standard.summary, "E A D G H E")
-        XCTAssertEqual(Tuning.dropD.summary, "D A D G H E")
+        XCTAssertEqual(Tuning.standard.summary, "E A D G B E")
+        XCTAssertEqual(Tuning.dropD.summary, "D A D G B E")
         XCTAssertEqual(Tuning.dadgad.summary, "D A D G A D")
-        XCTAssertEqual(Tuning.openG.summary, "D G D G H D")
-        XCTAssertEqual(Tuning.halfStepDown.summary, "E♭ A♭ D♭ G♭ B E♭")
-        XCTAssertEqual(Tuning.chromatic.summary, "Alle Töne")
+        XCTAssertEqual(Tuning.openG.summary, "D G D G B D")
+        XCTAssertEqual(Tuning.halfStepDown.summary, "E♭ A♭ D♭ G♭ B♭ E♭")
+        XCTAssertEqual(Tuning.chromatic.summary, "All notes")
         XCTAssertEqual(Tuning.standard.strings.first?.frequency(a4: 440) ?? 0, 82.4069, accuracy: 0.0001)
         XCTAssertEqual(Tuning.dropD.strings.first?.frequency(a4: 440) ?? 0, 73.4162, accuracy: 0.0001)
     }
@@ -143,9 +149,9 @@ final class TunerBehaviorTests: XCTestCase {
         XCTAssertEqual(readout?.note.octave, 1)
     }
 
-    func testChromaticNamesInGerman() {
+    func testChromaticNames() {
         var interpreter = TunerInterpreter(tuning: .chromatic)
-        let cases: [(Double, String, Int)] = [(30.868, "H", 0), (246.94, "H", 3), (233.08, "A♯", 3), (440, "A", 4),
+        let cases: [(Double, String, Int)] = [(30.868, "B", 0), (246.94, "B", 3), (233.08, "A♯", 3), (440, "A", 4),
                                               (277.18, "C♯", 4), (1396.91, "F", 6)]
         for (frequency, name, octave) in cases {
             let readout = interpreter.interpret(PitchReading(frequency: frequency), time: 0)
@@ -153,9 +159,28 @@ final class TunerBehaviorTests: XCTestCase {
             XCTAssertEqual(readout?.note.octave, octave, "\(frequency)")
             XCTAssertLessThan(abs(readout?.cents ?? 99), 0.1)
         }
+        XCTAssertEqual(Note(midi: 70).name(flats: true), "B♭")
+        XCTAssertEqual(Note(midi: 71).name(), "B")
+        XCTAssertEqual(Note(midi: 63).spokenName(flats: true), "E flat")
+        XCTAssertEqual(Note(midi: 66).spokenName(), "F sharp")
+    }
+
+    /// German says H for B and B for B♭, writes a decimal comma, and reads as it did before.
+    func testGermanNamesAndNumbers() {
+        Texts.language = .german
+        XCTAssertEqual(Tuning.standard.summary, "E A D G H E")
+        XCTAssertEqual(Tuning.halfStepDown.summary, "E♭ A♭ D♭ G♭ B E♭")
+        XCTAssertEqual(Tuning.chromatic.summary, "Alle Töne")
+        XCTAssertEqual(Tuning.halfStepDown.title, "Halbton tiefer")
+        XCTAssertEqual(Note(midi: 71).name(), "H")
         XCTAssertEqual(Note(midi: 70).name(flats: true), "B")
         XCTAssertEqual(Note(midi: 63).spokenName(flats: true), "Es")
         XCTAssertEqual(Note(midi: 66).spokenName(), "Fis")
+        XCTAssertEqual(TunerText.cents(0.34), "+0,3")
+        XCTAssertEqual(TunerText.cents(-0.04), "±0,0")
+        XCTAssertEqual(TunerText.hertz(82.4069), "82,41")
+        XCTAssertEqual(TunerText.spokenCents(-2.25), "minus 2,3 Cent")
+        XCTAssertEqual(TunerText.spokenCents(0), "0 Cent")
     }
 
     func testConcertPitchMovesEveryTarget() {
@@ -193,13 +218,13 @@ final class TunerBehaviorTests: XCTestCase {
     }
 
     func testTextOfTheNumbers() {
-        XCTAssertEqual(TunerText.cents(0.34), "+0,3")
-        XCTAssertEqual(TunerText.cents(-12.04), "−12,0")
-        XCTAssertEqual(TunerText.cents(-0.04), "±0,0")
-        XCTAssertEqual(TunerText.cents(49.96), "+50,0")
-        XCTAssertEqual(TunerText.hertz(82.4069), "82,41")
-        XCTAssertEqual(TunerText.hertz(440, digits: 1), "440,0")
-        XCTAssertEqual(TunerText.spokenCents(-2.25), "minus 2,3 Cent")
+        XCTAssertEqual(TunerText.cents(0.34), "+0.3")
+        XCTAssertEqual(TunerText.cents(-12.04), "−12.0")
+        XCTAssertEqual(TunerText.cents(-0.04), "±0.0")
+        XCTAssertEqual(TunerText.cents(49.96), "+50.0")
+        XCTAssertEqual(TunerText.hertz(82.4069), "82.41")
+        XCTAssertEqual(TunerText.hertz(440, digits: 1), "440.0")
+        XCTAssertEqual(TunerText.spokenCents(-2.25), "minus 2.3 cents")
     }
 
     // MARK: The shared input

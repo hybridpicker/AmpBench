@@ -1,3 +1,4 @@
+import AmpText
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -80,11 +81,11 @@ private struct PedalUnit: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("\(place.title): \(info.name), \(effect.isOn ? "an" : "aus")")
-                .accessibilityHint("Zeigt die Regler")
+                .accessibilityLabel("\(place.title): \(info.name), \(effect.isOn ? tr("on") : tr("off"))")
+                .accessibilityHint(tr("Shows the controls"))
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
                 Spacer(minLength: 0)
-                Footswitch(isOn: effect.isOn, label: "\(place.title) an oder aus", size: min(30, width * 0.3),
+                Footswitch(isOn: effect.isOn, label: tr("%@ on or off", place.title), size: min(30, width * 0.3),
                            isEnabled: !editor.isLocked) {
                     editor.setOn(place: index, !effect.isOn)
                 }
@@ -142,8 +143,8 @@ private struct AmpUnit: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Amp: \(info.name), \(effect.isOn ? "an" : "aus")")
-            .accessibilityHint("Zeigt die Regler")
+            .accessibilityLabel("Amp: \(info.name), \(effect.isOn ? tr("on") : tr("off"))")
+            .accessibilityHint(tr("Shows the controls"))
             .accessibilityAddTraits(editor.focus == .amp ? [.isSelected] : [])
         }
     }

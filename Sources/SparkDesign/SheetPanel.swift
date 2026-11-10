@@ -2,7 +2,7 @@ import SwiftUI
 
 /// A sheet with a front panel on top: its title engraved on a dark strip. The content stays system text.
 ///
-///     SheetPanel("Tastaturkürzel") { Text("…") }
+///     SheetPanel("Keyboard shortcuts") { Text("…") }
 public struct SheetPanel<Content: View>: View {
     let title: String
     @ViewBuilder let content: Content
@@ -32,8 +32,8 @@ public struct SheetPanel<Content: View>: View {
 }
 
 #Preview("SheetPanel") {
-    SheetPanel("Tastaturkürzel") {
-        Text("Einzelne Tasten wirken nicht, solange du in ein Textfeld schreibst.")
+    SheetPanel("Keyboard shortcuts") {
+        Text("Single keys do nothing while you type in a text field.")
     }
     .frame(width: 420)
 }

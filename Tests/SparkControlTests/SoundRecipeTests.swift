@@ -1,3 +1,4 @@
+import AmpText
 import XCTest
 @testable import SparkControl
 
@@ -70,10 +71,10 @@ final class SoundRecipeTests: XCTestCase {
         XCTAssertThrowsError(try bad.preset()) { error in
             let messages = (error as? SoundRecipe.Problems)?.messages ?? []
             XCTAssertEqual(messages.count, 8, messages.joined(separator: "\n"))
-            XCTAssertTrue(messages.contains { $0.contains("„twin“ gibt es nicht") })
-            XCTAssertTrue(messages.contains { $0.contains("gehört an den Platz amp") })
-            XCTAssertTrue(messages.contains { $0.contains("„wah“ ist kein Platz") })
-            XCTAssertTrue(messages.contains { $0.contains("„Kathedrale“ ist keine Auswahl") })
+            XCTAssertTrue(messages.contains { $0.contains("There is no model “twin”") })
+            XCTAssertTrue(messages.contains { $0.contains("belongs in the place amp") })
+            XCTAssertTrue(messages.contains { $0.contains("“wah” is no place") })
+            XCTAssertTrue(messages.contains { $0.contains("“Kathedrale” is no choice") })
         }
     }
 
@@ -159,12 +160,65 @@ final class SoundRecipeTests: XCTestCase {
         }
     }
 
+    /// Recipes written when the catalog was German name switches and choices in German. Both languages read, in
+    /// either language of the app, and a recipe is always written with the English labels.
+    func testLabelsReadInEnglishAndGermanAndAreWrittenInEnglish() throws {
+        func preset(_ type: String, _ sync: String) throws -> [SparkPreset.Effect] {
+            try recipe([
+                "delay": .init(model: "DelayMono", settings: ["sync": .text(sync)]),
+                "reverb": .init(model: "bias.reverb", settings: ["type": .text(type)]),
+            ]).preset().preset.effects
+        }
+        let english = try preset("Wide hall", "Free")
+        XCTAssertEqual(english[6].parameters[6].value, 0.5)
+        XCTAssertEqual(english[5].parameters[4].value, 0)
+        XCTAssertEqual(try preset("Saal weit", "Frei"), english)
+        let sound = SparkPreset(name: "Test", effects: english)
+        XCTAssertEqual(try SoundRecipe(preset: sound).chain["reverb"]?.settings["type"], .text("Wide hall"))
+        Texts.language = .german
+        defer { Texts.language = .english }
+        XCTAssertEqual(try preset("Wide hall", "Free"), english)
+        XCTAssertEqual(try preset("saal weit", "frei"), english)
+        let written = try SoundRecipe(preset: sound)
+        XCTAssertEqual(written.chain["reverb"]?.settings["type"], .text("Wide hall"))
+        XCTAssertEqual(written.chain["delay"]?.settings["sync"], .text("Free"))
+        XCTAssertThrowsError(try preset("Kathedrale", "Frei")) { error in
+            XCTAssertTrue(error.localizedDescription.contains("„Kathedrale“ ist keine Auswahl"), error.localizedDescription)
+        }
+    }
+
+    /// The files in docs/ai are the same on every machine: English, with the German beside it.
+    func testTheCatalogExportDoesNotFollowTheLanguage() throws {
+        let english = CatalogReference()
+        Texts.language = .german
+        defer { Texts.language = .english }
+        let german = CatalogReference()
+        XCTAssertEqual(try german.jsonData(), try english.jsonData())
+        XCTAssertEqual(german.markdown(), english.markdown())
+        let reverb = try XCTUnwrap(german.models.first { $0.id == "bias.reverb" })
+        XCTAssertEqual(reverb.name, "Reverb")
+        XCTAssertEqual(reverb.de?.name, "Hall")
+        XCTAssertEqual(reverb.de?.summary, "Raum, Kammer, Saal oder Platte")
+        let type = try XCTUnwrap(reverb.parameters.first { $0.key == "type" })
+        XCTAssertEqual(type.label, "Type")
+        XCTAssertEqual(type.de?.label, "Typ")
+        XCTAssertEqual(type.start, .text("Natural hall"))
+        XCTAssertEqual(type.options?.map(\.label).prefix(2), ["Room A", "Room B"])
+        XCTAssertEqual(type.options?.compactMap(\.de?.label).prefix(2), ["Raum A", "Raum B"])
+        let sync = try XCTUnwrap(german.models.first { $0.id == "DelayMono" }?.parameters.first { $0.key == "sync" })
+        XCTAssertEqual([sync.off, sync.on, sync.de?.off, sync.de?.on], ["Free", "BPM", "Frei", "BPM"])
+        XCTAssertEqual(german.places.map(\.de?.title),
+                       ["Noise Gate", "Kompressor", "Verzerrer", "Amp", "Modulation", "Delay", "Hall"])
+        XCTAssertEqual(german.groups?.map(\.de?.title),
+                       ["Clean", "Brillant", "Crunch", "High Gain", "Metal", "Akustik", "Bass"])
+    }
+
     func testTheCatalogInTheDocsIsUpToDate() throws {
         let reference = CatalogReference()
         let folder = root.appendingPathComponent("docs/ai")
         let json = try Data(contentsOf: folder.appendingPathComponent("spark-catalog.json"))
         let markdown = try String(contentsOf: folder.appendingPathComponent("spark-catalog.md"), encoding: .utf8)
-        let hint = "docs/ai is behind the catalog. Run: swift run SparkStudio --catalog-export docs/ai"
+        let hint = "docs/ai is behind the catalog. Run: swift run AmpBench --catalog-export docs/ai"
         XCTAssertEqual(json, try reference.jsonData(), hint)
         XCTAssertEqual(markdown, reference.markdown(), hint)
         XCTAssertEqual(reference.models.count, ModelCatalog.all.count)

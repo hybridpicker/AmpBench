@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// The seven places of the amp's signal chain, in the order the presets list them.
@@ -6,28 +7,33 @@ public enum ChainPlace: Int, CaseIterable, Codable, Sendable, Identifiable {
 
     public var id: Int { rawValue }
 
-    public var title: String {
+    /// The place's name in the app's language.
+    public var title: String { CatalogText.shown(englishTitle, .place) }
+
+    public var englishTitle: String {
         switch self {
         case .gate: "Noise Gate"
-        case .compressor: "Kompressor"
-        case .drive: "Verzerrer"
+        case .compressor: "Compressor"
+        case .drive: "Drive"
         case .amp: "Amp"
         case .modulation: "Modulation"
         case .delay: "Delay"
-        case .reverb: "Hall"
+        case .reverb: "Reverb"
         }
     }
+
+    public var germanTitle: String { CatalogText.german(englishTitle, .place) }
 
     /// A short label for narrow places, such as a pedal.
     public var shortTitle: String {
         switch self {
         case .gate: "Gate"
-        case .compressor: "Komp"
+        case .compressor: tr("Comp")
         case .drive: "Drive"
         case .amp: "Amp"
         case .modulation: "Mod"
         case .delay: "Delay"
-        case .reverb: "Hall"
+        case .reverb: tr("Reverb")
         }
     }
 

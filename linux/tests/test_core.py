@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-from spark_studio import catalog, editor, factory, library, protocol, recipe
-from spark_studio.protocol import Parser, Place, Preset
+from ampbench import catalog, editor, factory, i18n, library, protocol, recipe
+from ampbench.protocol import Parser, Place, Preset
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -106,6 +106,55 @@ def test_recipe_roundtrip_through_preset():
             assert abs(pa.value - pb.value) < 0.051
 
 
+def test_the_catalog_is_english_and_shows_german_in_german():
+    cat = catalog.load()
+    assert cat.version == 3
+    reverb = cat.known("bias.reverb")
+    kind = next(p for p in reverb.parameters if p.kind == "choice")
+    comp = cat.known("LA2AComp")
+    assert comp.name == comp.english_name and catalog.PLACE_TITLES["drive"] == "Drive"
+    assert "Wide hall" in [label for label, _ in kind.options] and cat.group_title("bright") == "Bright"
+    assert cat.info("Nope", 2).summary == "Unknown model" and cat.info("Nope", 2).parameters[1].label == "Knob 2"
+    assert kind.display(0.0) == kind.english_display(0.0) and cat.known("Twin").parameters[0].display(0.55) == "5.5"
+    i18n.set_language(i18n.GERMAN)
+    try:
+        assert comp.name == "Studio-Kompressor" and comp.english_name != comp.name
+        assert catalog.PLACE_TITLES["drive"] == "Verzerrer" and catalog.PLACE_SHORT["reverb"] == "Hall"
+        assert "Saal weit" in [label for label, _ in kind.options] and cat.group_title("bright") == "Brillant"
+        assert cat.info("Nope", 2).summary == "Unbekanntes Modell" and cat.info("Nope", 2).parameters[1].label == "Regler 2"
+        assert cat.known("Twin").parameters[0].display(0.55) == "5,5"
+    finally:
+        i18n.set_language(i18n.ENGLISH)
+
+
+def test_recipes_write_english_labels_and_read_german_ones():
+    cat = catalog.load()
+    kind = next(p for p in cat.known("bias.reverb").parameters if p.kind == "choice")
+    wide = next(value for label, value in kind.english_options if label == "Wide hall")
+    preset = factory.empty("Labels")
+    preset.effects[6] = cat.make_effect("bias.reverb", True, {kind.index: wide})
+    i18n.set_language(i18n.GERMAN)
+    try:
+        written = recipe.from_preset(preset)  # English labels, whatever the app shows
+    finally:
+        i18n.set_language(i18n.ENGLISH)
+    assert written["chain"]["reverb"]["settings"][kind.key] == "Wide hall"
+    assert written["chain"]["delay"]["settings"]["sync"] in ("Free", "BPM")
+    for label in ("Wide hall", "wide HALL", "Saal weit"):
+        data = {"format": "spark-sound-recipe", "version": 1, "name": "x",
+                "chain": {"reverb": {"model": "bias.reverb", "settings": {kind.key: label}}}}
+        value = next(p.value for p in recipe.to_preset(data).preset.effects[6].parameters if p.index == kind.index)
+        assert value == pytest.approx(wide)
+    old = {"format": "spark-sound-recipe", "version": 1, "name": "x",
+           "chain": {"delay": {"model": "DelayMono", "settings": {"sync": "Frei"}}}}
+    sync = next(p for p in cat.known("DelayMono").parameters if p.key == "sync")
+    assert next(p.value for p in recipe.to_preset(old).preset.effects[5].parameters if p.index == sync.index) == 0.0
+    with pytest.raises(recipe.RecipeError) as error:
+        recipe.to_preset({"format": "spark-sound-recipe", "version": 1, "name": "x",
+                          "chain": {"reverb": {"model": "bias.reverb", "settings": {kind.key: "Nowhere"}}}})
+    assert "“Nowhere” is no choice. Allowed: “" in error.value.messages[0]
+
+
 def test_recipe_reports_every_problem():
     bad = {"format": "spark-sound-recipe", "version": 1, "name": "x",
            "chain": {"amp": {"model": "Nope"}, "drive": {"model": "Twin"}, "foo": {"model": "Twin"}}}
@@ -186,7 +235,7 @@ def test_library_reads_mac_files_and_recipes(tmp_path):
     assert any(i.is_recipe for i in lib.items) and any(i.name == "Jazz" or "Jazz" in i.name for i in lib.items)
 
 
-# SHA-256 of the effect chains as `SparkStudio --fingerprint` prints them on the Mac.
+# SHA-256 of the effect chains as `AmpBench --fingerprint` prints them on the Mac.
 MAC_FINGERPRINTS = {
     "Jazz.json": "cf5899f677e80a86a9cc79052d91ebe04e0e8e30740c3e0113779408dfc283b2",
     "Platz 1 - Jazz.json": "cf5899f677e80a86a9cc79052d91ebe04e0e8e30740c3e0113779408dfc283b2",
@@ -239,7 +288,7 @@ def test_editor_and_recipe_cut_a_long_description():
     conversion = recipe.to_preset({"format": "spark-sound-recipe", "version": 1, "name": "Joshua Tree Echo",
                                    "description": HOWLING, "chain": {}})
     assert len(conversion.preset.description.encode("utf-8")) <= protocol.DESCRIPTION_LIMIT
-    assert any("Beschreibung" in w for w in conversion.warnings)
+    assert any("description" in w for w in conversion.warnings)
     edit = editor.PresetEditor(conversion.preset)
     edit.set_description(HOWLING)
     assert len(edit.current.description.encode("utf-8")) <= protocol.DESCRIPTION_LIMIT

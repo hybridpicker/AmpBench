@@ -1,3 +1,4 @@
+import AmpText
 import Foundation
 
 /// An input that belongs to someone else, such as the recorder's, which a listener like the tuner may read along with.
@@ -29,9 +30,9 @@ public enum SharedInputError: LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .noDevice: "Kein Spark verbunden."
+        case .noDevice: tr("No Spark connected.")
         case .noPermission:
-            "Der Mikrofonzugriff fehlt. Erlaube ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon."
+            tr("Microphone access is missing. Allow it in System Settings → Privacy & Security → Microphone.")
         }
     }
 }

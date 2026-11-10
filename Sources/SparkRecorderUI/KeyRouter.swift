@@ -12,7 +12,7 @@ final class KeyRouter {
     /// Lets the self-test act on the window while the screen is locked, when no window can become key.
     static var windowOverride: NSWindow?
     static var activeWindow: NSWindow? { NSApp.keyWindow ?? windowOverride }
-    /// Spark Studio's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil acts
+    /// AmpBench's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil acts
     /// on every key.
     static var allowsKey: (@MainActor (String) -> Bool)?
 

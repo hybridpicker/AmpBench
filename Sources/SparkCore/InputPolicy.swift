@@ -27,7 +27,7 @@ public struct InputPolicy: Sendable {
     /// chip's maker instead of Positive Grid.
     public static let sparkOnly = usbDevices(named: ["spark"])
 
-    /// A USB device whose name contains one of `parts`, ignoring case. Spark Studio passes the USB audio names of its
+    /// A USB device whose name contains one of `parts`, ignoring case. AmpBench passes the USB audio names of its
     /// device profiles (SparkControl's `DeviceProfile.usbAudioNames`), each read from the device, never guessed.
     public static func usbDevices(named parts: [String]) -> InputPolicy {
         let parts = parts.filter { !$0.isEmpty }

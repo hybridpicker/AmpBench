@@ -24,7 +24,7 @@ final class ReactorSoundTests: XCTestCase {
         let steps = sound.steps()
         XCTAssertEqual(steps.map(\.text).prefix(5), ["Bass 0.50", "Middle 0.50", "Treble 0.50", "Gain 0.70", "Amp Crunch"])
         XCTAssertEqual(steps.map(\.text).suffix(7).prefix(6),
-                       ["Gate aus", "Comp aus", "Drive aus", "Mod aus", "Delay an", "Reverb an"])
+                       ["Gate off", "Comp off", "Drive off", "Mod off", "Delay on", "Reverb on"])
         let parser = SparkProtocol.Parser()
         let messages = steps.flatMap { parser.feed($0.bytes) }
         XCTAssertEqual(messages.count, steps.count)

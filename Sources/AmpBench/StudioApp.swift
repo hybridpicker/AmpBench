@@ -1,0 +1,101 @@
+import AmpText
+import AppKit
+import SparkPresetsUI
+import SparkRecorderUI
+import SparkTunerUI
+import SwiftUI
+
+struct StudioApp: App {
+    @NSApplicationDelegateAdaptor(StudioDelegate.self) private var delegate
+    @StateObject private var studio = Studio.shared
+
+    var body: some Scene {
+        // The window comes from Studio. This scene only carries the menus.
+        Settings { EmptyView() }
+            .commands { StudioCommands(studio: studio) }
+    }
+}
+
+/// Observes the area itself: menus are rebuilt when an observed object of a `Commands` changes. Keys both apps use
+/// (⌘E, ⌘⌫, ⇧⌘R, ⌘Z) act in the area in front; Presets' own keys rest while Record shows.
+struct StudioCommands: Commands {
+    @ObservedObject var studio: Studio
+
+    var body: some Commands {
+        RecorderMenus(studio.recorder, isActive: studio.area == .recording)
+        PresetMenus(studio.presets, isActive: studio.area == .presets)
+        TunerMenus(studio.tuner, isActive: studio.area == .tuner)
+        CommandGroup(after: .appInfo) {
+            Menu(tr("Language")) {
+                languageItem(tr("System"), nil)
+                // Each language under its own name, whatever the app speaks now.
+                languageItem("English", .english)
+                languageItem("Deutsch", .german)
+            }
+        }
+        CommandGroup(before: .toolbar) {
+            ForEach(StudioArea.allCases) { area in
+                Button(area.title) { studio.show(area) }
+                    .keyboardShortcut(KeyEquivalent(Character("\(area.digit)")), modifiers: [.command, .shift])
+            }
+            Divider()
+        }
+        CommandGroup(replacing: .help) {
+            Button(tr("Keyboard shortcuts")) {
+                studio.showWindow()
+                studio.showsShortcuts = true
+            }
+            .keyboardShortcut("/", modifiers: .command)
+        }
+    }
+
+    /// A menu item with a checkmark at the current choice.
+    private func languageItem(_ title: String, _ choice: AppLanguage?) -> some View {
+        Toggle(title, isOn: Binding(get: { studio.languageChoice == choice },
+                                    set: { if $0 { studio.chooseLanguage(choice) } }))
+    }
+}
+
+@MainActor
+final class StudioDelegate: NSObject, NSApplicationDelegate {
+    private var studio: Studio { Studio.shared }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Always dark, at the user's wish (2026-11-07): the desk too, not only the device. Tests may still draw light
+        // pictures with --appearance light, and the recorder's pictures self-test switches by itself.
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        studio.makeWindow()
+        // Bluetooth stays off until the area Presets first shows, unless a test asks for it right away.
+        if PresetsHost.isRequestedAtLaunch { studio.area = .presets }
+        // First, so that a message of the recorder's start, such as a repaired take, replaces it and is not hidden.
+        if let message = StudioLaunch.takeoverMessage { studio.recorder.inform(message) }
+        // As in Spark Recorder: recovery of an interrupted take, then the window, then the self-test.
+        studio.recorder.applicationDidFinishLaunching(notification)
+        MenuDump.startIfRequested(studio)
+    }
+
+    /// A click on the Dock icon brings the window back.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if !flag { studio.showWindow() }
+        return true
+    }
+
+    /// As in Spark Recorder: a running recording continues after the window closed, and the Dock shows REC.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        !studio.recorder.isRecording
+    }
+
+    /// The amp's own tuner mutes the amp: it is switched off before the app ends.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard studio.presets.ampTunerMayBeOn else { return .terminateNow }
+        Task { @MainActor in
+            await studio.presets.switchAmpTunerOff()
+            NSApp.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        studio.recorder.applicationWillTerminate(notification)
+    }
+}
