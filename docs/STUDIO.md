@@ -465,7 +465,10 @@ mit seinem Okay:
    **Erster Schreibtest am 2026-11-10 mit Okay** (`spark-probe set-one Amp.Tonestack 1 0.5`, eine Nachricht `01 04`
    mit Eingangsbyte): Nach 0,09 s kam `03 1A 91 00 06 C3`. Dieselbe Meldung begleitet seine eigenen Reglermeldungen
    (dort mit 02 statt 06); der REACTOR stand auf Platz 6, die Zahl ist also wohl der Platz und die Meldung „Platz
-   geändert“. Er nimmt `01 04` demnach an. Ob der Bass hörbar auf Mitte ging, muss der Nutzer bestätigen.
+   geändert“. Der Nutzer hörte beim Anfassen des Bass-Reglers einen Sprung. Danach `set-one Amp.Preamp 0 0.1` (Gain): keine
+   Rückmeldung, aber der „80s Crunch“ klang laut Nutzer deutlich clean. **Der REACTOR nimmt `01 04` für die
+   Amp-Regler an**; `03 1A` kommt nur bei der ersten Änderung eines Platzes. Ungeprüft: Effekte an/aus (`01 15`),
+   Effekt-Parameter, Amp-Wahl mit Push/Smooth/Heat (er meldet `03 B1`, der Befehl dazu ist unbekannt), Platzwechsel.
 3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
    Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
    gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.
