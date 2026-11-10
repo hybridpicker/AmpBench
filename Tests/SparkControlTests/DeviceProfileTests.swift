@@ -9,8 +9,12 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertEqual(DeviceProfile.sparkNEO.checkedFirmware, "1.16.1.60")
         XCTAssertEqual(DeviceProfile.reactor50.slotCount, 8)
         XCTAssertEqual(DeviceProfile.reactor50.bankSize, 4)
-        XCTAssertNil(DeviceProfile.reactor50.checkedFirmware, "nothing was ever sent, so the firmware is unknown")
+        XCTAssertEqual(DeviceProfile.reactor50.checkedFirmware, "0.1.4.85", "read on 2026-11-10")
+        XCTAssertTrue(DeviceProfile.reactor50.can(.liveSound))
+        XCTAssertFalse(DeviceProfile.reactor50.canSend, "a ReactorSound only: no preset, no request")
         XCTAssertEqual(DeviceProfile.reactor100.slotCount, 8)
+        XCTAssertFalse(DeviceProfile.reactor100.can(.liveSound), "never checked, so only listened to")
+        XCTAssertNil(DeviceProfile.reactor100.checkedFirmware)
     }
 
     func testTheNEOLosesTheTemporarySoundAndTheMINIIsTreatedTheSameUntilChecked() {

@@ -156,7 +156,7 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertTrue(connected)
         XCTAssertEqual(link.profile.id, .reactor50)
         XCTAssertEqual(link.slots.count, 8)
-        XCTAssertEqual(device.listenOnly[device.id(.reactor)], true, "no characteristic to write to is even kept")
+        XCTAssertEqual(device.listenOnly[device.id(.reactor)], false, "FFC1 is kept for ReactorSound only")
         XCTAssertEqual(link.deviceName, "Reactor 50 Proberaum", "the window shows the owner's name")
         XCTAssertEqual(link.loggableName, "Reactor 50", "logs do not")
 
@@ -189,6 +189,43 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(link.reactor.slot, 5)
         XCTAssertEqual(link.profile.slotName(5), "Grün 2")
         XCTAssertEqual(device.written[device.id(.reactor)] ?? [], [])
+    }
+
+    func testTheREACTORGetsOnlyTheLiveCommandsOfASound() async throws {
+        let (device, link) = make([.reactor])
+        link.reactorGap = .milliseconds(1)
+        link.start()
+        let connected = await until { link.status == .connected }
+        XCTAssertTrue(connected)
+        let preset = try SoundRecipe(name: "Crunch", chain: [
+            "amp": .init(model: "Plexi", settings: ["gain": .number(6), "bass": .number(4)]),
+            "reverb": .init(model: "bias.reverb", settings: ["level": .number(3)]),
+        ]).preset().preset
+        let sound = try ReactorSound(preset: preset)
+        try await link.play(sound)
+        let written = device.written[device.id(.reactor)] ?? []
+        XCTAssertEqual(written, sound.steps(firstSequence: 1).map(\.bytes), "exactly the sound's steps, in order")
+        XCTAssertEqual(written.count, 12)
+        // Every message is a set of a parameter, the amp selector or an effect switch. Never a preset or a request.
+        for block in written {
+            let message = try XCTUnwrap(SparkProtocol.Parser().feed(block).first)
+            XCTAssertEqual(message.command, SparkProtocol.Command.set)
+            XCTAssertTrue([SparkProtocol.Sub.parameter, ReactorState.ampSelector, SparkProtocol.Sub.effectOnOff]
+                .contains(message.sub))
+        }
+    }
+
+    func testASparkNeverGetsAReactorSound() async throws {
+        let (device, link) = make([.mini])
+        link.start()
+        _ = await ready(link)
+        let before = device.written[device.id(.mini)]?.count ?? 0
+        let sound = try ReactorSound(preset: PresetFactory.empty())
+        do {
+            try await link.play(sound)
+            XCTFail("sent a REACTOR sound to a Spark")
+        } catch {}
+        XCTAssertEqual(device.written[device.id(.mini)]?.count ?? 0, before)
     }
 
     func testAnUnknownSparkIsOnlyReadAndSwitched() async throws {

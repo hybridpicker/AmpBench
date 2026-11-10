@@ -212,3 +212,37 @@ extension PresetsModel {
         preset.name + "\n" + (try preset.sha256Hex())
     }
 }
+
+// MARK: REACTOR
+
+extension PresetsModel {
+    /// True when the connected device takes a sound as live commands (a REACTOR) and a preset is open.
+    var canPlayOnReactor: Bool {
+        link.status == .connected && link.profile.can(.liveSound) && editor.preset != nil
+    }
+
+    /// Works out the REACTOR sound for the open preset and asks before anything is sent.
+    func askToPlayOnReactor() {
+        guard let preset = editor.preset else { return }
+        do {
+            reactorRequest = try ReactorSound(preset: preset)
+        } catch {
+            show(.error, error.localizedDescription)
+        }
+    }
+
+    func playOnReactor(_ sound: ReactorSound) {
+        reactorRequest = nil
+        let device = link.profile.displayName
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await link.play(sound)
+                show(.info, "Am \(device) eingestellt: \(sound.summary). Master und Volume bleiben, wie sie sind. "
+                     + "Der Sound gilt, bis der Platz wechselt; gespeichert wird nur am Gerät, und das überschreibt den Platz.")
+            } catch {
+                show(.error, "Der Sound kam nicht ganz am \(device) an: \(error.localizedDescription)")
+            }
+        }
+    }
+}

@@ -27,6 +27,15 @@ struct ContentView: View {
         } message: { request in
             Text("Was jetzt auf \(link.profile.slotName(request.slot)) liegt\(slotName(request.slot)), wird vorher frisch vom Verstärker gelesen und auf dem Mac gesichert. Danach wird der Platz zur Kontrolle zurückgelesen.")
         }
+        .confirmationDialog("Diesen Sound am \(link.profile.displayName) einstellen?",
+                            isPresented: Binding(get: { model.reactorRequest != nil },
+                                                 set: { if !$0 { model.reactorRequest = nil } }),
+                            presenting: model.reactorRequest) { sound in
+            Button("Einstellen") { model.playOnReactor(sound) }
+            Button("Abbrechen", role: .cancel) { model.reactorRequest = nil }
+        } message: { sound in
+            Text("\(sound.summary).\n\nDreh vorher Volume am Gerät herunter: Ein anderer Amp kann lauter sein. Der Master wird nicht verändert. Der jetzige Sound des Platzes ist danach verstellt, bis du den Platz wechselst; gespeichert wird nichts.")
+        }
         .confirmationDialog(unsavedTitle, isPresented: unsavedShown) {
             Button("Auf dem Mac sichern") { model.resolvePending(save: true) }
             Button("Verwerfen", role: .destructive) { model.resolvePending(save: false) }

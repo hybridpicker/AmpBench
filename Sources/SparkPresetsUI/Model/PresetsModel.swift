@@ -62,6 +62,8 @@ final class PresetsModel: ObservableObject {
     /// Tags the list is narrowed to: a preset must carry all of them.
     @Published var tagFilter: [String] = []
     // Kemper import: the sheet, the file read, the plan the player adjusts, and why reading failed.
+    /// A sound worked out for the REACTOR, waiting for the player's okay before it is sent.
+    @Published var reactorRequest: ReactorSound?
     @Published var showsKemperImport = false
     @Published var kemperFileName: String?
     @Published var kemperPlan: KemperImportPlan?

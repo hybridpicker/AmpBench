@@ -162,6 +162,9 @@ struct EditorHeader: View {
                     .disabled(!model.canUse(.store))
                 }
                 Divider()
+                Button("Auf den REACTOR spielen …") { model.askToPlayOnReactor() }
+                    .disabled(!model.canPlayOnReactor)
+                    .help("Stellt am verbundenen REACTOR den nächstliegenden Amp, Gain, Klangregler und Effekte ein. Kein Preset wird übertragen, nichts gespeichert.")
                 Button("Text für REACTOR kopieren") { model.copyToneText() }
                     .help("Beschreibt den Sound auf Englisch für „Text to Tone“ in der REACTOR-App. Der REACTOR deutet den Text selbst.")
                 Divider()

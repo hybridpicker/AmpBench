@@ -414,9 +414,16 @@ Combo-Amp, eigene Produktlinie und eigene App. Handbuch beim Nutzer:
   Modelle in den Werkspresets: bias.noisegate, BBEOpticalComp, DistortionTS9, DelayEchoFilt (im Katalog; ihr Platz
   kommt daher), ChorusCloner, MonoReverb (nicht im Katalog; ihr Platz kommt aus `03 B3` nach dem Einschalten), der
   Amp als drei Blöcke Amp.Preamp, Amp.Tonestack, Amp.Poweramp. Daraus folgt nicht, dass ein Spark-Preset passt.
-- **In Studio:** Verbinden, FFC2 abonnieren, nichts schreiben. Der Transport hält für ein Profil ohne `.send` gar
-  kein Merkmal zum Schreiben, und `SparkLink.write` verweigert es zusätzlich (Test `testTheREACTORGetsNotASingleByte`,
-  Linux `test_the_reactor_gets_not_a_single_byte`). Der Bereich Presets zeigt die Bänke und ein REACTOR-Feld mit
+- **In Studio:** Verbinden, FFC2 abonnieren, von sich aus nichts schreiben: kein `.send`, also keine Anfrage, kein
+  Preset, kein Live-Editor; `SparkLink.write` verweigert das (Test `testTheREACTORGetsNotASingleByte`, Linux
+  `test_the_reactor_gets_not_a_single_byte`). Seit 2026-11-10 hat der REACTOR 50 `.liveSound`: Editor „⋯ → Auf den
+  REACTOR spielen …“ rechnet aus dem offenen Preset einen `ReactorSound` (nächster der sechs Amps nach Spark-Modell,
+  sonst nach Gain; Schalter Standard, Heat Mitte; Gain, Bass, Mitten, Höhen; Effekte an/aus nach den Namen der
+  Werkspresets; Reverb-Pegel) und sendet ihn nach einer Rückfrage über `SparkLink.play`, einzeln mit 250 ms Pause:
+  Klangregler und Gain vor der Amp-Wahl, nie der Master. Der einzige Weg, auf dem er etwas bekommt (Test
+  `testTheREACTORGetsOnlyTheLiveCommandsOfASound`). Der REACTOR 100 bleibt beim Mitlesen. Linux kann es noch nicht.
+  Ungeprüft: der ganze Ablauf am Gerät (bisher nur die Einzelbefehle von Hand), Effekte in Plätzen mit anderen
+  Modellen, Push/Smooth und Heat als Befehl, alle Amps außer Clean. Der Bereich Presets zeigt die Bänke und ein REACTOR-Feld mit
   Anzeigen statt Reglern; nach einem Platzwechsel ist alles außer dem Platz unbekannt. Unbekannte Meldungen
   (`03 1A` u. a.) werden gezählt, nicht gedeutet. Ein Take hält Gerät, Platz, Amp, Push/Smooth/Heat, Regler und
   Effekte als `PresetStamp.listened` fest, ohne Fingerabdruck und Schnappschuss; der Inspektor zeigt „Mitgelesen“.

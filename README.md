@@ -282,15 +282,22 @@ window or quitting erases the buffer.
 |---|---|---|
 | Spark MINI | everything above | firmware 1.11.2.75 |
 | Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
-| REACTOR 50 | listens only: shows what is turned and pressed on the amp, stamps takes with it; sends nothing | listen-only, 2026-11-09 |
-| REACTOR 100 | like the 50 | not checked |
+| REACTOR 50 | listens: shows what is turned and pressed on the amp, stamps takes with it. "Auf den REACTOR spielen" sets amp, gain, tone and effects with single live commands; no preset is sent, nothing is read or stored | listened 2026-11-09; the live commands heard by the owner 2026-11-10 |
+| REACTOR 100 | listens only, sends nothing | not checked |
 | any other Spark | reads and switches slots, nothing more, until checked | – |
 
 - **One connection at a time.** Choosing another device ends the current one first. The Spark NEO drops a sound
   that plays without being stored when the connection ends and plays its stored slot again, so Studio asks first:
   "Der Sound auf dem NEO geht beim Trennen verloren. Vorher als Preset sichern?" The Spark MINI is treated the same
   until checked. If the connection ends anyway, a banner says so, and a running take keeps the sound it started with.
-- **REACTOR**: Studio subscribes to its reports and writes nothing, not even a read request. The area Presets shows
+- **Auf den REACTOR spielen** (editor, "⋯", with a REACTOR 50 connected and a preset from the Mac open): Studio
+  works out the nearest of the REACTOR's six amps (Clean to Extreme) from the preset's amp model, and after a
+  question sets bass, middle, treble and gain, then the amp, then switches the effects it knows by name (gate,
+  compressor, drive, modulation, delay, reverb) and the reverb's level, one message at a time. The master is never
+  touched; turn the volume down first, another amp can be louder. The REACTOR keeps presets in a format of its own
+  that Studio does not write, so the sound holds until the slot changes and is stored only on the device, which
+  overwrites that slot. A slot with other effects than the factory ones ignores their switches.
+- **REACTOR**: Studio subscribes to its reports and by itself writes nothing, not even a read request. The area Presets shows
   its slots in two banks (Rot, Grün) and a read-only panel: amp, Push/Smooth, Heat, Gain to Master, the effects,
   the tapped tempo and its tuner. After a slot change it says "Preset-Inhalt unbekannt", because the REACTOR does
   not send the preset. A take recorded with it keeps those readings as "mitgelesen", without a fingerprint.
@@ -558,8 +565,8 @@ match the catalog in the code. After a change to `Sources/SparkControl/Catalog`,
 The audio engine refuses every input outside its policy. The default allows USB devices whose name holds one of the
 device profiles' USB audio names (today "Spark"; the REACTOR's joins once read on the device), and tests use a policy
 that allows virtual test devices and nothing real, not even the amp. Device tests run against simulated devices
-(`SimulatedDevice`, and `fake_amp.py` on Linux): the NEO drops its temporary sound, and the REACTOR must not get a
-single byte.
+(`SimulatedDevice`, and `fake_amp.py` on Linux): the NEO drops its temporary sound, and the REACTOR gets nothing but the live
+commands of a sound the player asked for.
 
 The app also has self-tests that drive its real window. They only run with a separate test library, which keeps them
 away from your recordings and presets and skips taking over the old folders. A test library only hears BlackHole, sound

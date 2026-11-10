@@ -55,6 +55,9 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
         public static let usbAudio = Capabilities(rawValue: 1 << 11)
         /// The device takes a sound described in words (REACTOR's Text to Tone).
         public static let textToTone = Capabilities(rawValue: 1 << 12)
+        /// The device takes a `ReactorSound`: single live commands for amp, knobs and effects, and nothing else.
+        /// Without `send`, so it is still never asked, read or given a preset.
+        public static let liveSound = Capabilities(rawValue: 1 << 13)
     }
 
     public var id: Kind
@@ -156,17 +159,18 @@ public extension DeviceProfile {
         // "HI GAIN Test" (12 bytes), never a description, version "0.7", icon "icon.png".
         checkedText: CheckedText(nameBytes: 12, descriptionBytes: 0, version: "0.7", icon: "icon.png"))
 
-    /// Checked listen-only on 2026-11-09: every control reported, nothing was ever sent. Sending stays off until it is
-    /// checked step by step with the user (docs/STUDIO.md, "REACTOR").
+    /// Checked listen-only on 2026-11-09. On 2026-11-10, with the owner at the device, it answered read requests and
+    /// took single live commands, heard by the owner: gain and bass (`01 04`), reverb on and off (`01 15`), reverb
+    /// level, and the amp selector (`01 B1`). So it takes a `ReactorSound`, and still nothing else: no `send`.
     static let reactor50 = DeviceProfile(
         id: .reactor50, displayName: "REACTOR 50", bleService: reactorService, bleNamePrefixes: ["Reactor 50"],
         ampNames: [], slotCount: 8, bankSize: 4, bankNames: ["Rot", "Grün"], transport: .sparkBLE,
-        capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone],
-        keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: nil,
+        capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound],
+        keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "0.1.4.85",
         // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
         usbAudioNames: [],
-        checked: "Nur mitgelesen: Regler, Amp-Wahl, Push/Smooth, Heat, Effekte, TAP, Preset, Bank und Stimmgerät. "
-            + "Es wurde nie etwas gesendet.")
+        checked: "Mitgelesen: Regler, Amp-Wahl, Push/Smooth, Heat, Effekte, TAP, Preset, Bank und Stimmgerät. "
+            + "Gesendet und gehört (2026-11-10): Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl. Kein Preset.")
 
     /// Like the REACTOR 50, but never checked.
     static let reactor100: DeviceProfile = {
@@ -174,6 +178,9 @@ public extension DeviceProfile {
         profile.id = .reactor100
         profile.displayName = "REACTOR 100"
         profile.bleNamePrefixes = ["Reactor 100"]
+        // Never checked: it is only listened to, whatever the 50 takes.
+        profile.capabilities.remove(.liveSound)
+        profile.checkedFirmware = nil
         profile.checked = "Nicht geprüft. Wie der REACTOR 50 behandelt: nur mitlesen, nichts senden."
         return profile
     }()

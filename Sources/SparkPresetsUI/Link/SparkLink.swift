@@ -155,6 +155,9 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// The amp sometimes ignores a request that follows the previous answer right away.
     var gap: Duration = .milliseconds(150)
+    /// Between two live commands to a REACTOR. By hand they were sent seconds apart; a quarter second is a guess on
+    /// the careful side, since a fast series of model changes once made a Spark hang.
+    var reactorGap: Duration = .milliseconds(250)
     /// Waiting ends when the amp stays silent this long. A preset takes several seconds, but data keeps coming.
     var silence = 3.0
 
@@ -304,7 +307,7 @@ final class SparkLink: NSObject, ObservableObject {
         status = .connecting
         memory.remember(KnownDevice(id: device.id, name: deviceName ?? profile.displayName, kind: profile.id))
         updateDevices()
-        transport.connect(device, listenOnly: !profile.canSend)
+        transport.connect(device, listenOnly: !(profile.canSend || profile.can(.liveSound)))
     }
 
     private static func shown(_ name: String?) -> String? {
@@ -381,6 +384,23 @@ final class SparkLink: NSObject, ObservableObject {
             let blocks = build(sequence)
             try write(blocks)
             try await Task.sleep(for: gap)
+        }
+    }
+
+    /// Plays a sound on a REACTOR with the few live commands it was heard taking: one message at a time with a pause,
+    /// tone and gain before the amp. The only way anything reaches a device without `send`; it never gets a preset,
+    /// a request or anything else.
+    func play(_ sound: ReactorSound) async throws {
+        try await serial { [self] in
+            guard status == .connected else { throw LinkError.notConnected }
+            guard profile.can(.liveSound), !profile.canSend else { throw LinkError.notSupported(profile.displayName) }
+            for step in sound.steps(firstSequence: (sequence + 1) & 0x7F) {
+                guard status == .connected else { throw LinkError.notConnected }
+                sequence = (sequence + 1) & 0x7F
+                trace?("→ REACTOR " + step.text)
+                try transport.write([step.bytes])
+                try await Task.sleep(for: reactorGap)
+            }
         }
     }
 
