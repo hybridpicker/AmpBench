@@ -52,7 +52,8 @@ cmp -s "$scratch/spark-catalog.json" docs/ai/spark-catalog.json || {
 }
 
 echo "== Linux ($host) =="
-files=(linux VERSION docs/ai/spark-catalog.json Resources/AppIcon.png)
+# docs/ai/examples: a Linux test reads an example recipe from it.
+files=(linux VERSION docs/ai/spark-catalog.json docs/ai/examples Resources/AppIcon.png)
 git ls-files -z -co --exclude-standard -- $files | COPYFILE_DISABLE=1 tar -c --no-xattrs --null -T - -f - \
     | ssh "$host" 'rm -rf ~/.cache/spark-studio-sync && mkdir -p ~/.cache/spark-studio-sync && tar -x -C ~/.cache/spark-studio-sync'
 ssh "$host" "~/.cache/spark-studio-sync/linux/install.sh '$build_id'"
