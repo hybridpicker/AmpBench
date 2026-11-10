@@ -13,6 +13,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="spark-studio", description="Spark Studio für Linux (Bereich Presets)")
     parser.add_argument("--version", action="store_true", help="print the version and exit")
     parser.add_argument("--recipe-check", metavar="FILE", help="check a sound recipe and exit")
+    parser.add_argument("--kemper-list", metavar="FILE", help="show what a Kemper import would make and exit")
     parser.add_argument("--demo", action="store_true", help="use a simulated amp and a temporary presets folder")
     parser.add_argument("--presets-folder", metavar="DIR", help="folder of the saved presets (default ~/Music/Spark Studio/Presets)")
     parser.add_argument("--recordings-folder", metavar="DIR", help="folder of the recordings (default ~/Music/Spark Studio/Aufnahmen)")
@@ -28,6 +29,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.recipe_check:
         from .recipe import check_file
         return check_file(args.recipe_check)
+    if args.kemper_list:
+        from .kemper import list_file
+        return list_file(args.kemper_list)
 
     from PySide6.QtCore import QTimer
     from PySide6.QtGui import QIcon

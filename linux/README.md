@@ -8,8 +8,13 @@ It uses the same files as the Mac app: presets in `~/Music/Spark Studio/Presets`
 recipes, and the model catalog `docs/ai/spark-catalog.json`, which the Mac app writes from its Swift catalog. So both
 apps know the same amps, effects and start values.
 
-**Not here yet:** the area *Aufnahme* (recording, library of takes, click, pieces). It needs a PipeWire capture path
-that replaces the Mac's CoreAudio code and comes next.
+**Hashtags and the Kemper import** work as on the Mac: every preset can carry tags (Preset ⇒ "Tags bearbeiten …",
+Strg+T, or the context menu), the sidebar filters by tag chips and shows pinned tags as sections of their own, and
+Preset ⇒ "Vom Kemper übernehmen …" reads a Kemper backup (`.kpabackup`) or rig (`.kipr`) into presets and pieces.
+`kemper.py` is the port of `Sources/SparkControl/Kemper`; on the same backup both apps print the same
+`--kemper-list`.
+
+**Not here yet:** the area *Stimmgerät*, the KI-Sound (a sound from a description), and reading a REACTOR's presets.
 
 ## Install and keep in step with the Mac
 
@@ -35,6 +40,7 @@ To change the version, edit `VERSION`, then run `./sync.sh`.
 spark-studio                         # the window; it looks for the amp at once
 spark-studio --demo                  # a simulated amp and a temporary folder, to look around
 spark-studio --recipe-check my.json  # check a sound recipe, like the Mac app's --recipe-check
+spark-studio --kemper-list backup.kpabackup  # what a Kemper import would make, reads only
 spark-studio --version
 ```
 
@@ -43,7 +49,7 @@ service and takes the amp's one control connection: "Trennen" lets the Spark app
 
 ## Code
 
-`spark_studio/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py` and `library.py` are ports of
+`spark_studio/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py` and `kemper.py` are ports of
 `Sources/SparkControl`; the Swift code is the reference, change both together. `link.py` is the port of `SparkLink.swift`
 (with a simulated amp in `fake_amp.py`), `qtlink.py` and `ui/` are the window. Tests: `linux/tests`, run by the install
 (`cd linux && QT_QPA_PLATFORM=offscreen python -m pytest`). They read real presets from the amp as fixtures.

@@ -11,7 +11,8 @@ from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QApplication, QFileDialog, QFrame, QHBoxLayout, QInputDialog, QLabel,
+from PySide6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QApplication, QDialog, QFileDialog, QFrame, QHBoxLayout,
+                               QInputDialog, QLabel,
                                QLineEdit, QMainWindow, QMenu, QMessageBox, QPlainTextEdit, QStackedWidget, QTextEdit,
                                QToolButton, QVBoxLayout, QWidget)
 
@@ -341,6 +342,8 @@ class MainWindow(QMainWindow):
         action(preset, "Umbenennen …", self._rename, "Ctrl+E")
         action(preset, "Als Rezept speichern …", self._export_recipe)
         action(preset, "Rezept öffnen …", self._open_recipe)
+        action(preset, "Vom Kemper übernehmen …", self._import_kemper)
+        action(preset, "Tags bearbeiten …", self._edit_tags, "Ctrl+T")
         preset.addSeparator()
         action(preset, "Im Dateimanager zeigen", self._reveal, "Ctrl+Shift+R")
         action(preset, "In den Papierkorb legen", self._trash, "Ctrl+Backspace")
@@ -734,6 +737,7 @@ class MainWindow(QMainWindow):
             store.addAction(f"{profile.slot_name(slot)} …", lambda s=slot: self._store(s, item.preset.copy()))
         menu.addSeparator()
         menu.addAction("Umbenennen …", lambda: self._rename(item))
+        menu.addAction("Tags bearbeiten …", lambda: self._edit_tags(item))
         menu.addAction("Duplizieren", lambda: self._open(factory.duplicate(item.preset), ("new", None), True))
         menu.addAction("Im Dateimanager zeigen", lambda: self._reveal(item))
         menu.addSeparator()
@@ -1070,6 +1074,82 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
         self._say("success", f"„{saved.name}“ auf diesem Computer gesichert.")
         return True
+
+    # MARK: Tags and the Kemper import
+
+    def _edit_tags(self, item: SavedPreset | None = None) -> None:
+        """Tags and notes of a saved preset, typed with or without "#", separated by blanks."""
+        if not isinstance(item, SavedPreset):
+            item = self.source[1] if self.source and self.source[0] == "file" else None
+        if item is None or item.is_backup:
+            self._say("info", "Tags gehören zu einem Preset auf diesem Computer. Sichere es zuerst.")
+            return
+        known = " ".join(f"#{t}" for t, _ in self.library.tag_counts()[:12])
+        text, ok = QInputDialog.getText(
+            self, "Tags bearbeiten", f"Tags für „{item.name}“, mit oder ohne #, durch Leerzeichen getrennt."
+            + (f"\nSchon vergeben: {known}" if known else ""), text=" ".join(f"#{t}" for t in item.tags))
+        if not ok:
+            return
+        from ..library import parse_tags
+        try:
+            saved = self.library.update_meta(item, tags=parse_tags(text))
+        except (OSError, LibraryError) as error:
+            self._report(error)
+            return
+        if self.source and self.source[0] == "file" and self.source[1].path == saved.path:
+            self.source = ("file", saved)
+        self._refresh_library()
+
+    def _import_kemper(self) -> None:
+        """Reads a Kemper backup or rig, asks what to make of it, and writes presets and pieces. Reads only."""
+        from .. import kemper
+        from .kemper_dialog import KemperDialog
+        path, _ = QFileDialog.getOpenFileName(self, "Kemper-Backup oder Rig wählen", str(Path.home()),
+                                              "Kemper (*.kpabackup *.kipr)")
+        if not path:
+            return
+        try:
+            plan = kemper.Plan(kemper.read(Path(path)))
+        except (kemper.KemperError, OSError) as error:
+            self._report(error)
+            return
+        if not plan.performances and not plan.rigs:
+            self._say("warning", "In der Datei sind keine Rigs.")
+            return
+        dialog = KemperDialog(plan, Path(path).name, self)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        self._run_kemper_import(dialog.apply())
+
+    def _run_kemper_import(self, plan) -> None:
+        from .. import recipe as recipemod
+        from .. import store as storemod
+        try:
+            sounds, songs = plan.output()
+            written, new = self.library.import_kemper(sounds)
+        except (OSError, LibraryError, recipemod.RecipeError) as error:
+            self._report(error)
+            return
+        message = f"Kemper-Import: {new} neue Presets"
+        if len(sounds) > new:
+            message += f", {len(sounds) - new} schon vorhandene ergänzt"
+        message += "."
+        if songs and self.recorder is not None:
+            pieces = [{"title": song.title, "notes": song.notes, "parts": [
+                {"name": name, "preset": {"presetID": written[index].id, "fileName": written[index].path.name,
+                                          "name": written[index].name}} for name, index in song.parts]}
+                for song in songs]
+            added, kept = storemod.add_imported_pieces(self.recorder.store, pieces)
+            if added:
+                self.recorder.store.save()
+                self.recorder.library_changed.emit()
+            message += f" {added} Stücke unter Aufnahme angelegt."
+            if kept:
+                message += " Schon da und unverändert: " + ", ".join(kept) + "."
+        self.sidebar.pin([tag for tag in ("basis", "song", "unterricht")
+                          if any(tag in sound.tags for sound in sounds)])
+        self._refresh_library()
+        self._say("success", message + " Jeder Sound ist eine Annäherung: am Verstärker anhören.")
 
     def _save_as(self) -> None:
         if self.editor is None:

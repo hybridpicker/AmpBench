@@ -339,6 +339,24 @@ def add_piece(store: LibraryStore, name: str) -> dict:
     return piece
 
 
+def add_imported_pieces(store: LibraryStore, songs: list[dict]) -> tuple[int, list[str]]:
+    """Songs from an import, each {"title", "notes", "parts": [{"name", "preset": link}]}. A title that is already a
+    piece is left alone, so nothing the player wrote is overwritten; those titles come back."""
+    added, kept = 0, []
+    for song in songs:
+        title = song["title"].strip()
+        if not title:
+            continue
+        if any(p["name"].casefold() == title.casefold() for p in store.document["pieces"]):
+            kept.append(title)
+            continue
+        new = add_piece(store, title)
+        new["notes"] = song.get("notes", "")
+        new["parts"] = [{"id": new_id(), "name": part["name"], "preset": part["preset"]} for part in song["parts"]]
+        added += 1
+    return added, kept
+
+
 def piece(store: LibraryStore, piece_id: str | None) -> dict | None:
     return next((p for p in store.document["pieces"] if p["id"] == piece_id), None)
 

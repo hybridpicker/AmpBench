@@ -694,7 +694,10 @@ Für jedes Gerät, ohne Ausnahme:
   Offen: Zuordnen durch Ziehen, Favoriten und Bewertung in der Oberfläche, Sortierung, Export, Versionsverlauf pro
   Preset; in Stücken nach Tonart und Tempo filtern.
 - **Kemper-Import:** Die übersetzten Sounds am Spark anhören und die Amp-Regeln danach verbessern (vor allem
-  Dream Weaver, Divided by 13, Naylor). Die Linux-App kann den Import und die Hashtags noch nicht.
+  Dream Weaver, Divided by 13, Naylor). Die Linux-App kann Import und Hashtags seit 2026-11-10 (`linux/spark_studio/
+  kemper.py`, Seitenleiste mit Tag-Chips und angehefteten Abschnitten); auf dem Backup des Nutzers geben beide Apps
+  zeilengleich dasselbe `--kemper-list` aus. Tags bearbeitet Linux über einen Dialog (Strg+T), nicht in einer Zeile
+  unter dem Namen.
 - **Setlists und Auftrittsmodus** bauen auf den Stücken auf: Reihenfolge per Drag & Drop, großer Vollbildmodus mit
   Umschalten per Pfeiltasten, Leertaste und Zahlen, nächster Song oder Teil per Taste. Optional „Setlist auf den Amp“:
   bis zu vier Presets auf die Plätze, mit Nachfrage und Sicherung wie beim Speichern auf einen Platz.

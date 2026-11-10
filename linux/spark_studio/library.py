@@ -65,9 +65,19 @@ def _parse_date(text: str | None) -> datetime:
         return datetime.fromtimestamp(0, timezone.utc)
 
 
+def tag_text(tag: str) -> str:
+    """One tag as it is kept: trimmed, without leading "#" (the window shows it, the file does not keep it)."""
+    return tag.strip().lstrip("#").strip()
+
+
+def parse_tags(text: str) -> list[str]:
+    """Tags typed in one line, with or without "#", separated by blanks or commas."""
+    return normalized_tags(text.replace(",", " ").split())
+
+
 def normalized_tags(tags: list[str]) -> list[str]:
     seen, result = set(), []
-    for tag in (t.strip() for t in tags):
+    for tag in (tag_text(t) for t in tags):
         if tag and tag.casefold() not in seen:
             seen.add(tag.casefold())
             result.append(tag)
@@ -115,13 +125,14 @@ class PresetLibrary:
     def existing(self, preset: Preset) -> SavedPreset | None:
         return next((item for item in self.items if item.preset.same_content(preset)), None)
 
-    def save(self, preset: Preset, origin: str, is_backup: bool = False, date: datetime | None = None) -> SavedPreset:
+    def save(self, preset: Preset, origin: str, is_backup: bool = False, date: datetime | None = None,
+             tags: list[str] | None = None, notes: str = "") -> SavedPreset:
         date = date or datetime.now(timezone.utc)
         base = file_name_for(preset.name)
         if is_backup:
             base += f" – Sicherung {date.astimezone().strftime('%Y-%m-%d %H.%M')}"
         item = SavedPreset(self._unique(base), preset.copy(), str(uuidlib.uuid4()).upper(), date, origin,
-                           is_backup=is_backup)
+                           is_backup=is_backup, tags=normalized_tags(tags or []), notes=notes)
         self._write(item)
         self.reload()
         return next(i for i in self.items if i.path == item.path)
@@ -160,9 +171,41 @@ class PresetLibrary:
         if notes is not None:
             item.notes = notes
         item.is_recipe = False
+        if item.id is None:
+            # A recipe becomes a preset file here; songs refer to it by this id.
+            item.id = str(uuidlib.uuid4()).upper()
         self._write(item)
         self.reload()
         return next(i for i in self.items if i.path == item.path)
+
+    def tag_counts(self) -> list[tuple[str, int]]:
+        """Every tag with how many presets carry it, most used first, then by name."""
+        counts: dict[str, list] = {}
+        for item in self.items:
+            if item.is_backup:
+                continue
+            for tag in item.tags:
+                entry = counts.setdefault(tag.casefold(), [tag, 0])
+                entry[1] += 1
+        return sorted(((tag, count) for tag, count in counts.values()), key=lambda e: (-e[1], e[0].casefold()))
+
+    def import_kemper(self, sounds) -> tuple[list[SavedPreset], int]:
+        """Writes the sounds of a Kemper import (kemper.Sound). A sound already here under the same name and with
+        the same chain only gets the new tags, so importing twice adds nothing. Returns the saved preset per sound
+        and how many are new."""
+        from .protocol import fingerprint
+        existing = {(i.name, fingerprint(i.preset)): i for i in self.items if not i.is_backup}
+        written, new = [], 0
+        for sound in sounds:
+            key = (sound.preset.name, fingerprint(sound.preset))
+            if key in existing:
+                saved = self.update_meta(existing[key], tags=existing[key].tags + sound.tags)
+            else:
+                saved = self.save(sound.preset, sound.origin, tags=sound.tags, notes=sound.notes)
+                new += 1
+            existing[key] = saved
+            written.append(saved)
+        return written, new
 
     def trash(self, item: SavedPreset) -> None:
         self._trash(item.path)

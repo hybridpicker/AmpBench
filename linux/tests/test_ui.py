@@ -255,3 +255,54 @@ def test_library_views_rate_search_pieces_and_sound(app, tmp_path, monkeypatch):
     finally:
         w.editor = None
         w.close()
+
+
+def test_tags_filter_and_pinned_sections(window, monkeypatch):
+    w, _ = window
+    from PySide6.QtCore import QSettings
+    from PySide6.QtWidgets import QInputDialog
+    QSettings("local.sparkstudio", "Spark Studio").remove("pinnedTags")
+    w.sidebar.pinned = []
+    clean = w.library.save(factory.empty("Clean A"), "Test", tags=["#basis", "clean"])
+    w.library.save(factory.empty("Lead B"), "Test", tags=["song"])
+    w._refresh_library()
+    files = lambda: [r.title for r in w.sidebar.rows if r.kind == "file"]
+    assert files() == ["Clean A", "Lead B"]
+    assert w.sidebar.tag_counts() == [("basis", 1), ("clean", 1), ("song", 1)]
+
+    w.sidebar.toggle_filter("basis")
+    assert files() == ["Clean A"]
+    w.sidebar.toggle_filter("basis")
+    w.sidebar.toggle_pin("basis")
+    assert files() == ["Clean A", "Clean A", "Lead B"], "in its pinned section and in the full list"
+    w.sidebar.search.setText("#so")
+    assert files() == ["Lead B"]
+    w.sidebar.search.setText("")
+
+    monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("#unterricht clean", True))
+    w._edit_tags(clean)
+    assert next(i for i in w.library.items if i.name == "Clean A").tags == ["unterricht", "clean"]
+    w.sidebar.toggle_pin("basis")
+
+
+def test_the_kemper_import_writes_presets_and_pieces(window, tmp_path):
+    w, _ = window
+    from test_kemper import _library
+    from spark_studio import kemper
+    from spark_studio.ui.kemper_dialog import KemperDialog
+    plan = kemper.Plan(_library(tmp_path))
+    dialog = KemperDialog(plan, "test.kpabackup", w)
+    assert dialog.summary.text() == "1 Songs, 2 Setups, 0 Rigs"
+    dialog.kind_boxes[2][1].setCurrentIndex(list(kemper.KINDS).index("skip"))
+    w._run_kemper_import(dialog.apply())
+    names = sorted(i.name for i in w.library.items)
+    # "Quick Setup" plays the same two sounds: one preset each, with the tags of both uses.
+    assert names == ["Can't Stop · Comping", "Can't Stop · Solo"]
+    comping = next(i for i in w.library.items if i.name == "Can't Stop · Comping")
+    assert "song" in comping.tags and "basis" in comping.tags and "unterricht" not in comping.tags
+    pieces = w.recorder.store.document["pieces"]
+    assert [p["name"] for p in pieces] == ["Can't Stop"]
+    assert [p["name"] for p in pieces[0]["parts"]] == ["Comping", "Solo"]
+    assert w.sidebar.is_pinned("basis") and w.sidebar.is_pinned("song")
+    w.sidebar.pinned = []
+    w.sidebar._settings.remove("pinnedTags")
