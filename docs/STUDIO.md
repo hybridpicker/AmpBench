@@ -21,6 +21,7 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Stimmgerät des Verstärkers (MINI, NEO) als Quelle, „Automatisch“, Bluetooth-Start aus dem Stimmgerät | 15d37b6, 90513b0, 52b85ac | Befehl und Skala mit spark-probe an MINI und NEO geprüft; in Studio vom Nutzer am NEO und MINI benutzt (2026-11-09) |
 | – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
 | – | Kemper-Import (Backup, Rigs, Performances → Presets und Stücke) und Hashtags mit angehefteten Abschnitten | 00cd11f | installiert (2026-11-10, nur Mac); mit dem Backup des Nutzers gelesen, kein Sound am Spark gehört |
+| – | REACTOR 50: Leseanfragen, eigenes Preset-Format, „Auf den REACTOR spielen“ mit Live-Befehlen; Probe `ask`, `set-one`, `switch-one`, `send-one` | 192963e … c9f058e | Einzelbefehle vom Nutzer gehört (2026-11-10): Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl Clean; der Ablauf aus Studio noch nicht |
 | Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | NEO finden und lesen, Wechsel MINI ↔ NEO vom Nutzer bestätigt (2026-11-09); Rest siehe „Offen“ |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
@@ -320,7 +321,7 @@ Prüfung mit dem Nutzer.
 |---|---|---|---|---|
 | Spark MINI | 4 | alles: lesen, umschalten, vorübergehend spielen, live ändern, Modellwechsel, speichern, Tasten, Stimmgerät, Tap, USB-Audio | behält den vorübergehenden Sound beim Trennen? ungeprüft, gilt als „nein“ | 1.11.2.75 |
 | Spark NEO | 4 | wie MINI, ohne USB-Audio; Stimmgerät geprüft, Tap ungeprüft | verwirft den vorübergehenden Sound beim Trennen | 1.16.1.60 |
-| REACTOR 50 | 8 (Rot 1–4, Grün 1–4) | nur mitlesen, Tasten, Stimmgerät, Tap, USB-Audio (Name noch nicht abgelesen), Text to Tone | darf nichts bekommen | nur mitgelesen |
+| REACTOR 50 | 8 (Rot 1–4, Grün 1–4) | mitlesen, Tasten, Stimmgerät, Tap, USB-Audio (Name noch nicht abgelesen), Text to Tone, Sound als Live-Befehle (`.liveSound`) | bekommt nur einen `ReactorSound`, kein Preset, keine Anfrage | mitgelesen; Live-Befehle gehört (2026-11-10) |
 | REACTOR 100 | 8 | wie der 50 | | ungeprüft |
 | unbekanntes Spark (FFC0) | 4 | nur lesen und umschalten | | – |
 
@@ -381,7 +382,7 @@ Werkspresets stehen im Katalog.
 - Sicherung aller vier Plätze vom 2026-11-09: `~/Music/Spark Studio/Sicherungen/Spark NEO 2026-11-09/`, außerhalb der
   Bibliothek, nur zum Zurückspielen, wird nicht verändert.
 
-### REACTOR 50 (2026-11-09 nur mitgehört, nie etwas gesendet)
+### REACTOR 50 (2026-11-09 mitgehört, 2026-11-10 erste Befehle)
 
 Combo-Amp, eigene Produktlinie und eigene App. Handbuch beim Nutzer:
 `~/Desktop/reactor/REACTOR_50_100_User_Manual_English_.pdf` (englisch, 50 und 100).
@@ -431,8 +432,8 @@ Combo-Amp, eigene Produktlinie und eigene App. Handbuch beim Nutzer:
   Stimmgerät ist es nicht gehängt: Die Skala des Werts ist unbekannt, und die Anzeige verspricht 0,1 Cent.
 - **Text to Tone:** Editor „⋯ → Text für REACTOR kopieren“ (wie `--recipe-prompt`); der REACTOR deutet den Text selbst.
 - **Offen:** Bedeutung von `03 1A 91 00 02 C3`; Power Control (50/25/1 W); PAIR; Expression-Pedal; Wah, EQ und
-  FX-Loop; der zusätzliche Bank-Wechsel; warum FX Level zweimal schwieg; ob der REACTOR auf irgendetwas antwortet;
-  USB-Audioname und Latenz; Firmware.
+  FX-Loop; der zusätzliche Bank-Wechsel; warum FX Level zweimal schwieg; USB-Audioname und Latenz. Seit 2026-11-10 bekannt: Er antwortet auf
+  Leseanfragen (Firmware 0.1.4.85), `03 1A 91 00 <platz> C3` kommt bei der ersten Änderung eines Platzes.
 
 Aus dem Handbuch (nicht am Gerät geprüft): 8 Plätze. Preset tippen = weiter, halten = speichern. Bank tippen = Bank
 wechseln, halten = Stimmgerät. FX-Knöpfe tippen = auswählen, halten = an/aus. 8 Effekte (Gate, Wah/Volume, Comp,
@@ -444,9 +445,11 @@ der REACTOR-Control-Fußschalter schließen sich aus. Der Nutzer möchte ohne MI
 
 ### REACTOR: senden, später und nur mit dem Nutzer am Gerät
 
-Der Nutzer will seine Sounds aus Studio auch auf den REACTOR bringen (2026-11-10). In Studio ist nichts davon
-gebaut; `spark-probe ask <firmware|name|slot|current>` sendet genau eine Leseanfrage pro Lauf. Der Weg, jeder Schritt
-mit seinem Okay:
+Der Nutzer will seine Sounds aus Studio auch auf den REACTOR bringen (2026-11-10). Gebaut ist „Auf den
+REACTOR spielen“ (oben unter „In Studio“). Die Probe sendet je Lauf genau eine Nachricht: `ask
+<firmware|name|slot|current>` liest, `set-one <block> <index> <wert>` setzt einen Parameter, `switch-one <modell>
+on|off` schaltet einen Effekt, `send-one <sub> <bytes>` probiert einen Befehl, der nur aus seinen Meldungen bekannt ist.
+Der Weg bis hierher, jeder Schritt mit dem Okay des Nutzers:
 
 1. Eine einzige Leseanfrage (`02 11` Name oder `02 2F` Firmware), Gerät leise, Kopfhörer nicht am Ohr. Antwortet er
    im Spark-Format, ist das ein Befund, sonst Schluss.
@@ -479,9 +482,12 @@ mit seinem Okay:
    `send-one B1 00 07` (geraten aus seiner Meldung `03 B1`: Amp 0 = Clean, 5 × Schalter 1 + Heat 2): quittiert mit
    `04 B1`. Die Amp-Wahl ist also ein Befehl `01 B1 <amp> <5 × Schalter + Heat>`; Hörprobe offen.
    Ungeprüft: Amp-Wahl mit Push/Smooth/Heat (er meldet `03 B1`, der Befehl dazu ist unbekannt), Platzwechsel.
-3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
-   Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
-   gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.
+3. Parameter, Effekte und Amp-Wahl einzeln mit Okay: erledigt, siehe oben. Das Profil hat dafür `.liveSound` statt
+   `.send` bekommen; der Test „schreibt nichts“ gilt weiter für alles andere. Nie ein Spark-Preset an den REACTOR.
+4. Noch offen, jeweils erst mit Okay am Gerät: den Ablauf aus Studio hören; die übrigen fünf Amps, Push/Smooth und
+   Heat als Befehl; Effekt-Regler außer dem Reverb-Pegel (Delay-Zeit, Drive); Platz umschalten (`01 38`); das
+   Preset-Format so weit verstehen, dass Studio einen Platz lesen und anzeigen kann. Ein Preset schreiben erst, wenn
+   das Format ganz verstanden und mit Sicherung belegt ist.
 - MIDI (DIN, Tabelle oben) bleibt die Alternative, falls ein Interface kommt: ein vom Nutzer gewählter MIDI-Ausgang,
   Program Change 0–7, die an/aus-CCs, Tap. Lautstärke-CCs (30–32) nie sprunghaft lauter und nur auf ausdrücklichen
   Wunsch.
@@ -619,6 +625,8 @@ Für jedes Gerät, ohne Ausnahme:
   (Gain bis Master, Amp, Push/Smooth, Heat, FX-Knöpfe, FX Level, TAP, Preset, Bank, Stimmgerät; dabei FX Level und
   den zusätzlichen Bank-Wechsel klären); REACTOR aufnehmen (USB-Audioname ablesen und ins Profil, Pegel, Latenz, ein
   Take mit mitgelesenem Stempel).
+- **REACTOR, „Auf den REACTOR spielen“:** am Gerät mit dem Nutzer durchgehen (Abschnitt „REACTOR: senden“, Punkt 4),
+  zuerst mit den drei Kemper-Kernsounds. In die Linux-App übernehmen.
 - **Linux:** Geräteauswahl als Menü „Verstärker → Gerät“, ohne Lämpchen in der Seitenleiste; kein REACTOR-Feld (die
   Seitenleiste zeigt seine Bänke, mitgelesen wird im Kern). Die UI-Tests mit PySide6 laufen nur auf linux-host.
 

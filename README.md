@@ -346,6 +346,10 @@ The amp's sounds are controlled over Bluetooth LE, not over USB: its USB side of
 swift build --product spark-probe
 .build/debug/spark-probe scan          # look for the amp, with the profile it is recognised as
 .build/debug/spark-probe listen 60     # Spark or REACTOR: subscribe only, send nothing, sum up what came
+.build/debug/spark-probe ask firmware  # exactly one read request (firmware, name, slot, current), print the answer
+.build/debug/spark-probe set-one Amp.Preamp 0 0.1    # exactly one parameter change
+.build/debug/spark-probe switch-one MonoReverb on    # exactly one effect switch
+.build/debug/spark-probe send-one B1 00 07           # exactly one set message, to try a command
 .build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed

@@ -156,16 +156,18 @@ A recipe names models and settings, not the bytes of one amp. How it reaches a d
 | Spark MINI | Spark Studio over Bluetooth: play on the temporary place, store in a slot | Yes, firmware 1.11.2.75 |
 | Other Spark amps (Spark 40, GO, 2, LIVE) | Same way, if they know the model ids | No. Newer amps may know models the catalog lacks |
 | Spark NEO | Spark Studio over Bluetooth, the same way as the MINI | Yes, firmware 1.16.1.60 (its factory models; storing and live changes heard) |
-| REACTOR (50 and 100) | As text for its "Text to Tone", see below. Spark Studio only listens to it over Bluetooth and sends nothing | Text route not tried on the amp |
+| REACTOR (50 and 100) | As text for its "Text to Tone", see below. Spark Studio listens to it over Bluetooth; for the REACTOR 50 its editor can also set the nearest amp, gain, tone and effect switches from a preset ("Auf den REACTOR spielen"), never a preset | Text route not tried on the amp; single live commands heard on 2026-11-10 |
 
 ### REACTOR
 
 REACTOR is Positive Grid's combo amp with "Amp Intelligence". Its tones come from the REACTOR app, which builds them
 from text, a photo or audio. Positive Grid calls it a separate product line, not compatible with Spark. As of
 2026-11-08 its product page names no preset file format, no import or export and no interface for other software.
-Spark Studio can therefore not send a recipe to it. The only open route is text, and a description travels well.
-Its Bluetooth control speaks the Spark message format on another service (checked listen-only on 2026-11-09), but how
-a REACTOR preset is built is unknown, so a Spark preset must never be sent to it. In the editor, "⋯ → Text für REACTOR
+Spark Studio can therefore not send a recipe to it as a preset. A description as text travels well.
+Its Bluetooth control speaks the Spark message format on another service. On 2026-11-10 the REACTOR 50 answered read
+requests and took single live commands (amp selector, gain and tone knobs, effect switches), so Studio's editor can
+set the nearest sound on it with "⋯ → Auf den REACTOR spielen". Its presets are a format of its own that is only
+partly understood, so a Spark preset must never be sent to it. In the editor, "⋯ → Text für REACTOR
 kopieren" puts the same text on the pasteboard.
 
 ```bash
