@@ -43,6 +43,9 @@ let usage = """
                       back. Only with the owner's okay for that one value, volume down
       switch-one <model> on|off
                       send exactly one effect switch (01 15), e.g. MonoReverb on. Same rules as set-one
+      send-one <sub> <payload bytes in hex…>
+                      send exactly one set message (01 <sub>), e.g. B1 00 07, to try a command known only from
+                      the device's own reports. Same rules as set-one, one try
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -159,6 +162,15 @@ if arguments.first == "switch-one" {
     guard arguments.count == 3, ["on", "off"].contains(arguments[2]) else { fail(usage) }
     Task { @MainActor in
         exit(await AskLink(model: arguments[1], on: arguments[2] == "on", seconds: 5, header: header,
+                           device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
+}
+if arguments.first == "send-one" {
+    let bytes = arguments.dropFirst().map { UInt8($0, radix: 16) }
+    guard bytes.count >= 1, !bytes.contains(nil) else { fail(usage) }
+    Task { @MainActor in
+        exit(await AskLink(sub: bytes[0]!, payload: bytes.dropFirst().map { $0! }, seconds: 6, header: header,
                            device: device).run() ? 0 : 1)
     }
     dispatchMain()

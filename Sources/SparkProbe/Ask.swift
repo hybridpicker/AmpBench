@@ -57,6 +57,17 @@ final class AskLink: NSObject {
         deviceFilter = device
     }
 
+    /// `spark-probe send-one <sub> <payload bytes…>`: one set message (01 <sub>) with a payload given in hex. For
+    /// trying a command that is only known from what the device reports. Same rules as `set-one`, and one try only.
+    init(sub: UInt8, payload: [UInt8], seconds: Double, header: Bool, device: String?) {
+        message = SparkProtocol.frame(command: SparkProtocol.Command.set, sub: sub, payload: payload, sequence: 1,
+                                      header: header)
+        label = String(format: "set message (01 %02X %@)", sub, payload.hex)
+        self.seconds = seconds
+        self.header = header
+        deviceFilter = device
+    }
+
     /// `spark-probe set-one <block> <index> <value>`: one message that sets one parameter (01 04), 0 to 1. The first
     /// thing that changes a device nothing was written to before: only with the owner's okay for that one value,
     /// volume down, and never a volume or master parameter first.

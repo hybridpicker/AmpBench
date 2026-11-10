@@ -468,7 +468,10 @@ mit seinem Okay:
    geändert“. Der Nutzer hörte beim Anfassen des Bass-Reglers einen Sprung. Danach `set-one Amp.Preamp 0 0.1` (Gain): keine
    Rückmeldung, aber der „80s Crunch“ klang laut Nutzer deutlich clean. **Der REACTOR nimmt `01 04` für die
    Amp-Regler an**; `03 1A` kommt nur bei der ersten Änderung eines Platzes. `switch-one MonoReverb off`, dann `on` (je eine Nachricht `01 15`): beide quittiert mit `04 15` wie beim Spark;
-   der Nutzer bestätigt: Reverb ist an. Ungeprüft: Effekt-Parameter, Amp-Wahl mit Push/Smooth/Heat (er meldet `03 B1`, der Befehl dazu ist unbekannt), Platzwechsel.
+   der Nutzer bestätigt: Reverb ist an. `set-one MonoReverb 0 0.5` (Reverb-Pegel): gesendet, keine Rückmeldung, Hörprobe offen.
+   `send-one B1 00 07` (geraten aus seiner Meldung `03 B1`: Amp 0 = Clean, 5 × Schalter 1 + Heat 2): quittiert mit
+   `04 B1`. Die Amp-Wahl ist also ein Befehl `01 B1 <amp> <5 × Schalter + Heat>`; Hörprobe offen.
+   Ungeprüft: Amp-Wahl mit Push/Smooth/Heat (er meldet `03 B1`, der Befehl dazu ist unbekannt), Platzwechsel.
 3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit
    Okay. Nie ein Spark-Preset an den REACTOR. `AmpGuard` bekommt eigene REACTOR-Grenzen, bevor mehr als ein Umschalten
    gesendet wird. Dann bekommt das Profil `.send` und das Nötige, und der Test „schreibt nichts“ wird ersetzt.
