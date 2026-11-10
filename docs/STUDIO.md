@@ -233,7 +233,7 @@ Kemper geht nie etwas, die Datei wird nicht verändert. `--kemper-list <Datei>` 
   Modellen. Darum: nächstliegender Spark-Amp nach Stichworten in Hersteller, Modell und Rig-Name (erste passende
   Regel, manche erst ab Gain 4; Kempers Decknamen wie „Mars“, „Fan“ stehen mit drin), sonst nach Gain. Gain wie am
   Kemper, Bass/Mitten/Höhen = 5 + Kemper-EQ (−5…+5), die halbe Präsenz in die Höhen, Master 6. Eingeschaltete
-  Effekte auf ihre Spark-Plätze; DLY und REV vor einem Delay in MOD oder X. Was der Spark nicht hat oder was einen
+  Effekte auf ihre Spark-Plätze; DLY und REV vor einem Delay in MOD oder X. Delay- und Hallpegel = Kemper-Mix × 0,4, zwischen 1 und 4,5: Der Kemper legt sie zum trockenen Signal dazu, sein Mix steht oft ganz oben. Was der Spark nicht hat oder was einen
   belegten Platz träfe, steht unter „Ohne“ und in den Notizen des Presets. Jeder Sound braucht einen Hörtest.
 - **Plan** (`KemperImportPlan`): je eigener Performance Song, Basis-Setup, Unterricht oder „Nicht übernehmen“
   (geraten aus dem Namen, im Fenster änderbar), einzelne Rigs zum Anhaken. Gleiche Titel bekommen die Nummer der

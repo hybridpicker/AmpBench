@@ -135,9 +135,14 @@ public enum KemperTranslation {
     /// The Spark place and unit for one Kemper effect, or nil when the Spark has nothing like it.
     static func unit(for module: KemperRig.Module, rig: KemperRig) -> (String, SoundRecipe.Unit)? {
         let page = module.page
-        func knob(_ parameter: Int, _ fallback: Double, scale: Double = 1) -> RecipeValue {
-            .number(KemperRig.tenths(min(max((rig.knob(page, parameter) ?? fallback) * scale, 0), 10)))
+        func knob(_ parameter: Int, _ fallback: Double, scale: Double = 1, range: ClosedRange<Double> = 0...10)
+            -> RecipeValue {
+            .number(KemperRig.tenths(min(max((rig.knob(page, parameter) ?? fallback) * scale, range.lowerBound),
+                                         range.upperBound)))
         }
+        // The Kemper adds a delay or reverb in its own module to the dry signal, and its mix often stands at the top.
+        // The Spark's level is the effect's loudness, so the mix is scaled down and capped.
+        let wet = knob(4, 5, scale: 0.4, range: 1...4.5)
         let mix = knob(4, 5)
         switch module.type {
         case 57, 58:
@@ -179,12 +184,11 @@ public enum KemperTranslation {
             return ("modulation", .init(model: "Vibrato01", settings: ["speed": knob(20, 4), "depth": knob(21, 5)]))
         case 145...166:
             // Time and feedback as the Kemper shows them on 0 to 10; "To Tempo" (80) follows the song's tempo.
-            var settings: [String: RecipeValue] = ["effect": knob(4, 3), "feedback": knob(93, 4), "time": knob(71, 4)]
+            var settings: [String: RecipeValue] = ["effect": wet, "feedback": knob(93, 4), "time": knob(71, 4)]
             if rig.value(page, 80) == 1 { settings["sync"] = .flag(true) }
             return ("delay", .init(model: "DelayMono", settings: settings))
         case 177...193:
-            return ("reverb", .init(model: "bias.reverb", settings: ["level": knob(4, 3, scale: 1.5),
-                                                                      "length": knob(93, 5)]))
+            return ("reverb", .init(model: "bias.reverb", settings: ["level": wet, "length": knob(93, 5)]))
         default:
             return nil
         }

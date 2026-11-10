@@ -228,6 +228,8 @@ final class KemperTranslationTests: XCTestCase {
         XCTAssertEqual(result.recipe.chain["modulation"]?.model, "Tremolo")
         XCTAssertEqual(result.recipe.chain["delay"]?.model, "DelayMono")
         XCTAssertEqual(result.leftOut, ["Stereo Widener"], "the switched-off Green Scream is not mentioned")
+        // The fixture's mix is 5 (8192): scaled to 2 for the Spark's delay level.
+        XCTAssertEqual(result.recipe.chain["delay"]?.settings["effect"], .number(2))
     }
 
     func testTheDelayModuleWinsOverADelayInMod() throws {
