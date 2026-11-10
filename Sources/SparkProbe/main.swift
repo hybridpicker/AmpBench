@@ -41,6 +41,8 @@ let usage = """
       set-one <block> <index> <0-1> [secs]
                       send exactly one parameter change (01 04), e.g. Amp.Tonestack 1 0.5, and print what comes
                       back. Only with the owner's okay for that one value, volume down
+      switch-one <model> on|off
+                      send exactly one effect switch (01 15), e.g. MonoReverb on. Same rules as set-one
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -150,6 +152,14 @@ if arguments.first == "ask" {
           let seconds = arguments.count == 3 ? Double(arguments[2]) : 8, seconds > 0, seconds <= 60 else { fail(usage) }
     Task { @MainActor in
         exit(await AskLink(question: question, seconds: seconds, header: header, device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
+}
+if arguments.first == "switch-one" {
+    guard arguments.count == 3, ["on", "off"].contains(arguments[2]) else { fail(usage) }
+    Task { @MainActor in
+        exit(await AskLink(model: arguments[1], on: arguments[2] == "on", seconds: 5, header: header,
+                           device: device).run() ? 0 : 1)
     }
     dispatchMain()
 }

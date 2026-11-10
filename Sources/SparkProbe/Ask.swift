@@ -48,6 +48,15 @@ final class AskLink: NSObject {
         deviceFilter = device
     }
 
+    /// `spark-probe switch-one <model> on|off`: one message that switches one effect (01 15). Same rules as `set-one`.
+    init(model: String, on: Bool, seconds: Double, header: Bool, device: String?) {
+        message = SparkProtocol.setEffect(model, on: on, sequence: 1, header: header)
+        label = "effect switch (\(model) \(on ? "on" : "off"))"
+        self.seconds = seconds
+        self.header = header
+        deviceFilter = device
+    }
+
     /// `spark-probe set-one <block> <index> <value>`: one message that sets one parameter (01 04), 0 to 1. The first
     /// thing that changes a device nothing was written to before: only with the owner's okay for that one value,
     /// volume down, and never a volume or master parameter first.
