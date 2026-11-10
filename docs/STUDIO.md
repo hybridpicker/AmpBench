@@ -437,10 +437,15 @@ der REACTOR-Control-Fußschalter schließen sich aus. Der Nutzer möchte ohne MI
 
 ### REACTOR: senden, später und nur mit dem Nutzer am Gerät
 
-Nicht gebaut. Der Weg, wenn der Nutzer es will, jeder Schritt mit seinem Okay:
+Der Nutzer will seine Sounds aus Studio auch auf den REACTOR bringen (2026-11-10). In Studio ist nichts davon
+gebaut; `spark-probe ask <firmware|name|slot|current>` sendet genau eine Leseanfrage pro Lauf. Der Weg, jeder Schritt
+mit seinem Okay:
 
 1. Eine einzige Leseanfrage (`02 11` Name oder `02 2F` Firmware), Gerät leise, Kopfhörer nicht am Ohr. Antwortet er
    im Spark-Format, ist das ein Befund, sonst Schluss.
+   **Erledigt am 2026-11-10 mit Okay des Nutzers** (`spark-probe ask firmware`, eine Nachricht mit Blockkopf über
+   FFC1): Nach 0,09 s kam `03 2F CE 00 01 04 55`, ohne Blockkopf, also Firmware 0.1.4.85 im Spark-Format. Der
+   REACTOR beantwortet Leseanfragen.
 2. Höchstens `02 10` (aktueller Platz) und `02 01` (Preset lesen), um das REACTOR-Preset-Format kennenzulernen. Nur
    lesen, mit dem Nutzer auswerten.
 3. Erst wenn das Format verstanden und mit Sicherung belegt ist: Umschalten (`01 38`) und Parameter, einzeln mit

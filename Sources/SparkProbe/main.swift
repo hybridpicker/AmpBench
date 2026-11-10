@@ -34,6 +34,10 @@ let usage = """
       tuner <secs>    switch the amp's own tuner on (one message 01 65 C3), listen, switch it off (01 65 C2) and
                       sum up the readings. New to every amp: only with the user's okay, headphones off the ears.
                       With --compare, also hear the Spark's USB input and fit the amp's value against its cents
+      ask <firmware|name|slot|current> [secs]
+                      send exactly one read request to a Spark or REACTOR and print every byte that comes back
+                      (default 8 seconds). For a device nothing was sent to before: only with the owner's okay
+                      for that one request, volume down
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -137,6 +141,14 @@ arguments.removeAll { argument in
     default: return false
     }
     return true
+}
+if arguments.first == "ask" {
+    guard (2...3).contains(arguments.count), let question = AskLink.Question(rawValue: arguments[1]),
+          let seconds = arguments.count == 3 ? Double(arguments[2]) : 8, seconds > 0, seconds <= 60 else { fail(usage) }
+    Task { @MainActor in
+        exit(await AskLink(question: question, seconds: seconds, header: header, device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
 }
 let mode = parseMode(arguments)
 
