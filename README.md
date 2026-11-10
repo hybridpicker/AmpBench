@@ -259,8 +259,18 @@ window or quitting erases the buffer.
   storing, the app checks the slot as soon as the amp is back and says what it holds.
 - **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
   description and BPM.
-- **Auf dem Mac**: presets as files, searchable by name and model. Rename with `⌘E`, `⌘⌫` moves the file to the
-  Trash and the banner brings it back.
+- **Auf dem Mac**: presets as files, searchable by name, model, tags and notes ("#clean" searches tags only). Rename
+  with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
+- **Hashtags**: every preset can carry tags such as `#basis`, `#unterricht`, `#song`, `#u2`, edited in the line below
+  the editor's name (typed with or without "#", several separated by blanks) or from the sidebar's context menu
+  "Tags", next to the preset's notes. The sidebar's section Tags filters by a click (several tags: all must match)
+  and pins a tag with a right click; every pinned tag becomes a section of its own, and a preset may stand in several.
+- **Vom Kemper übernehmen** (Ablage menu, "+" in the sidebar): reads a Kemper Profiler backup (`.kpabackup` from a USB
+  stick) or a rig (`.kipr`). For every performance you choose song, basic setup, lesson or skip; the window shows which
+  Spark amp each slot becomes and which Kemper effects the Spark has no match for. Songs become pieces with one part
+  per slot, each with its preset; equal sounds become one preset with the tags of all their uses. A profile captures
+  a real amp and the Spark models one, so every imported sound wants a listen. Nothing is ever sent to the Kemper.
+  `--kemper-list <file>` shows the same on the command line.
 - **Text für REACTOR kopieren** (editor, "⋯"): the sound as English text for "Text to Tone" in the REACTOR app, the
   same as `--recipe-prompt`. The REACTOR reads the text itself and picks its own models.
 
@@ -447,6 +457,7 @@ swift run SparkStudio --recipe-check docs/ai/examples/texas-blues.json    # can 
 swift run SparkStudio --recipe-from "$HOME/Music/Spark Studio/Presets/Jazz.json"  # a saved preset as a recipe
 swift run SparkStudio --recipe-prompt docs/ai/examples/texas-blues.json   # the sound in English, e.g. for REACTOR
 swift run SparkStudio --catalog-export docs/ai                            # write the catalog files again
+swift run SparkStudio --kemper-list backup.kpabackup                      # what a Kemper import would make, reads only
 ```
 
 Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format. Its "Text to Tone" takes the
@@ -512,15 +523,15 @@ Sources/CSparkRT        Realtime capture, click and the tuner's tap (C)
 Sources/SparkCore       Capture, library, repair, edits, playback, export, statistics, Studio's folders and keymap,
                         pitch detection for the tuner (no UI)
 Sources/SparkDesign     The design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
-Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog and the preset library, without
-                        Bluetooth code
+Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog, the preset library and the Kemper
+                        import (reading backups and rigs, translating them to recipes), without Bluetooth code
 Sources/SparkRecorderUI The deck and the area Aufnahme: window parts, menus, keys, self-test, headless audio commands
 Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
 Sources/SparkTunerUI    The area Stimmgerät: its front and menus; no Bluetooth of its own, no sound
 Sources/SparkStudio     The app: one window, the areas, and what ties takes, sounds and tempo together
 Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
 Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals
-Tests/SparkControlTests Protocol and library tests with made-up presets
+Tests/SparkControlTests Protocol and library tests with made-up presets and Kemper files built in the test
 Tests/SparkDesignTests  Contrast of every text color against its backgrounds, the tuner's blocks
 Tests/SparkTunerUITests The tuner's model with a made-up input
 Tools/make-icon.swift   Draws the app icon

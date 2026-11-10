@@ -20,6 +20,7 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | 2969085 | installiert (2026-11-08); über USB am MINI mit Gitarre gelaufen (2026-11-09), nicht gegen ein Referenzstimmgerät |
 | – | Stimmgerät des Verstärkers (MINI, NEO) als Quelle, „Automatisch“, Bluetooth-Start aus dem Stimmgerät | 15d37b6, 90513b0, 52b85ac | Befehl und Skala mit spark-probe an MINI und NEO geprüft; in Studio vom Nutzer am NEO und MINI benutzt (2026-11-09) |
 | – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
+| – | Kemper-Import (Backup, Rigs, Performances → Presets und Stücke) und Hashtags mit angehefteten Abschnitten | 00cd11f | installiert (2026-11-10, nur Mac); mit dem Backup des Nutzers gelesen, kein Sound am Spark gehört |
 | Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | NEO finden und lesen, Wechsel MINI ↔ NEO vom Nutzer bestätigt (2026-11-09); Rest siehe „Offen“ |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
@@ -211,6 +212,52 @@ steht unter „Nicht lesbar“, die Gründe nennt `SparkStudio --recipe-check`.
   (`SoundRecipe.toneDescription`).
 - Geprüft sind der Spark MINI und der Spark NEO (Abschnitt „Geräte“). Andere Spark-Verstärker sind nicht geprüft; der
   REACTOR nimmt Rezepte nur als Text.
+
+## Kemper-Import
+
+Presets ⇒ „Vom Kemper übernehmen …“ (Ablage-Menü und „+“ in der Seitenleiste) liest ein Kemper-Backup
+(`.kpabackup`, vom USB-Stick) oder ein Rig (`.kipr`) und macht daraus Spark-Presets und Stücke. Nur lesend: zum
+Kemper geht nie etwas, die Datei wird nicht verändert. `--kemper-list <Datei>` zeigt dasselbe auf der Kommandozeile.
+
+- **Format** (`SparkControl/Kemper`): Ein `.kipr` ist ein MIDI-ähnlicher Rahmen (`KThd`/`MThd`, `KTrk`/`MTrk`) mit
+  Kemper-SysEx (`00 20 33`): Funktion 02 setzt Parameter ab einer Nummer (14 Bit, 8192 = Mitte), 03 Zeichenketten.
+  Ein Backup ist ein tar mit `Rigs/*.kipr` und `repository.kdb` (SQLite: `perflist`, `perfs`, `perfslots`,
+  `perftracks`). Die Plätze einer Performance sind dieselben SysEx-Ereignisse ohne Rahmen, ihre Namen
+  (Performance 0, Plätze 1–5) stehen als Funktion 07 in `perfs`. Seiten aus Kempers „MIDI Parameter Documentation“
+  11.0: 4 Rig (Tempo = BPM × 64), 10 Amp (4 = Gain), 11 EQ (4–7), 50–53 Stomps A–D, 56 X, 58 MOD, 60 DLY, 61 REV,
+  75 der alte Hall bis OS 5 (2 an, 3 Mix, 6 Zeit). Die Amp-Zeichenketten stehen in den Dateien sechs höher als in der
+  Doku (16 Name, 21 Hersteller, 24 Modell). Effekttypen aus Anhang B (`KemperEffectType`).
+- **Platzhalter:** Kempers eigenes „Crunch“ (Amp „Crunch Amp“, Datumsfeld „AmpCreationDateTag“) und Plätze ohne
+  Amp-Namen zählen als leer. Unberührte Performances („New Performance“, „Example …“) bietet der Import nicht an.
+- **Übersetzung** (`KemperTranslation`): Ein Profil ist eine Aufnahme eines echten Amps, der Spark rechnet mit
+  Modellen. Darum: nächstliegender Spark-Amp nach Stichworten in Hersteller, Modell und Rig-Name (erste passende
+  Regel, manche erst ab Gain 4; Kempers Decknamen wie „Mars“, „Fan“ stehen mit drin), sonst nach Gain. Gain wie am
+  Kemper, Bass/Mitten/Höhen = 5 + Kemper-EQ (−5…+5), die halbe Präsenz in die Höhen, Master 6. Eingeschaltete
+  Effekte auf ihre Spark-Plätze; DLY und REV vor einem Delay in MOD oder X. Was der Spark nicht hat oder was einen
+  belegten Platz träfe, steht unter „Ohne“ und in den Notizen des Presets. Jeder Sound braucht einen Hörtest.
+- **Plan** (`KemperImportPlan`): je eigener Performance Song, Basis-Setup, Unterricht oder „Nicht übernehmen“
+  (geraten aus dem Namen, im Fenster änderbar), einzelne Rigs zum Anhaken. Gleiche Titel bekommen die Nummer der
+  Performance. Ein Sound heißt „Performance · Platz“; gleiche Spark-Sounds (gleicher Fingerabdruck der Kette) sind
+  ein Preset mit den Tags aller Stellen.
+- **Ergebnis:** Presets mit Tags `kemper`, `clean|crunch|drive`, `song|basis|unterricht` und dem Performance-Namen als
+  Hashtag (`CantStop`). Ein zweiter Import ergänzt bei gleichem Namen und gleicher Kette nur die Tags. Songs werden
+  über `PresetsHost.onImportSongs` → `RecorderHost.addPieces` Stücke mit Teilen, jedes Teil mit seinem Preset; ein
+  schon vorhandener Titel bleibt unverändert. `basis`, `song` und `unterricht` werden beim Import angeheftet.
+- Am 2026-11-10 mit dem Backup des Nutzers (Profiler Head, OS 5.4.1) geprüft: 194 Rigs, 32 eigene Performances,
+  81 Presets, 20 Stücke. Am Spark angehört ist noch keiner der Sounds.
+
+## Ordnung der Presets: Hashtags
+
+- Ein System statt Ordnern: jedes Preset hat Tags (`PresetFile.tags`, ohne „#“ gespeichert, angezeigt mit „#“).
+  Bearbeiten in der Zeile unter dem Editor-Kopf (Eingabe mit oder ohne „#“, mehrere durch Leerzeichen, × entfernt)
+  oder per Kontextmenü „Tags“ in der Seitenleiste. Dort auch die Notizen des Presets. Ein Rezept wird dabei zur
+  Preset-Datei mit eigener id (`PresetLibrary.updateDetails`), der Sound bleibt unverändert.
+- **Seitenleiste:** Abschnitt „Tags“ mit den angehefteten, den gefilterten und den 8 häufigsten Tags als Chips, der
+  Rest unter „+ N weitere“. Klick filtert (mehrere = alle müssen passen), Rechtsklick heftet an. Jedes angeheftete
+  Tag ist ein eigener Abschnitt, ein Preset kann in mehreren stehen; darunter „Alle auf dem Mac“. Angeheftete Tags
+  in UserDefaults `Pinned Preset Tags`.
+- **Suche** findet Name, Herkunft, Modelle, Tags und Notizen; „#clean“ sucht nur in Tags.
+- Songs mit Tonart, Tempo und Teilen sind die Stücke im Bereich Aufnahme; Presets verweisen nicht zurück auf sie.
 
 ## Datenmodell
 
@@ -567,10 +614,11 @@ Für jedes Gerät, ohne Ausnahme:
   den Fingerabdruck, und alte Stempel werden neu berechnet.
 - **Kleine Bildschirme:** 720 pt Inhalt plus Toolbar und Menüleiste passen knapp auf 800 pt hohe Bildschirme, mit Dock
   unten nicht. Vorschlag: die Bibliothek schrumpfen lassen, nicht das Deck.
-- **Bibliothek der Presets** (aus der früheren Roadmap): **Gruppen** nach Wunsch des Nutzers, etwa „Practice“, „U2“,
-  „Country“, „Basis Setup“ (ein Preset in mehreren, als Abschnitte der Seitenleiste, zuordnen per Kontextmenü oder
-  Ziehen); Favoriten, Tags und Bewertung (Felder gibt es seit Format 2, die Oberfläche fehlt), Filter und
-  Sortierung, Import und Export, Versionsverlauf pro Preset.
+- **Bibliothek der Presets:** Gruppen sind seit 2026-11-10 angeheftete Hashtags (Abschnitt „Ordnung der Presets“).
+  Offen: Zuordnen durch Ziehen, Favoriten und Bewertung in der Oberfläche, Sortierung, Export, Versionsverlauf pro
+  Preset; in Stücken nach Tonart und Tempo filtern.
+- **Kemper-Import:** Die übersetzten Sounds am Spark anhören und die Amp-Regeln danach verbessern (vor allem
+  Dream Weaver, Divided by 13, Naylor). Die Linux-App kann den Import und die Hashtags noch nicht.
 - **Setlists und Auftrittsmodus** bauen auf den Stücken auf: Reihenfolge per Drag & Drop, großer Vollbildmodus mit
   Umschalten per Pfeiltasten, Leertaste und Zahlen, nächster Song oder Teil per Taste. Optional „Setlist auf den Amp“:
   bis zu vier Presets auf die Plätze, mit Nachfrage und Sicherung wie beim Speichern auf einen Platz.
