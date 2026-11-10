@@ -415,7 +415,11 @@ Combo-Amp, eigene Produktlinie und eigene App. Handbuch beim Nutzer:
   Modelle in den Werkspresets: bias.noisegate, BBEOpticalComp, DistortionTS9, DelayEchoFilt (im Katalog; ihr Platz
   kommt daher), ChorusCloner, MonoReverb (nicht im Katalog; ihr Platz kommt aus `03 B3` nach dem Einschalten), der
   Amp als drei Blöcke Amp.Preamp, Amp.Tonestack, Amp.Poweramp. Daraus folgt nicht, dass ein Spark-Preset passt.
-- **In Studio:** Verbinden, FFC2 abonnieren, von sich aus nichts schreiben: kein `.send`, also keine Anfrage, kein
+- **In Studio:** Verbinden, FFC2 abonnieren. Nach dem Verbinden liest Studio die acht Plätze (`02 01 00 <platz>`) und
+  den spielenden Platz (`02 10`), seit 2026-11-10 (`.reactorPresets`, `SparkLink.loadReactorPresets`,
+  `ReactorPreset`); antwortet ein Platz nicht, bleibt der Rest ungefragt. Die Seitenleiste zeigt die Plätze wie die
+  eines Spark: Name und darunter Amp und Zahl der Effekte; das REACTOR-Feld nennt das Preset des gewählten Platzes.
+  `SparkStudio --reactor-read <Datei>` zeigt ein als Datei gesichertes Preset. Sonst kein `.send`, also kein
   Preset, kein Live-Editor; `SparkLink.write` verweigert das (Test `testTheREACTORGetsNotASingleByte`, Linux
   `test_the_reactor_gets_not_a_single_byte`). Seit 2026-11-10 hat der REACTOR 50 `.liveSound`: Editor „⋯ → Auf den
   REACTOR spielen …“ rechnet aus dem offenen Preset einen `ReactorSound` (nächster der sechs Amps nach Spark-Modell,
@@ -498,11 +502,16 @@ Der Weg bis hierher, jeder Schritt mit dem Okay des Nutzers:
    - Am Ende vier Bytes, die kein CRC-32 und kein Adler-32 über den Inhalt sind. **Solange diese Prüfsumme nicht
      verstanden ist, kann kein Preset geschrieben werden.**
    Die acht Presets liegen als Sicherung in `~/Music/Spark Studio/REACTOR-Sicherung 2026-11-10`.
-   Der Nutzer will Lesen, Anzeigen und Speichern ganzer Presets wie beim Spark; „Auf den REACTOR spielen“ allein
+   Lesen und Anzeigen sind seit 2026-11-10 in Studio gebaut (oben unter „In Studio“), am Gerät noch nicht gesehen.
+   Der Nutzer will Lesen, Anzeigen und Speichern ganzer Presets wie beim Spark, und alles aus einem Guss: keine
+   Sonderwege neben dem, was er vom Spark kennt; „Auf den REACTOR spielen“ allein
    reicht ihm nicht (aus Studio gelaufen, kaum hörbarer Unterschied).
 3. Parameter, Effekte und Amp-Wahl einzeln mit Okay: erledigt, siehe oben. Das Profil hat dafür `.liveSound` statt
    `.send` bekommen; der Test „schreibt nichts“ gilt weiter für alles andere. Nie ein Spark-Preset an den REACTOR.
-4. Noch offen, jeweils erst mit Okay am Gerät: den Ablauf aus Studio hören; die übrigen fünf Amps, Push/Smooth und
+4. Als Nächstes: die vier Prüfbytes am Ende verstehen; die Blöcke deuten (`05 03`, die Effekt-Kennungen), damit
+   ein REACTOR-Platz im selben Editor erscheint wie ein Spark-Platz; dann ein Preset unverändert zurückschreiben, mit
+   Sicherung; dann eigene Sounds.
+5. Noch offen, jeweils erst mit Okay am Gerät: den Ablauf aus Studio hören; die übrigen fünf Amps, Push/Smooth und
    Heat als Befehl; Effekt-Regler außer dem Reverb-Pegel (Delay-Zeit, Drive); Platz umschalten (`01 38`); das
    Preset-Format so weit verstehen, dass Studio einen Platz lesen und anzeigen kann. Ein Preset schreiben erst, wenn
    das Format ganz verstanden und mit Sicherung belegt ist.

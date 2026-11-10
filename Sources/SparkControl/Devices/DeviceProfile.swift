@@ -58,6 +58,9 @@ public struct DeviceProfile: Equatable, Hashable, Sendable, Identifiable {
         /// The device takes a `ReactorSound`: single live commands for amp, knobs and effects, and nothing else.
         /// Without `send`, so it is still never asked, read or given a preset.
         public static let liveSound = Capabilities(rawValue: 1 << 13)
+        /// The device answers `02 01 00 <slot>` with a preset in the REACTOR's own format (`ReactorPreset`), and
+        /// `02 10` with the playing slot. Studio asks for these after connecting, and for nothing else.
+        public static let reactorPresets = Capabilities(rawValue: 1 << 14)
     }
 
     public var id: Kind
@@ -165,7 +168,8 @@ public extension DeviceProfile {
     static let reactor50 = DeviceProfile(
         id: .reactor50, displayName: "REACTOR 50", bleService: reactorService, bleNamePrefixes: ["Reactor 50"],
         ampNames: [], slotCount: 8, bankSize: 4, bankNames: ["Rot", "Grün"], transport: .sparkBLE,
-        capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound],
+        capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound,
+                       .reactorPresets],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "0.1.4.85",
         // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
         usbAudioNames: [],
@@ -179,7 +183,7 @@ public extension DeviceProfile {
         profile.displayName = "REACTOR 100"
         profile.bleNamePrefixes = ["Reactor 100"]
         // Never checked: it is only listened to, whatever the 50 takes.
-        profile.capabilities.remove(.liveSound)
+        profile.capabilities.remove([.liveSound, .reactorPresets])
         profile.checkedFirmware = nil
         profile.checked = "Nicht geprüft. Wie der REACTOR 50 behandelt: nur mitlesen, nichts senden."
         return profile

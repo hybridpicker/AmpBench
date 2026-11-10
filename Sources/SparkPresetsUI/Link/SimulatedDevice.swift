@@ -93,8 +93,14 @@ final class SimulatedDevice: LinkTransport {
     func write(_ blocks: [[UInt8]]) throws {
         guard let connected else { throw LinkError.notConnected }
         written[connected, default: []] += blocks
-        // A REACTOR never answers: nothing Spark Studio may send is known to it.
-        guard connectedKind != .reactor, !ignoresRequests else { return }
+        guard !ignoresRequests else { return }
+        // A REACTOR answers the two read requests it was heard answering, and nothing else.
+        if connectedKind == .reactor {
+            for block in blocks {
+                for message in parser.feed(block) { answerAsReactor(message) }
+            }
+            return
+        }
         for block in blocks {
             for message in parser.feed(block) { handle(message) }
         }
@@ -148,6 +154,35 @@ final class SimulatedDevice: LinkTransport {
         for start in stride(from: 0, to: wire.count, by: 20) {
             let piece = Array(wire[start..<min(start + 20, wire.count)])
             later { $0.delegate?.transport(received: piece) }
+        }
+    }
+
+    /// The REACTOR's stored presets, in its own format, by slot. Empty: it stays silent like an unread device.
+    var reactorPresets: [Int: [UInt8]] = [:]
+
+    private func answerAsReactor(_ message: SparkProtocol.Message) {
+        guard message.command == SparkProtocol.Command.get else { return }
+        switch message.sub {
+        case SparkProtocol.Sub.presetNumber:
+            reply(SparkProtocol.Command.response, SparkProtocol.Sub.presetNumber, [0x00, UInt8(active)])
+        case SparkProtocol.Sub.preset:
+            guard message.payload.count >= 2, message.payload[0] == 0,
+                  let data = reactorPresets[Int(message.payload[1])] else { return }
+            // Chunks of 350 bytes with the REACTOR's four-byte header: count, number, length in 16 bits.
+            let parts = stride(from: 0, to: data.count, by: ReactorPreset.chunkSize).map {
+                Array(data[$0..<min($0 + ReactorPreset.chunkSize, data.count)])
+            }
+            for (number, part) in parts.enumerated() {
+                // Built by hand: `frame` would number the chunks the Spark's way, with three bytes.
+                let raw = [UInt8(parts.count), UInt8(number), UInt8(part.count >> 8), UInt8(part.count & 0xFF)] + part
+                let packed = SparkProtocol.pack7(raw)
+                sequence = (sequence + 1) & 0x7F
+                let wire = [0xF0, 0x01, sequence, packed.reduce(UInt8(0), ^), SparkProtocol.Command.response,
+                            SparkProtocol.Sub.preset] + packed + [0xF7]
+                later { $0.delegate?.transport(received: wire) }
+            }
+        default:
+            break
         }
     }
 

@@ -178,7 +178,8 @@ final class SparkLinkTests: XCTestCase {
             } catch {}
         }
         try? await Task.sleep(for: .milliseconds(100))
-        XCTAssertEqual(device.written[device.id(.reactor)] ?? [], [], "not one byte on FFC1")
+        // This REACTOR answers nothing, so the one read request after connecting is all it ever got.
+        XCTAssertEqual(reactorRequests(device), ["02 01"], "one slot request, given up when no answer came")
 
         // It is listened to.
         device.pressButton(5)
@@ -188,7 +189,32 @@ final class SparkLinkTests: XCTestCase {
         XCTAssertEqual(link.activeSlot, 5)
         XCTAssertEqual(link.reactor.slot, 5)
         XCTAssertEqual(link.profile.slotName(5), "Grün 2")
-        XCTAssertEqual(device.written[device.id(.reactor)] ?? [], [])
+        XCTAssertEqual(reactorRequests(device), ["02 01"])
+    }
+
+    /// Command and sub of everything written to the simulated REACTOR.
+    private func reactorRequests(_ device: SimulatedDevice) -> [String] {
+        let parser = SparkProtocol.Parser()
+        return (device.written[device.id(.reactor)] ?? []).flatMap { parser.feed($0) }
+            .map { String(format: "%02X %02X", $0.command, $0.sub) }
+    }
+
+    func testTheREACTORsPresetsAreReadAfterConnecting() async {
+        let (device, link) = make([.reactor])
+        for slot in 0..<8 {
+            device.reactorPresets[slot] = ReactorFixture.preset(slot: slot, name: "Sound \(slot + 1)", amp: "Twin Clean",
+                                                                effectsOn: slot)
+        }
+        device.active = 6
+        link.start()
+        let read = await until { link.reactorPresets.count == 8 && link.reactorPresets.allSatisfy { $0 != nil } && link.activeSlot == 6 }
+        XCTAssertTrue(read)
+        XCTAssertEqual(link.reactorPresets.map { $0?.name }, (1...8).map { "Sound \($0)" })
+        XCTAssertEqual(link.reactorPresets[3]?.summary, "Twin Clean · 3 Effekte an")
+        XCTAssertEqual(link.slots.count, 8)
+        XCTAssertTrue(link.slots.allSatisfy { $0 == nil }, "no Spark preset is made of them")
+        // Eight slot requests and the playing slot: only reads.
+        XCTAssertEqual(reactorRequests(device), Array(repeating: "02 01", count: 8) + ["02 10"])
     }
 
     func testTheREACTORGetsOnlyTheLiveCommandsOfASound() async throws {
@@ -203,8 +229,10 @@ final class SparkLinkTests: XCTestCase {
         ]).preset().preset
         let sound = try ReactorSound(preset: preset)
         try await link.play(sound)
-        let written = device.written[device.id(.reactor)] ?? []
-        XCTAssertEqual(written, sound.steps(firstSequence: 1).map(\.bytes), "exactly the sound's steps, in order")
+        // The one slot request after connecting came first (this REACTOR answers nothing); then only the sound.
+        XCTAssertEqual(reactorRequests(device).first, "02 01")
+        let written = Array((device.written[device.id(.reactor)] ?? []).dropFirst())
+        XCTAssertEqual(written, sound.steps(firstSequence: 2).map(\.bytes), "exactly the sound's steps, in order")
         XCTAssertEqual(written.count, 12)
         // Every message is a set of a parameter, the amp selector or an effect switch. Never a preset or a request.
         for block in written {
@@ -302,5 +330,33 @@ final class SparkLinkTests: XCTestCase {
         var keeps = DeviceProfile.sparkMini
         keeps.keepsTemporaryAfterDisconnect = true
         XCTAssertFalse(M.wouldLoseSound(profile: keeps, isEditingLive: true, editorUnsaved: true, triedOutUnsaved: true))
+    }
+}
+
+/// A REACTOR preset built from scratch in the layout read on 2026-11-10, never a real one.
+enum ReactorFixture {
+    static func string(_ text: String) -> [UInt8] { [0xA0 + UInt8(text.utf8.count)] + Array(text.utf8) }
+    static func half(_ value: Float) -> [UInt8] {
+        let bits = Float16(value).bitPattern
+        return [0xCD, UInt8(bits >> 8), UInt8(bits & 0xFF)]
+    }
+    static func card(_ name: String, icon: String, tags: [String]) -> [UInt8] {
+        [0xC4, 0x10] + [UInt8](repeating: 0xAB, count: 16) + string(name) + string("1.0") + string("") + string(icon)
+            + [0x01, 0x90 + UInt8(tags.count)] + tags.flatMap(string)
+    }
+    static func block(_ id: UInt16, on: Bool, _ values: [Float]) -> [UInt8] {
+        let count: [UInt8] = values.count < 16 ? [0x90 + UInt8(values.count)]
+            : [0xDC, UInt8(values.count >> 8), UInt8(values.count & 0xFF)]
+        return [0xC4, 0x02, UInt8(id >> 8), UInt8(id & 0xFF), on ? 0xC3 : 0xC2] + count
+            + values.flatMap { $0 == 0 ? [UInt8(0)] : half($0) }
+    }
+    /// Long enough for three chunks, like the real ones.
+    static func preset(slot: Int, name: String, amp: String, effectsOn: Int = 2) -> [UInt8] {
+        let fixed: [(UInt16, Int)] = [(0x0502, 145), (0x0503, 4), (0x0505, 110), (0x0506, 11), (0x0434, 30), (0x0435, 30)]
+        var data: [UInt8] = [0x00, UInt8(slot)] + card(name, icon: "icon.png", tags: ["clean", "test"])
+        data += [0xCA, 0x42, 0xF0, 0x00, 0x00] + card(amp, icon: "f_amp_Test.png", tags: [])
+        data += [0x96] + fixed.flatMap { id, count in block(id, on: true, (0..<count).map { $0 % 3 == 0 ? 0 : 0.5 }) }
+        data += [0x9A] + (0..<10).flatMap { block(0x0409 + UInt16($0), on: $0 < effectsOn, [0.25, 1, 0]) }
+        return data + [0x12, 0x34, 0x56, 0x78]
     }
 }

@@ -8,6 +8,7 @@ import SparkControl
 ///   --catalog-export <folder>               writes spark-catalog.json and spark-catalog.md
 ///   --fingerprint <preset.json>...          prints the SHA-256 of each preset's effect chain, the take's sound id
 ///   --kemper-list <backup or rig>           shows what a Kemper import would make, without writing anything
+///   --reactor-read <file>...                shows REACTOR presets saved as files (the preset's own bytes)
 enum RecipeCommandLine {
     /// The exit status, or nil when the arguments are not one of these commands.
     static func run(_ arguments: [String]) -> Int32? {
@@ -20,6 +21,7 @@ enum RecipeCommandLine {
         case "--catalog-export": return export(rest)
         case "--fingerprint": return fingerprint(rest)
         case "--kemper-list": return kemperList(rest)
+        case "--reactor-read": return reactorRead(rest)
         default: return nil
         }
     }
@@ -184,5 +186,30 @@ enum RecipeCommandLine {
             print("nicht möglich: \(error.localizedDescription)")
             return 1
         }
+    }
+
+    /// Shows what Studio reads from saved REACTOR presets: slot, names, tempo and the blocks with their sizes.
+    private static func reactorRead(_ paths: [String]) -> Int32 {
+        guard !paths.isEmpty else {
+            print("usage: --reactor-read <file>...")
+            return 64
+        }
+        var failed = false
+        for path in paths {
+            let name = URL(fileURLWithPath: path).lastPathComponent
+            do {
+                let preset = try ReactorPreset(data: [UInt8](Data(contentsOf: URL(fileURLWithPath: path))))
+                func line(_ block: ReactorPreset.Block) -> String {
+                    String(format: "%04X%@%d", block.id, block.isOn ? "+" : "-", block.values.count)
+                }
+                print("\(name): Platz \(preset.slot + 1) „\(preset.name)“, \(preset.summary), \(Int(preset.tempo)) BPM")
+                print("  fest: " + preset.fixed.map(line).joined(separator: " "))
+                print("  Effekte: " + preset.effects.map(line).joined(separator: " "))
+            } catch {
+                print("\(name): \(error.localizedDescription)")
+                failed = true
+            }
+        }
+        return failed ? 1 : 0
     }
 }

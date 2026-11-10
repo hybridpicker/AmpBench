@@ -297,8 +297,10 @@ window or quitting erases the buffer.
   touched; turn the volume down first, another amp can be louder. The REACTOR keeps presets in a format of its own
   that Studio does not write, so the sound holds until the slot changes and is stored only on the device, which
   overwrites that slot. A slot with other effects than the factory ones ignores their switches.
-- **REACTOR**: Studio subscribes to its reports and by itself writes nothing, not even a read request. The area Presets shows
-  its slots in two banks (Rot, Grün) and a read-only panel: amp, Push/Smooth, Heat, Gain to Master, the effects,
+- **REACTOR**: after connecting, Studio reads the REACTOR 50's eight stored presets and the playing slot, and shows
+  them in the sidebar like a Spark's slots: the preset's name, and its amp and effects below. Reading is all it does
+  by itself; the presets are in the REACTOR's own format, which Studio reads and cannot write yet. The area Presets shows
+  the slots in two banks (Rot, Grün) and a panel: amp, Push/Smooth, Heat, Gain to Master, the effects,
   the tapped tempo and its tuner. After a slot change it says "Preset-Inhalt unbekannt", because the REACTOR does
   not send the preset. A take recorded with it keeps those readings as "mitgelesen", without a fingerprint.
 

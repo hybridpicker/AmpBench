@@ -117,6 +117,8 @@ final class SparkLink: NSObject, ObservableObject {
     @Published private(set) var slots: [SparkPreset?] = Array(repeating: nil, count: 4)
     /// What a REACTOR reported by itself since it was connected.
     @Published private(set) var reactor = ReactorState()
+    /// The presets of a REACTOR's slots as read after connecting, nil where not read (yet).
+    @Published private(set) var reactorPresets: [ReactorPreset?] = []
     /// Devices found in this session and devices connected before, for the device choice.
     @Published private(set) var devices: [DeviceEntry] = []
     /// What the link is doing, for the status line.
@@ -307,7 +309,8 @@ final class SparkLink: NSObject, ObservableObject {
         status = .connecting
         memory.remember(KnownDevice(id: device.id, name: deviceName ?? profile.displayName, kind: profile.id))
         updateDevices()
-        transport.connect(device, listenOnly: !(profile.canSend || profile.can(.liveSound)))
+        transport.connect(device, listenOnly: !(profile.canSend || profile.can(.liveSound)
+                                                || profile.can(.reactorPresets)))
     }
 
     private static func shown(_ name: String?) -> String? {
@@ -747,6 +750,12 @@ final class SparkLink: NSObject, ObservableObject {
                 trace(String(format: "← %02X %02X", message.command, message.sub) + event)
             }
             if !profile.canSend {
+                // The answer to one of the few read requests a REACTOR gets.
+                if let waiting, waiting.sub == message.sub, waiting.commands.contains(message.command) {
+                    self.waiting = nil
+                    waiting.continuation.resume(returning: message)
+                    continue
+                }
                 listened(message)
                 continue
             }
@@ -782,7 +791,56 @@ final class SparkLink: NSObject, ObservableObject {
         reactor.apply(message)
         guard reactor.slot != before, let slot = reactor.slot else { return }
         activeSlot = slot
-        onAmpEvent?("Am \(profile.displayName) gewählt: \(profile.slotName(slot)). Der Inhalt des Presets ist unbekannt.")
+        let name = (reactorPresets[safe: slot] ?? nil).map { " „\($0.name)“" }
+        onAmpEvent?("Am \(profile.displayName) gewählt: \(profile.slotName(slot))"
+                    + (name ?? ". Der Inhalt des Presets ist unbekannt."))
+    }
+
+    /// One read request to a REACTOR and its answer. Only for a profile with `reactorPresets`; it has no `send`, so
+    /// this and `play(_:)` are the only ways anything reaches it.
+    private func askReactor(_ build: @escaping (UInt8) -> [UInt8], answer sub: UInt8) async throws -> SparkProtocol.Message {
+        try await serial { [self] in
+            try await Task.sleep(for: gap)
+            guard status == .connected else { throw LinkError.notConnected }
+            guard profile.can(.reactorPresets), !profile.canSend else { throw LinkError.notSupported(profile.displayName) }
+            sequence = (sequence + 1) & 0x7F
+            let bytes = build(sequence)
+            return try await withCheckedThrowingContinuation { continuation in
+                waiting = (sub, [SparkProtocol.Command.response], 0, continuation)
+                armTimeout()
+                do {
+                    trace?("→ REACTOR " + Self.describe([bytes]))
+                    try transport.write([bytes])
+                } catch {
+                    failWaiting(error)
+                }
+            }
+        }
+    }
+
+    /// Reads the REACTOR's stored presets and the playing slot. Reads only; a slot that does not answer or cannot be
+    /// read stays unknown, and the rest is not asked for.
+    func loadReactorPresets() async {
+        guard status == .connected, profile.can(.reactorPresets) else { return }
+        activity = "Lese \(shownName) …"
+        defer { activity = nil }
+        for slot in profile.slots {
+            do {
+                let message = try await askReactor({ SparkProtocol.getPreset(slot: UInt8(slot), sequence: $0) },
+                                                   answer: SparkProtocol.Sub.preset)
+                let preset = try ReactorPreset(payload: message.payload)
+                guard reactorPresets.indices.contains(slot) else { return }
+                reactorPresets[slot] = preset
+            } catch {
+                Self.linkLog.error("REACTOR slot \(slot) not read: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+        }
+        if let message = try? await askReactor({ SparkProtocol.getPresetNumber(sequence: $0) },
+                                               answer: SparkProtocol.Sub.presetNumber),
+           message.payload.count >= 2, Int(message.payload[1]) < profile.slotCount {
+            activeSlot = Int(message.payload[1])
+        }
     }
 
     private func didConnect() {
@@ -792,7 +850,9 @@ final class SparkLink: NSObject, ObservableObject {
         guard profile.canSend else {
             // Listen only: nothing is asked, the device reports by itself.
             reactor = ReactorState()
+            reactorPresets = Array(repeating: nil, count: profile.slotCount)
             onConnected?(byItself)
+            if profile.can(.reactorPresets) { Task { await loadReactorPresets() } }
             return
         }
         Task {
@@ -807,6 +867,7 @@ final class SparkLink: NSObject, ObservableObject {
         let wasTemporary = tryingOut != nil || isEditingLive
         let name = shownName
         failWaiting(LinkError.notConnected)
+        reactorPresets = []
         connectedID = nil
         connecting = nil
         parser = SparkProtocol.Parser()

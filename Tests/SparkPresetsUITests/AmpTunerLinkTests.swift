@@ -150,7 +150,10 @@ final class AmpTunerLinkTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(200))
         await link.switchTunerOffBeforeQuitting()
         link.stop()
-        XCTAssertEqual(device.written[device.id(.reactor)] ?? [], [])
+        // Only the slot request after connecting went out; never the tuner switch (01 65) or anything else that sets.
+        let parser = SparkProtocol.Parser()
+        let sent = (device.written[device.id(.reactor)] ?? []).flatMap { parser.feed($0) }
+        XCTAssertTrue(sent.allSatisfy { $0.command == SparkProtocol.Command.get && $0.sub == SparkProtocol.Sub.preset })
     }
 
     func testReadingsDoNotKeepAWaitAlive() async throws {

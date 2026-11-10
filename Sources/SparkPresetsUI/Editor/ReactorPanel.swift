@@ -7,6 +7,7 @@ import SwiftUI
 /// turned or pressed since then is shown, and the rest says "–".
 struct ReactorPanel: View {
     @EnvironmentObject private var link: SparkLink
+    @EnvironmentObject private var model: PresetsModel
 
     private var state: ReactorState { link.reactor }
 
@@ -39,11 +40,17 @@ struct ReactorPanel: View {
 
     // MARK: Header
 
+    /// The stored preset of the slot chosen in the sidebar, else of the playing one.
+    private var shownPreset: ReactorPreset? {
+        let slot = model.selectedSlot ?? link.activeSlot
+        return slot.flatMap { link.reactorPresets[safe: $0] ?? nil }
+    }
+
     private var header: some View {
         Display(padding: EdgeInsets(top: 10, leading: 14, bottom: 10, trailing: 14)) {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(link.shownName)
+                    Text(shownPreset?.name ?? link.shownName)
                         .font(Theme.Fonts.title())
                         .foregroundStyle(Theme.device.amber)
                         .lineLimit(1)
@@ -52,7 +59,8 @@ struct ReactorPanel: View {
                         Lamp(link.profile.can(.liveSound) ? "Mitlesen · Sound auf Wunsch" : "Nur mitlesen", tone: .amber,
                              isOn: true)
                     }
-                    Text("Preset-Inhalt unbekannt. Angezeigt wird, was seit dem letzten Platzwechsel am Gerät gedreht oder gedrückt wurde.")
+                    Text(shownPreset.map { "\($0.summary) · \(Int($0.tempo)) BPM · vom \(link.shownName) gelesen. Die Regler unten zeigen, was seit dem Platzwechsel am Gerät gedreht wurde." }
+                         ?? "Preset-Inhalt unbekannt. Angezeigt wird, was seit dem letzten Platzwechsel am Gerät gedreht oder gedrückt wurde.")
                         .font(.system(size: 11.5))
                         .foregroundStyle(Theme.device.amberDim)
                         .lineLimit(2)

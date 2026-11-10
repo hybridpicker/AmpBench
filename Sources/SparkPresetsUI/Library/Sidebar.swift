@@ -247,18 +247,22 @@ private struct SlotRow: View {
     @EnvironmentObject private var link: SparkLink
 
     private var preset: SparkPreset? { link.slots.indices.contains(slot) ? link.slots[slot] : nil }
+    /// A REACTOR's own preset in this slot. It shows like a Spark's: its name, and amp and effects below.
+    private var reactorPreset: ReactorPreset? { link.reactorPresets[safe: slot] ?? nil }
+    private var shownName: String? { preset?.name ?? reactorPreset?.name }
+    private var shownSummary: String? { preset.map(ChainSummary.text) ?? reactorPreset?.summary }
     private var isActive: Bool { link.activeSlot == slot && link.tryingOut == nil && !link.isEditingLive }
     private var number: Int { link.profile.bankSize.map { slot % $0 + 1 } ?? slot + 1 }
 
     private var emptyText: String {
         guard link.status == .connected else { return "–" }
         // A device that is only listened to never sends its presets.
-        return link.profile.can(.read) ? "Wird gelesen …" : "Inhalt unbekannt"
+        return link.profile.can(.read) || link.profile.can(.reactorPresets) ? "Wird gelesen …" : "Inhalt unbekannt"
     }
 
     private var helpText: String {
         guard link.profile.can(.switchSlot) else {
-            return "\(link.profile.slotName(slot)) am \(link.profile.displayName). Spark Studio liest nur mit und schaltet nicht um."
+            return "\(link.profile.slotName(slot)) am \(link.profile.displayName). Spark Studio zeigt, was dort gespeichert ist, und schaltet nicht um."
         }
         return slot < DeviceProfile.largestSlotCount
             ? "Klicken spielt diesen Platz und öffnet ihn zum Bearbeiten (⌘\(slot + 1))"
@@ -269,10 +273,10 @@ private struct SlotRow: View {
         HStack(spacing: 9) {
             SlotKey(number: number, isPlaying: isActive)
             VStack(alignment: .leading, spacing: 1) {
-                Text(preset?.name ?? emptyText)
+                Text(shownName ?? emptyText)
                     .fontWeight(isActive ? .semibold : .regular)
                     .lineLimit(1)
-                Text(preset.map(ChainSummary.text) ?? " ")
+                Text(shownSummary ?? " ")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -291,7 +295,7 @@ private struct SlotRow: View {
             Button("Auf dem Mac sichern") { model.backUp(slot: slot) }.disabled(preset == nil)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(link.profile.slotName(slot)): \(preset?.name ?? "unbekannt")\(isActive ? ", spielt" : "")")
+        .accessibilityLabel("\(link.profile.slotName(slot)): \(shownName ?? "unbekannt")\(isActive ? ", spielt" : "")")
     }
 }
 
