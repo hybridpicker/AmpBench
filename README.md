@@ -24,7 +24,9 @@ Requires macOS 14 or later and the Swift toolchain from Xcode. There are no exte
 an Apple Development certificate if one exists, because macOS then keeps the microphone permission across rebuilds.
 Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the choice, and `-` forces ad-hoc.
 
-**Linux and one version everywhere.** The area Presets also exists for Linux (Omarchy), see [linux/README.md](linux/README.md).
+**Linux and one version everywhere.** Spark Studio also runs on Linux (Omarchy) with the areas Aufnahme, Presets and
+Stimmgerät, the Kemper import, hashtags and KI-Sound; only the REACTOR's presets and live commands are Mac-only so far.
+See [linux/README.md](linux/README.md).
 `./sync.sh` builds and installs the Mac app and the Linux app on the Omarchy laptop and checks that both report the
 same version, `Spark Studio <VERSION> (<commit>)`. `VERSION` is the one place to change it.
 

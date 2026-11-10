@@ -1,8 +1,11 @@
 # Spark Studio for Linux
 
-The area **Presets** of Spark Studio, for Omarchy and other Linux desktops: read the amp's four slots over Bluetooth LE,
-edit a preset with knobs and the signal chain, hear every change live on the amp, keep presets on the computer and
-store them in a slot, with a backup and a read-back. Sound recipes (docs/ai) open like presets.
+Spark Studio for Omarchy and other Linux desktops, with the same areas as on the Mac: **Aufnahme** (recording from
+the Spark's USB input through PipeWire, the library of takes, pieces), **Presets** (read the amp's slots over
+Bluetooth LE, edit a preset with knobs and the signal chain, hear every change live on the amp, keep presets on the
+computer and store them in a slot, with a backup and a read-back; sound recipes open like presets) and
+**Stimmgerät**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets and
+live commands are not here yet.
 
 It uses the same files as the Mac app: presets in `~/Music/Spark Studio/Presets` (one JSON file each, the same format), sound
 recipes, and the model catalog `docs/ai/spark-catalog.json`, which the Mac app writes from its Swift catalog. So both

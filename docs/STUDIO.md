@@ -20,8 +20,9 @@ in [DESIGN.md](DESIGN.md), Bedienung im [README](../README.md).
 | – | Bereich Stimmgerät (⇧⌘3): MPM plus Phasen-Ausgleichsrechnung, liest den Eingang der Aufnahme mit | 2969085 | installiert (2026-11-08); über USB am MINI mit Gitarre gelaufen (2026-11-09), nicht gegen ein Referenzstimmgerät |
 | – | Stimmgerät des Verstärkers (MINI, NEO) als Quelle, „Automatisch“, Bluetooth-Start aus dem Stimmgerät | 15d37b6, 90513b0, 52b85ac | Befehl und Skala mit spark-probe an MINI und NEO geprüft; in Studio vom Nutzer am NEO und MINI benutzt (2026-11-09) |
 | – | Schutz des Verstärkers (`AmpGuard`) | 18daf05 | Beschreibung mit 80 Bytes am MINI gehört (2026-11-08) |
-| – | Kemper-Import (Backup, Rigs, Performances → Presets und Stücke) und Hashtags mit angehefteten Abschnitten | 00cd11f | installiert (2026-11-10, nur Mac); mit dem Backup des Nutzers gelesen, kein Sound am Spark gehört |
+| – | Kemper-Import (Backup, Rigs, Performances → Presets und Stücke) und Hashtags mit angehefteten Abschnitten | 00cd11f | installiert (2026-11-10, Mac und Linux); mit dem Backup des Nutzers gelesen, kein Sound am Spark gehört |
 | – | REACTOR 50: liest nach dem Verbinden die acht Presets (eigenes Format, Prüfsumme CRC-32/MPEG-2) und zeigt sie wie Spark-Plätze; „Auf den REACTOR spielen“ mit Live-Befehlen; Probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 192963e … bbfe150 | vom Nutzer gesehen und gehört (2026-11-10): acht Presets mit Namen in der Seitenleiste; Gain, Bass, Reverb an/aus und Pegel, Amp-Wahl Clean. Kein Preset geschrieben, kein Platz im Editor |
+| – | Linux holt auf: Kemper-Import und Hashtags, Bereich Stimmgerät (numpy, Stimmgerät des Verstärkers), KI-Sound (`secret-tool`) | 8707c5d, d5a5bc6, 42f6245 | auf linux-host installiert (2026-11-10), 194 Linux-Tests grün; mit Gitarre, Verstärker und echter Cloud unter Linux nicht geprüft |
 | Phase 2 | Mehrere Geräte: Profile, Geräteauswahl, NEO-Eigenheiten, REACTOR mitlesen, Probe `listen`, Linux | 2fccff5 … 642d2d8 | NEO finden und lesen, Wechsel MINI ↔ NEO vom Nutzer bestätigt (2026-11-09); Rest siehe „Offen“ |
 
 Installiert ist Spark Studio seit 2026-11-07 in /Applications und im Dock. Beim ersten Start hat es
@@ -666,7 +667,7 @@ Für jedes Gerät, ohne Ausnahme:
   mit „Automatisch“, nachdem Presets die Verbindung gestartet hatte. Daraus entstanden „Automatisch“ als Grundeinstellung
   und der Bluetooth-Start aus dem Stimmgerät. Noch zu bestätigen: Start direkt ins Stimmgerät findet das Gerät;
   Bereich verlassen und Beenden mit ⌘Q geben den Ton zurück; ob der Verstärker es nach einem Verbindungsabbruch
-  anlässt. Linux hat es noch nicht (dort fehlt der Bereich Stimmgerät ganz).
+  anlässt. Unter Linux gebaut (2026-11-10), am echten Gerät dort noch nicht geprüft.
 - **Stimmgerät mit echter Gitarre:** Über USB am MINI lag der Pegel beim Vergleich am 2026-11-09 bei −31 bis −36 dBFS,
   die Schwelle −60 dBFS passt also; die Werte über USB blieben auf wenige Cent ruhig. Noch offen: gegen ein
   Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten, auch Drop D und ein Bass bis H0; ob „Gestimmt“
