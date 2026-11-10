@@ -59,12 +59,33 @@ struct Sidebar: View {
                         .tag(Selection.draft)
                 }
             }
-            Section("Auf dem Mac") {
+            if !model.tagCounts.isEmpty {
+                Section("Tags") {
+                    TagFilterBar()
+                }
+            }
+            // Pinned tags first, each a section of its own; a preset may stand in several.
+            ForEach(model.pinnedTags, id: \.self) { tag in
+                let tagged = model.visibleItems(tagged: tag)
+                if !tagged.isEmpty {
+                    Section {
+                        ForEach(tagged) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
+                    } header: {
+                        Text("#\(tag)")
+                            .contextMenu { Button("Abschnitt lösen") { model.togglePin(tag) } }
+                    }
+                }
+            }
+            Section(model.pinnedTags.isEmpty ? "Auf dem Mac" : "Alle auf dem Mac") {
                 if model.items.isEmpty {
-                    Text("Noch keine Presets. Sichere einen Platz oder lege ein neues an.")
+                    Text("Noch keine Presets. Sichere einen Platz, lege ein neues an oder übernimm Sounds vom Kemper.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
+                } else if presets.isEmpty {
+                    Text(model.tagFilter.isEmpty ? "Nichts gefunden." : "Kein Preset hat alle gewählten Tags.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(presets) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
             }
@@ -292,6 +313,12 @@ private struct LibraryRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                if !item.file.isBackup, !item.file.tags.isEmpty {
+                    Text(item.file.tags.map { "#\($0)" }.joined(separator: " "))
+                        .font(.caption2)
+                        .foregroundStyle(Theme.desk.amber)
+                        .lineLimit(1)
+                }
             }
         }
         .padding(.vertical, 2)
@@ -303,6 +330,15 @@ private struct LibraryRow: View {
                 }
             }
             .disabled(!model.canUse(.store))
+            Menu("Tags") {
+                ForEach(model.tagCounts, id: \.tag) { entry in
+                    Toggle("#\(entry.tag)", isOn: Binding(
+                        get: { item.file.tags.contains { $0.caseInsensitiveCompare(entry.tag) == .orderedSame } },
+                        set: { _ in model.toggleTag(entry.tag, on: item) }))
+                }
+                if model.tagCounts.isEmpty { Text("Noch keine Tags. Im Editor unter dem Namen hinzufügen.") }
+            }
+            .disabled(item.file.isBackup)
             Divider()
             Button("Umbenennen …") { model.beginRename(item) }
             Button("Im Finder zeigen") { model.reveal(item) }
@@ -320,6 +356,7 @@ private struct NewPresetMenu: View {
             Button("Aus Vorlage …") { model.showsTemplates = true }
             Divider()
             Button("KI-Sound …") { model.showsAI = true }
+            Button("Vom Kemper übernehmen …") { model.showsKemperImport = true }
             Divider()
             Button("Aktuelles duplizieren") { model.duplicateCurrent() }.disabled(model.editor.preset == nil)
         } label: {

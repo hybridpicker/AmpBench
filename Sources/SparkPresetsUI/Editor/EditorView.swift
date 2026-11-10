@@ -16,9 +16,15 @@ struct EditorView: View {
         } else if let preset = editor.preset {
             VStack(spacing: 0) {
                 Faceplate(top: Theme.device.faceTop, bottom: Swatch(hex: 0x1C1C1F)) {
-                    EditorHeader(preset: preset)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 14)
+                    VStack(alignment: .leading, spacing: 8) {
+                        EditorHeader(preset: preset)
+                        if let item = model.selectedItem, !item.file.isBackup {
+                            PresetDetailsBar(item: item)
+                                .environment(\.colorScheme, .dark)
+                        }
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 14)
                 }
                 ScrollView {
                     VStack(spacing: 20) {

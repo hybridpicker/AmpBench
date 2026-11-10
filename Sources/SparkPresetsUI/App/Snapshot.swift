@@ -67,6 +67,15 @@ enum Snapshot {
             }
         }
         await demoDevice(values["demo-devices"], in: model)
+        // A Kemper file in the import sheet, or imported right away (only into a test library).
+        if let path = values["kemper"], !path.isEmpty {
+            model.showsKemperImport = true
+            model.loadKemperPlan(URL(fileURLWithPath: path))
+            if values["kemper-import"] != nil {
+                model.performKemperImport()
+                try? await Task.sleep(for: .milliseconds(300))
+            }
+        }
         open(values["open"], in: model)
         if let focus = values["focus"], let place = ChainPlace.allCases.first(where: { "\($0)" == focus }) {
             model.editor.focus = place
@@ -74,7 +83,12 @@ enum Snapshot {
         guard let path = values["snapshot"], !path.isEmpty else { return }
         try? await Task.sleep(for: .seconds(Double(values["delay"] ?? "") ?? 1.5))
         write(to: URL(fileURLWithPath: path))
-        if values["quit"] != nil { NSApp.terminate(nil) }
+        // An open sheet would hold up quitting.
+        if values["quit"] != nil {
+            model.closeKemperImport()
+            try? await Task.sleep(for: .milliseconds(300))
+            NSApp.terminate(nil)
+        }
     }
 
     private static func demoDevice(_ name: String?, in model: PresetsModel) async {
@@ -127,7 +141,9 @@ enum Snapshot {
     /// Draws the window's content into a PNG. Translucent materials, such as the sidebar's, are left out.
     static func write(to url: URL) {
         // The content only, like the recorder's pictures: the toolbar's translucent material would come out white.
-        guard let window = target, let view = window.contentView, let data = WindowPicture.png(of: view) else {
+        // "--sheet" draws the sheet in front, such as the Kemper import, instead of the window.
+        let window = arguments["sheet"] != nil ? target?.attachedSheet : target
+        guard let window, let view = window.contentView, let data = WindowPicture.png(of: view) else {
             FileHandle.standardError.write(Data("No window to draw.\n".utf8))
             return
         }

@@ -1891,6 +1891,31 @@ final class AppModel: ObservableObject {
 
     // MARK: Pieces as songs
 
+    /// Songs from an import: new pieces with their parts and sounds. Existing titles stay as they are.
+    func addImportedPieces(_ pieces: [RecorderHost.NewPiece]) -> (added: Int, kept: [String]) {
+        var added = 0
+        var kept: [String] = []
+        for new in pieces {
+            let title = new.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else { continue }
+            if store.document.pieces.contains(where: { $0.name.caseInsensitiveCompare(title) == .orderedSame }) {
+                kept.append(title)
+                continue
+            }
+            guard let piece = store.addPiece(named: title) else { continue }
+            store.updatePiece(piece.id) { piece in
+                piece.notes = new.notes
+                piece.parts = new.parts.map { PiecePart(name: $0.name, preset: $0.preset) }
+            }
+            added += 1
+        }
+        if added > 0 {
+            objectWillChange.send()
+            scheduleSave()
+        }
+        return (added, kept)
+    }
+
     func updatePiece(_ id: UUID, _ change: (inout Piece) -> Void) {
         store.updatePiece(id, change)
         scheduleSave()

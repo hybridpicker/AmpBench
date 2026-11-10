@@ -68,8 +68,8 @@ public final class PresetLibrary {
     }
 
     @discardableResult
-    public func save(_ preset: SparkPreset, origin: String, isBackup: Bool = false,
-                     date: Date = Date()) throws -> SavedPreset {
+    public func save(_ preset: SparkPreset, origin: String, isBackup: Bool = false, tags: [String] = [],
+                     notes: String = "", date: Date = Date(), reloads: Bool = true) throws -> SavedPreset {
         var base = Self.fileName(for: preset.name)
         if isBackup {
             let formatter = DateFormatter()
@@ -79,9 +79,10 @@ public final class PresetLibrary {
         }
         let url = uniqueURL(base)
         let saved = SavedPreset(url: url, file: PresetFile(savedAt: date, origin: origin, isBackup: isBackup,
+                                                           tags: PresetFile.normalized(tags), notes: notes,
                                                            preset: preset))
         try write(saved)
-        try reload()
+        if reloads { try reload() }
         return saved
     }
 
@@ -131,6 +132,35 @@ public final class PresetLibrary {
         if updated.url != item.url { try fileManager.removeItem(at: item.url) }
         try reload()
         return items.first { $0.url == updated.url } ?? updated
+    }
+
+    /// Changes what the Mac keeps about a preset (tags, notes, favorite, rating) without touching its sound. A recipe
+    /// becomes an ordinary preset file this way, with an id of its own so songs can refer to it.
+    @discardableResult
+    public func updateDetails(_ item: SavedPreset, reloads: Bool = true,
+                              _ change: (inout PresetFile) -> Void) throws -> SavedPreset {
+        var updated = item
+        change(&updated.file)
+        updated.file.tags = PresetFile.normalized(updated.file.tags)
+        if updated.file.id == nil { updated.file.id = UUID().uuidString }
+        updated.isRecipe = false
+        try write(updated)
+        if reloads { try reload() }
+        return items.first { $0.url == updated.url } ?? updated
+    }
+
+    /// Every tag in the folder with how many presets carry it, most used first, then by name.
+    public var tagCounts: [(tag: String, count: Int)] {
+        var counts: [String: (spelling: String, count: Int)] = [:]
+        for item in items where !item.file.isBackup {
+            for tag in item.file.tags {
+                let key = tag.lowercased()
+                counts[key] = (counts[key]?.spelling ?? tag, (counts[key]?.count ?? 0) + 1)
+            }
+        }
+        return counts.values.map { ($0.spelling, $0.count) }.sorted {
+            $0.count != $1.count ? $0.count > $1.count : $0.tag.localizedStandardCompare($1.tag) == .orderedAscending
+        }
     }
 
     /// Moves the file to the Trash and returns where it went.

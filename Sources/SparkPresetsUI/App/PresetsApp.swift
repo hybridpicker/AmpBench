@@ -47,6 +47,8 @@ struct PresetCommands: Commands {
             Button("KI-Sound aus Beschreibung …") { model.showsAI = true }
                 .keyboardShortcut(owned(KeyboardShortcut("n", modifiers: [.command, .option])))
                 .disabled(!isActive)
+            Button("Vom Kemper übernehmen …") { model.showsKemperImport = true }
+                .disabled(!isActive)
             Button("Duplizieren") { model.duplicateCurrent() }
                 .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
                 .disabled(editor.preset == nil || !isActive)

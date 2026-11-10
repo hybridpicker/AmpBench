@@ -213,6 +213,11 @@ public final class PresetsHost: ObservableObject {
     }
 
     /// Called with name and tempo of every preset opened in the editor.
+    /// Gets the songs of an import (a Kemper backup's performances) and says what became of them, for the message.
+    public func onImportSongs(_ handler: @escaping @MainActor ([ImportedSong]) -> String?) {
+        model.onImportSongs = handler
+    }
+
     public func onPresetOpened(_ handler: @escaping @MainActor (String, Double) -> Void) {
         model.editor.onOpen = { preset in handler(preset.name, Double(preset.bpm)) }
     }

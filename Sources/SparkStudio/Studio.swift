@@ -212,6 +212,19 @@ final class Studio: ObservableObject {
                 if let problem { self?.recorder.warn(problem) } else { self?.recorder.inform("„\(link.name)“ spielt am Verstärker, auf dem vorübergehenden Platz.") }
             }
         })
+        // Songs of an import (Kemper performances) become pieces, each part with its preset.
+        presets.onImportSongs { [weak self] songs in
+            guard let self else { return nil }
+            let pieces = songs.map { song in
+                RecorderHost.NewPiece(title: song.title, notes: song.notes, parts: song.parts.map { part in
+                    (part.name, PresetLink(presetID: part.presetID, fileName: part.fileName, name: part.presetName))
+                })
+            }
+            let (added, kept) = recorder.addPieces(pieces)
+            var text = "\(added) Stücke unter Aufnahme angelegt."
+            if !kept.isEmpty { text += " Schon da und unverändert: " + kept.joined(separator: ", ") + "." }
+            return text
+        }
     }
 
     // MARK: Tempo, one source

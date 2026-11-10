@@ -53,12 +53,27 @@ public struct PresetFile: Codable, Equatable, Sendable {
         preset = try c.decode(SparkPreset.self, forKey: .preset)
     }
 
-    /// Tags without blanks and without repeats that differ only in case. The first spelling wins.
+    /// Tags without blanks, without a leading "#" (the UI shows it, the file does not keep it) and without repeats
+    /// that differ only in case. The first spelling wins.
     public static func normalized(_ tags: [String]) -> [String] {
         var seen = Set<String>()
-        return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { tag in
+        return tags.map(tagText).filter { tag in
             !tag.isEmpty && seen.insert(tag.lowercased()).inserted
         }
+    }
+
+    /// One tag as it is kept: trimmed, without leading "#".
+    public static func tagText(_ tag: String) -> String {
+        var text = tag.trimmingCharacters(in: .whitespacesAndNewlines)
+        while text.hasPrefix("#") { text.removeFirst() }
+        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// A hashtag made from a title: words joined without blanks and apostrophes, "Can't Stop" → "CantStop".
+    public static func hashtag(_ title: String) -> String {
+        let joined = title.filter { !"'’`´".contains($0) }
+        let words = joined.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        return words.map { word in word.prefix(1).uppercased() + word.dropFirst() }.joined()
     }
 }
 

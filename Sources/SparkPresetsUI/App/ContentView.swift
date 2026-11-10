@@ -18,6 +18,9 @@ struct ContentView: View {
         .sheet(isPresented: saveAsShown) { SaveAsSheet() }
         .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }
         .sheet(isPresented: Binding(get: { model.showsAI }, set: { model.showsAI = $0 })) { AISoundSheet() }
+        .sheet(isPresented: Binding(get: { model.showsKemperImport }, set: { if !$0 { model.closeKemperImport() } })) {
+            KemperImportSheet()
+        }
         .confirmationDialog(storeTitle, isPresented: storeDialogShown, presenting: model.storeRequest) { request in
             Button("Auf \(link.profile.slotName(request.slot)) speichern") { model.store(request) }
             Button("Abbrechen", role: .cancel) { model.storeRequest = nil }

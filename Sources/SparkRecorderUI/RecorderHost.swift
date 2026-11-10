@@ -143,6 +143,26 @@ public final class RecorderHost {
     /// The recorder's input, for reading along with it. The tuner uses it instead of opening a second audio unit.
     public lazy var sharedInput: SharedInput = RecorderInput(model: model)
 
+    /// A song from an import, such as a Kemper performance: its title, notes and parts, each with its sound.
+    public struct NewPiece: Sendable {
+        public var title: String
+        public var notes: String
+        public var parts: [(name: String, preset: PresetLink)]
+
+        public init(title: String, notes: String, parts: [(name: String, preset: PresetLink)]) {
+            self.title = title
+            self.notes = notes
+            self.parts = parts
+        }
+    }
+
+    /// Adds songs from an import. A title that is already a piece is left alone, so nothing the player wrote is
+    /// overwritten; those titles come back.
+    @discardableResult
+    public func addPieces(_ pieces: [NewPiece]) -> (added: Int, kept: [String]) {
+        model.addImportedPieces(pieces)
+    }
+
     public func inform(_ text: String) { model.show(.info, text) }
     public func warn(_ text: String) { model.show(.warning, text) }
 }

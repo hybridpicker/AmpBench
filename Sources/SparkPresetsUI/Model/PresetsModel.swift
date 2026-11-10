@@ -55,6 +55,21 @@ final class PresetsModel: ObservableObject {
     /// The "Speichern unter" sheet, with the name to save under.
     @Published var saveAsName: String?
     @Published var showsTemplates = false
+    /// Tags shown as sections of their own in the sidebar, in this order. Kept on this Mac.
+    @Published var pinnedTags: [String] = UserDefaults.standard.stringArray(forKey: TagSetting.pinnedKey) ?? [] {
+        didSet { UserDefaults.standard.set(pinnedTags, forKey: TagSetting.pinnedKey) }
+    }
+    /// Tags the list is narrowed to: a preset must carry all of them.
+    @Published var tagFilter: [String] = []
+    // Kemper import: the sheet, the file read, the plan the player adjusts, and why reading failed.
+    @Published var showsKemperImport = false
+    @Published var kemperFileName: String?
+    @Published var kemperPlan: KemperImportPlan?
+    @Published var kemperError: String?
+    @Published var kemperIsBusy = false
+    /// Gets the songs of an import; Spark Studio makes pieces of them in the recorder. Returns what it did, for the
+    /// message after the import.
+    var onImportSongs: (([ImportedSong]) -> String?)?
     // KI-Sound: a description in words becomes a recipe over Ollama's cloud API.
     @Published var showsAI = false
     @Published var aiRequest = ""
@@ -194,12 +209,28 @@ final class PresetsModel: ObservableObject {
         }
     }
 
+    /// The presets that match the search and carry every tag of the filter. The search looks at names, origin,
+    /// models, tags and notes; "#clean" looks at tags only.
     var visibleItems: [SavedPreset] {
+        Self.matching(items, search: search, tags: tagFilter)
+    }
+
+    nonisolated static func matching(_ items: [SavedPreset], search: String, tags: [String]) -> [SavedPreset] {
         let query = search.trimmingCharacters(in: .whitespaces)
-        guard !query.isEmpty else { return items }
-        return items.filter {
-            $0.name.localizedCaseInsensitiveContains(query) || $0.file.origin.localizedCaseInsensitiveContains(query)
-                || $0.file.preset.effects.contains {
+        let wanted = tags.map { $0.lowercased() }
+        return items.filter { item in
+            let own = Set(item.file.tags.map { $0.lowercased() })
+            guard wanted.allSatisfy(own.contains) else { return false }
+            guard !query.isEmpty else { return true }
+            if query.hasPrefix("#") {
+                let tag = PresetFile.tagText(query).lowercased()
+                return tag.isEmpty || own.contains { $0.hasPrefix(tag) }
+            }
+            return item.name.localizedCaseInsensitiveContains(query)
+                || item.file.origin.localizedCaseInsensitiveContains(query)
+                || item.file.notes.localizedCaseInsensitiveContains(query)
+                || item.file.tags.contains { $0.localizedCaseInsensitiveContains(query) }
+                || item.file.preset.effects.contains {
                     $0.name.localizedCaseInsensitiveContains(query)
                         || (ModelCatalog.known($0.name)?.name.localizedCaseInsensitiveContains(query) ?? false)
                 }

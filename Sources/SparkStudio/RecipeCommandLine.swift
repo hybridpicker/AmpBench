@@ -7,6 +7,7 @@ import SparkControl
 ///   --recipe-prompt <recipe or preset.json> describes the sound in English, e.g. for REACTOR's Text to Tone
 ///   --catalog-export <folder>               writes spark-catalog.json and spark-catalog.md
 ///   --fingerprint <preset.json>...          prints the SHA-256 of each preset's effect chain, the take's sound id
+///   --kemper-list <backup or rig>           shows what a Kemper import would make, without writing anything
 enum RecipeCommandLine {
     /// The exit status, or nil when the arguments are not one of these commands.
     static func run(_ arguments: [String]) -> Int32? {
@@ -18,6 +19,7 @@ enum RecipeCommandLine {
         case "--recipe-prompt": return prompt(rest)
         case "--catalog-export": return export(rest)
         case "--fingerprint": return fingerprint(rest)
+        case "--kemper-list": return kemperList(rest)
         default: return nil
         }
     }
@@ -147,6 +149,36 @@ enum RecipeCommandLine {
             try Data(reference.markdown().utf8).write(to: folder.appendingPathComponent("spark-catalog.md"),
                                                       options: .atomic)
             print("\(reference.models.count) Modelle nach \(folder.path)")
+            return 0
+        } catch {
+            print("nicht möglich: \(error.localizedDescription)")
+            return 1
+        }
+    }
+
+    /// Lists the plan of a Kemper import: performances with their guessed kind, each slot's Spark amp and what was left
+    /// out, then how many presets and songs it makes. Reads only.
+    private static func kemperList(_ arguments: [String]) -> Int32 {
+        guard arguments.count == 1 else {
+            print("usage: --kemper-list <backup.kpabackup or rig.kipr>")
+            return 64
+        }
+        do {
+            let library = try KemperLibrary.read(URL(fileURLWithPath: arguments[0]))
+            let plan = KemperImportPlan(library)
+            print("\(library.rigs.count) Rigs, \(library.performances.count) Performances, "
+                  + "\(plan.performances.count) eigene")
+            for performance in plan.performances {
+                print("\(performance.number). \(performance.name)  [\(performance.kind.label)]")
+                for slot in performance.slots {
+                    let result = slot.translation
+                    let amp = ModelCatalog.known(result.ampModel)?.name ?? result.ampModel
+                    let left = result.leftOut.isEmpty ? "" : "  ohne: " + result.leftOut.joined(separator: ", ")
+                    print("   \(slot.number) \(slot.name) → \(amp) (\(result.ampReason)), \(result.character.rawValue)\(left)")
+                }
+            }
+            let output = try plan.output()
+            print("Ergebnis: \(output.sounds.count) Presets, \(output.songs.count) Stücke")
             return 0
         } catch {
             print("nicht möglich: \(error.localizedDescription)")
