@@ -183,7 +183,7 @@ class MainWindow(QMainWindow):
         bar.setStyleSheet(f"background: {theme.DESK}; border-bottom: 1px solid {theme.DESK_LINE};")
         bar_row = QHBoxLayout(bar)
         bar_row.setContentsMargins(22, 7, 22, 7)
-        self.tabs = SegmentTabs(["Aufnahme", "Presets"])
+        self.tabs = SegmentTabs(["Aufnahme", "Presets", "Stimmgerät"])
         self.tabs.set_index(0)
         bar_row.addWidget(self.tabs)
         bar_row.addStretch(1)
@@ -205,6 +205,11 @@ class MainWindow(QMainWindow):
         body.addWidget(self.sidebar)
         body.addWidget(self._build_editor(), 1)
         self.stack.addWidget(presets)
+        from ..tuner import TunerModel
+        from .tuner_view import TunerView
+        self.tuner = TunerModel(self.recorder, self.link)
+        self.tuner_view = TunerView(self.tuner)
+        self.stack.addWidget(self.tuner_view)
         self.stack.setCurrentIndex(0)
         self.activity_label = QLabel("")
         status = self.statusBar()
@@ -332,6 +337,7 @@ class MainWindow(QMainWindow):
         view = self.menuBar().addMenu("Darstellung")
         action(view, "Aufnahme", lambda: self._area(0), "Ctrl+Shift+1")
         action(view, "Presets", lambda: self._area(1), "Ctrl+Shift+2")
+        action(view, "Stimmgerät", lambda: self._area(2), "Ctrl+Shift+3")
         preset = self.menuBar().addMenu("Preset")
         action(preset, "Neues Preset", lambda: self._new(None), "Ctrl+N")
         action(preset, "Neu aus Vorlage …", self._new_from_template, "Ctrl+Shift+N")
@@ -343,7 +349,7 @@ class MainWindow(QMainWindow):
         action(preset, "Als Rezept speichern …", self._export_recipe)
         action(preset, "Rezept öffnen …", self._open_recipe)
         action(preset, "Vom Kemper übernehmen …", self._import_kemper)
-        action(preset, "Tags bearbeiten …", self._edit_tags, "Ctrl+T")
+        action(preset, "Tags bearbeiten …", self._ctrl_t, "Ctrl+T")
         preset.addSeparator()
         action(preset, "Im Dateimanager zeigen", self._reveal, "Ctrl+Shift+R")
         action(preset, "In den Papierkorb legen", self._trash, "Ctrl+Backspace")
@@ -382,6 +388,14 @@ class MainWindow(QMainWindow):
         action(chain, "Gewählte Einheit ein oder aus", lambda: self._toggle_place(self.place, not self._current_on()),
                "Alt+0")
 
+        tuner = self.menuBar().addMenu("Stimmgerät")
+        action(tuner, "Zeiger oder Stroboskop", lambda: self.tuner.set_strobe(not self.tuner.shows_strobe))
+        action(tuner, "Kammerton höher", lambda: self._tuner_key(lambda: self.tuner.set_a4(self.tuner.a4 + 0.1)),
+               "Ctrl+Up")
+        action(tuner, "Kammerton tiefer", lambda: self._tuner_key(lambda: self.tuner.set_a4(self.tuner.a4 - 0.1)),
+               "Ctrl+Down")
+        action(tuner, "Kammerton 440 Hz", lambda: self._tuner_key(lambda: self.tuner.set_a4(440.0)), "Ctrl+0")
+
         help_menu = self.menuBar().addMenu("Hilfe")
         action(help_menu, "Tastenkürzel", self._show_shortcuts, "Ctrl+/")
         action(help_menu, "Über Spark Studio", self._about)
@@ -406,7 +420,7 @@ class MainWindow(QMainWindow):
         link.temporary_lost.connect(self._on_temporary_lost)
 
         self.connect_key.clicked.connect(self._connect_clicked)
-        self.tabs.changed.connect(self.stack.setCurrentIndex)
+        self.tabs.changed.connect(self._area)
         if self.recorder is not None:
             r = self.recorder
             self.deck.record_clicked.connect(r.toggle)
@@ -659,6 +673,19 @@ class MainWindow(QMainWindow):
     def _area(self, index: int) -> None:
         self.tabs.set_index(index)
         self.stack.setCurrentIndex(index)
+        # The tuner listens only while its area shows; the amp's own tuner goes off when it is left.
+        self.tuner.set_active(index == 2)
+
+    def _ctrl_t(self) -> None:
+        """Strg+T: the strobe in the area Stimmgerät, the tags of the preset elsewhere."""
+        if self.stack.currentIndex() == 2:
+            self.tuner.set_strobe(not self.tuner.shows_strobe)
+        else:
+            self._edit_tags()
+
+    def _tuner_key(self, action) -> None:
+        if self.stack.currentIndex() == 2:
+            action()
 
     def _refresh_recorder(self) -> None:
         self.deck.show_recorder(self.recorder)
@@ -1283,6 +1310,7 @@ class MainWindow(QMainWindow):
         if not self._confirm_discard():
             event.ignore()
             return
+        self.tuner.set_active(False)
         if self.recorder is not None:
             self.recorder.shutdown()
         QApplication.instance().removeEventFilter(self._router)

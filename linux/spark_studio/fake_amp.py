@@ -36,6 +36,8 @@ class FakeAmp(Transport):
         self._on_disconnect = lambda: None
         self._drop = drop_first_answer
         self._seq = 0
+        self.tuner_on = False
+        self.answers_tuner = True
 
     async def connect(self, on_found, on_notify, on_disconnect, chosen=None):
         if chosen is not None and chosen != self.address:
@@ -61,6 +63,12 @@ class FakeAmp(Transport):
     def report(self, sub: int, payload: bytes) -> None:
         """A REACTOR's own message, as when one of its controls is used."""
         self._reply(protocol.CMD_RESPONSE, sub, payload)
+
+    def tuner_reading(self, note: int, value: float) -> None:
+        """One reading of the amp's own tuner, ``03 64 <note> CA <float>``, sent only while it is on."""
+        if self.tuner_on:
+            import struct
+            self._reply(protocol.CMD_RESPONSE, protocol.SUB_TUNER_PITCH, bytes([note, 0xCA]) + struct.pack(">f", value))
 
     def press_button(self, slot: int) -> None:
         """The player presses the preset button on the amp."""
@@ -127,6 +135,10 @@ class FakeAmp(Transport):
             self.parameters.append((reader.prefixed_string(), reader.byte(), reader.float()))
         elif c == protocol.CMD_SET and s in (protocol.SUB_EFFECT_ON_OFF, protocol.SUB_CHANGE_EFFECT):
             self._reply(protocol.CMD_ACK, s, b"")
+        elif c == protocol.CMD_SET and s == protocol.SUB_TUNER:
+            self.tuner_on = message.payload[:1] == b"\xC3"
+            if self.answers_tuner:
+                self._reply(protocol.CMD_ACK, s, b"")
 
 
 class FakeDevices(Transport):

@@ -672,8 +672,12 @@ Für jedes Gerät, ohne Ausnahme:
   Referenzstimmgerät (Strobe oder Clip-on mit 0,1 Cent) an allen Saiten, auch Drop D und ein Bass bis H0; ob „Gestimmt“
   bei echten Saiten (die beim Anschlag etwas zu hoch klingen) ruhig genug kommt, und wie VoiceOver die Ansagen
   verteilt. Die Latenz des Callbacks (Puffergröße) und des 5-ms-Lesetakts kommt zu den gemessenen 80 ms (tiefes E) noch dazu.
-- **Stimmgerät in der Linux-App:** noch nicht gebaut. `PitchTracker` ist reine Logik und lässt sich nach Python
-  übertragen; PipeWire liefert den Eingang wie bei der Aufnahme.
+- **Stimmgerät in der Linux-App:** seit 2026-11-10 gebaut (`linux/spark_studio/pitch.py`, `tuning.py`, `tuner.py`,
+  `ui/tuner_view.py`), eine Portierung mit numpy; die Genauigkeitstests des Mac laufen dort mit denselben synthetischen
+  Signalen (Sinus, Sägezahn, Karplus-Strong) und Grenzen. Das Stimmgerät liest den Eingang der Aufnahme mit
+  (`CaptureEngine.attach`, `RecorderModel.share`), das Stimmgerät des Verstärkers schaltet `LinkCore.want_amp_tuner`
+  wie am Mac. Nicht geprüft: mit echter Gitarre am Laptop, und das Stimmgerät des Verstärkers am echten MINI oder NEO
+  unter Linux.
 
 - **Am Amp prüfen**, siehe Stand. `--live-selftest` lief bisher nur in Spark Presets, nicht in Studio.
 - **Klangrezepte:** im Editor „Als Rezept exportieren“ und „Text für REACTOR kopieren“ (bisher nur `--recipe-from`

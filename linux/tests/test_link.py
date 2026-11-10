@@ -110,3 +110,63 @@ def test_requests_fail_cleanly_when_not_connected():
         with pytest.raises(link.NotConnected):
             await core.select(1)
     run(go())
+
+
+# MARK: The amp's own tuner
+
+
+def test_the_amps_tuner_goes_on_and_off_and_reports():
+    async def go():
+        amp, core, events = make()
+        await connected(core, amp)
+        assert core.can_use_amp_tuner
+        core.want_amp_tuner(True)
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if core.is_amp_tuner_on:
+                break
+        assert core.is_amp_tuner_on and amp.tuner_on
+        amp.tuner_reading(4, 0.52)
+        amp.tuner_reading(4, -1.0)
+        await asyncio.sleep(0.05)
+        readings = [e[1] for e in events if e[0] == "tuner_reading"]
+        assert readings[0][0] == 4 and abs(readings[0][1] - 2) < 1e-4 and readings[1] == (4, None)
+        core.want_amp_tuner(False)
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if not amp.tuner_on and not core.is_amp_tuner_on:
+                break
+        assert not amp.tuner_on and not core.is_amp_tuner_on
+        await core.stop()
+    run(go())
+
+
+def test_disconnecting_switches_the_amps_tuner_off_first():
+    async def go():
+        amp, core, _ = make()
+        await connected(core, amp)
+        core.want_amp_tuner(True)
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if core.is_amp_tuner_on:
+                break
+        await core.stop()
+        assert not amp.tuner_on, "the amp is not left silent"
+    run(go())
+
+
+def test_a_reactors_tuner_is_never_switched():
+    async def go():
+        amp, core, _ = make(FakeAmp(kind="reactor"))
+        core.start()
+        for _ in range(100):
+            await asyncio.sleep(0.01)
+            if core.status == "connected":
+                break
+        assert not core.can_use_amp_tuner
+        core.want_amp_tuner(True)
+        await asyncio.sleep(0.1)
+        await core.switch_tuner_off_before_quitting()
+        await core.stop()
+        assert amp.written == []
+    run(go())

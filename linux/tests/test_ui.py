@@ -306,3 +306,52 @@ def test_the_kemper_import_writes_presets_and_pieces(window, tmp_path):
     assert w.sidebar.is_pinned("basis") and w.sidebar.is_pinned("song")
     w.sidebar.pinned = []
     w.sidebar._settings.remove("pinnedTags")
+
+
+def test_the_tuner_listens_only_while_its_area_shows(window):
+    w, amp = window
+    tuner = w.tuner
+    tuner.choose("deck")
+    w._area(2)
+    wait_for(lambda: tuner.status == "listening")
+    assert w.recorder.is_sharing(tuner._listener)
+    # The simulated Spark input plays a 220 Hz pluck twice a second: the tuner hears it through the shared input.
+    tuner.set_tuning("chromatic")
+    wait_for(lambda: tuner.readout is not None and tuner.readout.note_name == "A" and abs(tuner.readout.cents) < 1,
+             timeout=6000)
+    assert tuner.readout.note.octave == 3
+    assert w.tuner_view.note.text() == "A"
+    tuner.set_tuning("standard")
+    w._area(1)
+    assert tuner.status == "idle" and not w.recorder.engine.is_open, "leaving the area closes the input"
+
+
+def test_the_amps_own_tuner_is_on_only_while_the_area_shows(window):
+    w, amp = window
+    tuner = w.tuner
+    tuner.choose("amp")
+    w._area(2)
+    wait_for(lambda: amp.tuner_on and tuner.status == "listening")
+    assert tuner.uses_amp
+    w._area(1)
+    wait_for(lambda: not amp.tuner_on)
+    tuner.choose("automatic")
+
+
+def test_tuner_settings_are_kept(window):
+    w, _ = window
+    from spark_studio.tuner import TunerModel
+    tuner = w.tuner
+    tuner.set_a4(441.26)
+    tuner.set_tuning("dadgad")
+    tuner.set_strobe(True)
+    assert tuner.a4 == 441.3
+    again = TunerModel()
+    assert (again.a4, again.tuning.key, again.shows_strobe) == (441.3, "dadgad", True)
+    tuner.set_a4(470)
+    assert tuner.a4 == 450
+    tuner.set_a4(400)
+    assert tuner.a4 == 430
+    tuner.set_a4(440)
+    tuner.set_tuning("standard")
+    tuner.set_strobe(False)

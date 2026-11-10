@@ -136,11 +136,44 @@ class RecorderModel(QObject):
 
     # MARK: Checking the input
 
+    # MARK: Sharing the input with the tuner
+
+    def share(self, listener) -> str | None:
+        """Lets the tuner read the input along with everything else; opens it when nothing holds it open. Returns
+        why it could not, or None."""
+        if not self.engine.is_open:
+            self.refresh_devices()
+            if self.selected is None:
+                return "no_input"
+            try:
+                self.engine.open(self.selected)
+            except RuntimeError as error:
+                return str(error)
+        self.engine.attach(listener)
+        return None
+
+    def stop_sharing(self, listener) -> None:
+        self.engine.detach(listener)
+        if not self.engine.has_listeners and not self.is_recording and not self.is_monitoring:
+            self.engine.close()
+
+    @property
+    def is_held_open(self) -> bool:
+        """A recording or the level check hold the input open too."""
+        return self.is_recording or self.is_monitoring
+
+    def is_sharing(self, listener) -> bool:
+        return self.engine.is_open and listener in self.engine._listeners
+
+    def _close_unless_shared(self) -> None:
+        if not self.engine.has_listeners:
+            self.engine.close()
+
     def toggle_monitoring(self) -> None:
         if self.is_recording:
             return
         if self.is_monitoring:
-            self.engine.close()
+            self._close_unless_shared()
             self.is_monitoring = False
         else:
             self.refresh_devices()
@@ -198,7 +231,7 @@ class RecorderModel(QObject):
         except (OSError, RuntimeError) as error:
             self.store.remove_journal()
             if not self.is_monitoring:
-                self.engine.close()
+                self._close_unless_shared()
             self.message.emit("error", f"Die Aufnahme konnte nicht starten: {error}")
             return
         self.active_journal, self.active_start, self.active_source = journal, now, source
@@ -212,7 +245,7 @@ class RecorderModel(QObject):
             return
         journal, started, source = self.active_journal, self.active_start, self.active_source
         result = self.engine.stop_recording()
-        self.engine.close()
+        self._close_unless_shared()
         self.active_journal = self.active_start = self.active_source = None
         self.phase = "idle"
         self.phase_changed.emit(self.phase)

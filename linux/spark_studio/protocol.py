@@ -522,6 +522,16 @@ def get_firmware(sequence: int) -> list[bytes]:
     return blocks(CMD_GET, SUB_FIRMWARE, b"", sequence)
 
 
+def set_tuner(on: bool, sequence: int) -> list[bytes]:
+    """Switches the amp's own tuner on or off (``01 65 C3/C2``). The amp is silent while it is on."""
+    return blocks(CMD_SET, SUB_TUNER, bytes([0xC3 if on else 0xC2]), sequence)
+
+
+def tuner_cents(value: float) -> float:
+    """The cents of a tuner reading's value, from −50 to +50: checked on the MINI and the NEO on 2026-11-09."""
+    return (value - 0.5) * 100
+
+
 def get_amp_name(sequence: int) -> list[bytes]:
     return blocks(CMD_GET, SUB_AMP_NAME, b"", sequence)
 
@@ -683,6 +693,12 @@ def parse_event(message: Message) -> Event | None:
             return Event("store_requested", slot=slot) if slot is not None else None
         if message.sub == SUB_TAP_TEMPO:
             return Event("tap_tempo", value=reader.float())
+        if message.sub == SUB_TUNER_PITCH:
+            # 03 64 <note 0–11> CA <float>, the float −1 without a signal.
+            note = reader.byte()
+            return Event("tuner", index=note, value=reader.float())
+        if message.sub == SUB_TUNER:
+            return Event("tuner_on", is_on=reader.bool())
     except DecodeError:
         return None
     return None

@@ -150,6 +150,23 @@ class CaptureEngine:
         self.lost = False
         self.on_lost: Callable[[], None] | None = None
         self.on_limit: Callable[[], None] | None = None
+        # Readers along with the recording, such as the tuner: each gets mono samples from −1 to 1 and the rate,
+        # on the reader thread, so it must only hand them on.
+        self._listeners: list[Callable] = []
+
+    def attach(self, listener: Callable) -> None:
+        with self._lock:
+            if listener not in self._listeners:
+                self._listeners.append(listener)
+
+    def detach(self, listener: Callable) -> None:
+        with self._lock:
+            if listener in self._listeners:
+                self._listeners.remove(listener)
+
+    @property
+    def has_listeners(self) -> bool:
+        return bool(self._listeners)
 
     @staticmethod
     def _pw_record(device: InputDevice) -> list[str]:
@@ -246,6 +263,13 @@ class CaptureEngine:
                 meter.quiet_since = None
             elif meter.quiet_since is None:
                 meter.quiet_since = now
+            listeners = list(self._listeners)
+            if listeners:
+                import numpy as np
+                frames = np.frombuffer(data, dtype="<i4").reshape(-1, fmt.channels)
+                mono = frames.mean(axis=1) / 2147483648.0
+                for listener in listeners:
+                    listener(mono, fmt.sample_rate)
             with self._lock:
                 writer = self._writer
                 if writer is not None:

@@ -34,6 +34,8 @@ class QtLink(QObject):
     reactor = Signal(object)
     devices = Signal(object)
     temporary_lost = Signal(str)
+    is_amp_tuner_on = Signal(bool)
+    tuner_reading = Signal(object)  # (pitch class 0–11, cents or None)
 
     def __init__(self, transport_factory: Callable[[], Transport] = BleakTransport, parent=None):
         super().__init__(parent)
@@ -92,10 +94,30 @@ class QtLink(QObject):
         """Connects to another device; the current connection ends first."""
         self._loop.call_soon_threadsafe(self.core.choose, address)
 
+    # The amp's own tuner
+
+    @property
+    def amp_tuner_device(self) -> str | None:
+        """The connected device's name when its tuner can be switched on from here."""
+        return self.core.shown_name if self.core.can_use_amp_tuner else None
+
+    @property
+    def amp_tuner_preferred(self) -> bool:
+        """True when the device has no USB audio, so its own tuner is the way to hear it."""
+        from . import devices
+        return self.core.can_use_amp_tuner and not self.core.profile.can(devices.USB_AUDIO)
+
+    def want_amp_tuner(self, on: bool) -> None:
+        self._loop.call_soon_threadsafe(self.core.want_amp_tuner, on)
+
     def shutdown(self) -> None:
         if self._closed:
             return
         self._closed = True
+        try:
+            self.call(self.core.switch_tuner_off_before_quitting()).result(timeout=2)
+        except Exception:  # noqa: BLE001
+            pass
         self._loop.call_soon_threadsafe(lambda: self._pump_task and self._pump_task.cancel())
         try:
             self.call(self.core.stop()).result(timeout=3)

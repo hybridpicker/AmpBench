@@ -14,7 +14,16 @@ Preset ⇒ "Vom Kemper übernehmen …" reads a Kemper backup (`.kpabackup`) or 
 `kemper.py` is the port of `Sources/SparkControl/Kemper`; on the same backup both apps print the same
 `--kemper-list`.
 
-**Not here yet:** the area *Stimmgerät*, the KI-Sound (a sound from a description), and reading a REACTOR's presets.
+**The area Stimmgerät** (Strg+Shift+3) works as on the Mac: a chromatic tuner with string detection for guitar and
+bass, 30 Hz to 1.4 kHz, to a tenth of a cent, A4 from 430.0 to 450.0 Hz, the tunings Standard, Drop D, DADGAD, Open G,
+Halbton tiefer and Chromatisch, needle or strobe (Strg+T). It reads the Spark input along with the recorder instead of
+opening it twice, and only while its area shows. "Stimmgerät des Verstärkers" switches a MINI's or NEO's own tuner on
+over Bluetooth (the amp is silent then) and off when the area is left, before a disconnect and on quit; "Automatisch"
+takes USB when the amp has it, otherwise the amp's own tuner. `pitch.py` and `tuning.py` port the Mac's pitch tracker
+and tunings with numpy (about 7 % of one core on the laptop); `tuner.py` is the engine and model, `ui/tuner_view.py`
+the front.
+
+**Not here yet:** the KI-Sound (a sound from a description), and reading a REACTOR's presets.
 
 ## Install and keep in step with the Mac
 
@@ -49,7 +58,8 @@ service and takes the amp's one control connection: "Trennen" lets the Spark app
 
 ## Code
 
-`spark_studio/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py` and `kemper.py` are ports of
+`spark_studio/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py`, `kemper.py`, `pitch.py`
+and `tuning.py` are ports of
 `Sources/SparkControl`; the Swift code is the reference, change both together. `link.py` is the port of `SparkLink.swift`
 (with a simulated amp in `fake_amp.py`), `qtlink.py` and `ui/` are the window. Tests: `linux/tests`, run by the install
 (`cd linux && QT_QPA_PLATFORM=offscreen python -m pytest`). They read real presets from the amp as fixtures.

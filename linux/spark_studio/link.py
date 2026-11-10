@@ -204,6 +204,14 @@ class LinkCore:
         self._run_task: asyncio.Task | None = None
         self._lost_event: asyncio.Event | None = None
         self._recent_models: list[float] = []
+        # The amp's own tuner: what the tuner area wants, what the amp confirmed, and whether it may still be on
+        # (it was on when the connection ended, or switching it off got no answer).
+        self.amp_tuner_wanted = False
+        self.is_amp_tuner_on = False
+        self._amp_tuner_maybe_on = False
+        self._tuner_task: asyncio.Task | None = None
+        self._last_tuner_reading = 0.0
+        self._tuner_off_tries = 0
 
     # MARK: State
 
@@ -223,7 +231,18 @@ class LinkCore:
             self._run_task = asyncio.ensure_future(self._run())
 
     async def stop(self) -> None:
-        """Ends the connection, so the Spark app on the phone can take the amp."""
+        """Ends the connection, so the Spark app on the phone can take the amp. An amp whose tuner may be on gets
+        `tuner off` first, so it is not left silent."""
+        if self.status == "connected" and self._transport is not None and self.profile.can_send \
+                and (self.is_amp_tuner_on or self._amp_tuner_maybe_on):
+            self._sequence = (self._sequence + 1) & 0x7F
+            try:
+                await self._write(protocol.set_tuner(False, self._sequence))
+                await asyncio.sleep(0.3)
+            except Exception:
+                pass
+            self._set("is_amp_tuner_on", False)
+            self._amp_tuner_maybe_on = False
         self.wanted = False
         task, self._run_task = self._run_task, None
         if task is not None:
@@ -331,6 +350,7 @@ class LinkCore:
         await self._identify()
         await self.load_all()
         self._emit("connected")
+        self._reconcile_tuner()
 
     async def _identify(self) -> None:
         """Asks a Spark for its amp name (``02 11``) and takes the profile it names."""
@@ -351,6 +371,11 @@ class LinkCore:
     _switching = False
 
     def _lost(self) -> None:
+        # Whether the amp keeps its tuner on without a connection is unknown: it is switched off after reconnecting.
+        if self.is_amp_tuner_on:
+            self._amp_tuner_maybe_on = True
+        self._set("is_amp_tuner_on", False)
+        self._tuner_off_tries = 0
         self._lost_by_itself = self.wanted and not self._switching
         self._switching = False
         self._fail_waiting(NotConnected())
@@ -467,6 +492,11 @@ class LinkCore:
             event = protocol.parse_event(message)
             if event is None:
                 continue
+            if event.kind == "tuner":
+                self._last_tuner_reading = _now()
+                self._emit("tuner_reading", (event.index, None if event.value < 0 else
+                                             protocol.tuner_cents(event.value)))
+                continue
             if event.kind == "preset_selected" and event.slot < self.profile.slot_count:  # preset or NEO middle button
                 self._set("active_slot", event.slot)
                 self._set("trying_out", None)
@@ -483,6 +513,73 @@ class LinkCore:
         if self.reactor.slot is not None and self.reactor.slot != before:
             self._set("active_slot", self.reactor.slot)
             self._emit("amp_event", protocol.Event("preset_selected", slot=self.reactor.slot))
+
+    # MARK: The amp's own tuner
+
+    @property
+    def can_use_amp_tuner(self) -> bool:
+        """The connected device can switch its tuner on from here: a MINI or NEO, never one that is only listened to."""
+        return self.status == "connected" and self.profile.can(devices.TUNER) and self.profile.can_send
+
+    def want_amp_tuner(self, on: bool) -> None:
+        """Asks for the amp's tuner on or off. It is switched when connected and kept so after a reconnect."""
+        self.amp_tuner_wanted = on
+        if on:
+            self._tuner_off_tries = 0
+        self._reconcile_tuner()
+
+    def _reconcile_tuner(self) -> None:
+        """Switches the amp's tuner until it is as wanted: one message at a time, never two at once."""
+        if (self._tuner_task is not None and not self._tuner_task.done()) or not self.can_use_amp_tuner:
+            return
+        on = self.amp_tuner_wanted
+        if (self.is_amp_tuner_on if on else not (self.is_amp_tuner_on or self._amp_tuner_maybe_on)):
+            return
+        if not on and self._tuner_off_tries >= 3:
+            if self.trace:
+                self.trace("Das Stimmgerät des Verstärkers ist vielleicht noch an: Ausschalten blieb dreimal ohne Antwort.")
+            return
+
+        async def run():
+            await self._switch_tuner(on)
+            self._tuner_task = None
+            if self.status == "connected" and (self.amp_tuner_wanted != on or (not on and self._amp_tuner_maybe_on)):
+                self._reconcile_tuner()
+
+        self._tuner_task = asyncio.ensure_future(run())
+
+    async def _switch_tuner(self, on: bool) -> None:
+        try:
+            answered = await self._confirmed(lambda s: protocol.set_tuner(on, s), protocol.SUB_TUNER)
+        except (LinkError, NotConnected):
+            answered = False
+        if self.status != "connected":
+            return
+        if on:
+            # The amp may be on even without an answer, so it is switched off later in any case.
+            self._amp_tuner_maybe_on = True
+            self._set("is_amp_tuner_on", answered or _now() - self._last_tuner_reading < 1)
+            return
+        self._set("is_amp_tuner_on", False)
+        if answered:
+            self._amp_tuner_maybe_on = False
+            self._tuner_off_tries = 0
+            return
+        # The MINI once switched off without `04 65`. Readings that stop are an answer too.
+        self._tuner_off_tries += 1
+        await asyncio.sleep(1)
+        self._amp_tuner_maybe_on = _now() - self._last_tuner_reading < 0.8
+
+    async def switch_tuner_off_before_quitting(self, seconds: float = 1.5) -> None:
+        """Switches the amp's tuner off before the app ends, waiting at most `seconds` for it."""
+        self.amp_tuner_wanted = False
+        if not self.can_use_amp_tuner or not (self.is_amp_tuner_on or self._amp_tuner_maybe_on):
+            return
+        self._reconcile_tuner()
+        end = _now() + seconds
+        while _now() < end and (self.is_amp_tuner_on or self._amp_tuner_maybe_on
+                                or (self._tuner_task is not None and not self._tuner_task.done())):
+            await asyncio.sleep(0.05)
 
     # MARK: Actions
 

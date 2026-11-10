@@ -2,3 +2,5 @@
 PySide6-Essentials>=6.7
 bleak>=0.22
 pytest>=8
+# The tuner: FFT and dot products every 5 ms (spark_studio/pitch.py).
+numpy>=1.26
