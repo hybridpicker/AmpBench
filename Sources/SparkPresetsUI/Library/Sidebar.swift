@@ -423,7 +423,10 @@ struct ConnectionStatus: View {
         if let activity = link.activity { return activity }
         switch link.status {
         case .connected:
-            if !link.profile.canSend { return "verbunden · nur mitlesen, Studio sendet nichts" }
+            if !link.profile.canSend {
+                return link.profile.can(.liveSound) ? "verbunden · liest mit, Sound auf Wunsch"
+                                                    : "verbunden · nur mitlesen, Studio sendet nichts"
+            }
             return link.firmware.map { "Firmware \($0) · verbunden" } ?? "verbunden"
         case .searching, .connecting: return "Spark-App am Handy trennen"
         case .off: return "Die Spark-App am Handy kann ihn jetzt nutzen"

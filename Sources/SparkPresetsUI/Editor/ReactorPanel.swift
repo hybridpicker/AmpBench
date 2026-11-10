@@ -49,7 +49,8 @@ struct ReactorPanel: View {
                         .lineLimit(1)
                     HStack(spacing: 12) {
                         Lamp("Verbunden", tone: .on, isOn: link.status == .connected)
-                        Lamp("Nur mitlesen", tone: .amber, isOn: true)
+                        Lamp(link.profile.can(.liveSound) ? "Mitlesen · Sound auf Wunsch" : "Nur mitlesen", tone: .amber,
+                             isOn: true)
                     }
                     Text("Preset-Inhalt unbekannt. Angezeigt wird, was seit dem letzten Platzwechsel am Gerät gedreht oder gedrückt wurde.")
                         .font(.system(size: 11.5))
@@ -187,7 +188,9 @@ struct ReactorPanel: View {
     }
 
     private var footnote: String {
-        var text = "Spark Studio sendet nichts an den REACTOR, auch keine Leseanfrage. Volume, Power Control, Wah, EQ und FX-Loop meldet er nicht oder sind nicht geprüft."
+        var text = link.profile.can(.liveSound)
+            ? "Von sich aus sendet Spark Studio nichts an den REACTOR. Einen Sound stellst du so ein: links ein Preset auf dem Mac wählen, dann im Editor „⋯ → Auf den REACTOR spielen …“. Volume, Power Control, Wah, EQ und FX-Loop meldet er nicht oder sind nicht geprüft."
+            : "Spark Studio sendet nichts an den REACTOR, auch keine Leseanfrage. Volume, Power Control, Wah, EQ und FX-Loop meldet er nicht oder sind nicht geprüft."
         let unknown = state.unknown.values.reduce(0, +)
         if unknown > 0 {
             let kinds = state.unknown.keys.sorted().joined(separator: ", ")
