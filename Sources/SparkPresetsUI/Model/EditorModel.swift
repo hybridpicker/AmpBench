@@ -44,6 +44,9 @@ final class EditorModel: ObservableObject {
         link.onStrain = { [weak self] in self?.strained() }
     }
 
+    /// The slot the preset was opened from. A REACTOR hears changes only for the slot it plays.
+    private var sourceSlot: Int? { if case .slot(let slot) = source { slot } else { nil } }
+
     var preset: SparkPreset? { showsOriginal ? editor?.original : editor?.current }
     var isModified: Bool { editor?.isModified ?? false }
     var canUndo: Bool { editor?.canUndo ?? false }
@@ -136,7 +139,7 @@ final class EditorModel: ObservableObject {
     func toggleComparison() {
         guard let editor, editor.isModified || showsOriginal else { return }
         showsOriginal.toggle()
-        guard isLiveEnabled, link.can(.playTemporary) else { return }
+        guard isLiveEnabled, link.canEditLive(slot: sourceSlot) else { return }
         queue.push(.whole(showsOriginal ? editor.original : editor.current))
         runQueue()
     }
@@ -184,7 +187,7 @@ final class EditorModel: ObservableObject {
 
     private func send(_ changes: [LiveChange]) {
         // Only on a device checked for it: an unknown Spark only reads and switches, a REACTOR gets nothing.
-        guard !changes.isEmpty, isLiveEnabled, link.can(.playTemporary), link.can(.liveEdit), let editor else { return }
+        guard !changes.isEmpty, isLiveEnabled, link.canEditLive(slot: sourceSlot), let editor else { return }
         if link.isEditingLive || queue.items.contains(where: { if case .whole = $0 { true } else { false } }) {
             queue.push(changes)
         } else {

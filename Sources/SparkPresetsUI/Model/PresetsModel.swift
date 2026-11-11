@@ -534,6 +534,14 @@ final class PresetsModel: ObservableObject {
         let preset = request.preset
         run {
             let current = try await self.link.currentPreset(in: slot)
+            // A REACTOR's preset also goes to the Mac as its own bytes, which can be written back exactly.
+            if let raw = self.link.reactorPresets[safe: slot] ?? nil {
+                let stamp = Date().formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false)
+                    .timeSeparator(.omitted))
+                let file = self.library.folder.appendingPathComponent(
+                    "REACTOR \(self.link.profile.slotName(slot)) \(stamp).reactorpreset")
+                try Data(raw.data).write(to: file, options: .atomic)
+            }
             if self.library.existing(current) == nil {
                 _ = try self.library.save(current, origin: tr("%@, before overwriting", self.origin(slot: slot)),
                                           isBackup: true)

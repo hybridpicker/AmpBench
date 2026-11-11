@@ -12,6 +12,10 @@ final class DeviceProfileTests: XCTestCase {
         XCTAssertEqual(DeviceProfile.reactor50.checkedFirmware, "0.1.4.85", "read on 2026-11-10")
         XCTAssertTrue(DeviceProfile.reactor50.can(.liveSound))
         XCTAssertFalse(DeviceProfile.reactor50.canSend, "a ReactorSound only: no preset, no request")
+        for capability: DeviceProfile.Capabilities in [.switchSlot, .liveEdit, .store] {
+            XCTAssertTrue(DeviceProfile.reactor50.can(capability), "checked on 2026-11-11")
+            XCTAssertFalse(DeviceProfile.reactor100.can(capability), "never checked")
+        }
         XCTAssertEqual(DeviceProfile.reactor100.slotCount, 8)
         XCTAssertFalse(DeviceProfile.reactor100.can(.liveSound), "never checked, so only listened to")
         XCTAssertNil(DeviceProfile.reactor100.checkedFirmware)
@@ -32,8 +36,7 @@ final class DeviceProfileTests: XCTestCase {
         for profile in [DeviceProfile.reactor50, .reactor100] {
             XCTAssertTrue(profile.can(.listen))
             XCTAssertFalse(profile.canSend)
-            for capability: DeviceProfile.Capabilities in [.read, .switchSlot, .playTemporary, .liveEdit, .store,
-                                                           .modelChange] {
+            for capability: DeviceProfile.Capabilities in [.read, .playTemporary, .modelChange, .send] {
                 XCTAssertFalse(profile.can(capability), "\(profile.displayName) \(capability)")
             }
             XCTAssertTrue(profile.can(.usbAudio))

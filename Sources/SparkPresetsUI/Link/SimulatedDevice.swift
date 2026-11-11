@@ -94,9 +94,14 @@ final class SimulatedDevice: LinkTransport {
         guard let connected else { throw LinkError.notConnected }
         written[connected, default: []] += blocks
         guard !ignoresRequests else { return }
-        // A REACTOR answers the two read requests it was heard answering, and nothing else.
+        // A REACTOR answers the two read requests and the slot switch it was heard answering, and nothing else.
         if connectedKind == .reactor {
             for block in blocks {
+                // Every chunk of a preset is acknowledged by itself, as heard on 2026-11-11.
+                if block.count > 6, block[0] == 0xF0, block[4] == SparkProtocol.Command.set,
+                   block[5] == SparkProtocol.Sub.preset {
+                    reply(SparkProtocol.Command.acknowledge, SparkProtocol.Sub.preset, [])
+                }
                 for message in parser.feed(block) { answerAsReactor(message) }
             }
             return
@@ -157,10 +162,38 @@ final class SimulatedDevice: LinkTransport {
         }
     }
 
+    /// Effects a REACTOR was asked to switch, in order.
+    private(set) var switches: [(String, Bool)] = []
     /// The REACTOR's stored presets, in its own format, by slot. Empty: it stays silent like an unread device.
     var reactorPresets: [Int: [UInt8]] = [:]
 
     private func answerAsReactor(_ message: SparkProtocol.Message) {
+        // The slot switch, acknowledged with `04 38` on 2026-11-11.
+        if message.command == SparkProtocol.Command.set, message.sub == SparkProtocol.Sub.hardwarePreset,
+           message.payload.count >= 2, message.payload[0] == 0, message.payload[1] < 8 {
+            active = Int(message.payload[1])
+            reply(SparkProtocol.Command.acknowledge, SparkProtocol.Sub.hardwarePreset, [])
+            return
+        }
+        if message.command == SparkProtocol.Command.set {
+            switch message.sub {
+            case SparkProtocol.Sub.preset:
+                // Its own preset, stored in the slot its second byte names.
+                let data = ReactorPreset.joined(message.payload)
+                if data.count > 2, data[0] == 0, data[1] < 8 { reactorPresets[Int(data[1])] = data }
+            case SparkProtocol.Sub.parameter:
+                if let change = Self.parameterChange(message.payload) { parameters.append(change) }
+            case SparkProtocol.Sub.effectOnOff:
+                let payload = message.payload
+                if let length = payload.first.map(Int.init), payload.count > 2 + length {
+                    switches.append((String(decoding: payload[2..<(2 + length)], as: UTF8.self), payload[2 + length] == 0xC3))
+                }
+                reply(SparkProtocol.Command.acknowledge, message.sub, [])
+            default:
+                break
+            }
+            return
+        }
         guard message.command == SparkProtocol.Command.get else { return }
         switch message.sub {
         case SparkProtocol.Sub.presetNumber:

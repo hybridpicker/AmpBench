@@ -176,6 +176,9 @@ public struct ReactorState: Equatable, Sendable {
         Effect(model: model, place: ModelCatalog.known(model).map { $0.place.rawValue }.flatMap { $0 == 3 ? nil : $0 })
     }
 
+    /// The slot was switched from here and the device acknowledged it: the same as its own preset key.
+    public mutating func switched(to slot: Int) { switchSlot(to: slot) }
+
     private mutating func switchSlot(to new: Int) {
         // The preset key reports the same slot twice; that is no change.
         if new != slot {

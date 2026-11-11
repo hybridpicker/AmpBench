@@ -10,9 +10,8 @@ struct EditorView: View {
     @EnvironmentObject private var link: SparkLink
 
     var body: some View {
-        // A device that is only listened to shows what it reports. A preset from the Mac still opens in the editor,
-        // for "Copy text for REACTOR"; nothing of it goes to the device.
-        if link.status == .connected, !link.profile.canSend, editor.preset == nil || model.selectedSlot != nil {
+        // A REACTOR shows what it reports as long as no preset is open. Its slots open in the editor like a Spark's.
+        if link.status == .connected, !link.profile.canSend, editor.preset == nil {
             ReactorPanel()
         } else if let preset = editor.preset {
             VStack(spacing: 0) {

@@ -281,7 +281,7 @@ window or quitting erases the buffer.
 |---|---|---|
 | Spark MINI | everything above | firmware 1.11.2.75 |
 | Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
-| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" sets amp, gain, tone and effects with single live commands. No preset is written or stored | presets read and seen, live commands heard by the owner, 2026-11-10 |
+| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); a click on a slot switches the amp to it and opens it in the editor: amp knobs, effects on/off and effect knobs are heard live where the model's name is known, and "Store" writes the preset back in the REACTOR's own format and reads it back; shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" sets amp, gain, tone and effects of a Spark preset with single live commands. Models cannot be exchanged yet; wah, equalizer and FX loop stay as stored; never a Spark preset | presets read and seen, live commands heard by the owner, 2026-11-10; slot switch, store and read back checked with the probe on the amp, 2026-11-11; editing from the app not yet tried on the amp |
 | REACTOR 100 | listens only, sends nothing | not checked |
 | any other Spark | reads and switches slots, nothing more, until checked | – |
 

@@ -526,6 +526,28 @@ The way up to here, every step with the owner's consent:
    of `.send` for this; the test "writes nothing" still holds for everything else. Never a Spark preset to the
    REACTOR.
    Seen on the device (2026-11-10, the owner's picture): all eight names with amp and effects, Green 3 as playing.
+   **Checked on 2026-11-11 with the owner at the device** (`spark-probe script`, several messages per connection):
+   - **Slot switch** `01 38 00 <slot>` → `04 38`. A slot change discards unsaved live changes.
+   - **The playing preset** (`02 01 01 00`) comes in the same format with `01 00` in front and shows live changes at
+     once. That gave the names: set a marked value on parameter 0 by name, read back, see which block changed.
+     `0309` bias.noisegate, `0416` BBEOpticalComp, `0422` DistortionTS9, `0431` JH.SupaFuzz, `0419` ChorusCloner,
+     `0418` Tremolo, `042E` TremoloSquare, `041A` Flanger, `040F` ChorusAnalog, `0410` DelayEchoFilt, `0411` MonoReverb.
+     Held FX keys reported, and marked values confirmed: `040A` SustainComp, `042A` RedComp, `042B` 4kComp, `0420`
+     KlonCentaur, `040B` RCBooster; guessed and confirmed: `0426` DelayDM2. Still without a name: `0432`, `0425` (delays),
+     `040C` (wah), `040D` (one value, probably the amp's place in the chain), `042C` (equalizer), `0412` (FX loop). The
+     REACTOR reports a model's name only when its FX key is held or FX Level is turned on the device.
+   - **Amp knobs:** gain = `0502` value 0 (Amp.Preamp 0), `0503` values 0–3 = Amp.Tonestack 0–3 (1 bass, 2 middle,
+     3 treble), master = `0505` value 0 (Amp.Poweramp 0).
+   - **Storing:** `01 01` without block header, the preset's bytes (`00 <slot>` … checksum) in chunks of 350 with the
+     four-byte header (count, number, length in 16 bits). Every chunk is acknowledged with `04 01`, then
+     `03 1A 91 00 <slot> C2` comes. Tried on Green 4: unchanged (read back the same), tempo 121 (stayed after a slot
+     change), original back. Bytes written with `01 00` in front are acknowledged but change nothing: there is no
+     known way to play a preset without storing it. All eight slots were the same as the backup afterwards.
+   - **In the app** (`ReactorBridge`, `ReactorPreset.rewritten`, `SparkLink.storeOnReactor`): a slot opens in the editor
+     as the seven places; live changes go by name (`01 04`, `01 15`) for the slot that plays; storing rewrites only
+     the changed values in the bytes that were read, so an unchanged preset is written byte for byte. Models are not
+     exchanged, wah, equalizer and FX loop stay as stored, a Spark preset is refused. Not yet tried from the app on
+     the device.
 4. Next: interpret the blocks (`05 03`, the effect ids), so that
    a REACTOR slot appears in the same editor as a Spark slot; then write a preset back unchanged, with a
    backup; then own sounds.

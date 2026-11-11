@@ -49,6 +49,8 @@ let usage = """
       read-slot <0-7> <file>
                       send exactly one read request for a stored slot and write the preset that comes back to
                       the file as it came. Reads only
+      script <file>   connect once and send the messages of a script one after the other, printing what comes
+                      back; see Sources/SparkProbe/Script.swift. Only with the owner's okay for the whole script
       listen <secs>   find a Spark (FFC0) or REACTOR (FFD0), subscribe to FFC2 only and send nothing, then sum up
                       what came: per parameter count, range, first and last value; other messages with times
 
@@ -174,6 +176,13 @@ if arguments.first == "read-slot" {
     Task { @MainActor in
         exit(await AskLink(slot: slot, save: URL(fileURLWithPath: arguments[2]), seconds: 4, header: header,
                            device: device).run() ? 0 : 1)
+    }
+    dispatchMain()
+}
+if arguments.first == "script" {
+    guard arguments.count == 2, let text = try? String(contentsOfFile: arguments[1], encoding: .utf8) else { fail(usage) }
+    Task { @MainActor in
+        exit(await ScriptLink(lines: text.components(separatedBy: .newlines), header: header, device: device).run() ? 0 : 1)
     }
     dispatchMain()
 }

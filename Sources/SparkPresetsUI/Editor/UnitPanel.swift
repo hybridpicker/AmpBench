@@ -96,7 +96,8 @@ private struct ModelPicker: View {
     @EnvironmentObject private var editor: EditorModel
 
     var body: some View {
-        if ModelCatalog.models(for: place).count < 2 {
+        // A REACTOR's models cannot be exchanged from here yet.
+        if ModelCatalog.models(for: place).count < 2 || editor.preset.map(ReactorBridge.isReactor) == true {
             Text(current.name)
                 .font(Theme.Fonts.title(22))
                 .foregroundStyle(Theme.device.amber)

@@ -4,8 +4,8 @@ import Foundation
 /// A preset as a REACTOR stores it, read from its answer to `02 01 00 <slot>`. Its own format, not a Spark preset:
 /// MessagePack with the slot, the preset's and the amp's name cards, the tempo, six fixed blocks for amp and
 /// equalizer and ten effect blocks, each `C4 02 <id> <on> <values>`, and a checksum of four bytes at the end
-/// (`checksum(of:)`). Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). Read only: AmpBench
-/// cannot build one.
+/// (`checksum(of:)`). Worked out on 2026-11-10 from the eight slots of a REACTOR 50 (docs/STUDIO.md). AmpBench builds
+/// none from scratch; `rewritten` changes values in the bytes of one that was read.
 public struct ReactorPreset: Equatable, Sendable {
     /// Name, version, description, picture and tags, as both the preset and its amp carry them.
     public struct Card: Equatable, Sendable {
@@ -38,6 +38,8 @@ public struct ReactorPreset: Equatable, Sendable {
     public var trailer: [UInt8]
     /// False when the checksum at the end does not fit the content. The preset is still shown.
     public var checksumOK: Bool
+    /// The preset's own bytes as they came, from `00 <slot>` to the checksum. `rewritten` changes them in place.
+    public var data: [UInt8]
 
     /// The REACTOR's checksum: CRC-32/MPEG-2 (polynomial 04C11DB7, start FFFFFFFF, not reflected, no final XOR), high
     /// byte first, over the preset's bytes after the two bytes `00 <slot>` and before the checksum itself. Found on
@@ -89,6 +91,7 @@ public struct ReactorPreset: Equatable, Sendable {
 
     /// Reads the preset's own bytes.
     public init(data: [UInt8]) throws {
+        self.data = data
         var reader = Reader(data)
         guard try reader.byte() == 0 else { throw Unreadable(text: tr("no slot at the start")) }
         slot = Int(try reader.byte())
@@ -105,7 +108,7 @@ public struct ReactorPreset: Equatable, Sendable {
     /// Just enough MessagePack for a REACTOR preset.
     struct Reader {
         private let data: [UInt8]
-        private var index = 0
+        private(set) var index = 0
 
         init(_ data: [UInt8]) { self.data = data }
 
@@ -142,7 +145,7 @@ public struct ReactorPreset: Equatable, Sendable {
             return String(decoding: try bytes(count), as: UTF8.self)
         }
 
-        private mutating func count() throws -> Int {
+        mutating func count() throws -> Int {
             let type = try byte()
             switch type {
             case 0x90...0x9F: return Int(type & 0x0F)

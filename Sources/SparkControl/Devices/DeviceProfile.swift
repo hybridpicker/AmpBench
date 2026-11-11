@@ -167,16 +167,19 @@ public extension DeviceProfile {
 
     /// Checked listen-only on 2026-11-09. On 2026-11-10, with the owner at the device, it answered read requests and
     /// took single live commands, heard by the owner: gain and bass (`01 04`), reverb on and off (`01 15`), reverb
-    /// level, and the amp selector (`01 B1`). So it takes a `ReactorSound`, and still nothing else: no `send`.
+    /// level, and the amp selector (`01 B1`). So it takes a `ReactorSound`. On 2026-11-11 it acknowledged a slot switch
+    /// (`01 38 00 <slot>` → `04 38`), took its own preset back with `01 01` and stored it, read back the same. So its
+    /// slots are switched, edited live by the names it takes and stored, all in its own preset format (`ReactorPreset`,
+    /// `ReactorBridge`). Still no `send`: it never gets a Spark preset or anything not checked on it.
     static let reactor50 = DeviceProfile(
         id: .reactor50, displayName: "REACTOR 50", bleService: reactorService, bleNamePrefixes: ["Reactor 50"],
         ampNames: [], slotCount: 8, bankSize: 4, englishBankNames: ["Red", "Green"], transport: .sparkBLE,
         capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound,
-                       .reactorPresets],
+                       .reactorPresets, .switchSlot, .liveEdit, .store],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "0.1.4.85",
         // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
         usbAudioNames: [],
-        englishChecked: "Read along: knobs, amp choice, Push/Smooth, Heat, effects, TAP, preset, bank and tuner. Sent and heard (2026-11-10): gain, bass, reverb on/off and level, amp choice. No preset.")
+        englishChecked: "Read along: knobs, amp choice, Push/Smooth, Heat, effects, TAP, preset, bank and tuner. Sent and heard (2026-11-10): gain, bass, reverb on/off and level, amp choice. Switching slots, storing its own presets and reading them back (2026-11-11). Never a Spark preset.")
 
     /// Like the REACTOR 50, but never checked.
     static let reactor100: DeviceProfile = {
@@ -185,7 +188,7 @@ public extension DeviceProfile {
         profile.displayName = "REACTOR 100"
         profile.bleNamePrefixes = ["Reactor 100"]
         // Never checked: it is only listened to, whatever the 50 takes.
-        profile.capabilities.remove([.liveSound, .reactorPresets])
+        profile.capabilities.remove([.liveSound, .reactorPresets, .switchSlot, .liveEdit, .store])
         profile.checkedFirmware = nil
         profile.englishChecked = "Not checked. Treated like the REACTOR 50: read only, send nothing."
         return profile

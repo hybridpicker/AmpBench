@@ -430,6 +430,7 @@ struct ConnectionStatus: View {
         switch link.status {
         case .connected:
             if !link.profile.canSend {
+                if link.profile.can(.store) { return tr("connected") }
                 return link.profile.can(.liveSound) ? tr("connected · reading along, sound on request")
                                                     : tr("connected · read only, AmpBench sends nothing")
             }

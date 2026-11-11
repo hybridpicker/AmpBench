@@ -120,6 +120,8 @@ final class SparkLink: NSObject, ObservableObject {
     @Published private(set) var reactor = ReactorState()
     /// The presets of a REACTOR's slots as read after connecting, nil where not read (yet).
     @Published private(set) var reactorPresets: [ReactorPreset?] = []
+    /// What the REACTOR plays now as far as the app knows: the stored slot plus the live changes sent since.
+    private var reactorPlaying: SparkPreset?
     /// Devices found in this session and devices connected before, for the device choice.
     @Published private(set) var devices: [DeviceEntry] = []
     /// What the link is doing, for the status line.
@@ -205,6 +207,15 @@ final class SparkLink: NSObject, ObservableObject {
 
     func can(_ capability: DeviceProfile.Capabilities) -> Bool {
         status == .connected && profile.can(capability)
+    }
+
+    /// True when changes in the editor can be heard at once. A Spark plays them on its temporary place; a REACTOR
+    /// takes them only for the slot it plays, `slot`.
+    func canEditLive(slot: Int?) -> Bool {
+        guard status == .connected else { return false }
+        if profile.canSend { return profile.can(.playTemporary) && profile.can(.liveEdit) }
+        guard profile.can(.liveEdit), let slot, slot == activeSlot else { return false }
+        return (slots[safe: slot] ?? nil) != nil
     }
 
     func start() {
@@ -578,7 +589,16 @@ final class SparkLink: NSObject, ObservableObject {
         guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
         activity = tr("Switching to %@ …", profile.slotName(slot))
         defer { activity = nil }
-        try await switchTo(UInt8(slot))
+        if profile.canSend {
+            try await switchTo(UInt8(slot))
+        } else {
+            // A REACTOR: the one set message it acknowledges with `04 38`, like its own preset key.
+            _ = try await askReactor({ SparkProtocol.changeHardwarePreset(slot: UInt8(slot), sequence: $0) },
+                                     answer: SparkProtocol.Sub.hardwarePreset,
+                                     command: SparkProtocol.Command.acknowledge, needs: .switchSlot)
+            reactor.switched(to: slot)
+            reactorPlaying = slots[safe: slot] ?? nil
+        }
         activeSlot = slot
         tryingOut = nil
         isEditingLive = false
@@ -600,6 +620,7 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Plays the editor's preset on the temporary place. Changes after it are heard at once.
     func playForEditing(_ preset: SparkPreset) async throws {
+        if status == .connected, !profile.canSend { return try await playOnReactor(preset) }
         try require(.playTemporary)
         activity = tr("Sending “%@” for editing …", preset.name)
         defer { activity = nil }
@@ -614,6 +635,16 @@ final class SparkLink: NSObject, ObservableObject {
     /// got no answer, so the caller can check what plays. No device checked so far confirms a parameter (`04 04`),
     /// so a parameter is never waited for; reading back after a pause shows whether it arrived.
     func apply(_ change: LiveChange) async throws -> Bool {
+        if status == .connected, !profile.canSend {
+            if case .whole(let preset) = change {
+                try await playOnReactor(preset)
+            } else {
+                try require(.liveEdit)
+                guard isEditingLive else { throw LinkError.notSupported(profile.displayName) }
+                try await sendToReactor(change)
+            }
+            return true
+        }
         switch change {
         case .parameter(let effect, let index, let value):
             try require(.liveEdit)
@@ -646,6 +677,7 @@ final class SparkLink: NSObject, ObservableObject {
         guard profile.slots.contains(slot) else { throw LinkError.notSupported(profile.displayName) }
         activity = tr("Storing “%@” on %@ …", preset.name, profile.slotName(slot))
         defer { activity = nil }
+        if !profile.canSend { return try await storeOnReactor(preset, in: slot) }
         try await send(preset, to: .slot(UInt8(slot)))
         try await switchTo(UInt8(slot))
         activeSlot = slot
@@ -663,6 +695,12 @@ final class SparkLink: NSObject, ObservableObject {
 
     /// Reads a slot fresh from the amp, for a backup that must match what is really stored.
     func currentPreset(in slot: Int) async throws -> SparkPreset {
+        if status == .connected, !profile.canSend {
+            try require(.store)
+            let read = try await readReactor(slot: slot)
+            guard let preset = slots[safe: slot] ?? nil else { throw LinkError.unreadable(read.name) }
+            return preset
+        }
         let preset = try await readPreset(.slot(UInt8(slot)))
         slots[slot] = preset
         return preset
@@ -793,22 +831,27 @@ final class SparkLink: NSObject, ObservableObject {
         reactor.apply(message)
         guard reactor.slot != before, let slot = reactor.slot else { return }
         activeSlot = slot
+        isEditingLive = false
+        reactorPlaying = slots[safe: slot] ?? nil
+        onAmpSelected?(slot)
         let place = profile.slotName(slot)
         onAmpEvent?((reactorPresets[safe: slot] ?? nil).map { tr("Chosen on the %@: %@ “%@”", profile.displayName, place, $0.name) }
                     ?? tr("Chosen on the %@: %@. The content of the preset is unknown.", profile.displayName, place))
     }
 
-    /// One read request to a REACTOR and its answer. Only for a profile with `reactorPresets`; it has no `send`, so
-    /// this and `play(_:)` are the only ways anything reaches it.
-    private func askReactor(_ build: @escaping (UInt8) -> [UInt8], answer sub: UInt8) async throws -> SparkProtocol.Message {
+    /// One message to a REACTOR and its answer: a read request, or the slot switch. Only for a profile with the
+    /// capability named; it has no `send`, so this and `play(_:)` are the only ways anything reaches it.
+    private func askReactor(_ build: @escaping (UInt8) -> [UInt8], answer sub: UInt8,
+                            command: UInt8 = SparkProtocol.Command.response,
+                            needs capability: DeviceProfile.Capabilities = .reactorPresets) async throws -> SparkProtocol.Message {
         try await serial { [self] in
             try await Task.sleep(for: gap)
             guard status == .connected else { throw LinkError.notConnected }
-            guard profile.can(.reactorPresets), !profile.canSend else { throw LinkError.notSupported(profile.displayName) }
+            guard profile.can(capability), !profile.canSend else { throw LinkError.notSupported(profile.displayName) }
             sequence = (sequence + 1) & 0x7F
             let bytes = build(sequence)
             return try await withCheckedThrowingContinuation { continuation in
-                waiting = (sub, [SparkProtocol.Command.response], 0, continuation)
+                waiting = (sub, [command], 0, continuation)
                 armTimeout()
                 do {
                     trace?("→ REACTOR " + Self.describe([bytes]))
@@ -833,6 +876,8 @@ final class SparkLink: NSObject, ObservableObject {
                 let preset = try ReactorPreset(payload: message.payload)
                 guard reactorPresets.indices.contains(slot) else { return }
                 reactorPresets[slot] = preset
+                // The same seven places as a Spark's preset, so it opens in the same editor.
+                if slots.indices.contains(slot) { slots[slot] = ReactorBridge.sparkPreset(preset) }
             } catch {
                 Self.linkLog.error("REACTOR slot \(slot) not read: \(error.localizedDescription, privacy: .public)")
                 return
@@ -842,7 +887,104 @@ final class SparkLink: NSObject, ObservableObject {
                                                answer: SparkProtocol.Sub.presetNumber),
            message.payload.count >= 2, Int(message.payload[1]) < profile.slotCount {
             activeSlot = Int(message.payload[1])
+            reactorPlaying = slots[safe: Int(message.payload[1])] ?? nil
         }
+    }
+
+    // MARK: Editing and storing on a REACTOR
+
+    /// Reads one stored preset fresh and takes it over.
+    private func readReactor(slot: Int) async throws -> ReactorPreset {
+        let message = try await askReactor({ SparkProtocol.getPreset(slot: UInt8(slot), sequence: $0) },
+                                           answer: SparkProtocol.Sub.preset)
+        let preset: ReactorPreset
+        do {
+            preset = try ReactorPreset(payload: message.payload)
+        } catch {
+            throw LinkError.unreadable(error.localizedDescription)
+        }
+        if reactorPresets.indices.contains(slot) { reactorPresets[slot] = preset }
+        if slots.indices.contains(slot) { slots[slot] = ReactorBridge.sparkPreset(preset) }
+        return preset
+    }
+
+    /// Brings the slot the REACTOR plays to the editor's state: only what differs from what it plays goes out, one
+    /// live command each. Nothing is stored.
+    private func playOnReactor(_ preset: SparkPreset) async throws {
+        try require(.liveEdit)
+        guard ReactorBridge.isReactor(preset), let slot = activeSlot,
+              var playing = reactorPlaying ?? slots[safe: slot] ?? nil, playing.uuid == preset.uuid else {
+            throw LinkError.notSupported(profile.displayName)
+        }
+        // Name and tempo have no live command; they go with storing.
+        playing.name = preset.name
+        playing.description = preset.description
+        playing.bpm = preset.bpm
+        isEditingLive = true
+        tryingOut = nil
+        for change in LiveChange.between(playing, preset) { try await sendToReactor(change) }
+        reactorPlaying = preset
+    }
+
+    /// One live change by the name the REACTOR takes. A change it has no command for is kept for storing only.
+    private func sendToReactor(_ change: LiveChange) async throws {
+        switch change {
+        case .parameter(let effect, let index, let value):
+            if let at = reactorPlaying?.effects.firstIndex(where: { $0.name == effect }),
+               let parameter = reactorPlaying?.effects[at].parameters.firstIndex(where: { $0.index == index }) {
+                reactorPlaying?.effects[at].parameters[parameter].value = value
+            }
+        case .toggle(let effect, let isOn):
+            if let at = reactorPlaying?.effects.firstIndex(where: { $0.name == effect }) {
+                reactorPlaying?.effects[at].isOn = isOn
+            }
+        case .model, .whole:
+            return
+        }
+        guard let live = ReactorBridge.live(change) else { return }
+        switch live {
+        case .parameter(let name, let index, let value):
+            guard let value = AmpGuard.value(value) else { throw LinkError.refused([tr("The value is not a number.")]) }
+            try await serial { [self] in
+                guard status == .connected else { throw LinkError.notConnected }
+                sequence = (sequence + 1) & 0x7F
+                let bytes = SparkProtocol.setParameter(effect: name, index: index, value: value, sequence: sequence)
+                trace?("→ REACTOR " + Self.describe([bytes]))
+                try transport.write([bytes])
+                try await Task.sleep(for: LivePacing.parameterGap)
+            }
+        case .toggle(let name, let isOn):
+            // Acknowledged with `04 15`; when none comes the switch is not repeated.
+            _ = try? await askReactor({ SparkProtocol.setEffect(name, on: isOn, sequence: $0) },
+                                      answer: SparkProtocol.Sub.effectOnOff,
+                                      command: SparkProtocol.Command.acknowledge, needs: .liveEdit)
+            guard status == .connected else { throw LinkError.notConnected }
+        }
+    }
+
+    /// Stores an edited REACTOR preset in a slot: the bytes it was read as, with the edited values, in chunks the
+    /// REACTOR acknowledges one by one. Then the slot is played and read back, and must hold exactly what was sent.
+    private func storeOnReactor(_ preset: SparkPreset, in slot: Int) async throws {
+        guard let base = ReactorBridge.base(for: preset, in: reactorPresets, preferring: slot) else {
+            throw LinkError.refused([tr("Only a preset read from the REACTOR can be stored on it.")])
+        }
+        let data: [UInt8]
+        do {
+            data = try ReactorBridge.data(for: preset, base: base, slot: slot)
+        } catch {
+            throw LinkError.refused([error.localizedDescription])
+        }
+        let count = ReactorPreset.storeFrames(data, sequence: 0).count
+        for number in 0..<count {
+            _ = try await askReactor({ ReactorPreset.storeFrames(data, sequence: $0)[number] },
+                                     answer: SparkProtocol.Sub.preset,
+                                     command: SparkProtocol.Command.acknowledge, needs: .store)
+        }
+        try await select(slot: slot)
+        activity = tr("Checking %@ …", profile.slotName(slot))
+        let stored = try await readReactor(slot: slot)
+        reactorPlaying = slots[safe: slot] ?? nil
+        guard stored.data == data else { throw LinkError.verifyFailed(preset.name) }
     }
 
     private func didConnect() {
@@ -870,6 +1012,7 @@ final class SparkLink: NSObject, ObservableObject {
         let name = shownName
         failWaiting(LinkError.notConnected)
         reactorPresets = []
+        reactorPlaying = nil
         connectedID = nil
         connecting = nil
         parser = SparkProtocol.Parser()

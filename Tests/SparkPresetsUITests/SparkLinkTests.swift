@@ -164,7 +164,7 @@ final class SparkLinkTests: XCTestCase {
         await link.loadAll()
         await link.refresh(slot: 0)
         for attempt in [
-            { try await link.select(slot: 1) },
+            { try await link.select(slot: 8) },
             { try await link.tryOut(PresetFactory.empty()) },
             { try await link.playForEditing(PresetFactory.empty()) },
             { try await link.store(PresetFactory.empty(), in: 0) },
@@ -197,6 +197,104 @@ final class SparkLinkTests: XCTestCase {
         let parser = SparkProtocol.Parser()
         return (device.written[device.id(.reactor)] ?? []).flatMap { parser.feed($0) }
             .map { String(format: "%02X %02X", $0.command, $0.sub) }
+    }
+
+    func testTheREACTORSwitchesToASlot() async throws {
+        let (device, link) = make([.reactor])
+        for slot in 0..<8 {
+            device.reactorPresets[slot] = ReactorFixture.preset(slot: slot, name: "Sound \(slot + 1)", amp: "Twin Clean",
+                                                                effectsOn: slot)
+        }
+        link.start()
+        let read = await until { link.reactorPresets.count == 8 && link.reactorPresets.allSatisfy { $0 != nil } }
+        XCTAssertTrue(read)
+        device.report(ReactorState.ampSelector, [3, 7])
+        let heard = await until { link.reactor.ampName == "Crunch" }
+        XCTAssertTrue(heard)
+
+        try await link.select(slot: 5)
+        XCTAssertEqual(device.active, 5)
+        XCTAssertEqual(link.activeSlot, 5)
+        XCTAssertEqual(link.reactor.slot, 5)
+        XCTAssertNil(link.reactor.ampName, "what was heard belonged to the slot before")
+        XCTAssertEqual(reactorRequests(device).last, "01 38")
+        XCTAssertEqual(reactorRequests(device).filter { $0 == "01 38" }.count, 1)
+    }
+
+    /// A REACTOR with eight presets of models as on a real one.
+    private func reactorWithPresets() async -> (SimulatedDevice, SparkLink) {
+        let (device, link) = make([.reactor])
+        for slot in 0..<8 { device.reactorPresets[slot] = ReactorChainFixture.preset(slot: slot, name: "Sound \(slot + 1)") }
+        device.active = 1
+        link.start()
+        let read = await until { link.slots.count == 8 && link.slots.allSatisfy { $0 != nil } && link.activeSlot == 1 }
+        XCTAssertTrue(read)
+        return (device, link)
+    }
+
+    func testAREACTORSlotIsEditedLiveByTheNamesItTakes() async throws {
+        let (device, link) = await reactorWithPresets()
+        let stored = try XCTUnwrap(link.slots[1])
+        XCTAssertEqual(stored.effects.count, 7)
+        XCTAssertTrue(link.canEditLive(slot: 1))
+        XCTAssertFalse(link.canEditLive(slot: 2), "only the slot that plays")
+        XCTAssertFalse(link.canEditLive(slot: nil))
+
+        var editor = PresetEditor(stored)
+        _ = editor.setParameter(place: ChainPlace.amp.rawValue, index: 1, value: 0.25)
+        // The first change: the whole state, of which only the difference goes out.
+        try await link.playForEditing(editor.current)
+        XCTAssertTrue(link.isEditingLive)
+        XCTAssertEqual(link.activeSlot, 1)
+        for change in editor.setParameter(place: ChainPlace.reverb.rawValue, index: 0, value: 0.5)
+            + editor.setOn(place: ChainPlace.drive.rawValue, true)
+            + editor.setParameter(place: ChainPlace.delay.rawValue, index: 0, value: 0.9) {
+            let applied = try await link.apply(change)
+            XCTAssertTrue(applied)
+        }
+        let arrived = await until { device.parameters.count == 2 && device.switches.count == 1 }
+        XCTAssertTrue(arrived)
+        XCTAssertEqual(device.parameters.map { "\($0.0) \($0.1) \($0.2)" }, ["Amp.Tonestack 1 0.25", "MonoReverb 0 0.5"],
+                       "the delay's model has no known name: stored only")
+        XCTAssertEqual(device.switches.map { "\($0.0) \($0.1)" }, ["DistortionTS9 true"])
+        XCTAssertEqual(device.reactorPresets[1], ReactorChainFixture.preset(slot: 1, name: "Sound 2"), "nothing stored")
+
+        // Comparing with the stored state sends back only what differs.
+        try await link.playForEditing(stored)
+        let back = await until { device.parameters.count == 4 && device.switches.count == 2 }
+        XCTAssertTrue(back)
+        XCTAssertEqual(device.switches.last.map { "\($0.0) \($0.1)" }, "DistortionTS9 false")
+    }
+
+    func testAnEditedREACTORPresetIsStoredAndReadBack() async throws {
+        let (device, link) = await reactorWithPresets()
+        var editor = PresetEditor(try XCTUnwrap(link.slots[1]))
+        _ = editor.setParameter(place: ChainPlace.delay.rawValue, index: 0, value: 0.75)
+        _ = editor.setOn(place: ChainPlace.modulation.rawValue, true)
+        editor.setName("Sound 2b")
+
+        let before = try await link.currentPreset(in: 5)
+        XCTAssertEqual(before.name, "Sound 6")
+        try await link.store(editor.current, in: 5)
+        let stored = try ReactorPreset(data: try XCTUnwrap(device.reactorPresets[5]))
+        XCTAssertTrue(stored.checksumOK)
+        XCTAssertEqual(stored.slot, 5)
+        XCTAssertEqual(stored.name, "Sound 2b")
+        XCTAssertEqual(stored.effects.first { $0.id == 0x0432 }?.values[0], 0.75)
+        XCTAssertEqual(stored.effects.first { $0.id == 0x0419 }?.isOn, true)
+        XCTAssertEqual(device.active, 5)
+        XCTAssertEqual(link.activeSlot, 5)
+        XCTAssertEqual(link.slots[5], editor.current)
+        XCTAssertEqual(link.reactorPresets[5]?.name, "Sound 2b")
+        XCTAssertFalse(link.isEditingLive)
+        XCTAssertEqual(device.reactorPresets[1], ReactorChainFixture.preset(slot: 1, name: "Sound 2"), "the source stays")
+
+        // A Spark preset never goes to a REACTOR.
+        do {
+            try await link.store(PresetFactory.empty(), in: 0)
+            XCTFail("stored a Spark preset on a REACTOR")
+        } catch {}
+        XCTAssertEqual(device.reactorPresets[0], ReactorChainFixture.preset(slot: 0, name: "Sound 1"))
     }
 
     func testTheREACTORsPresetsAreReadAfterConnecting() async {
@@ -357,6 +455,30 @@ enum ReactorFixture {
         data += [0xCA, 0x42, 0xF0, 0x00, 0x00] + card(amp, icon: "f_amp_Test.png", tags: [])
         data += [0x96] + fixed.flatMap { id, count in block(id, on: true, (0..<count).map { $0 % 3 == 0 ? 0 : 0.5 }) }
         data += [0x9A] + (0..<10).flatMap { block(0x0409 + UInt16($0), on: $0 < effectsOn, [0.25, 1, 0]) }
+        return data + ReactorPreset.checksum(of: data.dropFirst(2))
+    }
+}
+
+/// A REACTOR preset with the effect models seen on a REACTOR 50, built from scratch, never a real one.
+enum ReactorChainFixture {
+    static let effects: [(UInt16, Bool, [Float])] = [
+        (0x0309, true, [0.375, 0.9, 1]), (0x0416, false, [0.72, 0.56, 0]), (0x0422, false, [0.558, 0, 0.905]),
+        (0x040C, false, [0.5, 0, 0.5, 0.5, 0.5, 0.5]), (0x040D, true, [7]),
+        (0x042C, true, [0.9, 0.45, 0.48, 0.5, 0.55, 0.57, 0.52, 0.46]), (0x0419, false, [0.3, 0]),
+        (0x0432, false, [0.48, 0.38, 0.34, 0.45, 0]), (0x0411, true, [0.12, 0.5, 0.4, 0.35, 0.1, 0.7, 0, 1]),
+        (0x0412, false, [0.5, 0.5, 1, 1]),
+    ]
+
+    static func preset(slot: Int = 1, name: String = "Warm Edge", amp: String = "Tweed Tone") -> [UInt8] {
+        let fixed: [(UInt16, [Float])] = [
+            (0x0503, [0.009, 0.507, 0.526, 0.67]), (0x0502, [0.793, 2, 10, 10] + [Float](repeating: 0.5, count: 141)),
+            (0x0505, [0.314, 0, 5, 10] + [Float](repeating: 1000, count: 106)), (0x0506, [Float](repeating: 0.2, count: 11)),
+            (0x0434, [Float](repeating: 0.5, count: 30)), (0x0435, [Float](repeating: -3.6, count: 30)),
+        ]
+        var data: [UInt8] = [0x00, UInt8(slot)] + ReactorFixture.card(name, icon: "icon.png", tags: ["warm"])
+        data += [0xCA, 0x42, 0xF0, 0x00, 0x00] + ReactorFixture.card(amp, icon: "f_amp_Test.png", tags: [])
+        data += [0x96] + fixed.flatMap { ReactorFixture.block($0.0, on: true, $0.1) }
+        data += [0x9A] + effects.flatMap { ReactorFixture.block($0.0, on: $0.1, $0.2) }
         return data + ReactorPreset.checksum(of: data.dropFirst(2))
     }
 }

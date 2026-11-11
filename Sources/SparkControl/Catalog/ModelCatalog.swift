@@ -20,7 +20,8 @@ public enum ModelCatalog {
 
     /// The entry of a model id, or a placeholder with `parameterCount` numbered knobs for an unknown one.
     public static func info(for id: String, place: ChainPlace? = nil, parameterCount: Int) -> ModelInfo {
-        byID[id] ?? .unknown(id, place: place, parameterCount: parameterCount)
+        byID[id] ?? ReactorBridge.info(for: id, place: place, parameterCount: parameterCount)
+            ?? .unknown(id, place: place, parameterCount: parameterCount)
     }
 
     /// The models for a place of the chain, without paid add-ons unless asked for.
