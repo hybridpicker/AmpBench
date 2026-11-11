@@ -16,7 +16,7 @@ an Apple Development certificate if one exists, because macOS then keeps the mic
 Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the choice, and `-` forces ad-hoc.
 
 **Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets and
-Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's presets and live commands are Mac-only so far.
+Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
 See [linux/README.md](../linux/README.md).
 `./sync.sh` builds and installs the Mac app and the Linux app on a Linux laptop (the host in `$SPARK_LINUX_HOST`)
 and checks that both report the same version, `AmpBench <VERSION> (<commit>)`. `VERSION` is the one place to change
@@ -71,7 +71,8 @@ The audio engine refuses every input outside its policy. The default allows USB 
 device profiles' USB audio names (today "Spark"; the REACTOR's joins once read on the device), and tests use a policy
 that allows virtual test devices and nothing real, not even the amp. Device tests run against simulated devices
 (`SimulatedDevice`, and `fake_amp.py` on Linux): the NEO drops its temporary sound, and the REACTOR gets nothing but
-the live commands of a sound the player asked for.
+its read requests, the slot switch, live commands by the names it takes and its own presets back, never a Spark
+preset.
 
 ### Self-tests in the real window
 

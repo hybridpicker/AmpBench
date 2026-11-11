@@ -293,15 +293,25 @@ window or quitting erases the buffer.
   works out the nearest of the REACTOR's six amps (Clean to Extreme) from the preset's amp model, and after a
   question sets bass, middle, treble and gain, then the amp, then switches the effects it knows by name (gate,
   compressor, drive, modulation, delay, reverb) and the reverb's level, one message at a time. The master is never
-  touched; turn the volume down first, another amp can be louder. The REACTOR keeps presets in a format of its own
-  that AmpBench does not write, so the sound holds until the slot changes and is stored only on the device, which
-  overwrites that slot. A slot with other effects than the factory ones ignores their switches.
+  touched; turn the volume down first, another amp can be louder. A Spark preset is never written to the REACTOR,
+  so the sound holds until the slot changes and is stored only on the device, which overwrites that slot. A slot
+  with other effects than the factory ones ignores their switches.
 - **REACTOR**: after connecting, AmpBench reads the REACTOR 50's eight stored presets and the playing slot, and shows
-  them in the sidebar like a Spark's slots: the preset's name, and its amp and effects below. Reading is all it does
-  by itself; the presets are in the REACTOR's own format, which AmpBench reads and cannot write yet. The area Presets
-  shows the slots in two banks (Red, Green) and a panel: amp, Push/Smooth, Heat, Gain to Master, the effects,
-  the tapped tempo and its tuner. After a slot change it says "Preset content unknown", because the REACTOR does
-  not send the preset. A take recorded with it keeps those readings as "read only", without a fingerprint.
+  them in the sidebar like a Spark's slots, in two banks (Red, Green): the preset's name, and its amp and effects
+  below.
+  - **Click a slot:** the REACTOR switches to it and the preset opens in the editor with the seven places gate,
+    compressor, drive, amp, modulation, delay and reverb. The amp shows Gain, Bass, Middle, Treble and Master.
+  - **Change it:** knobs and on/off are heard at once for the slot that plays. Two delay models have no known name
+    yet ("Model 0432", "Model 0425"); their changes are heard only after storing. Unsaved changes are gone when the
+    slot changes, as on the device.
+  - **Store:** "Store on slot" reads the slot fresh, saves what it holds to this Mac (as a preset and as a
+    `.reactorpreset` file with the REACTOR's own bytes), writes the edited preset, plays it and reads it back.
+  - **Not yet:** choosing another amp or effect model; wah, equalizer and FX loop (they stay as stored); playing a
+    preset without storing it; following knobs turned on the REACTOR in the editor. A preset from a Spark or from
+    the library cannot be stored on the REACTOR.
+  - **The panel** (while no preset is open): amp, Push/Smooth, Heat, Gain to Master, the effects, the tapped tempo
+    and its tuner, as the REACTOR reports them. A take recorded with it keeps those readings as "read only",
+    without a fingerprint.
 
 ![The REACTOR panel](pictures/devices-reactor-dark.png)
 
@@ -327,7 +337,8 @@ needs an Ollama API key (ollama.com/settings/keys), entered in the AI Sound dial
 (on Linux in the desktop's keyring, see the [Linux app](../linux/README.md)).
 In this repository the project skill `spark-sound` lets Claude Code build sounds on request.
 
-Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format. Its "Text to Tone" takes the
+Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format, so a recipe cannot become a
+REACTOR preset. Its "Text to Tone" takes the
 description from `--recipe-prompt`; the guide's section Devices has the details. The command-line modes for recipes
 are listed in [DEVELOPMENT.md](DEVELOPMENT.md#command-line-modes).
 

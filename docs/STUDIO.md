@@ -26,6 +26,7 @@ labels.
 | – | Protecting the amp (`AmpGuard`) | 18daf05 | description with 80 bytes heard on the MINI (2026-11-08) |
 | – | Kemper import (backup, rigs, performances → presets and pieces) and hashtags with pinned sections | 00cd11f | installed (2026-11-10, Mac and Linux); read with the author's backup, no sound heard on the Spark |
 | – | REACTOR 50: reads the eight presets after connecting (own format, checksum CRC-32/MPEG-2) and shows them like Spark slots; "Play on the REACTOR" with live commands; probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 192963e … bbfe150 | seen and heard by the owner (2026-11-10): eight presets with names in the sidebar; gain, bass, reverb on/off and level, amp choice Clean. No preset written, no slot in the editor |
+| – | REACTOR 50 like a Spark: a slot switches, opens in the editor as seven places (`ReactorBridge`), changes go live by name, "Store" rewrites the read bytes and reads back; probe `script` | 1a0c023 | with the probe on the device (2026-11-11): slot switch, names by marked values, store and read back on Green 4, all eight slots equal to the backup afterwards. Not yet tried from the app on the device |
 | – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 8707c5d, d5a5bc6, 42f6245 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 2fccff5 … 642d2d8 | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
@@ -55,7 +56,7 @@ AmpBench  (app: one window, areas, the connections between them; Info.plist with
 
 - **The link hangs on a transport layer.** `SparkLink` talks to `LinkTransport`: `CoreBluetoothTransport` in the
   app, `SimulatedDevice` in tests and window pictures (`--library … --demo-devices`). This way tests check the NEO's
-  falling back and that the REACTOR gets no byte, without Bluetooth.
+  falling back and what a REACTOR gets and never gets, without Bluetooth.
 
 - **Hosts instead of public modules.** Every library shows the app exactly one host. The rest stays `internal`.
   `RecorderSession` (formerly Spark Recorder's AppDelegate) takes over the app's window: the Dock's REC, "the
@@ -150,7 +151,7 @@ no USB audio, can be tuned too. Coarser, in whole cents, and the amp is silent m
   or a change of device, and quitting the app (`applicationShouldTerminate` waits up to 1.5 s) switch it off first.
   Without a confirmation it counts as off as soon as no more values arrive; otherwise up to three attempts. If the
   connection breaks while it is on, the link switches it on or off after reconnecting, depending on what is wanted
-  (whether the amp leaves it on without a connection is unchecked). A REACTOR never gets anything, not here either.
+  (whether the amp leaves it on without a connection is unchecked). A REACTOR's tuner is never switched from here.
 - The tuner's values do not keep a running request alive (waiting for an answer does not count them).
 - **Privacy:** audio is analyzed in memory only and never stored, sent or logged; the ring buffer is zeroed when it
   is released. No network. All tests use synthetic signals (`TunerTestSignal`).
@@ -331,7 +332,7 @@ check with its owner.
 |---|---|---|---|---|
 | Spark MINI | 4 | everything: read, switch, play temporarily, change live, model change, store, buttons, tuner, tap, USB audio | keeps the temporary sound on disconnect? unchecked, counts as "no" | 1.11.2.75 |
 | Spark NEO | 4 | like the MINI, without USB audio; tuner checked, tap unchecked | drops the temporary sound on disconnect | 1.16.1.60 |
-| REACTOR 50 | 8 (Red 1–4, Green 1–4) | listening, buttons, tuner, tap, USB audio (name not read yet), Text to Tone, a sound as live commands (`.liveSound`) | gets only a `ReactorSound`, no preset, no request | listened to; live commands heard (2026-11-10) |
+| REACTOR 50 | 8 (Red 1–4, Green 1–4) | listening, buttons, tuner, tap, USB audio (name not read yet), Text to Tone, a sound as live commands (`.liveSound`), reading its presets (`.reactorPresets`), switching, live changes and storing in its own format (`.switchSlot`, `.liveEdit`, `.store`) | no `.send`: never a Spark preset, no model change, no temporary place | listened to; live commands heard (2026-11-10); switch, names, store checked with the probe (2026-11-11) |
 | REACTOR 100 | 8 | like the 50 | | unchecked |
 | unknown Spark (FFC0) | 4 | read and switch only | | – |
 
@@ -548,13 +549,13 @@ The way up to here, every step with the owner's consent:
      the changed values in the bytes that were read, so an unchanged preset is written byte for byte. Models are not
      exchanged, wah, equalizer and FX loop stay as stored, a Spark preset is refused. Not yet tried from the app on
      the device.
-4. Next: interpret the blocks (`05 03`, the effect ids), so that
-   a REACTOR slot appears in the same editor as a Spark slot; then write a preset back unchanged, with a
-   backup; then own sounds.
-5. Still open, each only with consent at the device: hearing the sequence from the app; the other five amps,
-   Push/Smooth and Heat as a command; effect knobs other than the reverb level (delay time, drive); switching the
-   slot (`01 38`); understanding the preset format far enough that the app can read and show a slot. Writing a preset
-   only when the format is completely understood and covered by a backup.
+4. Done on 2026-11-11, see above: the blocks are interpreted, a slot opens in the editor, a preset was written back
+   unchanged and changed.
+5. Still open, each only with consent at the device: editing and storing from the app; the names of the delays
+   `0432` and `0425` (hold the Delay key on Red 1 and Green 4 while the probe waits, then confirm by a marked
+   value); the other five amps, Push/Smooth and Heat as a command and where they sit in the preset; exchanging a
+   model (`01 06` is untried, and a new block needs its values); wah, equalizer and FX loop; a way to play a preset
+   without storing it; what `040D` and the last value of `0411` mean.
 - MIDI (DIN, table above) stays the alternative in case an interface comes: a MIDI output chosen by the user,
   Program Change 0–7, the on/off CCs, tap. Volume CCs (30–32) never jump louder and only on explicit
   request.
@@ -618,8 +619,9 @@ For every device, without exception:
 - Before any work on a device, back up all slots (`spark-probe backup <folder>`), overwrite a slot only with consent.
 - Only one control connection: the app, spark-probe and the phone app block each other. Before every probe run,
   have the app and the phone app disconnect.
-- REACTOR: send nothing, by no way (BLE, USB serial, JTAG, MIDI), until "sending" above is done with the owner.
-  The profile has no `.send`, the link and the transport refuse every byte.
+- REACTOR: over BLE only what was checked with the owner (read requests, slot switch, live commands by name, its
+  own presets back); nothing over USB serial, JTAG or MIDI. The profile has no `.send`; a Spark preset and every
+  other message are refused. Every command new to it is first sent once with the probe, with the owner's okay.
 - Models that only one device knows enter the catalog only after a check on the device (`spark-probe
   catalog-check`, in batches of eight). `checkedOn` in the catalog is a list (MINI 1.11.2.75, NEO 1.16.1.60).
 
@@ -660,7 +662,8 @@ For every device, without exception:
 - Devices (synthetic, `SimulatedDevice` and `fake_amp.py`): `DeviceProfileTests` (profiles, recognition, names in
   logs, banks, USB names), `ReactorDecoderTests` (the byte sequences of the table above, also the NEO's button),
   `SparkLinkTests` (NEO found, named and read; falling back on disconnect and reading again; middle button;
-  parameters without waiting; the REACTOR gets no byte, not even on read, switch, send and store requests;
+  parameters without waiting; a silent REACTOR gets one read request and nothing on send and store requests; a
+  REACTOR slot is switched, edited live by name and stored and read back (`ReactorBridgeTests` for the bytes);
   an unknown Spark only reads and switches; a change of device disconnects first and remembers the identifier; the
   question before the loss), `StudioKeymapTests` (⌘1–⌘8 and ⌥⌘1–⌥⌘8 with no key used twice). Linux:
   `tests/test_devices.py` the same, plus the text for REACTOR byte for byte as on the Mac.
@@ -697,11 +700,11 @@ For every device, without exception:
   profile); listening to the REACTOR (gain to master, amp, Push/Smooth, Heat, FX buttons, FX Level, TAP, Preset,
   Bank, tuner; clarifying FX Level and the additional bank change along the way); recording the REACTOR (read the
   USB audio name and put it into the profile, level, latency, a take with a listened stamp).
-- **REACTOR like a Spark** (the owner's wish, everything in one piece): interpret the blocks of the preset format, so
-  that a REACTOR slot opens in the same editor; then, with consent at the device, write a preset back unchanged to
-  its slot (a backup exists, the checksum is known, the write command is unchecked); then "Save to slot"
-  for own sounds. As soon as that works, "Play on the REACTOR" goes away as a menu item of its own. Take reading
-  and showing over into the Linux app.
+- **REACTOR like a Spark** (the owner's wish, everything in one piece): built on 2026-11-11 (slot opens in the
+  editor, live changes, "Store on slot"). Open: trying it from the app on the device; the points of step 5 under
+  "REACTOR: sending"; knobs turned on the REACTOR following in the editor; a library or Spark preset onto the
+  REACTOR, after which "Play on the REACTOR" goes away as a menu item of its own. Take all of it over into the
+  Linux app.
 - **Linux:** the device choice as the menu "Amp → Device", without a lamp in the sidebar; no REACTOR panel (the
   sidebar shows its banks, the listening happens in the core). The UI tests with PySide6 run only on the Linux
   laptop.

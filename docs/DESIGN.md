@@ -156,7 +156,8 @@ a variant of `LEDSegments`).
   beside it (green connected, amber nearby, dark not there; the menu says the same in words). The slots below are
   that device's: "On the Spark NEO", or two sections "On the REACTOR 50 · Red" and "· Green" with keys numbered 1–4 per bank.
   It sits at the top, not at the foot, because the foot is missing from window pictures and the slots belong to it.
-- **REACTOR panel** (instead of the editor while a REACTOR is connected and a slot or nothing is selected): the same
+- **REACTOR panel** (instead of the editor while a REACTOR is connected and no preset is open; a slot that was read
+  opens in the editor like a Spark's, with its model fixed instead of a model menu): the same
   front strip with one display (device name, lamps CONNECTED and READ ONLY, "Preset content unknown …" and the
   slot as "Green 2" in 26 mono), then raised panels on the board: AMP (the six amps, Push/Smooth and Heat as lamps,
   five `KnobFace`s that only show, "–" while unknown), EFFECTS (six small displays, the selected one with the 2 pt

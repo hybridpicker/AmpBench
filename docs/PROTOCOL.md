@@ -19,6 +19,7 @@ swift build --product spark-probe
 .build/debug/spark-probe set-one Amp.Preamp 0 0.1    # exactly one parameter change
 .build/debug/spark-probe switch-one MonoReverb on    # exactly one effect switch
 .build/debug/spark-probe send-one B1 00 07           # exactly one set message, to try a command
+.build/debug/spark-probe script steps.txt            # several messages in one connection, see Sources/SparkProbe/Script.swift
 .build/debug/spark-probe info          # firmware, name, current preset number, the playing and the 4 stored presets
 .build/debug/spark-probe preset 2      # switch to stored preset 2, like the preset button
 .build/debug/spark-probe watch 30      # print what the amp sends, e.g. when its preset button is pressed
@@ -44,8 +45,9 @@ what the amp plays with what the script sent. The comments in `Sources/SparkProb
 of live changes, `--device <name>` picks one of several devices. The Spark app on the phone and AmpBench must be
 disconnected, because the amp takes only one control connection. macOS asks once for Bluetooth access for the terminal
 app. The tool shows only devices with "Spark" in their name and only counts the others; `listen` also finds a REACTOR
-by its service FFD0 and prints its name without its owner's part. No other command connects to a device whose
-profile may not get anything.
+by its service FFD0 and prints its name without its owner's part. `ask`, `set-one`, `switch-one`, `send-one`,
+`read-slot` and `script` also connect to a REACTOR and send what they are told: only with its owner's okay. The
+REACTOR's messages, preset format and store command are in [STUDIO.md](STUDIO.md#devices).
 
 From a Claude Code session in the desktop app, the probe must run as its own app, or macOS ends it at the first
 Bluetooth call (it counts as part of Claude, which has no Bluetooth usage text):
