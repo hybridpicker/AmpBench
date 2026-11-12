@@ -5,8 +5,8 @@ from datetime import datetime
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSettings, QSize, Qt, Signal
 from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import (QFrame, QLabel, QLayout, QLineEdit, QMenu, QPushButton, QScrollArea, QSizePolicy,
-                               QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QMenu, QPushButton, QScrollArea,
+                               QSizePolicy, QToolButton, QVBoxLayout, QWidget)
 
 from .. import catalog, devices
 from ..i18n import tr
@@ -240,7 +240,22 @@ class Sidebar(QWidget):
         self.search.setClearButtonEnabled(True)
         self.search.setStyleSheet("margin: 8px;")
         self.search.textChanged.connect(lambda _: self.search_changed.emit())
-        outer.addWidget(self.search)
+        # "+" beside the search, as on the Mac: a new preset, from a template, AI Sound, the Kemper import. The main
+        # window fills its menu (`new_menu`).
+        self.new_button = QToolButton()
+        self.new_button.setText("+")
+        self.new_button.setToolTip(tr("New preset"))
+        self.new_button.setPopupMode(QToolButton.InstantPopup)
+        self.new_button.setStyleSheet("QToolButton { margin: 8px 8px 8px 0; padding: 2px 9px; font-weight: bold; }"
+                                      "QToolButton::menu-indicator { image: none; }")
+        self.new_menu = QMenu(self.new_button)
+        self.new_button.setMenu(self.new_menu)
+        bottom = QHBoxLayout()
+        bottom.setContentsMargins(0, 0, 0, 0)
+        bottom.setSpacing(0)
+        bottom.addWidget(self.search, 1)
+        bottom.addWidget(self.new_button)
+        outer.addLayout(bottom)
         self.rows: list[Row] = []
         self.selection = None
         self.active_slot: int | None = None

@@ -1,6 +1,15 @@
 """German texts of the window (`ui/`). Key: the English text in the code."""
 
 GERMAN_UI: dict[str, str] = {
+    # The "+" menu of the sidebar, word for word as on the Mac
+    "Empty preset":
+        "Leeres Preset",
+    "From template …":
+        "Aus Vorlage …",
+    "AI Sound …":
+        "KI-Sound …",
+    "Duplicate current":
+        "Aktuelles duplizieren",
     # AI Sound (sound_ai.py, ui/ai_sound_dialog.py), word for word as on the Mac
     "Connect the amp to hear the suggestion.":
         "Verbinde den Verstärker, um den Vorschlag zu hören.",

@@ -68,6 +68,13 @@ def test_slots_are_shown_and_open_in_the_editor(window):
     assert len(w.pedals) == 7 and all(p.isVisibleTo(w) for p in w.pedals)
 
 
+def test_the_plus_menu_offers_ai_sound_as_on_the_mac(window):
+    w, _ = window
+    assert w.sidebar.new_button.isVisibleTo(w)
+    texts = [a.text() for a in w.sidebar.new_menu.actions() if not a.isSeparator()]
+    assert texts == ["Empty preset", "From template …", "AI Sound …", "Import from Kemper …", "Duplicate current"]
+
+
 def test_first_change_sends_the_whole_preset_then_single_parameters(window):
     w, amp = window
     w._slot_clicked(0)
