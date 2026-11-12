@@ -6,11 +6,15 @@
 #
 # The version is VERSION plus an id of the files that were built (the commit, and for uncommitted changes a short
 # digest), so it is the same string on both sides exactly when both run the same files. The Linux host is the SSH name
-# `linux-host`, or $SPARK_LINUX_HOST. Linux needs no root: everything goes to the home folder (linux/install.sh).
+# in $SPARK_LINUX_HOST, which must be set. Linux needs no root: everything goes to the home folder (linux/install.sh).
 set -euo pipefail
 cd "$(dirname "$0")"
 
-host="${SPARK_LINUX_HOST:-linux-host}"
+if [[ -z "${SPARK_LINUX_HOST:-}" ]]; then
+    echo "sync.sh: set SPARK_LINUX_HOST to the SSH name of the Linux laptop, e.g. SPARK_LINUX_HOST=mylaptop ./sync.sh" >&2
+    exit 64
+fi
+host="$SPARK_LINUX_HOST"
 mac_app="/Applications/AmpBench.app/Contents/MacOS/AmpBench"
 linux_bin=".local/bin/ampbench"
 check_only=""

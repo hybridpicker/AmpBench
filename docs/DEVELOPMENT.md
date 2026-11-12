@@ -18,7 +18,7 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 **Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets and
 Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
 See [linux/README.md](../linux/README.md).
-`./sync.sh` builds and installs the Mac app and the Linux app on a Linux laptop (the host in `$SPARK_LINUX_HOST`)
+`./sync.sh` builds and installs the Mac app and the Linux app on a Linux laptop (the SSH host in `$SPARK_LINUX_HOST`, which must be set)
 and checks that both report the same version, `AmpBench <VERSION> (<commit>)`. `VERSION` is the one place to change
 it.
 
