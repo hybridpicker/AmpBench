@@ -14,21 +14,21 @@ labels.
 
 | Stage | Content | Commit | On the device |
 |---|---|---|---|
-| 0 | Data model (sound of a take, parts, key), keyboard model, layout | 66f5cdb | – (no behavior) |
-| 1 | One bundle, two windows, Bluetooth on demand | 308cc7f, 61d4bdb | checked by the owner (2026-11-07) |
-| 2 | One window with areas, sound of a take, one tempo | cc3ebb3 | open |
-| 3 | Pieces = songs, `~/Music/AmpBench`, old apps removed, new icon | 3960ccd | open |
-| – | Always in dark mode, at the owner's wish | 6a85f45 | installed, runs |
-| – | Sound recipes, AI catalog in `docs/ai`, text for REACTOR | 7bd22b1, b530b84 | installed (2026-11-08), no recipe heard on the amp |
-| – | AI Sound in the area Presets: description → Ollama Cloud API → three recipes, adjusting, history | ab015a2 | installed (2026-11-08), not checked against the cloud and not on the amp |
-| – | Area Tuner (⇧⌘3): MPM plus a phase regression, reads the recorder's input along | 2969085 | installed (2026-11-08); ran over USB on the MINI with a guitar (2026-11-09), not against a reference tuner |
-| – | The amp's own tuner (MINI, NEO) as a source, "Automatic", Bluetooth start from the tuner | 15d37b6, 90513b0, 52b85ac | command and scale checked with spark-probe on MINI and NEO; used in AmpBench by the owner on NEO and MINI (2026-11-09) |
-| – | Protecting the amp (`AmpGuard`) | 18daf05 | description with 80 bytes heard on the MINI (2026-11-08) |
-| – | Kemper import (backup, rigs, performances → presets and pieces) and hashtags with pinned sections | 00cd11f | installed (2026-11-10, Mac and Linux); read with the author's backup, no sound heard on the Spark |
-| – | REACTOR 50: reads the eight presets after connecting (own format, checksum CRC-32/MPEG-2) and shows them like Spark slots; "Play on the REACTOR" with live commands; probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 192963e … bbfe150 | seen and heard by the owner (2026-11-10): eight presets with names in the sidebar; gain, bass, reverb on/off and level, amp choice Clean. No preset written, no slot in the editor |
-| – | REACTOR 50 like a Spark: a slot switches, opens in the editor as seven places (`ReactorBridge`), changes go live by name, "Store" rewrites the read bytes and reads back; probe `script` | 1a0c023 | with the probe on the device (2026-11-11): slot switch, names by marked values, store and read back on Green 4, all eight slots equal to the backup afterwards. Not yet tried from the app on the device |
-| – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 8707c5d, d5a5bc6, 42f6245 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
-| Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 2fccff5 … 642d2d8 | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
+| 0 | Data model (sound of a take, parts, key), keyboard model, layout | de6f9a2 | – (no behavior) |
+| 1 | One bundle, two windows, Bluetooth on demand | 21b14cc, ecfd961 | checked by the owner (2026-11-07) |
+| 2 | One window with areas, sound of a take, one tempo | 6525876 | open |
+| 3 | Pieces = songs, `~/Music/AmpBench`, old apps removed, new icon | 1849ef0 | open |
+| – | Always in dark mode, at the owner's wish | 2814115 | installed, runs |
+| – | Sound recipes, AI catalog in `docs/ai`, text for REACTOR | fed85a7, c0fadbb | installed (2026-11-08), no recipe heard on the amp |
+| – | AI Sound in the area Presets: description → Ollama Cloud API → three recipes, adjusting, history | c243d07 | installed (2026-11-08), not checked against the cloud and not on the amp |
+| – | Area Tuner (⇧⌘3): MPM plus a phase regression, reads the recorder's input along | 26290d0 | installed (2026-11-08); ran over USB on the MINI with a guitar (2026-11-09), not against a reference tuner |
+| – | The amp's own tuner (MINI, NEO) as a source, "Automatic", Bluetooth start from the tuner | 1158c58, 6955f4e, 257b833 | command and scale checked with spark-probe on MINI and NEO; used in AmpBench by the owner on NEO and MINI (2026-11-09) |
+| – | Protecting the amp (`AmpGuard`) | 7f8baed | description with 80 bytes heard on the MINI (2026-11-08) |
+| – | Kemper import (backup, rigs, performances → presets and pieces) and hashtags with pinned sections | 2b498bb | installed (2026-11-10, Mac and Linux); read with the author's backup, no sound heard on the Spark |
+| – | REACTOR 50: reads the eight presets after connecting (own format, checksum CRC-32/MPEG-2) and shows them like Spark slots; "Play on the REACTOR" with live commands; probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 6bf59ac … 13646ee | seen and heard by the owner (2026-11-10): eight presets with names in the sidebar; gain, bass, reverb on/off and level, amp choice Clean. No preset written, no slot in the editor |
+| – | REACTOR 50 like a Spark: a slot switches, opens in the editor as seven places (`ReactorBridge`), changes go live by name, "Store" rewrites the read bytes and reads back; probe `script` | 84a149b | with the probe on the device (2026-11-11): slot switch, names by marked values, store and read back on Green 4, all eight slots equal to the backup afterwards. Not yet tried from the app on the device |
+| – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 78e8e58, add00c0, 7b6fd83 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
+| Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
 `~/Music/AmpBench` and took over the old folders; that all recordings and presets arrived there is not yet
@@ -683,7 +683,7 @@ For every device, without exception:
   for equal).
 - Window pictures of the tuner from the self-test `pictures` (a synthetic string through the real chain: A2 −3.4
   cents, G3 +1.8 cents in the strobe, E2 in tune), looked at in light and dark and at 1120 × 720.
-- Moving into the libraries (308cc7f): window pictures before and after differ only where two
+- Moving into the libraries (21b14cc): window pictures before and after differ only where two
   runs of the same state differ as well.
 - Window pictures of both areas looked at in light and dark and at 1120 × 720 (docs/pictures).
 - Icon: looked at in 1024 and 32 px.

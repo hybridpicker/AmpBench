@@ -67,7 +67,7 @@ To keep a Mac and a Linux laptop on one version, do not install by hand. From th
 `sync.sh` installs the Mac app (`build.sh --install`), checks that `docs/ai/spark-catalog.json` matches the Mac
 catalog, ships the Linux sources over SSH (to the SSH host in `$SPARK_LINUX_HOST`, which must be set) and runs `linux/install.sh` there.
 Both apps then print the same line, for example
-`AmpBench 1.0.0 (22ba606)`: `VERSION` in the repository root, and the commit, with a short digest behind it for
+`AmpBench 1.0.0 (77b68df)`: `VERSION` in the repository root, and the commit, with a short digest behind it for
 changes that are not committed yet.
 
 To change the version, edit `VERSION`, then run `./sync.sh`.
