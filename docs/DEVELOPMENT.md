@@ -142,13 +142,14 @@ The pictures come from the app's own snapshot modes, with a test library of synt
 
 ```bash
 .build/debug/AmpBench --library /tmp/studio-pictures --ui-selftest pictures /tmp/studio-pictures-out
-.build/debug/AmpBench --library /tmp/studio-presets --offline --appearance dark --size 1180x780 \
-    --open saved:Lead --focus delay --snapshot /tmp/presets-dark.png --quit
+.build/debug/AmpBench --library /tmp/studio-pictures --demo-devices mini --appearance dark --size 1180x780 \
+    --open saved:Lead --focus delay --delay 3 --snapshot /tmp/presets-dark.png --quit
 .build/debug/AmpBench --library /tmp/studio-presets --offline --demo-devices reactor --appearance dark \
     --size 1180x780 --open slot:6 --delay 7 --snapshot /tmp/devices-reactor-dark.png --quit
 ```
 
-`--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth.
+`--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth. On a German
+system, add `-AppleLanguages '(en)' -AppleLocale en_US` to every command so the pictures come out in English.
 
 The `pictures` scenario also shows the tuner, fed with a synthetic string through its real pipeline (no input is
 opened), the count-in, a running recording (from the test device only), a piece with its

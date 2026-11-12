@@ -1,21 +1,44 @@
+<div align="center">
+
+<img src="Resources/AppIcon.png" width="128" alt="AmpBench icon">
+
 # AmpBench
 
-A practice studio for Positive Grid guitar amps, native on macOS and on Linux, in one window: record a take, listen
-right away, decide and keep practicing, in a few seconds and without the mouse; shape the amp's sounds in a preset
-editor over Bluetooth; tune; and keep with every take the sound it was played with.
+**A practice studio for Positive Grid guitar amps — record, shape sounds, tune. One window, no mouse needed.**
 
-![AmpBench, the area Record](docs/pictures/record-dark.png)
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-1c1c1e?logo=apple&logoColor=white)
+![Linux](https://img.shields.io/badge/Linux-PipeWire%20%C2%B7%20BlueZ-1c1c1e?logo=linux&logoColor=white)
+![Swift](https://img.shields.io/badge/Swift-no%20dependencies-f5a623?logo=swift&logoColor=white)
+![Python 3](https://img.shields.io/badge/Python-3-f5a623?logo=python&logoColor=white)
+![No telemetry](https://img.shields.io/badge/telemetry-none-2ecc71)
+[![License: MIT](https://img.shields.io/badge/license-MIT-2ecc71)](LICENSE)
 
-**Not an official product.** AmpBench is an independent project. It is not affiliated with, endorsed by or
-supported by Positive Grid or Kemper. Spark, Spark MINI, Spark NEO and REACTOR are trademarks of Positive Grid, and
-Kemper Profiler is a trademark of Kemper GmbH; the names are used only to say which devices the app works with. The
-amp's Bluetooth protocol is not documented by its maker, so everything here rests on observation. Use it on your
-device at your own risk, keep the volume low when you try something new, and see [LICENSE](LICENSE) (MIT) for the terms.
+[What it does](#what-it-does) · [Devices](#supported-devices) · [Install](#build-and-install) ·
+[First steps](#first-steps) · [Privacy](#privacy) · [Docs](#documentation)
 
-| | |
+![AmpBench, the area Presets: the amp's slots and the editor](docs/pictures/presets-dark.png)
+
+</div>
+
+Record a take, listen right away, decide and keep practicing, in a few seconds and without the mouse; shape the
+amp's sounds in a preset editor over Bluetooth; tune; and keep with every take the sound it was played with. Native
+on macOS (SwiftUI) and on Linux (Qt).
+
+| Record | Tuner |
 | --- | --- |
-| ![Presets: the amp's slots and the editor](docs/pictures/presets-dark.png) | ![Tuner](docs/pictures/tuner-dark.png) |
-| ![Pieces with their parts](docs/pictures/pieces-dark.png) | ![Device choice with a Spark NEO](docs/pictures/devices-neo-dark.png) |
+| ![Record: deck, waveform and the list of takes](docs/pictures/record-dark.png) | ![Tuner, in tune](docs/pictures/tuner-in-tune-dark.png) |
+| **Pieces** | **Devices** |
+| ![Pieces with their parts](docs/pictures/pieces-dark.png) | ![A slot of a Spark NEO in the editor](docs/pictures/devices-neo-dark.png) |
+
+<sub>All pictures come from the app's own snapshot mode, with a simulated amp and made-up takes and presets.</sub>
+
+> [!IMPORTANT]
+> **Not an official product.** AmpBench is an independent project. It is not affiliated with, endorsed by or
+> supported by Positive Grid or Kemper. Spark, Spark MINI, Spark NEO and REACTOR are trademarks of Positive Grid, and
+> Kemper Profiler is a trademark of Kemper GmbH; the names are used only to say which devices the app works with. The
+> amp's Bluetooth protocol is not documented by its maker, so everything here rests on observation. Use it on your
+> device at your own risk, keep the volume low when you try something new, and see [LICENSE](LICENSE) (MIT) for the
+> terms.
 
 ## What it does
 
@@ -70,7 +93,8 @@ are in the [manual](docs/MANUAL.md#devices) and in [docs/STUDIO.md](docs/STUDIO.
 
 Everything stays on your computer, and the app has no telemetry. Its only connections are Bluetooth LE to the amp
 and — only when you ask for an AI Sound — one request to Ollama's cloud API that carries your description of the
-sound; both happen only when asked for.
+sound; both happen only when asked for. The key for that API is kept in the system keychain, never in a file.
+Found a security problem? See [SECURITY.md](SECURITY.md).
 
 ## Languages
 
