@@ -18,9 +18,12 @@ Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the cho
 **Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets and
 Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
 See [linux/README.md](../linux/README.md).
-`./sync.sh` builds and installs the Mac app and the Linux app on a Linux laptop (the SSH host in `$SPARK_LINUX_HOST`, which must be set)
-and checks that both report the same version, `AmpBench <VERSION> (<commit>)`. `VERSION` is the one place to change
-it.
+Development happens on either machine. Each has its own clone, and GitHub's `main` is where they meet: `./sync.sh`
+publishes this machine's commits, installs them here and has the other machine pull and install them, then checks
+that both report the same version, `AmpBench <VERSION> (<commit>)`. A background job on each machine
+(`Tools/autosync.sh install`) pulls and installs every 15 minutes as well, so a machine that was off catches up. Its
+setup and the per-machine `sync.local` are in [linux/README.md](../linux/README.md#keep-in-step-with-the-mac).
+`VERSION` is the one place to change the version.
 
 AmpBench joins the former apps Spark Recorder and Spark Presets. Plan, decisions and what comes next are in
 [STUDIO.md](STUDIO.md).

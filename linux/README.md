@@ -57,20 +57,38 @@ installed version as it is.
 
 ## Keep in step with the Mac
 
-To keep a Mac and a Linux laptop on one version, do not install by hand. From the Mac:
+To keep a Mac and a Linux laptop on one version, do not install by hand. Both machines have a clone of this
+repository, and GitHub's `main` is where they meet; you can develop on either. After committing, on the machine you
+work on:
 
 ```bash
-./sync.sh          # build and install on the Mac, ship and install on the Linux laptop, compare versions
+./sync.sh          # publish the commits, install here, have the other machine pull and install, compare versions
 ./sync.sh --check  # only compare what is installed
+./sync.sh --pull   # only bring this machine up to date with GitHub
 ```
 
-`sync.sh` installs the Mac app (`build.sh --install`), checks that `docs/ai/spark-catalog.json` matches the Mac
-catalog, ships the Linux sources over SSH (to the SSH host in `$SPARK_LINUX_HOST`, which must be set) and runs `linux/install.sh` there.
-Both apps then print the same line, for example
-`AmpBench 1.0.0 (77b68df)`: `VERSION` in the repository root, and the commit, with a short digest behind it for
-changes that are not committed yet.
+`sync.sh` refuses uncommitted changes and a `main` that has moved on both sides (then `git pull --rebase origin main`
+first). Before it pushes, it checks the new commits: author addresses must be GitHub noreply addresses, and no added
+line or message may hold a home folder, one of the host names from `sync.local` or the global Git address; gitleaks
+looks for secrets. On the Mac it installs with `build.sh --install` and checks that `docs/ai/spark-catalog.json`
+matches the Mac catalog; on Linux it runs `linux/install.sh`. Both apps then print the same line, for example
+`AmpBench 1.0.0 (77b68df)`: `VERSION` in the repository root and the commit.
 
-To change the version, edit `VERSION`, then run `./sync.sh`.
+Each machine also runs `./sync.sh --pull` in the background every 15 minutes and at login, and when the other
+machine's `./sync.sh` asks for it. It only fast-forwards `main` with a clean tree, and installs only while AmpBench is
+closed, so work in progress and a running recording are left alone.
+
+Setting up a machine once:
+
+```bash
+cp sync.local.example sync.local   # fill in the other machine's SSH name (and its clone path); Git ignores this file
+git config user.email <id>+<user>@users.noreply.github.com   # in this clone, so no private address gets published
+Tools/autosync.sh install          # macOS: LaunchAgent, log in ~/Library/Logs/AmpBench; Linux: systemd user timer
+Tools/autosync.sh status
+```
+
+The two machines reach each other over SSH with keys (macOS: Remote Login on). To change the version, edit `VERSION`,
+then run `./sync.sh`.
 
 ## On the laptop
 

@@ -119,8 +119,8 @@ ampbench --demo                                    # a simulated amp and a tempo
 ```
 
 The Linux app has the areas Record, Presets and Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's
-presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` on the Mac installs both apps and checks that they report
-the same version. More in [linux/README.md](linux/README.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
+whichever of the two you develop on. More in [linux/README.md](linux/README.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## First steps
 

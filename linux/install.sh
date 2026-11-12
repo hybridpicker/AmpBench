@@ -4,8 +4,8 @@
 #
 #   linux/install.sh <build-id>
 #
-# Normally started by ../sync.sh on the Mac, which ships the tree and passes the build id, so that the Mac app and this
-# one report the same version. The tests run first, headless; a failing test stops the install and leaves the
+# Normally started by ../sync.sh from this machine's clone, which passes the build id (Tools/build-id.sh), so that the
+# Mac app and this one report the same version. The tests run first, headless; a failing test stops the install and leaves the
 # installed version as it is.
 set -euo pipefail
 

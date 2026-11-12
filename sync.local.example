@@ -1,0 +1,10 @@
+# Copy to sync.local (Git ignores it) and fill in on each machine. sync.sh reads it; environment variables of the
+# same names win over it. Only the other machine's lines matter on each side.
+
+# On the Mac: the SSH name of the Linux laptop, and where its clone is (relative to its home folder).
+SPARK_LINUX_HOST=
+SPARK_LINUX_REPO=Coding/AmpBench
+
+# On the Linux laptop: the SSH name of the Mac (for example user@name.local), and where its clone is.
+SPARK_MAC_HOST=
+SPARK_MAC_REPO=
