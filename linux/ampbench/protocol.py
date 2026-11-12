@@ -591,6 +591,11 @@ class Parser:
         self._pending: dict | None = None
         self.chunk_progress: tuple[int, int] | None = None
 
+    @property
+    def is_inside_chunk(self) -> bool:
+        """True while a chunk or a multi-chunk message is only partly received."""
+        return self._current is not None or self._pending is not None
+
     def feed(self, data: bytes) -> list[Message]:
         messages = []
         for byte in data:

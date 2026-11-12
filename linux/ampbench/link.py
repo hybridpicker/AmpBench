@@ -468,8 +468,12 @@ class LinkCore:
     # MARK: Incoming
 
     def _received(self, data: bytes) -> None:
-        self._last_activity = _now()
         messages = self._parser.feed(data)
+        # The tuner's readings come many times a second and must not keep a wait alive forever: an unanswered
+        # request would hold the lock, so the tuner could not be switched off and no preset could be sent.
+        if not messages or self._parser.is_inside_chunk \
+                or any(message.sub != protocol.SUB_TUNER_PITCH for message in messages):
+            self._last_activity = _now()
         if self.transfer and self.transfer.kind == "reading" and self._parser.chunk_progress:
             self.transfer.done, self.transfer.total = self._parser.chunk_progress
             self._emit("transfer", self.transfer)

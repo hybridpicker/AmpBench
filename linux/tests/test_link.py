@@ -141,6 +141,37 @@ def test_the_amps_tuner_goes_on_and_off_and_reports():
     run(go())
 
 
+def test_tuner_readings_do_not_keep_an_unanswered_request_waiting():
+    """An amp that does not confirm `tuner on` but sends readings must not hold the link: the tuner has to go off
+    again when the area is left, and presets have to reach the amp afterwards."""
+    async def go():
+        amp, core, _ = make()
+        await connected(core, amp)
+        amp.answers_tuner = False
+        stop = asyncio.Event()
+
+        async def readings():
+            while not stop.is_set():
+                amp.tuner_reading(9, 0.5)
+                await asyncio.sleep(0.05)
+
+        feeder = asyncio.ensure_future(readings())
+        core.want_amp_tuner(True)
+        await asyncio.sleep(0.1)
+        assert amp.tuner_on
+        core.want_amp_tuner(False)
+        for _ in range(400):
+            await asyncio.sleep(0.01)
+            if not amp.tuner_on:
+                break
+        stop.set()
+        await feeder
+        assert not amp.tuner_on, "leaving the tuner area switches the amp's tuner off"
+        await asyncio.wait_for(core.select(1), 3)
+        await core.stop()
+    run(go())
+
+
 def test_disconnecting_switches_the_amps_tuner_off_first():
     async def go():
         amp, core, _ = make()
