@@ -1,5 +1,9 @@
 import AmpText
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SparkControl
 import SwiftUI
 
@@ -13,6 +17,13 @@ enum PresetsContent {
             .environmentObject(model.editor)
             .task { await startOnce(model) }
     }
+
+    /// The app came to the front: files may have arrived in the folder meanwhile.
+    #if os(macOS)
+    static let didBecomeActive = NSApplication.didBecomeActiveNotification
+    #else
+    static let didBecomeActive = UIApplication.didBecomeActiveNotification
+    #endif
 
     private static var started = false
 
@@ -56,20 +67,27 @@ struct PresetCommands: Commands {
         }
         // This group also holds the system's Close (⌘W): replacing it would take that away, so it comes back here.
         CommandGroup(replacing: .saveItem) {
+            #if os(macOS)
             Button(tr("Close")) { NSApp.keyWindow?.performClose(nil) }
                 .keyboardShortcut("w", modifiers: .command)
+            #endif
             Button(tr("Save to this Mac")) { model.saveOnMac() }
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(editor.preset == nil || editor.showsOriginal)
             Button(tr("Save as …")) { model.beginSaveAs() }
                 .keyboardShortcut(owned(KeyboardShortcut("s", modifiers: [.command, .shift])))
                 .disabled(editor.preset == nil || editor.showsOriginal || !isActive)
+            Divider()
+            Button(tr("Sync the sound store now")) { model.store.sync() }
+                .disabled(!model.store.isReady || model.store.state == .syncing)
+            Button(tr("Sound store …")) { model.showsStore = true }
+                .disabled(!isActive)
         }
         CommandGroup(replacing: .undoRedo) {
             // Text fields keep their own undo, everything else goes to the editor.
             Button(tr("Undo")) {
                 if Self.textIsEditing || !isActive {
-                    NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
+                    Self.sendToResponders("undo:")
                 } else {
                     editor.undo()
                 }
@@ -77,7 +95,7 @@ struct PresetCommands: Commands {
             .keyboardShortcut("z", modifiers: .command)
             Button(tr("Redo")) {
                 if Self.textIsEditing || !isActive {
-                    NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
+                    Self.sendToResponders("redo:")
                 } else {
                     editor.redo()
                 }
@@ -159,9 +177,22 @@ struct PresetCommands: Commands {
         isActive ? shortcut : nil
     }
 
+    #if os(macOS)
     private static var textIsEditing: Bool {
         NSApp.keyWindow?.firstResponder is NSText
     }
+
+    private static func sendToResponders(_ action: String) {
+        NSApp.sendAction(Selector((action)), to: nil, from: nil)
+    }
+    #else
+    /// On iPadOS a text field that is being edited takes ⌘Z itself, before the menu sees it.
+    private static var textIsEditing: Bool { false }
+
+    private static func sendToResponders(_ action: String) {
+        UIApplication.shared.sendAction(Selector((action)), to: nil, from: nil, for: nil)
+    }
+    #endif
 }
 
 extension Array {

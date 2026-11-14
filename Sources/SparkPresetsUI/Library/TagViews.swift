@@ -73,7 +73,7 @@ struct TagFilterBar: View {
                 }
                 if !model.tagFilter.isEmpty {
                     Button(tr("Show all")) { model.tagFilter = [] }
-                        .buttonStyle(.link)
+                        .linkButtonStyle()
                         .font(.system(size: 10.5))
                 }
             }
@@ -129,7 +129,7 @@ struct PresetDetailsBar: View {
                 Button(showsNotes ? tr("Hide notes") : (item.file.notes.isEmpty ? tr("Note …") : tr("Notes"))) {
                     showsNotes.toggle()
                 }
-                .buttonStyle(.link)
+                .linkButtonStyle()
                 .font(.system(size: 11))
             }
             if showsNotes {

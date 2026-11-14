@@ -28,6 +28,8 @@ labels.
 | – | REACTOR 50: reads the eight presets after connecting (own format, checksum CRC-32/MPEG-2) and shows them like Spark slots; "Play on the REACTOR" with live commands; probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 6bf59ac … 13646ee | seen and heard by the owner (2026-11-10): eight presets with names in the sidebar; gain, bass, reverb on/off and level, amp choice Clean. No preset written, no slot in the editor |
 | – | REACTOR 50 like a Spark: a slot switches, opens in the editor as seven places (`ReactorBridge`), changes go live by name, "Store" rewrites the read bytes and reads back; probe `script` | 84a149b | with the probe on the device (2026-11-11): slot switch, names by marked values, store and read back on Green 4, all eight slots equal to the backup afterwards. Not yet tried from the app on the device |
 | – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 78e8e58, add00c0, 7b6fd83 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
+| – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | this commit | 77 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; see "Sound store" below |
+| – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | this commit | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); compiles for a real iPad; not yet on a real iPad, and not with an amp |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -89,6 +91,37 @@ For another app, such as a tuner or setlists:
 3. One line in the `switch` of `StudioWindowView` and one in `StudioCommands`.
 4. A scope in `StudioKeymap` with all keys of the area. `StudioKeymapTests` reports every key used twice.
 5. Single keys stay reserved for the area Record, except R and Space.
+
+## Sound store and iPad
+
+Decisions, with the reasons. How the store works is in [STORE.md](STORE.md), the iPad app in
+[ios/README.md](../ios/README.md).
+
+- **One code base for the iPad.** The iPad app is not a second app: the package builds for iOS, and the same
+  `PresetsHost` and `TunerHost` fill its window. What differs sits in few places: `SparkDesign/Platform.swift`,
+  `#if os(macOS)` around the HAL engines in SparkCore, `Texts.forPad` for "this iPad". A new view must not ask which
+  platform it is on; it uses those helpers.
+- **Record is not on the iPad.** `CaptureEngine`, `PlaybackEngine` and `ClickEngine` are AUHAL with the Mac's device
+  list and rate switching. iPadOS has one route and RemoteIO; that is a second engine, and it cannot be checked
+  without an iPad and the amp. The iPad has `PadInput` (AVAudioEngine) for the tuner only.
+- **The age format instead of an own one.** A store must be readable in ten years and without this app. age is a
+  small, specified format with a reference tool; the tests encrypt and decrypt against it in both directions.
+- **A random key, not a password.** The key is 256 bits from the system, so the store's strength does not hang on a
+  password's, and no key derivation is needed. The price: the user must carry the key to the other device once.
+  It is shown only on request and copied as a secret.
+- **The place needs GET and PUT, nothing else.** The index names every object, so nothing lists a directory. That is
+  why a plain web server, a WebDAV folder, a folder in a cloud drive and `ssh` with `tar` all work, and why the iPad
+  can reach a server without SSH.
+- **Nothing is deleted in the store.** A sync that goes wrong must never cost a sound. Removed and overwritten
+  sounds stay as objects; here they go to the Trash.
+- **No secret in the repository.** Key and password: keychain. Place: preferences. Team id: `ios/Local.xcconfig`.
+  Tests use a keychain service and preferences of their own, and a test library gets a store profile apart from the
+  real one (`StoreProfile.testing`).
+- **In the sidebar's foot**, under the connection, with the same lamp and key as the connection: a sound goes to the
+  amp or to the store from there, and no new area or window was needed.
+
+Open: Record on the iPad; the store on Linux; a view for earlier versions and removed sounds; a lock for the index;
+everything on a real iPad.
 
 ## Tuner
 

@@ -1,5 +1,7 @@
-import AppKit
 import SwiftUI
+
+#if os(macOS)
+import AppKit
 
 extension View {
     /// Selected rows of the `List` or `Table` this is attached to are tinted amber with a 3 pt amber bar on the left,
@@ -132,3 +134,11 @@ final class SelectionPainter: NSView {
         }
     }
 }
+#else
+extension View {
+    /// On iPadOS a list takes its selection color from the tint, so no reaching below SwiftUI is needed.
+    public func amberSelection() -> some View {
+        tint(Theme.desk.selectionBar.color)
+    }
+}
+#endif

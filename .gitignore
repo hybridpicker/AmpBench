@@ -6,3 +6,6 @@ __pycache__/
 .pytest_cache/
 .build-*/
 sync.local
+# The iPad app: the project is generated, and the signing team stays on this machine.
+ios/AmpBenchPad.xcodeproj/
+ios/Local.xcconfig

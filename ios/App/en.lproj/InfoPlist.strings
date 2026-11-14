@@ -1,0 +1,3 @@
+/* What iPadOS shows when it asks for the microphone and for Bluetooth. */
+"NSMicrophoneUsageDescription" = "AmpBench listens to the audio input for the tuner only. Nothing is recorded or stored, and the input is open only while the tuner shows.";
+"NSBluetoothAlwaysUsageDescription" = "AmpBench connects to your Spark amp over Bluetooth when you open Presets or press “Connect”, to switch, back up and save presets. The app looks only for Spark amps.";

@@ -1,5 +1,7 @@
 import AmpText
+#if os(macOS)
 import AppKit
+#endif
 import Foundation
 import SparkControl
 import UniformTypeIdentifiers
@@ -100,13 +102,22 @@ extension PresetsModel {
 extension PresetsModel {
     /// Asks for a Kemper backup or rig file and reads it into a plan the sheet shows. Nothing is written yet.
     func chooseKemperFile() {
+        #if os(macOS)
         let panel = NSOpenPanel()
         panel.title = tr("Choose a Kemper backup or rig")
         panel.message = tr("A backup from the USB stick (.kpabackup) or a single rig (.kipr). AmpBench only reads.")
-        panel.allowedContentTypes = ["kpabackup", "kipr"].compactMap { UTType(filenameExtension: $0) }
+        panel.allowedContentTypes = Self.kemperFileTypes
         panel.allowsOtherFileTypes = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
         readKemper(url)
+        #else
+        showsKemperFilePicker = true
+        #endif
+    }
+
+    /// The two Kemper file kinds. Their extensions belong to no declared type, so the system knows them by extension.
+    static var kemperFileTypes: [UTType] {
+        ["kpabackup", "kipr"].compactMap { UTType(filenameExtension: $0) }
     }
 
     func readKemper(_ url: URL) {
@@ -114,10 +125,13 @@ extension PresetsModel {
         kemperError = nil
         kemperPlan = nil
         kemperFileName = url.lastPathComponent
+        // A file from the iPad's picker lies outside the app and is readable only between these two calls.
+        let scoped = url.startAccessingSecurityScopedResource()
         Task { @MainActor [weak self] in
             let result = await Task.detached(priority: .userInitiated) {
                 Result { KemperImportPlan(try KemperLibrary.read(url)) }
             }.value
+            if scoped { url.stopAccessingSecurityScopedResource() }
             guard let self else { return }
             kemperIsBusy = false
             switch result {

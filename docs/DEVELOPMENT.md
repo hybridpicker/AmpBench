@@ -25,6 +25,12 @@ that both report the same version, `AmpBench <VERSION> (<commit>)`. A background
 setup and the per-machine `sync.local` are in [linux/README.md](../linux/README.md#keep-in-step-with-the-mac).
 `VERSION` is the one place to change the version.
 
+**iPad.** Presets, Tuner and the sound store also run on the iPad, from the same sources: the package builds for
+iOS 17 as well, and `ios/` holds an Xcode project (made by XcodeGen) that is only the bundle around the library
+`AmpBenchPad`. `./ios/build.sh` builds it, `--simulator` starts it, `--test` runs its UI tests, `--device` installs
+it on an iPad. See [ios/README.md](../ios/README.md). After a change to a shared module, check that it still compiles
+for the iPad: `./ios/build.sh`.
+
 AmpBench joins the former apps Spark Recorder and Spark Presets. Plan, decisions and what comes next are in
 [STUDIO.md](STUDIO.md).
 
@@ -41,13 +47,20 @@ Sources/SparkRecorderUI The deck and the area Record: window parts, menus, keys,
 Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
 Sources/SparkTunerUI    The area Tuner: its front and menus; no Bluetooth of its own, no sound
 Sources/AmpText         The UI texts: English in the code, German from tables, the language choice
+Sources/SoundStore      The sound store: the age format, the places (folder, SSH, HTTPS), the three-way sync, the
+                        device's profile (settings, keychain). Foundation and CryptoKit only
 Sources/AmpBench        The app: one window, the areas, and what ties takes, sounds and tempo together
+Sources/AmpBenchPad     The iPad app's own code: its window with the areas Presets and Tuner, the tuner's input.
+                        Empty on the Mac
+ios/                    The iPad app's bundle, Xcode project (XcodeGen), build script and UI tests
 Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
 Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets and Kemper files built in the test
 Tests/SparkDesignTests  Contrast of every text color against its backgrounds, the tuner's blocks
 Tests/SparkTunerUITests The tuner's model with a made-up input
 Tests/AmpTextTests      Every UI text has its German, with matching placeholders
+Tests/SoundStoreTests   The age format against the `age` tool, the places with made-up servers, the sync rules, two
+                        devices on one store; made-up data in temporary folders, a keychain service of their own
 Tools/make-icon.swift   Draws the app icon
 linux/                  The Linux app (Python, PySide6), see linux/README.md
 ```
@@ -116,6 +129,18 @@ swift run AmpBench --catalog-export docs/ai                            # write t
 swift run AmpBench --kemper-list backup.kpabackup                      # what a Kemper import would make, reads only
 swift run AmpBench --reactor-read "Platz 1.reactorpreset"              # what AmpBench reads from a saved REACTOR preset
 ```
+
+The sound store (see [STORE.md](STORE.md)); with `--library <folder>` on a test library and a profile of its own:
+
+```bash
+AmpBench --store-setup folder <path> | ssh <host> <folder> | https <url> [user]
+AmpBench --store-key new | set | show
+AmpBench --store-sync
+AmpBench --store-status
+```
+
+Use the installed, signed app for the real store. A debug build has a new signature after every build, and macOS
+then asks before it lets that build read a keychain item an earlier build made.
 
 A test fails when `docs/ai` falls behind the catalog, so a new model goes into `Sources/SparkControl/Catalog` and then
 through `--catalog-export`. The format of a recipe is explained in [ai/SOUND-GUIDE.md](ai/SOUND-GUIDE.md); the

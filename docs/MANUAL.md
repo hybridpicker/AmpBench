@@ -93,7 +93,11 @@ Folder and file names on disk are English and the same in both languages. Names 
   Presets/
     *.json                 Presets on the Mac, one readable JSON file each, the backups of overwritten slots,
                            and sound recipes written by hand or by an AI assistant (see AI Sound).
+~/Library/Application Support/AmpBench/
+  store-state.json         What was in step after the last sync of the sound store. No sound, no key.
 ```
+
+The sound store's key and a server password are in the keychain; where the store is, is in the app's preferences.
 
 **At the first start** AmpBench takes over the folders of the former apps, `~/Music/Spark Recorder` and
 `~/Music/Spark Presets`, by copying them. On APFS the copy is instant and takes no space until a file changes. The old
@@ -341,6 +345,48 @@ Positive Grid's REACTOR amp is not compatible with Spark and documents no preset
 REACTOR preset. Its "Text to Tone" takes the
 description from `--recipe-prompt`; the guide's section Devices has the details. The command-line modes for recipes
 are listed in [DEVELOPMENT.md](DEVELOPMENT.md#command-line-modes).
+
+## The sound store
+
+![The sound store's sheet, on the iPad](pictures/ipad-store.png)
+
+At the foot of the sidebar, under the connection, a lamp and a key belong to the sound store. It keeps every sound
+of this device encrypted in a place you choose and fetches the sounds of your other devices, so a preset made on the
+Mac is on the iPad too, and the other way round.
+
+- **Set up**: the key "Set up" (or File → "Sound store …") opens the sheet. Choose the place: a **folder** (any
+  folder, also one that iCloud Drive, Google Drive or Dropbox keeps in step), a **server over SSH** (Mac only; the
+  Mac's own ssh, no login is stored) or an **HTTPS address** (a WebDAV folder or your own server; the password goes
+  to the keychain). Then "Create a new key" for a new store, or enter the key of a store you already have.
+- **The key** opens the store, and nothing else does. "Show key …" shows it; put a copy in your password manager and
+  enter it on your other devices. "Copy" marks it as a secret for clipboard managers, and on the iPad it leaves the
+  pasteboard after two minutes. Never put the key into a file that is shared or published.
+- **Syncing** happens by itself: at the start, when the app comes to the front, a little after sounds changed. The
+  key "Sync" does it at once. The lamp is green when the store is in step, amber after a failed sync; the row says
+  when it last synced, and hovering shows the reason for a failure.
+- **Both ways, and nothing is lost**: a sound changed on two devices keeps the newer version, and the older one stays
+  in the store. A sound moved to the Trash on one device goes to the Trash on the others (on the iPad to a hidden
+  folder beside the presets), and stays in the store.
+- **Disconnect this device …** stops syncing here. The sounds here and in the store stay, and so does the key.
+
+Recordings are not part of the store. How it works, what the place sees, how to read the store without the app and
+how to run a place on your own server is in [STORE.md](STORE.md).
+
+## On the iPad
+
+![Presets on the iPad](pictures/ipad-presets.png)
+
+The iPad app has the areas Presets and Tuner, the same as on the Mac, with tabs on top. Fingers do what the pointer
+does: tap a slot or a preset to hear it, drag up or down on a knob to turn it, double-tap for the default value.
+With a keyboard the Mac's shortcuts work (`⌘S`, `⌘Z`, `⌘1` – `⌘4`, `⇧⌘2` and `⇧⌘3` for the areas).
+
+- **Sounds** are files in the app's Documents folder, which the Files app shows under "On My iPad → AmpBench". The
+  sound store brings the Mac's sounds there. A removed sound goes to a hidden folder `.Trash` beside the others.
+- **Tuner**: the input is what the iPad routes in, the Spark over USB-C or the built-in microphone, or the amp's own
+  tuner over Bluetooth. It listens only while the tuner shows and the app is in front.
+- **Narrow windows**: in portrait or beside another app the editor is shown smaller instead of cut off. Hide the
+  sidebar for more room.
+- **Not on the iPad**: the area Record, and a store over SSH (use a folder or an HTTPS address).
 
 ## The area Tuner
 

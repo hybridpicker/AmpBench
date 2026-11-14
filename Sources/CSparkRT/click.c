@@ -1,6 +1,6 @@
 #include "SparkRT.h"
 
-#include <CoreAudio/HostTime.h>
+#include "hosttime.h"
 #include <math.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -58,7 +58,7 @@ static inline double bits_double(uint64_t bits) {
 SparkClick *spark_click_create(double sample_rate, SparkClock *_Nullable clock) {
     SparkClick *click = calloc(1, sizeof(SparkClick));
     click->sample_rate = sample_rate;
-    click->ticks_per_frame = (double)AudioGetHostClockFrequency() / sample_rate;
+    click->ticks_per_frame = spark_host_clock_frequency() / sample_rate;
     click->clock = clock;
     click->decay = (float)exp(-1.0 / (CLICK_DECAY_SECONDS * sample_rate));
     click->sounding_beat = -1;

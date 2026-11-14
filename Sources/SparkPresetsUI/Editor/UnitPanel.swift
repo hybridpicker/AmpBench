@@ -77,7 +77,11 @@ private struct OperatingHint: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            #if os(macOS)
             Text(LocalizedStringKey(tr("**Scrolling** turns finely, **dragging** coarsely, a **double-click** sets the default value.")))
+            #else
+            Text(LocalizedStringKey(tr("**Dragging** up or down turns a control, a **double tap** sets the default value.")))
+            #endif
             if isLive {
                 Text(tr("Every change can be heard on the amp at once, without overwriting a slot."))
             }

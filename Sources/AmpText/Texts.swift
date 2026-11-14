@@ -66,6 +66,18 @@ public enum Texts {
         Locale(identifier: language == .german ? "de_DE" : "en_US")
     }
 
+    /// The texts were written on and for the Mac. On an iPad the same sentences name the iPad, its Files app and its
+    /// Settings instead, so every text stays in one place and both platforms read right.
+    static func forPad(_ text: String) -> String {
+        guard text.contains("Mac") || text.contains("Finder") || text.contains("System") else { return text }
+        var text = text.replacingOccurrences(of: #"\bMac\b"#, with: "iPad", options: .regularExpression)
+        for (mac, pad) in [("in Finder", "in Files"), ("Im Finder", "In Dateien"), ("im Finder", "in Dateien"),
+                           ("System Settings", "Settings"), ("Systemeinstellungen", "Einstellungen")] {
+            text = text.replacingOccurrences(of: mac, with: pad)
+        }
+        return text
+    }
+
     /// The German text for an English one, or nil when no table has it.
     public static func german(_ english: String) -> String? { German.all[english] }
 }
@@ -76,7 +88,11 @@ public enum Texts {
 ///     tr("Cancel")
 ///     tr("Slot %d of %@", slot, deviceName)
 public func tr(_ english: String, _ arguments: CVarArg...) -> String {
+    #if os(macOS)
     let template = Texts.language == .german ? (German.all[english] ?? english) : english
+    #else
+    let template = Texts.forPad(Texts.language == .german ? (German.all[english] ?? english) : english)
+    #endif
     guard !arguments.isEmpty else { return template }
     return String(format: template, locale: Texts.locale, arguments: arguments)
 }

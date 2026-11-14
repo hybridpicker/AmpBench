@@ -54,6 +54,12 @@ public final class AudioTap: @unchecked Sendable {
         }
     }
 
+    /// Begins a stream that something other than the Mac's capture engine writes, such as the iPad's input. The
+    /// reader starts over, as after any new stream.
+    public func beginStream(sampleRate: Double) {
+        begin(sampleRate: sampleRate)
+    }
+
     /// For tests and synthetic feeds: begins a stream without an engine.
     public func beginForTesting(sampleRate: Double) {
         begin(sampleRate: sampleRate)

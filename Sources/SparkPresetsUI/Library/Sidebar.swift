@@ -106,14 +106,32 @@ struct Sidebar: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
                 Divider()
-                HStack(spacing: 8) {
-                    ConnectionStatus()
-                    Spacer(minLength: 4)
-                    ConnectKey()
-                    NewPresetMenu()
+                Group {
+                    #if os(macOS)
+                    HStack(spacing: 8) {
+                        ConnectionStatus()
+                        Spacer(minLength: 4)
+                        ConnectKey()
+                        NewPresetMenu()
+                    }
+                    #else
+                    // The iPad's sidebar is narrower inside: the state gets its own line, the keys the next.
+                    VStack(alignment: .leading, spacing: 8) {
+                        ConnectionStatus()
+                        HStack(spacing: 8) {
+                            Spacer(minLength: 0)
+                            ConnectKey()
+                            NewPresetMenu()
+                        }
+                    }
+                    #endif
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 10)
+                // The sound store, under the connection: the two places a sound can go to from here.
+                StoreStatus()
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
                 // Only while nothing is open in the editor, whose display has its own meter.
                 if model.editor.preset == nil {
                     LoadMeter(transfer: link.transfer, height: 4, showsLabel: false)
@@ -212,7 +230,7 @@ private struct SidebarListStyle: ViewModifier {
             content
                 .listStyle(.inset)
                 .scrollContentBackground(.hidden)
-                .background(Color(nsColor: .controlBackgroundColor))
+                .background(Color.systemControlBackground)
         } else {
             content.listStyle(.sidebar)
         }
@@ -309,7 +327,7 @@ private struct LibraryRow: View {
         HStack(spacing: 9) {
             Image(systemName: item.file.isBackup ? "clock" : item.isRecipe ? "wand.and.stars" : "folder")
                 .font(.system(size: 12))
-                .foregroundStyle(Color(nsColor: .secondaryLabelColor))
+                .foregroundStyle(Color.systemSecondaryLabel)
                 .frame(width: 22)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 1) {
@@ -379,6 +397,7 @@ private struct NewPresetMenu: View {
         .fixedSize()
         .help(tr("New preset"))
         .accessibilityLabel(tr("New preset"))
+        .accessibilityIdentifier("new-preset-menu")
     }
 }
 

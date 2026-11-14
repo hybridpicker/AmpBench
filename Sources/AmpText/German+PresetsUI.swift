@@ -46,6 +46,8 @@ extension German {
             "%d Songs ließen sich nicht als Stücke anlegen.",
         "%d songs, %d setups, %d rigs":
             "%d Songs, %d Setups, %d Rigs",
+        "**Dragging** up or down turns a control, a **double tap** sets the default value.":
+            "**Ziehen** nach oben oder unten dreht einen Regler, ein **Doppeltipp** stellt den Standardwert ein.",
         "**Scrolling** turns finely, **dragging** coarsely, a **double-click** sets the default value.":
             "**Scrollen** dreht fein, **Ziehen** grob, **Doppelklick** setzt den Standardwert.",
         "+ %d more":

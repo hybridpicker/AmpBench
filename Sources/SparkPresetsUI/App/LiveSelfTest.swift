@@ -1,4 +1,7 @@
+#if os(macOS)
 import AppKit
+#endif
+import Foundation
 import SparkControl
 
 /// Checks live editing end to end on the real amp: `--live-selftest <log file>`. It edits a copy of stored preset 1
@@ -96,6 +99,8 @@ enum LiveSelfTest {
     private static func finish(_ lines: [String], _ path: String, failures: Int) {
         let text = (lines + ["\(failures == 0 ? "ALL PASSED" : "\(failures) FAILED")"]).joined(separator: "\n") + "\n"
         try? text.write(toFile: path, atomically: true, encoding: .utf8)
+        #if os(macOS)
         NSApp.terminate(nil)
+        #endif
     }
 }

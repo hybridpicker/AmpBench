@@ -12,15 +12,19 @@ struct ContentView: View {
                 .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 320)
         } detail: {
             EditorView()
+                // The editor is drawn for the Mac's smallest window; a narrower iPad shows it scaled, not cut.
+                .fittedOnPad(designWidth: 900)
                 .overlay(alignment: .bottom) { BannerView().padding(14) }
+                .withoutNavigationBarOnPad()
         }
-        .searchable(text: $model.search, placement: .toolbar, prompt: tr("Search presets"))
-        .sheet(item: $model.renameTarget) { _ in RenameSheet() }
-        .sheet(isPresented: saveAsShown) { SaveAsSheet() }
-        .sheet(isPresented: $model.showsTemplates) { TemplateSheet() }
-        .sheet(isPresented: Binding(get: { model.showsAI }, set: { model.showsAI = $0 })) { AISoundSheet() }
+        .searchable(text: $model.search, placement: .splitViewSearch, prompt: tr("Search presets"))
+        .sheet(isPresented: $model.showsStore) { StoreSheet().fittedSheetOnPad() }
+        .sheet(item: $model.renameTarget) { _ in RenameSheet().fittedSheetOnPad() }
+        .sheet(isPresented: saveAsShown) { SaveAsSheet().fittedSheetOnPad() }
+        .sheet(isPresented: $model.showsTemplates) { TemplateSheet().fittedSheetOnPad() }
+        .sheet(isPresented: Binding(get: { model.showsAI }, set: { model.showsAI = $0 })) { AISoundSheet().fittedSheetOnPad() }
         .sheet(isPresented: Binding(get: { model.showsKemperImport }, set: { if !$0 { model.closeKemperImport() } })) {
-            KemperImportSheet()
+            KemperImportSheet().fittedSheetOnPad()
         }
         .confirmationDialog(storeTitle, isPresented: storeDialogShown, presenting: model.storeRequest) { request in
             Button(tr("Store on %@", link.profile.slotName(request.slot))) { model.store(request) }
@@ -58,8 +62,9 @@ struct ContentView: View {
         } message: {
             Text(tr("It then plays its stored slot again. When saved, the sound goes to this Mac under “On this Mac”."))
         }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: PresetsContent.didBecomeActive)) { _ in
             model.reloadLibrary()
+            model.store.syncIfDue()
         }
     }
 

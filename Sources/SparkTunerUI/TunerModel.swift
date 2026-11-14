@@ -1,6 +1,10 @@
 import AmpText
 import AVFoundation
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import QuartzCore
 import SparkCore
 
@@ -90,7 +94,9 @@ final class TunerModel: ObservableObject {
     let defaults: UserDefaults
     let engine = TunerEngine()
     private(set) var isActive = false
+    #if os(macOS)
     private var ownCapture: CaptureEngine?
+    #endif
     private var interpreter: TunerInterpreter
     private var timer: Timer?
     private var connectTask: Task<Void, Never>?
@@ -218,9 +224,14 @@ final class TunerModel: ObservableObject {
         lastDeviceRefresh = Date()
         deckInputName = shared.device?.name
         ampName = amp?.ampTunerDevice
+        #if os(macOS)
         otherInputs = shared.allowsOtherInputs
             ? AudioDevices.inputDevices().filter { !shared.owns($0) }.sorted { $0.name < $1.name }
             : []
+        #else
+        // iPadOS has one input route, the system's choice, and the shared input is it.
+        otherInputs = []
+        #endif
         if case .other = source, !shared.allowsOtherInputs { source = .automatic }
     }
 
@@ -262,6 +273,7 @@ final class TunerModel: ObservableObject {
                 status = .noInput
                 return
             }
+            #if os(macOS)
             status = .opening
             connectTask = Task { [weak self] in
                 guard let self else { return }
@@ -289,6 +301,10 @@ final class TunerModel: ObservableObject {
                     status = .failed(error.localizedDescription)
                 }
             }
+            #else
+            _ = device
+            status = .noInput
+            #endif
         }
     }
 
@@ -305,9 +321,11 @@ final class TunerModel: ObservableObject {
     }
 
     private func closeOwnCapture() {
+        #if os(macOS)
         ownCapture?.detach(engine.tap)
         ownCapture?.close()
         ownCapture = nil
+        #endif
     }
 
     private static func status(for error: Error) -> Status {
@@ -374,7 +392,11 @@ final class TunerModel: ObservableObject {
         }
         switch status {
         case .listening:
+            #if os(macOS)
             let alive = current == .deck ? shared.isSharing(with: engine.tap) : ownCapture?.isOpen == true
+            #else
+            let alive = current == .deck && shared.isSharing(with: engine.tap)
+            #endif
             if !alive {
                 disconnect()
                 status = .noInput
@@ -394,15 +416,24 @@ final class TunerModel: ObservableObject {
 
     /// Note, string and deviation, at most every two seconds and only when something changed that one would hear.
     private func announce(now: Date) {
-        guard NSWorkspace.shared.isVoiceOverEnabled, let readout, !readout.isHeld else { return }
+        #if os(macOS)
+        let voiceOver = NSWorkspace.shared.isVoiceOverEnabled
+        #else
+        let voiceOver = UIAccessibility.isVoiceOverRunning
+        #endif
+        guard voiceOver, let readout, !readout.isHeld else { return }
         let text = Self.spoken(readout)
         if let last = lastAnnouncement, last.text == text || now.timeIntervalSince(last.date) < 2 { return }
         lastAnnouncement = (text, now)
+        #if os(macOS)
         guard let window = NSApp.mainWindow else { return }
         NSAccessibility.post(element: window, notification: .announcementRequested, userInfo: [
             .announcement: text,
             .priority: NSAccessibilityPriorityLevel.medium.rawValue,
         ])
+        #else
+        UIAccessibility.post(notification: .announcement, argument: text)
+        #endif
     }
 
     /// "E, string 6, 2 cents too low" or "E, string 6, in tune". Whole cents above two, tenths below, so a calm

@@ -1,6 +1,16 @@
 import AmpText
-import CoreAudio
 import Foundation
+#if os(macOS)
+import CoreAudio
+#else
+// iPadOS has no HAL: there is one input route, chosen by the system. The Mac's names stay, so the code that only
+// passes a device along reads the same on both.
+public typealias AudioDeviceID = UInt32
+public let kAudioDeviceTransportTypeBuiltIn: UInt32 = 0x626C_746E   // 'bltn'
+public let kAudioDeviceTransportTypeUSB: UInt32 = 0x7573_6220       // 'usb '
+public let kAudioDeviceTransportTypeVirtual: UInt32 = 0x7669_7274   // 'virt'
+public let kAudioDeviceTransportTypeAggregate: UInt32 = 0x6772_7570 // 'grup'
+#endif
 
 /// An audio device that exposes at least one input stream.
 public struct InputDevice: Identifiable, Hashable, Sendable {
@@ -47,6 +57,7 @@ public struct OutputDevice: Identifiable, Hashable, Sendable {
     }
 }
 
+#if os(macOS)
 public enum AudioDevices {
     static func address(
         _ selector: AudioObjectPropertySelector,
@@ -250,3 +261,4 @@ public enum AudioDevices {
         AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &property, .main, listener)
     }
 }
+#endif

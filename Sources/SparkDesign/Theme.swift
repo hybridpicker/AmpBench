@@ -1,5 +1,9 @@
-import AppKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#else
+import UIKit
+#endif
 
 /// One fixed color, written down once as a hex value. It is a shape style, so it fills and colors directly, and it
 /// knows its contrast to another swatch, which the tests use to check every pair of text and background.
@@ -27,7 +31,11 @@ public struct Swatch: ShapeStyle, Hashable, Sendable {
     public static func black(_ alpha: Double) -> Swatch { Swatch(hex: 0x000000, alpha: alpha) }
 
     public var color: Color { Color(.sRGB, red: red, green: green, blue: blue, opacity: alpha) }
+    #if os(macOS)
     public var nsColor: NSColor { NSColor(srgbRed: red, green: green, blue: blue, alpha: alpha) }
+    #else
+    public var uiColor: UIColor { UIColor(red: red, green: green, blue: blue, alpha: alpha) }
+    #endif
 
     public func opacity(_ alpha: Double) -> Swatch { Swatch(red: red, green: green, blue: blue, alpha: self.alpha * alpha) }
 
@@ -74,6 +82,7 @@ public struct DeskSwatch: ShapeStyle, Hashable, Sendable {
     }
 
     /// A color that changes with the appearance of the view it is drawn in, also inside a `Canvas`.
+    #if os(macOS)
     public var color: Color { Color(nsColor: nsColor) }
 
     public var nsColor: NSColor {
@@ -82,6 +91,14 @@ public struct DeskSwatch: ShapeStyle, Hashable, Sendable {
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? dark : light
         }
     }
+    #else
+    public var color: Color { Color(uiColor: uiColor) }
+
+    public var uiColor: UIColor {
+        let light = light.uiColor, dark = dark.uiColor
+        return UIColor { traits in traits.userInterfaceStyle == .dark ? dark : light }
+    }
+    #endif
 
     public func opacity(_ alpha: Double) -> DeskSwatch { DeskSwatch(light: light.opacity(alpha), dark: dark.opacity(alpha)) }
 

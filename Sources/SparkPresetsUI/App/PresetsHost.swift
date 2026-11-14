@@ -1,6 +1,9 @@
 import AmpText
+#if os(macOS)
 import AppKit
+#endif
 import Combine
+import SoundStore
 import SparkControl
 import SwiftUI
 
@@ -42,10 +45,14 @@ public final class PresetsHost: ObservableObject {
             return SparkLink(transport: demo.map { _ in SimulatedDevice([.mini, .neo, .reactor]) as LinkTransport },
                              memory: DeviceMemory(defaults: defaults))
         }
-        model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder, link: link)
+        // A test library also keeps its sound store apart: its own settings, key and state, never the real ones.
+        model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder, link: link,
+                             store: testFolder.map { StoreProfile.testing(stateFolder: $0) })
         changes = model.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }
         // The pieces' sounds name saved presets, so the library is read at once. Bluetooth waits.
         model.reloadLibrary()
+        // The store syncs at the start, whichever area shows: sounds made elsewhere are there before one looks.
+        model.store.syncIfDue()
     }
 
     /// Sidebar and editor: the area "Presets". It starts Bluetooth the first time it shows.
@@ -59,10 +66,12 @@ public final class PresetsHost: ObservableObject {
         return ["snapshot", "open", "size", "live-selftest"].contains { arguments[$0] != nil }
     }
 
+    #if os(macOS)
     /// The window that Spark Presets' snapshot sizes and draws.
     public func adopt(_ window: NSWindow) {
         Snapshot.window = window
     }
+    #endif
 
     /// The preset open in the editor, by the uuid it carries, if any.
     public var openPresetID: String? { model.editor.preset?.uuid }

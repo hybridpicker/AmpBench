@@ -29,9 +29,17 @@ public final class PresetLibrary {
         self.folder = folder
     }
 
+    /// Where removed presets go on iPadOS, inside the presets folder. Hidden, so no scan lists it.
+    public static let padTrashName = ".Trash"
+
     public static var defaultFolder: URL {
-        FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Music", isDirectory: true)
+        #if os(macOS)
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        #else
+        // An iPad app has no home folder to share: its sounds live in its own Documents, which the Files app shows.
+        let home = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        #endif
+        return home.appendingPathComponent("Music", isDirectory: true)
             .appendingPathComponent("Spark Presets", isDirectory: true)
     }
 
@@ -168,10 +176,35 @@ public final class PresetLibrary {
     /// Moves the file to the Trash and returns where it went.
     @discardableResult
     public func trash(_ item: SavedPreset) throws -> URL? {
-        var trashed: NSURL?
-        try fileManager.trashItem(at: item.url, resultingItemURL: &trashed)
+        let place = try Self.discard(item.url, in: folder)
         try reload()
+        return place
+    }
+
+    /// Takes a file of the presets folder away without deleting it, and returns where it went. The library and the
+    /// sound store (for a sound removed on another device) both remove this way.
+    @discardableResult
+    public static func discard(_ url: URL, in folder: URL) throws -> URL? {
+        let fileManager = FileManager.default
+        #if os(macOS)
+        var trashed: NSURL?
+        try fileManager.trashItem(at: url, resultingItemURL: &trashed)
         return trashed as URL?
+        #else
+        // iPadOS has no Trash for an app's own files. The preset moves to a hidden folder beside the others, so
+        // nothing is deleted, the library no longer lists it, and it can be brought back.
+        let trash = folder.appendingPathComponent(padTrashName, isDirectory: true)
+        try fileManager.createDirectory(at: trash, withIntermediateDirectories: true)
+        var place = trash.appendingPathComponent(url.lastPathComponent)
+        var count = 2
+        while fileManager.fileExists(atPath: place.path) {
+            let base = url.deletingPathExtension().lastPathComponent
+            place = trash.appendingPathComponent("\(base) \(count).\(url.pathExtension)")
+            count += 1
+        }
+        try fileManager.moveItem(at: url, to: place)
+        return place
+        #endif
     }
 
     private func write(_ item: SavedPreset) throws {

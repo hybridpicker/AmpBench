@@ -1,5 +1,7 @@
 import AmpText
+#if os(macOS)
 import AppKit
+#endif
 import SparkControl
 import SparkDesign
 import SwiftUI
@@ -28,8 +30,10 @@ enum Snapshot {
 
     static var isOffline: Bool { arguments["offline"] != nil }
     /// The window to size and draw, set by AmpBench.
+    #if os(macOS)
     static weak var window: NSWindow?
     private static var target: NSWindow? { window ?? NSApp.windows.first(where: { $0.isVisible }) }
+    #endif
     /// A test folder for presets, so pictures never show one's own presets. A new, empty one gets the templates as
     /// made-up presets and one backup.
     static func seededTestFolder(_ folder: URL) -> URL {
@@ -49,17 +53,22 @@ enum Snapshot {
     static let isActive = CommandLine.arguments.contains("--snapshot")
 
     static func prepare() {
+        #if os(macOS)
         switch arguments["appearance"] {
         case "dark": NSApp.appearance = NSAppearance(named: .darkAqua)
         case "light": NSApp.appearance = NSAppearance(named: .aqua)
         default: break
         }
+        #endif
     }
 
     static func run(_ model: PresetsModel) async {
         let values = arguments
-        guard values["snapshot"] != nil || values["open"] != nil || values["size"] != nil else { return }
+        // On the iPad the simulator takes the picture, so a demo device or an opened preset is reason enough.
+        guard values["snapshot"] != nil || values["open"] != nil || values["size"] != nil
+            || values["demo-devices"] != nil else { return }
         try? await Task.sleep(for: .milliseconds(600))
+        #if os(macOS)
         if let size = values["size"], let window = target {
             let parts = size.split(separator: "x").compactMap { Double($0) }
             if parts.count == 2 {
@@ -67,6 +76,7 @@ enum Snapshot {
                 window.center()
             }
         }
+        #endif
         await demoDevice(values["demo-devices"], in: model)
         // A Kemper file in the import sheet, or imported right away (only into a test library).
         if let path = values["kemper"], !path.isEmpty {
@@ -81,6 +91,7 @@ enum Snapshot {
         if let focus = values["focus"], let place = ChainPlace.allCases.first(where: { "\($0)" == focus }) {
             model.editor.focus = place
         }
+        #if os(macOS)
         guard let path = values["snapshot"], !path.isEmpty else { return }
         try? await Task.sleep(for: .seconds(Double(values["delay"] ?? "") ?? 1.5))
         write(to: URL(fileURLWithPath: path))
@@ -90,6 +101,7 @@ enum Snapshot {
             try? await Task.sleep(for: .milliseconds(300))
             NSApp.terminate(nil)
         }
+        #endif
     }
 
     private static func demoDevice(_ name: String?, in model: PresetsModel) async {
@@ -139,6 +151,7 @@ enum Snapshot {
         }
     }
 
+    #if os(macOS)
     /// Draws the window's content into a PNG. Translucent materials, such as the sidebar's, are left out.
     static func write(to url: URL) {
         // The content only, like the recorder's pictures: the toolbar's translucent material would come out white.
@@ -154,5 +167,5 @@ enum Snapshot {
         } catch {
             FileHandle.standardError.write(Data("Could not write the snapshot.\n".utf8))
         }
-    }
+    }    #endif
 }

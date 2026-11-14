@@ -1,6 +1,6 @@
 #include "SparkRT.h"
 
-#include <CoreAudio/HostTime.h>
+#include "hosttime.h"
 #include <stdatomic.h>
 #include <stdlib.h>
 
@@ -17,7 +17,7 @@ struct SparkClock {
 SparkClock *spark_clock_create(double sample_rate) {
     SparkClock *clock = calloc(1, sizeof(SparkClock));
     clock->sample_rate = sample_rate;
-    clock->ticks_per_frame = (double)AudioGetHostClockFrequency() / sample_rate;
+    clock->ticks_per_frame = spark_host_clock_frequency() / sample_rate;
     return clock;
 }
 

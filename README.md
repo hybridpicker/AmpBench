@@ -7,6 +7,7 @@
 **A practice studio for Positive Grid guitar amps — record, shape sounds, tune. One window, no mouse needed.**
 
 ![macOS 14+](https://img.shields.io/badge/macOS-14%2B-1c1c1e?logo=apple&logoColor=white)
+![iPadOS 17+](https://img.shields.io/badge/iPadOS-17%2B-1c1c1e?logo=apple&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-PipeWire%20%C2%B7%20BlueZ-1c1c1e?logo=linux&logoColor=white)
 ![Swift](https://img.shields.io/badge/Swift-no%20dependencies-f5a623?logo=swift&logoColor=white)
 ![Python 3](https://img.shields.io/badge/Python-3-f5a623?logo=python&logoColor=white)
@@ -22,7 +23,8 @@
 
 Record a take, listen right away, decide and keep practicing, in a few seconds and without the mouse; shape the
 amp's sounds in a preset editor over Bluetooth; tune; and keep with every take the sound it was played with. Native
-on macOS (SwiftUI) and on Linux (Qt).
+on macOS (SwiftUI) and on Linux (Qt), with Presets and Tuner on the iPad from the Mac's code, and an encrypted
+store that keeps your sounds in a place of your choice.
 
 | Record | Tuner |
 | --- | --- |
@@ -58,6 +60,14 @@ on macOS (SwiftUI) and on Linux (Qt).
 - An editor with the signal chain as pedals and an amp head; every change is heard live on the amp.
 - Undo, A/B against the saved state, and storing in a slot with a backup and a read-back.
 - Presets are plain JSON files, ordered with hashtags and pinned tags.
+
+**Sound store** (Mac and iPad)
+- Keeps every sound encrypted in a place you choose: a folder (also one iCloud Drive, Google Drive or Dropbox keeps
+  in step), your own server over SSH, or an HTTPS address such as a WebDAV folder.
+- Encrypted on the device with the [age](https://age-encryption.org) format; the place sees only unreadable files.
+  The key lives in the system keychain, never in a file.
+- A second device with the same key gets the same sounds, and changes travel both ways. Nothing is ever deleted in
+  the store. See [docs/STORE.md](docs/STORE.md).
 - A catalog of 68 amp and effect models, each checked on the amp.
 
 **Tuner**
@@ -94,6 +104,8 @@ are in the [manual](docs/MANUAL.md#devices) and in [docs/STUDIO.md](docs/STUDIO.
 Everything stays on your computer, and the app has no telemetry. Its only connections are Bluetooth LE to the amp
 and — only when you ask for an AI Sound — one request to Ollama's cloud API that carries your description of the
 sound; both happen only when asked for. The key for that API is kept in the system keychain, never in a file.
+The sound store is off until you set it up. It then sends your sounds only to the place you chose, encrypted before
+they leave the device, with a key that stays in the keychain.
 Found a security problem? See [SECURITY.md](SECURITY.md).
 
 ## Languages
@@ -117,6 +129,16 @@ linux/install.sh "$(git rev-parse --short HEAD)"   # runs the tests, then instal
 ampbench                                           # the window
 ampbench --demo                                    # a simulated amp and a temporary folder, to look around
 ```
+
+**iPad** (iPadOS 17 or later; needs Xcode and XcodeGen):
+
+```bash
+./ios/build.sh --simulator   # builds and starts it in an iPad simulator
+./ios/build.sh --device      # builds signed and installs it on a connected iPad
+```
+
+The iPad app has the areas Presets and Tuner and the sound store; Record is not there yet. More in
+[ios/README.md](ios/README.md).
 
 The Linux app has the areas Record, Presets and Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's
 presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
@@ -143,7 +165,9 @@ On Linux the same keys work with Ctrl in place of `⌘`.
 ```
 
 Folders and files from versions before 1.0 with German names (`Aufnahmen`, `Bibliothek.json`) are renamed once at the
-first start; nothing is copied or deleted. The AI Sound key is kept in the macOS Keychain, on Linux in the desktop's keyring. The full
+first start; nothing is copied or deleted. The AI Sound key is kept in the macOS Keychain, on Linux in the desktop's keyring. On the
+iPad the presets are in the app's Documents folder ("On My iPad → AmpBench" in Files). The sound store's key is in the
+keychain and its place in the app's preferences; neither is a file in this folder or in the repository. The full
 list of files is in the [manual](docs/MANUAL.md#where-things-are).
 
 ## Documentation
@@ -156,7 +180,9 @@ list of files is in the [manual](docs/MANUAL.md#where-things-are).
 | [docs/STUDIO.md](docs/STUDIO.md) | Plan, decisions, device findings (Spark NEO, REACTOR 50), protecting the amp, open points |
 | [docs/DESIGN.md](docs/DESIGN.md) | The design language: principles, values, building blocks |
 | [docs/ai/SOUND-GUIDE.md](docs/ai/SOUND-GUIDE.md) | Sound recipes for AI assistants, with the [model catalog](docs/ai/spark-catalog.md) |
+| [docs/STORE.md](docs/STORE.md) | The sound store: what is encrypted how, what the place sees, syncing, reading it without the app, a place of your own |
 | [linux/README.md](linux/README.md) | The Linux app |
+| [ios/README.md](ios/README.md) | The iPad app: what it has, building, the simulator, UI tests |
 
 ## Sources and credits
 

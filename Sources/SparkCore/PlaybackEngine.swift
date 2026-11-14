@@ -1,8 +1,10 @@
 import AmpText
 import AVFoundation
 import AudioToolbox
-import CoreAudio
 import Foundation
+
+#if os(macOS)
+import CoreAudio
 
 /// Plans which file frames play next. Pure logic, so looping and trimming can be tested without audio.
 public struct PlaybackPlanner: Equatable, Sendable {
@@ -531,3 +533,4 @@ public final class PlaybackEngine {
         }
     }
 }
+#endif

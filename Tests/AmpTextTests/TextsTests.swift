@@ -31,6 +31,20 @@ final class TextsTests: XCTestCase {
         XCTAssertEqual(tr("zzz no such text zzz"), "zzz no such text zzz")
     }
 
+    /// The texts name the Mac. The iPad says "iPad", "Files" and "Settings" in the same sentences.
+    func testTheIPadNamesItselfInTheMacsTexts() {
+        XCTAssertEqual(Texts.forPad("Save to this Mac"), "Save to this iPad")
+        XCTAssertEqual(Texts.forPad("Auf dem Mac sichern (⌘S)"), "Auf dem iPad sichern (⌘S)")
+        XCTAssertEqual(Texts.forPad("Show in Finder"), "Show in Files")
+        XCTAssertEqual(Texts.forPad("Im Finder zeigen"), "In Dateien zeigen")
+        XCTAssertEqual(Texts.forPad("Allow access in System Settings → Privacy & Security → Bluetooth."),
+                       "Allow access in Settings → Privacy & Security → Bluetooth.")
+        XCTAssertEqual(Texts.forPad("Erlaube ihn unter Systemeinstellungen → Datenschutz & Sicherheit → Mikrofon."),
+                       "Erlaube ihn unter Einstellungen → Datenschutz & Sicherheit → Mikrofon.")
+        // Only the whole word: a MacBook stays one, and placeholders are untouched.
+        XCTAssertEqual(Texts.forPad("Sounds from your MacBook, slot %d of %@"), "Sounds from your MacBook, slot %d of %@")
+    }
+
     /// A key in two tables must mean the same thing in both.
     func testTablesAgreeOnSharedKeys() {
         var seen: [String: (table: String, german: String)] = [:]

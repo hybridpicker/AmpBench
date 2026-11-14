@@ -1,7 +1,12 @@
 import AmpText
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Combine
 import Foundation
+import SoundStore
 import SparkControl
 
 struct Banner: Identifiable, Equatable {
@@ -66,10 +71,14 @@ final class PresetsModel: ObservableObject {
     /// A sound worked out for the REACTOR, waiting for the player's okay before it is sent.
     @Published var reactorRequest: ReactorSound?
     @Published var showsKemperImport = false
+    /// The sheet that sets up and shows the sound store.
+    @Published var showsStore = false
     @Published var kemperFileName: String?
     @Published var kemperPlan: KemperImportPlan?
     @Published var kemperError: String?
     @Published var kemperIsBusy = false
+    /// The system's file picker for a Kemper file, on iPadOS, where no panel can be run from the model.
+    @Published var showsKemperFilePicker = false
     /// Gets the songs of an import; AmpBench makes pieces of them in the recorder. Returns what it did, for the
     /// message after the import.
     var onImportSongs: (([ImportedSong]) -> String?)?
@@ -119,10 +128,21 @@ final class PresetsModel: ObservableObject {
     /// Called when the device dropped a sound that was not stored, because the connection ended (the NEO).
     var onTemporaryLost: ((String) -> Void)?
 
-    init(folder: URL = PresetLibrary.defaultFolder, link: SparkLink? = nil) {
+    /// The encrypted store of this device's sounds. A test library gets one apart from the real one.
+    let store: StoreModel
+
+    /// `store` nil means this device's real store, except in a unit test, which gets one apart from it in a
+    /// temporary folder, so no test can read the real settings or key.
+    init(folder: URL = PresetLibrary.defaultFolder, link: SparkLink? = nil, store: StoreProfile? = nil) {
         self.link = link ?? SparkLink()
         library = PresetLibrary(folder: folder)
         editor = EditorModel(link: self.link)
+        let isUnitTest = NSClassFromString("XCTestCase") != nil
+        let profile = store ?? (isUnitTest ? .testing(stateFolder: FileManager.default.temporaryDirectory) : .standard)
+        self.store = StoreModel(folder: folder, profile: profile)
+        self.store.onChanged = { [weak self] in self?.reloadLibrary() }
+        self.store.report = { [weak self] isError, text in self?.show(isError ? .error : .info, text) }
+        self.store.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
         editor.show = { [weak self] kind, text in self?.show(kind, text) }
         self.link.onAmpEvent = { [weak self] text in self?.show(.info, text) }
         self.link.onAmpSelected = { [weak self] slot in self?.ampSelected(slot) }
@@ -149,6 +169,7 @@ final class PresetsModel: ObservableObject {
 
     func start(bluetooth: Bool = true) {
         reloadLibrary()
+        store.syncIfDue()
         if bluetooth { link.start() }
     }
 
@@ -208,6 +229,7 @@ final class PresetsModel: ObservableObject {
         }
         items = library.items
         unreadable = library.unreadable
+        store.libraryChanged()
         if case .saved(let url) = selection, !items.contains(where: { $0.url == url }), !editor.isModified {
             apply(nil)
         }
@@ -322,8 +344,12 @@ final class PresetsModel: ObservableObject {
         guard let preset = editor.preset else { return }
         do {
             let text = try SoundRecipe(preset: preset).toneDescription()
+            #if os(macOS)
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+            #else
+            UIPasteboard.general.string = text
+            #endif
             show(.info, tr("The text for REACTOR is copied. Paste it into “Text to Tone” in the REACTOR app; the REACTOR interprets it itself and chooses its own models."))
         } catch {
             show(.error, tr("The sound could not be described as text: %@", error.localizedDescription))
@@ -641,11 +667,20 @@ final class PresetsModel: ObservableObject {
     }
 
     func reveal(_ item: SavedPreset? = nil) {
+        #if os(macOS)
         if let item = item ?? selectedItem {
             NSWorkspace.shared.activateFileViewerSelecting([item.url])
         } else {
             NSWorkspace.shared.activateFileViewerSelecting([library.folder])
         }
+        #else
+        // The Files app opens at the presets folder; it cannot select a single file from outside.
+        _ = item
+        var parts = URLComponents()
+        parts.scheme = "shareddocuments"
+        parts.path = library.folder.path
+        if let url = parts.url { UIApplication.shared.open(url) }
+        #endif
     }
 
     // MARK: AI Sound
@@ -901,8 +936,12 @@ final class PresetsModel: ObservableObject {
     func show(_ kind: Banner.Kind, _ text: String, undo: (@MainActor () -> Void)? = nil) {
         let banner = Banner(kind: kind, text: text, undo: undo)
         self.banner = banner
+        #if os(macOS)
         NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested,
                              userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
+        #else
+        UIAccessibility.post(notification: .announcement, argument: text)
+        #endif
         bannerTask?.cancel()
         guard kind != .error else { return }
         bannerTask = Task {

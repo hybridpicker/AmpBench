@@ -137,6 +137,7 @@ public enum LatencyProbe {
                       played: analysis.played)
     }
 
+    #if os(macOS)
     /// Runs on the main thread and takes about ten seconds. The audio goes to a temporary file that is deleted
     /// again; nothing is added to the library.
     @MainActor
@@ -175,6 +176,7 @@ public enum LatencyProbe {
         let analysis = analyze(samples: samples, sampleRate: rate, expected: expected)
         return try evaluate(analysis, sampleRate: rate, reported: reported)
     }
+    #endif
 
     private static func loudestChannel(_ url: URL) throws -> [Float] {
         let file = try AVAudioFile(forReading: url)

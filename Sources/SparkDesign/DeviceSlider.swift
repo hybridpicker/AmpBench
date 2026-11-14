@@ -1,4 +1,6 @@
+#if os(macOS)
 import AppKit
+#endif
 import SwiftUI
 
 /// A fader on a device front: a recessed track filled in amber up to the value, with a metal thumb.

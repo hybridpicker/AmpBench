@@ -1,8 +1,10 @@
 import AmpText
 import AudioToolbox
 import CSparkRT
-import CoreAudio
 import Foundation
+
+#if os(macOS)
+import CoreAudio
 
 public enum CaptureError: LocalizedError {
     case noAudioUnit
@@ -505,3 +507,25 @@ public enum WAVWriter {
         }
     }
 }
+#else
+/// iPadOS has no AUHAL and no device list, so the Mac's capture engine does not exist there. What the library's file
+/// code shares with it stays: the size of a waveform bin and the float format files are read in.
+public enum CaptureEngine {
+    public static let overviewBinFrames: UInt32 = 256
+
+    static func clientFormat(rate: Double, channels: UInt32) -> AudioStreamBasicDescription {
+        let bytesPerFrame = channels * UInt32(MemoryLayout<Float>.size)
+        return AudioStreamBasicDescription(
+            mSampleRate: rate,
+            mFormatID: kAudioFormatLinearPCM,
+            mFormatFlags: kAudioFormatFlagsNativeFloatPacked,
+            mBytesPerPacket: bytesPerFrame,
+            mFramesPerPacket: 1,
+            mBytesPerFrame: bytesPerFrame,
+            mChannelsPerFrame: channels,
+            mBitsPerChannel: 32,
+            mReserved: 0
+        )
+    }
+}
+#endif

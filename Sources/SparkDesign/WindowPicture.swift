@@ -1,3 +1,4 @@
+#if os(macOS)
 import AppKit
 
 /// A picture of an app's own window for checking the design, without screen recording permission and without ever
@@ -67,3 +68,4 @@ public enum WindowPicture {
         return canvas.representation(using: .png, properties: [:])
     }
 }
+#endif

@@ -1,0 +1,8 @@
+// Copy to Local.xcconfig (Git ignores it). Only needed to install on a real iPad.
+
+// The ten-character id of your Apple developer team (developer.apple.com → Membership, or Xcode → Settings →
+// Accounts). A free Apple ID works too; its apps run for seven days before they need a new install.
+DEVELOPMENT_TEAM =
+
+// A bundle id of your own. It must be unique for your team, so pick a name you own.
+AMPBENCH_BUNDLE_ID = com.example.ampbench

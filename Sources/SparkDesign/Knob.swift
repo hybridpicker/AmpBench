@@ -1,6 +1,8 @@
 import AmpText
-import AppKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// Hands the scroll wheel to the control under the pointer. SwiftUI on macOS 14 has no scroll event for views, so a
 /// local event monitor takes the wheel while a control is hovered and lets it through otherwise.
@@ -15,6 +17,7 @@ public final class ScrollRouter {
     public func hover(_ id: UUID, _ handler: @escaping (CGFloat, Bool) -> Void) {
         owner = id
         target = handler
+        #if os(macOS)
         if monitor == nil {
             monitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
                 let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY : event.scrollingDeltaY * 8
@@ -28,6 +31,7 @@ public final class ScrollRouter {
                 return handled ? nil : event
             }
         }
+        #endif
     }
 
     public func leave(_ id: UUID) {
@@ -156,7 +160,12 @@ public struct Knob: View {
                     dragStart = value
                     onBegin()
                 }
+                #if os(macOS)
                 let fine = NSEvent.modifierFlags.contains(.option)
+                #else
+                // A finger has no ⌥: it drags at the normal speed. A hardware keyboard's arrow keys step finely.
+                let fine = false
+                #endif
                 let distance = Float(-gesture.translation.height)
                 if steps.isEmpty {
                     onChange(clamp((dragStart ?? value) + distance / (fine ? 900 : 180)))

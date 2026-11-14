@@ -100,7 +100,7 @@ struct AISoundSheet: View {
                         Text(tr("Asked for recently")).font(.caption).foregroundStyle(.secondary)
                         Spacer()
                         Button(tr("Clear history")) { model.clearAIHistory() }
-                            .buttonStyle(.link).font(.caption)
+                            .linkButtonStyle().font(.caption)
                     }
                     FlowRow(spacing: 6) {
                         ForEach(model.aiHistory, id: \.self) { wish in
@@ -141,7 +141,7 @@ struct AISoundSheet: View {
                     }
                     Spacer()
                     Button(tr("Remove key")) { model.aiAPIKey = "" }
-                        .buttonStyle(.link).font(.caption)
+                        .linkButtonStyle().font(.caption)
                 }
                 .padding(.top, 6)
             }

@@ -1,0 +1,15 @@
+// Build settings of the iPad app. Nothing personal belongs here: this file is public.
+//
+// Your Apple developer team and, if you like, your own bundle id go into Local.xcconfig next to this file, which
+// Git ignores. `./ios/build.sh --device` writes it for you from your signing certificate; Local.xcconfig.example
+// shows what it holds. The simulator needs neither.
+AMPBENCH_BUNDLE_ID = local.ampbench.pad
+DEVELOPMENT_TEAM =
+// Set by ios/build.sh from VERSION and Git, like the Mac build does.
+MARKETING_VERSION = 1.0.0
+CURRENT_PROJECT_VERSION = 1
+AMPBENCH_BUILD_ID = dev
+
+#include? "Local.xcconfig"
+
+PRODUCT_BUNDLE_IDENTIFIER = $(AMPBENCH_BUNDLE_ID)

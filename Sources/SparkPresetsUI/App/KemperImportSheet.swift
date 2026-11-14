@@ -26,6 +26,13 @@ struct KemperImportSheet: View {
 
             content
                 .frame(minHeight: 320, maxHeight: .infinity)
+                #if !os(macOS)
+                // Any file may be picked: the two Kemper extensions belong to no type iPadOS knows, and the reader
+                // says clearly when a file is not a Kemper one.
+                .fileImporter(isPresented: $model.showsKemperFilePicker, allowedContentTypes: [.data]) { result in
+                    if case .success(let url) = result { model.readKemper(url) }
+                }
+                #endif
 
             if let error = model.kemperError {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
@@ -68,7 +75,7 @@ struct KemperImportSheet: View {
                     }
                 }
             }
-            .listStyle(.inset(alternatesRowBackgrounds: true))
+            .stripedListStyle()
         } else {
             VStack(spacing: 12) {
                 Image(systemName: "externaldrive").font(.system(size: 34, weight: .light)).foregroundStyle(.secondary)
@@ -129,7 +136,7 @@ private struct RigRow: View {
         Toggle(isOn: Binding(get: { rig.isChosen }, set: { model.setChosen($0, rig: rig.id) })) {
             SlotLine(number: nil, name: rig.name, translation: rig.translation)
         }
-        .toggleStyle(.checkbox)
+        .checkboxToggleStyle()
     }
 }
 

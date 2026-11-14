@@ -1,8 +1,10 @@
 import AmpText
 import AudioToolbox
 import CSparkRT
-import CoreAudio
 import Foundation
+
+#if os(macOS)
+import CoreAudio
 
 public struct MetronomeSettings: Codable, Equatable, Sendable {
     public var bpm: Double
@@ -237,3 +239,4 @@ public enum LoopbackProbe {
         return Measurement(baselinePeak: baseline, clickPeak: measured)
     }
 }
+#endif

@@ -1,6 +1,7 @@
 // Draws AmpBench's icon: a dark device front with one sign on it, the glowing record key (a waveform that peaks
 // in a spark) set into the ring of an amber-lit control, so recording and sound are one thing.
 // Usage: swift Tools/make-icon.swift <output.icns>
+//        swift Tools/make-icon.swift --ios <output.png>   the iPad's icon: the same sign on a full square
 import AppKit
 import CoreGraphics
 import Foundation
@@ -23,12 +24,25 @@ func circle(_ center: CGPoint, _ radius: CGFloat) -> CGPath {
     CGPath(ellipseIn: CGRect(x: center.x - radius, y: center.y - radius, width: radius * 2, height: radius * 2), transform: nil)
 }
 
-func draw(size: Int) -> CGImage {
+func draw(size: Int, fullBleed: Bool = false) -> CGImage {
     let context = CGContext(
         data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
         space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
     let scale = CGFloat(size) / 1024
     context.scaleBy(x: scale, y: scale)
+
+    // iPadOS rounds the corners itself and wants the whole square filled, without transparency.
+    if fullBleed {
+        linear(context, [color(0.235, 0.24, 0.26), color(0.075, 0.08, 0.09)],
+               from: CGPoint(x: 512, y: 1024), to: CGPoint(x: 512, y: 0))
+        radial(context, [color(1, 1, 1, 0.12), color(1, 1, 1, 0)], center: CGPoint(x: 512, y: 1090), radius: 680)
+        // The sign a little larger than on the Mac, where the body is smaller than the canvas.
+        context.translateBy(x: 512, y: 512)
+        context.scaleBy(x: 1.12, y: 1.12)
+        context.translateBy(x: -512, y: -512)
+        drawRingedRecordKey(context, center: CGPoint(x: 512, y: 512))
+        return context.makeImage()!
+    }
 
     // The standard macOS icon grid: 824 points of body inside 1024, with a soft shadow below.
     let body = CGRect(x: 100, y: 100, width: 824, height: 824)
@@ -232,8 +246,17 @@ func writePNG(_ image: CGImage, to url: URL) throws {
     try data.write(to: url)
 }
 
+if CommandLine.arguments.count == 3, CommandLine.arguments[1] == "--ios" {
+    // Without an alpha channel: the App Store and the asset catalog refuse an icon that has one.
+    let image = draw(size: 1024, fullBleed: true)
+    let opaque = CGContext(data: nil, width: 1024, height: 1024, bitsPerComponent: 8, bytesPerRow: 0,
+                           space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
+    opaque.draw(image, in: CGRect(x: 0, y: 0, width: 1024, height: 1024))
+    try writePNG(opaque.makeImage()!, to: URL(fileURLWithPath: CommandLine.arguments[2]))
+    exit(0)
+}
 guard CommandLine.arguments.count == 2 else {
-    print("usage: make-icon.swift <output.icns>")
+    print("usage: make-icon.swift <output.icns> | --ios <output.png>")
     exit(64)
 }
 let output = URL(fileURLWithPath: CommandLine.arguments[1])

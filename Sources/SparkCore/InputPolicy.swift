@@ -1,5 +1,7 @@
-import CoreAudio
 import Foundation
+#if os(macOS)
+import CoreAudio
+#endif
 
 /// Decides which devices may be opened as an input at all.
 ///

@@ -17,6 +17,10 @@ SettingsMigration.runAtLaunch()
 if let status = RecipeCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
     exit(status)
 }
+// The sound store without the window: --store-setup, --store-key, --store-sync, --store-status.
+if let status = StoreCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
+    exit(status)
+}
 if let status = RecorderCommandLine.run(Array(CommandLine.arguments.dropFirst())) {
     exit(status)
 }
