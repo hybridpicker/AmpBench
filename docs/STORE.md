@@ -119,8 +119,7 @@ place can be the same folder on the server, so the Mac and the iPad meet there.
 - Linux has no sound store yet. Its presets folder can be kept in step by hand with `age` as above.
 - Earlier versions and removed sounds stay in the store but the app has no view to bring one back.
 - No lock on the index (see Syncing).
-- The nginx example above was run in a private nginx on the loopback address (GET, PUT with a new folder, 401
-  without the password, DELETE and MKCOL refused, 413 above the size limit), not yet from the app against a public
-  server.
+- The nginx example above runs on a public server: the Mac app synced and read back a store of 92 sounds through
+  it (2026-11-14); 401 without the password, DELETE, MKCOL and listing refused. Not yet tried from a real iPad.
 - The iPad app is installed on a real iPad, but the store has run in the simulator only; a folder from a cloud provider in Files and a real HTTPS
   server were not tried from a real iPad.
