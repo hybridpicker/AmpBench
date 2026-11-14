@@ -94,15 +94,41 @@ if [[ ! -f Local.xcconfig ]]; then
 fi
 
 app="$derived/Build/Products/Release-iphoneos/AmpBenchApp.app"
-# An older, unsigned build must not pass for this one.
+# An older build must not pass for this one.
 rm -rf "$app"
-xcodebuild -project AmpBenchPad.xcodeproj -scheme AmpBenchApp -configuration Release \
-    -destination 'generic/platform=iOS' -derivedDataPath "$derived" -allowProvisioningUpdates \
-    "${settings[@]}" build | grep -E "^/.*error:|^error:|BUILD (SUCCEEDED|FAILED)" | sort -u || true
-if [[ ! -d "$app" ]]; then
-    echo "The signed build failed. Xcode needs your Apple account once: open Xcode → Settings → Accounts and sign in," >&2
-    echo "then run this again. A free Apple ID is enough; its apps run for seven days per install." >&2
-    exit 1
+profile_id="$(awk -F ' *= *' '/^AMPBENCH_PROFILE/ { print $2; exit }' Local.xcconfig)"
+if [[ -n "$profile_id" ]]; then
+    # Without an account in Xcode: build unsigned, then sign by hand with a development profile that is already on
+    # this Mac (AMPBENCH_PROFILE = its UUID), such as a team's wildcard profile.
+    profile=""
+    for folder in "$HOME/Library/Developer/Xcode/UserData/Provisioning Profiles" "$HOME/Library/MobileDevice/Provisioning Profiles"; do
+        [[ -f "$folder/$profile_id.mobileprovision" ]] && profile="$folder/$profile_id.mobileprovision"
+    done
+    [[ -n "$profile" ]] || { echo "The profile named in ios/Local.xcconfig is not on this Mac." >&2; exit 1; }
+    xcodebuild -project AmpBenchPad.xcodeproj -scheme AmpBenchApp -configuration Release \
+        -destination 'generic/platform=iOS' -derivedDataPath "$derived" CODE_SIGNING_ALLOWED=NO \
+        "${settings[@]}" build | grep -E "^/.*error:|^error:|BUILD (SUCCEEDED|FAILED)" | sort -u || true
+    [[ -d "$app" ]] || { echo "The build failed." >&2; exit 1; }
+    work="$(mktemp -d -t ampbench-sign)"
+    trap 'rm -rf "$work"' EXIT
+    security cms -D -i "$profile" > "$work/profile.plist" 2>/dev/null
+    bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")"
+    # The profile's entitlements, with this app's id in place of a wildcard, and the profile's certificate.
+    identity="$(/usr/bin/python3 -I ../Tools/profile-signing.py "$work/profile.plist" "$bundle_id" "$work/entitlements.plist")"
+    [[ -n "$identity" ]] || { echo "No certificate of this profile is in the keychain." >&2; exit 1; }
+    cp "$profile" "$app/embedded.mobileprovision"
+    for inner in "$app"/Frameworks/*(N); do codesign --force --sign "$identity" "$inner"; done
+    codesign --force --sign "$identity" --entitlements "$work/entitlements.plist" "$app"
+else
+    xcodebuild -project AmpBenchPad.xcodeproj -scheme AmpBenchApp -configuration Release \
+        -destination 'generic/platform=iOS' -derivedDataPath "$derived" -allowProvisioningUpdates \
+        "${settings[@]}" build | grep -E "^/.*error:|^error:|BUILD (SUCCEEDED|FAILED)" | sort -u || true
+    if [[ ! -d "$app" ]]; then
+        echo "The signed build failed. Xcode needs your Apple account once: open Xcode → Settings → Accounts and sign in," >&2
+        echo "then run this again. A free Apple ID is enough; its apps run for seven days per install. Or name a" >&2
+        echo "development profile that is already on this Mac in ios/Local.xcconfig (see Local.xcconfig.example)." >&2
+        exit 1
+    fi
 fi
 echo "Built $app ($version, $build_id)"
 

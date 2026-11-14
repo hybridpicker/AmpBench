@@ -6,3 +6,8 @@ DEVELOPMENT_TEAM =
 
 // A bundle id of your own. It must be unique for your team, so pick a name you own.
 AMPBENCH_BUNDLE_ID = com.example.ampbench
+
+// Optional, for a Mac whose Xcode has no account signed in: the UUID of a development profile that is already on
+// this Mac (its file name in ~/Library/Developer/Xcode/UserData/Provisioning Profiles), for example a team's
+// wildcard profile. The build is then signed by hand with it. The profile must list your iPad.
+// AMPBENCH_PROFILE =

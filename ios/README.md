@@ -27,6 +27,10 @@ Needs Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install
 writes that file from your Apple Development certificate when it is missing; `Local.xcconfig.example` shows what it
 holds. Git ignores it and the generated `AmpBenchPad.xcodeproj`, so no team id or bundle id of yours is published.
 
+Without an account in Xcode it also works when a development profile that lists your iPad is already on the Mac,
+such as a team's wildcard profile: name its UUID as `AMPBENCH_PROFILE` in `Local.xcconfig`, and the script builds
+unsigned and signs by hand with that profile and its certificate.
+
 ## How it is put together
 
 ```
