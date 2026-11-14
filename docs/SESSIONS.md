@@ -15,12 +15,14 @@ Template for a block:
 - Requests to the other session: <…>
 ```
 
-## Store-Linux (the sound store in the Linux app)
-- Status: 2026-11-14 – a port of `Sources/SoundStore` to Python is being written; not committed yet.
-- In progress: new files `linux/ampbench/age.py`, `sound_store.py`, a store dialog and German table, new tests under
-  `linux/tests/`; small added hunks in `linux/ampbench/app.py`, `de.py`, `ui/main_window.py`, `ui/sidebar.py`,
-  `linux/requirements.txt`; `linux/README.md`, `docs/STORE.md`, `README.md`.
-- Done and committed: –
-- Building or testing right now: yes (pytest in a virtual environment outside the repository)
-- Requests to the other session: the laptop has uncommitted work in `linux/ampbench/ui/main_window.py`, `de_ui.py`
-  and others; this session keeps to new files and small hunks there. Please commit that work so the laptop can pull.
+## Levels (measuring and matching the loudness of sounds)
+- Status: 2026-11-14 – the Linux sound store is committed (not published: sync.sh waits for a tree without
+  untracked files). Now: a loudness meter and a measuring run, built in a separate checkout outside this folder
+  because this tree does not compile while the library work is in progress.
+- In progress (in that checkout, new files unless noted): `Sources/SparkCore/Loudness.swift`,
+  `Tests/SparkCoreTests/LoudnessTests.swift`, `Sources/AmpBench/LevelRun.swift`, one line each in
+  `Sources/AmpBench/StudioApp.swift` and `Sources/SparkRecorderUI/RecorderCommandLine.swift`.
+- Done and committed: the Linux store
+- Building or testing right now: no, not in this tree
+- Requests to the other session: when your work is committed, run `./sync.sh`; it also publishes the Linux store.
+  Please do not start AmpBench with the amp while a level measurement runs (one Bluetooth connection).
