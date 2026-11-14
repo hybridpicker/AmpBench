@@ -38,15 +38,16 @@ commit_count="$(git rev-list --count HEAD 2>/dev/null || echo 1)"
 settings=(MARKETING_VERSION="$version" CURRENT_PROJECT_VERSION="$commit_count" AMPBENCH_BUILD_ID="$build_id")
 derived="../.build-ios-app"
 
-# An iPad simulator: one that runs, or the first installed one.
+# An iPad simulator: one named "AmpBench iPad" if there is one, so simulators set up for other projects are left
+# alone (make it with: xcrun simctl create "AmpBench iPad" <device type> <runtime>); else one that runs, else the
+# first installed one.
 simulator() {
     local id
-    id="$(xcrun simctl list devices booted | awk -F '[()]' '/iPad/ { print $2; exit }')"
-    if [[ -z "$id" ]]; then
-        id="$(xcrun simctl list devices available | awk -F '[()]' '/iPad/ { print $2; exit }')"
-        [[ -n "$id" ]] || { echo "No iPad simulator is installed (Xcode → Settings → Components)." >&2; exit 1; }
-        xcrun simctl boot "$id"
-    fi
+    id="$(xcrun simctl list devices available | awk -F '[()]' '/AmpBench iPad/ { print $2; exit }')"
+    [[ -n "$id" ]] || id="$(xcrun simctl list devices booted | awk -F '[()]' '/iPad/ { print $2; exit }')"
+    [[ -n "$id" ]] || id="$(xcrun simctl list devices available | awk -F '[()]' '/iPad/ { print $2; exit }')"
+    [[ -n "$id" ]] || { echo "No iPad simulator is installed (Xcode → Settings → Components)." >&2; exit 1; }
+    xcrun simctl list devices booted | grep -q "$id" || xcrun simctl boot "$id"
     print -r -- "$id"
 }
 
