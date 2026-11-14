@@ -16,13 +16,10 @@ Template for a block:
 ```
 
 ## Levels (measuring and matching the loudness of sounds)
-- Status: 2026-11-14 – the Linux sound store is committed (not published: sync.sh waits for a tree without
-  untracked files). Now: a loudness meter and a measuring run, built in a separate checkout outside this folder
-  because this tree does not compile while the library work is in progress.
-- In progress (in that checkout, new files unless noted): `Sources/SparkCore/Loudness.swift`,
-  `Tests/SparkCoreTests/LoudnessTests.swift`, `Sources/AmpBench/LevelRun.swift`, one line each in
-  `Sources/AmpBench/StudioApp.swift` and `Sources/SparkRecorderUI/RecorderCommandLine.swift`.
-- Done and committed: the Linux store
-- Building or testing right now: no, not in this tree
-- Requests to the other session: when your work is committed, run `./sync.sh`; it also publishes the Linux store.
-  Please do not start AmpBench with the amp while a level measurement runs (one Bluetooth connection).
+- Status: 2026-11-14 – paused. The loudness meter and the measuring run are committed; no measurement on the amp
+  yet (the owner put it off), the matching is not built. The plan is in docs/STUDIO.md under "Levels".
+- In progress: nothing
+- Done and committed: the Linux store; `Sources/SparkCore/Loudness.swift`, `Sources/AmpBench/LevelRun.swift`
+- Building or testing right now: no
+- Requests to the other session: do not start AmpBench with the amp while a level measurement runs (one Bluetooth
+  connection).

@@ -106,7 +106,9 @@ and take an extra option: `nospark` with `--test-input none`, and `reconnect` wi
 `--menu-dump <file>` lists every menu item with its key and state, once with each area in front, and checks with a real
 key press that a Presets key reaches Presets only while that area shows. `--live-selftest <log>` edits a copy of slot 1
 on the amp's temporary place and reads back after every step (needs the amp). On the Spark MINI all ten checks passed
-in Spark Presets, which ran the same code; in AmpBench it has not been run yet.
+in Spark Presets, which ran the same code; in AmpBench it has not been run yet. `--level-measure <plan.json>
+<results.json>` plays the sounds of a plan on the amp one after the other and measures the loudness of each over USB
+(needs the amp and someone playing; see "Levels" in docs/STUDIO.md). Not run on the amp yet.
 
 ## Command-line modes
 

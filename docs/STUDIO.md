@@ -30,6 +30,7 @@ labels.
 | – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 78e8e58, add00c0, 7b6fd83 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
 | – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | d4fce74 | 79 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; since 2026-11-14 the author's Mac and iPad sync 92 sounds through an HTTPS place on a server (nginx), read back whole with `--store-verify`; see "Sound store" below |
 | – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | d4fce74 | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); installed on a real iPad (iPad Air 13-inch) on 2026-11-14, where the store set itself up and brought the sounds; not yet with an amp there |
+| – | Levels: a loudness meter (ITU-R BS.1770, `Loudness`) and a measuring run over USB (`--level-measure`) | 1a768df | meter: six unit tests; the run has not measured a sound yet, the matching is not built |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -297,6 +298,34 @@ ever goes to the Kemper, the file is not changed. `--kemper-list <file>` shows t
   names are German in this release: `basis` is a basic setup, `unterricht` a lesson).
 - Checked on 2026-11-10 with the author's backup (Profiler Head, OS 5.4.1): 194 rigs, 32 own performances,
   81 presets, 20 pieces. None of the sounds has been heard on the Spark yet.
+
+## Levels
+
+The owner's wish (2026-11-14): every sound is about equally loud; a solo or lead sound may be a few dB louder, as is
+usual, but no big jumps. This holds for every sound in the library, Kemper imports and Positive Grid's own alike.
+
+- **Where the jumps come from:** the Kemper import gives every sound master 6, whatever its gain and amp model
+  (`KemperTranslation`), so a clean sound and a high-gain sound land far apart. The library held 83 presets and
+  5 recipes on 2026-11-14; two amp models carry most of them (94MatchDCV2 31, Plexi 26), 22 names contain "solo"
+  or "lead".
+- **The meter** (`SparkCore/Loudness`): integrated loudness after ITU-R BS.1770 in LUFS, K-weighted, in blocks of
+  400 ms every 100 ms, with the absolute gate at −70 LUFS and the relative one 10 LU below the mean. Pauses between
+  notes therefore do not count. The filters are computed for the sample rate at hand. A full-scale sine at 997 Hz
+  reads −3.01 LUFS at 44.1, 48 and 96 kHz.
+- **The measuring run** (`AmpBench --level-measure <plan.json> <results.json> [--level-seconds N] [--quit]`): the
+  plan is a list of `{"label", "file"}`. The app connects to the amp, plays each sound on the temporary place
+  (nothing is stored, up to four tries, one sound at a time with a pause, never a burst), waits 1.5 s, measures N
+  seconds of the amp's USB audio through the recorder's shared input, and writes the results after every sound
+  (LUFS, peak, share of blocks kept, a problem if there was one). The owner plays the same thing throughout; the
+  app switches.
+- **Agreed way** (owner, 2026-11-14): the app switches and measures over USB while the owner plays. A few sounds
+  measured and the rest estimated is acceptable if a full run (about ten minutes for 83 sounds) is too long.
+- **Not built yet:** the matching itself. Planned: a target loudness, the master of each sound moved to reach it,
+  about +3 dB for sounds named solo or lead, an estimate by amp model and gain for what was not measured, the same
+  rule in the Kemper import instead of the constant master, and all of it in the Linux app as well.
+- **Not checked:** the run has not measured a sound. On 2026-11-14 the amp was not on USB and the app did not find
+  it over Bluetooth. Open with it: whether master moves the USB level as it moves the speaker's, and how far a
+  measurement repeats.
 
 ## Ordering presets: hashtags
 
@@ -732,6 +761,8 @@ For every device, without exception:
 
 ## Open and next
 
+- **Levels:** measure the library on the Spark MINI (USB to the Mac, Bluetooth free, guitar plugged in): first four
+  sounds as a trial, then all of them or about 25 chosen ones; then build the matching described under "Levels".
 - **Reading back after storing** compared, on the Mac until 2026-11-09, the whole preset including the checksum
   byte; a newly built preset would therefore never have counted as arrived. Now as under Linux without the checksum
   byte (`PresetEditor.sameContent`). Not yet stored on the device with the app.
