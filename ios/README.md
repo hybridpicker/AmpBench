@@ -4,7 +4,9 @@ The areas **Presets** and **Tuner** of the Mac app, from the same code, plus the
 brings the Mac's sounds to the iPad. iPadOS 17 or later.
 
 - **Presets**: the amp's slots over Bluetooth LE, the editor with live changes, storing in a slot with a backup,
-  hashtags, AI Sound, the Kemper import, several devices (Spark MINI, NEO, REACTOR 50).
+  hashtags, the library (from the search line in the sidebar; grouped lists show no group titles there, and the
+  pieces that use a sound are not shown, since Record lives on the Mac), AI Sound, the Kemper import, several
+  devices (Spark MINI, NEO, REACTOR 50).
 - **Tuner**: the audio input the iPad routes in (the Spark over USB-C, or the built-in microphone), or the amp's own
   tuner over Bluetooth.
 - **Not yet**: the area Record. It needs the Mac's audio engine (AUHAL, device list), which iPadOS has no counterpart

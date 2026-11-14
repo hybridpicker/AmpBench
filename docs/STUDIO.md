@@ -352,14 +352,15 @@ Space on a focused key with full keyboard access presses the key, except during 
 |---|---|
 | everywhere | R, Space, ⇧⌘1/⇧⌘2/⇧⌘3, ⌘/, ⌘Z/⇧⌘Z (in the area in front), ⌘S (preset in the editor), ⌘1–⌘8 (connected, as many slots as the device has) |
 | Record | L M K F B N T G, ⌘G, 1–5, - + 0, ← → (with ⇧), ⌫ ⌦ ⌘⌫, ⌘E, ⇧⌘R, ⌘F, Esc |
-| Presets | ⌘N, ⇧⌘N, ⌘D, ⇧⌘S, ⌥⌘1–⌥⌘8, ⌘B, ⇧⌘L, ⌘R, ⌃1–⌃7, ⌃0, arrows on a knob, ⌘E, ⌘⌫, ⇧⌘R |
+| Presets | ⌘N, ⇧⌘N, ⌘D, ⇧⌘S, ⌥⌘1–⌥⌘8, ⌘B, ⇧⌘L, ⌘R, ⌃1–⌃7, ⌃0, arrows on a knob, ⌘E, ⌘⌫, ⇧⌘R, ⌘L, ⌘F |
+| Presets, library open | Esc, ↩, ⌘↩, ⌘K, ⇧⌘F, ⌘T, ⌘G, ⌘A; ⌘E and ⌘⌫ act on the selected sounds |
 | Tuner | ⌘T (needle/strobe), ⌘↑/⌘↓ (concert pitch ±0.1 Hz), ⌘0 (440 Hz), ⌃1–⌃6 (tuning); no single keys |
 
 Decided: ⌘E, ⌘⌫, ⇧⌘R act on the take or the preset depending on the area. ⌘S saves the preset in the editor
 everywhere (the recorder saves by itself). ⌘1–⌘4 everywhere, but only with a connection. R everywhere, even though it
-takes the type-select for "r" from the sidebar. Esc belongs to the search field in the area Presets. ⇧⌘S only in
+takes the type-select for "r" from the sidebar. Esc closes the library in the area Presets. ⇧⌘S only in
 Presets, because it opens a sheet there. ⌘E stays Rename; the design canvas showed "Export ⌘E", which got no keycap.
-Whether ⌘F focuses the presets' search field is not checked, so it is not in the list.
+⌘F in Presets opens the library with the keyboard in its search field (since 2026-11-14).
 
 ## Devices
 
@@ -789,8 +790,8 @@ For every device, without exception:
 - **Small screens:** 720 pt of content plus toolbar and menu bar just fit screens 800 pt high, not with the Dock
   at the bottom. Proposal: let the library shrink, not the deck.
 - **Library of the presets:** groups have been pinned hashtags since 2026-11-10 (section "Ordering presets").
-  Open: assigning by dragging, favorites and rating in the UI, sorting, export, a version history per
-  preset; filtering pieces by key and tempo.
+  Favorites, sorting and filters are in the library since 2026-11-14 (next entry). Open: assigning by dragging,
+  rating, export, a version history per preset; filtering pieces by key and tempo.
 - **The library as an overlay** (the owner's wish, 2026-11-14), built on the Mac and the iPad on 2026-11-14 with
   about a hundred made-up sounds; see MANUAL.md "The library" and DESIGN.md. Decisions: a table rather than a wall
   of cards (keyboard, multiple selection, sorting, VoiceOver from the system); the mark "to listen" is the tag
@@ -799,7 +800,8 @@ For every device, without exception:
   device in the preferences. Grouping by piece was left out: the pieces live in the Mac's recordings, and a Kemper
   song's sounds already share a tag. Open: the Linux app's library view (the laptop had uncommitted work in its
   main window); group titles in the iPad's table (iPadOS draws sections without their header); scrolling the
-  table to a sound chosen from "Close sounds"; trying it with the real 92 sounds and the amp.
+  table to a sound chosen from "Close sounds"; trying it with the real 92 sounds and the amp; the 81 Kemper sounds
+  imported before 2026-11-14 carry no `#listen` yet (filter Kemper import, `⌘A`, `⌘K`).
 - **Kemper import:** the author's backup is in the real library since 2026-11-14 (81 presets, 20 pieces, kinds as
   guessed). Listen to the translated sounds on the Spark and improve the amp rules after that (above all
   Dream Weaver, Divided by 13, Naylor). The Linux app can do the import and hashtags since 2026-11-10

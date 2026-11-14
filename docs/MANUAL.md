@@ -316,7 +316,8 @@ find, hear and look after sounds. `Esc` closes it again; sidebar and editor come
   carry each tag, and × takes it from all of them.
 - **To listen** (`⌘K`) and **Favorite** (`⇧⌘F`) switch for all at once. "To listen" marks a sound that still wants
   a listen on the amp, such as every new Kemper import, which is an approximation. It is kept as the tag
-  `#listen` in the preset file, so older versions, the Linux app and the sound store keep it unchanged.
+  `#listen` in the preset file, so older versions, the Linux app and the sound store keep it unchanged. Sounds
+  imported before this version have no mark: choose the origin Kemper import, `⌘A`, `⌘K` marks them all.
 - **Rename** (`⌘E`): one sound as usual; several by replacing a text in their names, with a list of the new names
   before anything happens. A name the amp would not take (over 31 bytes, or empty) stays as it is.
 - **To the Trash** (`⌘⌫`): when a piece uses one of the sounds, AmpBench names the pieces and asks first. The

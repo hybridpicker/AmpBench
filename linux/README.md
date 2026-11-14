@@ -4,8 +4,9 @@ AmpBench for Omarchy and other Linux desktops, with the same areas as on the Mac
 the Spark's USB input through PipeWire, the library of takes, pieces), **Presets** (read the amp's slots over
 Bluetooth LE, edit a preset with knobs and the signal chain, hear every change live on the amp, keep presets on the
 computer and store them in a slot, with a backup and a read-back; sound recipes open like presets) and
-**Tuner**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets and
-live commands are not here yet.
+**Tuner**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets,
+live commands and the library overlay (`⌘L` on the Mac, 2026-11-14) are not here yet; the sidebar keeps its tag
+chips and pinned sections.
 
 The UI is English by default and German when the system language is German; the menu "Language" switches it, as on
 the Mac. This page quotes the English labels.

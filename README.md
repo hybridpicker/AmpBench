@@ -60,6 +60,9 @@ store that keeps your sounds in a place of your choice.
 - An editor with the signal chain as pedals and an amp head; every change is heard live on the amp.
 - Undo, A/B against the saved state, and storing in a slot with a backup and a read-back.
 - Presets are plain JSON files, ordered with hashtags and pinned tags.
+- A library over the area (`⌘L`) for many sounds: search, filters by tag, amp and origin, a table with groups, a
+  preview with the chain, hearing by `↩`; tags, favorites, "to listen", renaming and the Trash for several sounds at
+  once, and close sounds shown side by side.
 
 **Sound store** (Mac, iPad and Linux)
 - Keeps every sound encrypted in a place you choose: a folder (also one iCloud Drive, Google Drive or Dropbox keeps
@@ -141,7 +144,7 @@ The iPad app has the areas Presets and Tuner and the sound store; Record is not 
 [ios/README.md](ios/README.md).
 
 The Linux app has the areas Record, Presets and Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's
-presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
+presets, their editing and storing, live commands and the library overlay are Mac and iPad only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
 whichever of the two you develop on. More in [linux/README.md](linux/README.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## First steps
