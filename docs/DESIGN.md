@@ -146,13 +146,33 @@ a variant of `LEDSegments`).
 
 ## Spark Presets: the area Presets
 
-- **Title bar:** the system's sidebar toggle, the title, and the search on the right of the toolbar.
-- **Sidebar:** "On the amp" with four round slot keys (dark with the number in dim amber; the playing slot lit
-  amber with a glow, the number dark, a speaker on the right), the name and the chain summary. "On this Mac" with a
-  folder symbol, "Backups" with a clock and the date of the backup. At the foot: the connection lamp (green when
+- **Title bar:** the system's sidebar toggle and the title. The search moved into the library (2026-11-14).
+- **Sidebar:** short. On top a line drawn like a search field, "Search 92 sounds" with `⌘L` in secondary mono text
+  (not a keycap: keycaps belong to the device and fade on the light desk); it opens the library. "On the amp" with
+  four round slot keys (dark with the number in dim amber; the playing slot lit amber with a glow, the number dark,
+  a speaker on the right), the name and the chain summary. "Favorites" (at most eight) and "Recently used" (five)
+  with a folder symbol. "Library" with lines that open the library filtered: all sounds, each pinned tag, "To
+  listen", "Slot backups", with their count in mono on the right. At the foot: the connection lamp (green when
   connected, amber while searching, dark when Bluetooth cannot be used), device name, firmware, and the "+" key.
   Selection in amber.
-- **Device choice:** the sidebar's first section, "Device": a `DevicePopup` with the chosen device and a `LampDot`
+- **Library** (`LibraryOverlay`, over the whole area, sidebar and editor leave while it shows): a front strip as in
+  `SheetPanel` with the engraved "LIBRARY", the count in amber-dim mono capitals ("14 OF 101 SOUNDS") and a small
+  key "Close" with the keycap "Esc". Below it on the desk a search field and `SegmentTabs` for the grouping (A–Z,
+  Tag, Amp, Origin). Three columns: the filters (216 pt) as a system list with multiple selection, counts in mono;
+  the sounds as a system `Table` with `.amberSelection()`, the chain as `ChainMiniature`, tags in desk amber, the
+  pill "To listen", a star in desk amber for a favorite; the preview (300 pt) with the sound on a small front
+  (`FaceplateSurface`): its name 20 bold amber, chain summary, `ChainMiniature`, the lamps FAVORITE and TO LISTEN,
+  the keys "Hear" (main key) and "Open" with their keycaps; below on the desk a grid of facts with `DeskCaption`,
+  checkboxes, tag chips (`TagChip`, a count each when several are selected), notes, close sounds and pieces. With
+  several selected the front says "12 sounds selected" and the keys act on all; "To the Trash" is a danger key. A
+  status line on the desk counts sounds to listen to and groups of close sounds and names the main keys. No new
+  colors or styles.
+  Two layouts were weighed: this one, and a wall of cards (name, chain in miniature, tags) with the filters as
+  chips above and the preview as a drawer below. The cards look richer but show fewer sounds at once (about 20
+  against 25 rows at 1180 × 780), their chips overflow with one tag per Kemper performance, and keyboard, multiple
+  selection, sorting and VoiceOver would have to be built by hand; the table has them from the system, on the Mac
+  and the iPad.
+- **Device choice:** the sidebar's first section after the search line, "Device": a `DevicePopup` with the chosen device and a `LampDot`
   beside it (green connected, amber nearby, dark not there; the menu says the same in words). The slots below are
   that device's: "On the Spark NEO", or two sections "On the REACTOR 50 · Red" and "· Green" with keys numbered 1–4 per bank.
   It sits at the top, not at the foot, because the foot is missing from window pictures and the slots belong to it.
@@ -234,6 +254,9 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
   key (shift is ignored) and `⌘E` renames in both apps, so these keys carry no keycap. Shortcuts were not changed.
 - **List selection** needs AppKit: SwiftUI cannot recolor the selection of a `List` or `Table` on macOS, so
   `.amberSelection()` turns the table's own highlight off and draws the amber tint and bar beneath the rows.
+- **The library replaces the split view while it shows** instead of lying above it: the system sidebar draws
+  parts of itself (section headers, the foot) above anything laid over it. Sidebar and editor keep their state in
+  the model, so they come back unchanged.
 - **Window pictures of Spark Presets** draw the sidebar as a plain list (`--snapshot` only): the system sidebar's
   text is drawn by the window server and does not appear in a cached picture at all. `--library <folder>` fills a
   test folder with the templates, so pictures never show one's own presets.

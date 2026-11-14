@@ -791,18 +791,15 @@ For every device, without exception:
 - **Library of the presets:** groups have been pinned hashtags since 2026-11-10 (section "Ordering presets").
   Open: assigning by dragging, favorites and rating in the UI, sorting, export, a version history per
   preset; filtering pieces by key and tempo.
-- **Next: the library as an overlay** (the owner's wish, 2026-11-14). With the Kemper import the library grew from
-  a dozen sounds to 92, and the sidebar became one endless list. Planned, not built:
-  - One large view over the window, opened with a key and from the sidebar, closed with Esc; not a second window
-    and not a new area. Search at once, filters (tags, amp model, origin such as Kemper, AI Sound or slot backup,
-    "not yet heard"), a dense grid or table instead of one tall column, grouping by tag, piece or amp, and a
-    preview of the chosen sound with "play on the amp" and "open in the editor".
-  - The sidebar becomes short: the amp's slots, a few pinned or recent sounds, the way into the library.
-  - Maintenance in the same view: several sounds at once (tag, untag, rename, Trash), duplicates and near
-    duplicates, a mark "heard" for sounds that are approximations, slot backups apart from sounds, and which
-    pieces use a sound before it is removed.
-  - Rules: everything by keyboard; the same view on the iPad; a new field of a sound goes into its JSON file so
-    that older versions and the Linux app ignore it and the sound store carries it; Linux gets the same view.
+- **The library as an overlay** (the owner's wish, 2026-11-14), built on the Mac and the iPad on 2026-11-14 with
+  about a hundred made-up sounds; see MANUAL.md "The library" and DESIGN.md. Decisions: a table rather than a wall
+  of cards (keyboard, multiple selection, sorting, VoiceOver from the system); the mark "to listen" is the tag
+  `#listen`, not a new field, because older versions and the Linux app rewrite a preset file with the fields they
+  know and would drop a new one; favorites are the existing field `favorite`; recently used sounds are kept per
+  device in the preferences. Grouping by piece was left out: the pieces live in the Mac's recordings, and a Kemper
+  song's sounds already share a tag. Open: the Linux app's library view (the laptop had uncommitted work in its
+  main window); group titles in the iPad's table (iPadOS draws sections without their header); scrolling the
+  table to a sound chosen from "Close sounds"; trying it with the real 92 sounds and the amp.
 - **Kemper import:** the author's backup is in the real library since 2026-11-14 (81 presets, 20 pieces, kinds as
   guessed). Listen to the translated sounds on the Spark and improve the amp rules after that (above all
   Dream Weaver, Divided by 13, Naylor). The Linux app can do the import and hashtags since 2026-11-10

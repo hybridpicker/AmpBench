@@ -161,6 +161,8 @@ in one sign.
 | ![Record, dark](pictures/record-dark.png) | ![Record, light](pictures/record-light.png) |
 | ![While recording](pictures/record-recording-dark.png) | ![At its smallest size](pictures/record-smallest-light.png) |
 | ![Presets, dark](pictures/presets-dark.png) | ![Presets, light](pictures/presets-light.png) |
+| ![Library, dark](pictures/library-dark.png) | ![Library, light](pictures/library-light.png) |
+| ![Library, several selected, by tag](pictures/library-maintenance-dark.png) | ![Library, close sounds, smallest window](pictures/library-smallest-dark.png) |
 | ![Tuner, dark](pictures/tuner-dark.png) | ![Tuner with strobe, light](pictures/tuner-strobe-light.png) |
 | ![Tuner, in tune](pictures/tuner-in-tune-dark.png) | ![Tuner at its smallest size](pictures/tuner-smallest-dark.png) |
 | ![Tuner of the amp, dark](pictures/tuner-amp-dark.png) | ![Tuner of the amp, light](pictures/tuner-amp-light.png) |
@@ -176,6 +178,21 @@ The pictures come from the app's own snapshot modes, with a test library of synt
 .build/debug/AmpBench --library /tmp/studio-presets --offline --demo-devices reactor --appearance dark \
     --size 1180x780 --open slot:6 --delay 7 --snapshot /tmp/devices-reactor-dark.png --quit
 ```
+
+The library's pictures use about a hundred made-up sounds (`--made-up-sounds`, only with `--library`: invented
+songs as a Kemper import writes them, with pieces, recipes, slot backups, favorites and close sounds):
+
+```bash
+.build/debug/AmpBench --library /tmp/studio-library --made-up-sounds --demo-devices mini --appearance dark \
+    --size 1180x780 --library-open all --library-select "Basis 1 · 2" --delay 3 --snapshot /tmp/library-dark.png --quit
+.build/debug/AmpBench --library /tmp/studio-library --made-up-sounds --demo-devices mini --appearance dark \
+    --size 1180x780 --library-open "#song" --library-group tag --library-select "Copper Sky Chorus,Copper Sky Intro" \
+    --delay 3 --snapshot /tmp/library-maintenance-dark.png --quit
+```
+
+`--library-open` takes `all`, `favorites`, `toListen`, `close`, `backups` or `#tag`; `--library-search <text>`,
+`--library-group none|tag|amp|origin` and `--library-select <name>[,<name>…]` set it up. A test library does not
+remember the grouping or the recently used sounds, so pictures never change the app's own preferences.
 
 `--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth. On a German
 system, add `-AppleLanguages '(en)' -AppleLocale en_US` to every command so the pictures come out in English.

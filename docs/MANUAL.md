@@ -14,7 +14,7 @@ manual quotes the English labels.
 - [Recording](#recording): [sound of a take](#every-take-knows-its-sound), [pieces](#pieces-and-songs),
   [safety](#recording-safety), [click](#feedback-and-the-click), [bars](#bars), [timing](#timing-of-click-and-bars),
   [audio quality](#audio-quality), [edits](#edits), [retro recording](#retro-recording)
-- [The area Presets](#the-area-presets), [Devices](#devices), [AI Sound](#ai-sound)
+- [The area Presets](#the-area-presets), [the library](#the-library), [Devices](#devices), [AI Sound](#ai-sound)
 - [The area Tuner](#the-area-tuner)
 
 ## The window
@@ -39,7 +39,7 @@ itself.
 
 ## Keyboard
 
-Single keys act only in the area Record, `R` and `Space` in every area. None of them acts while you type in a text
+Single keys act only in the area Record, `R` and `Space` in every area, and `↩` and `Esc` in the library. None of them acts while you type in a text
 field, and only `⌫` removes anything, only to the Trash, undoably. `⌘/` shows every shortcut.
 
 | Key | Where | Action |
@@ -64,6 +64,10 @@ field, and only `⌫` removes anything, only to the Trash, undoably. `⌘/` show
 | `G` | Record | Save the retro buffer ("That was good") |
 | `Esc` | Record | Leave a text field |
 | `⌘N` / `⇧⌘N` / `⌘D` | Presets | New preset / from a template / duplicate |
+| `⌘L` / `⌘F` | Presets | Open or close the library / open it at its search |
+| `↩` / `⌘↩` | Library | Hear the selected sound on the amp / open it in the editor |
+| `⌘K` / `⇧⌘F` / `⌘T` | Library | To listen on or off / favorite on or off / add a tag, for every selected sound |
+| `⌘G` / `Esc` | Library | Next grouping / close the library |
 | `⇧⌘S` | Presets | Save under a new name |
 | `⌥⌘1` – `⌥⌘4` | Presets | Save to slot 1 to 4 (asks first, backs up the slot, reads it back) |
 | `⌘B` / `⇧⌘L` / `⌘R` | Presets | Compare with the saved state / live changes on or off / read the amp again |
@@ -235,6 +239,10 @@ window or quitting erases the buffer.
 
 ![Area Presets, light](pictures/presets-light.png)
 
+- **The sidebar** is short: on top the way into the [library](#the-library) ("Search 92 sounds", `⌘L`), then the
+  device and its slots, your favorites (up to eight), the five sounds used last, and under "Library" the pinned
+  tags, the sounds to listen to and the slot backups, each with its count. A click on one of these opens the
+  library with that filter. Everything else is in the library.
 - **Click to hear**: clicking a slot in the sidebar, or `⌘1` – `⌘4` (up to `⌘8` on a device with more slots),
   switches the amp to it and opens it in the editor, like the preset button on the amp. A speaker marks what plays.
   Clicking a preset on the Mac plays it on the amp's temporary place, which never touches a slot, and a new preset
@@ -261,21 +269,67 @@ window or quitting erases the buffer.
   storing, the app checks the slot as soon as the amp is back and says what it holds.
 - **New presets** (`⌘N`, `⇧⌘N`, `⌘D`): empty, from five templates or as a copy, with name (at most 31 bytes),
   description and BPM.
-- **On this Mac**: presets as files, searchable by name, model, tags and notes ("#clean" searches tags only). Rename
-  with `⌘E`, `⌘⌫` moves the file to the Trash and the banner brings it back.
+- **On this Mac**: presets as files, one per sound. Rename with `⌘E`, `⌘⌫` moves the file to the Trash and the
+  banner brings it back.
 - **Hashtags**: every preset can carry tags such as `#basis`, `#unterricht`, `#song`, `#u2`, edited in the line below
-  the editor's name (typed with or without "#", several separated by blanks) or from the sidebar's context menu
-  "Tags", next to the preset's notes. The sidebar's section Tags filters by a click (several tags: all must match)
-  and pins a tag with a right click; every pinned tag becomes a section of its own, and a preset may stand in several.
+  the editor's name (typed with or without "#", several separated by blanks) or in the library, for several sounds
+  at once. A tag pinned in the library (right click, "Pin to the sidebar") gets a line in the sidebar.
 - **Import from Kemper** (File menu, "+" in the sidebar): reads a Kemper Profiler backup (`.kpabackup` from a USB
   stick) or a rig (`.kipr`). For every performance you choose song, basic setup, lesson or skip; the window shows
   which Spark amp each slot becomes and which Kemper effects the Spark has no match for. Songs become pieces with one
   part per slot, each with its preset; equal sounds become one preset with the tags of all their uses. The import
   writes the tags `song`, `basis` (basic setup) and `unterricht` (lesson); these stored names are German in this
-  release. A profile captures a real amp and the Spark models one, so every imported sound wants a listen. Nothing is
-  ever sent to the Kemper. `--kemper-list <file>` shows the same on the command line.
+  release. A profile captures a real amp and the Spark models one, so every new imported sound is marked "To listen"
+  in the library. Nothing is ever sent to the Kemper. `--kemper-list <file>` shows the same on the command line.
 - **Copy text for REACTOR** (editor, "⋯"): the sound as English text for "Text to Tone" in the REACTOR app, the
   same as `--recipe-prompt`. The REACTOR reads the text itself and picks its own models.
+
+### The library
+
+![The library, dark](pictures/library-dark.png)
+
+`⌘L`, or the search line on top of the sidebar, opens the library over the area: every saved sound at a glance, to
+find, hear and look after sounds. `Esc` closes it again; sidebar and editor come back as they were.
+
+- **Search** has the keyboard at once. It looks at names, amp and effect models, tags, origin and notes; several
+  words must all be found ("glass verse"), "#song" searches tags only. `↓` goes to the list, `↩` in the search
+  plays the first sound found.
+- **Filters** on the left: *Show* (all sounds, favorites, to listen, close sounds, slot backups), *Origin* (Kemper
+  import, recipe or AI Sound, from the amp, template, made here), *Amp* and *Tags*, each with its count. A click
+  chooses one filter, `⌘`-click adds more: chosen tags must all match, amps and origins any of them. Tags used by one
+  sound only are folded away. Right click on a tag pins it to the sidebar.
+- **The list** is a table: name with a star for a favorite and the pill "To listen", the chain in miniature, amp,
+  tags, origin and date; a click on a column header sorts. Above it the grouping: A–Z, by tag (a sound stands in
+  each of its tags), by amp or by origin; `⌘G` switches to the next. Slot backups stay apart from the sounds and
+  show only under "Slot backups".
+- **Hearing**: `↩` or a double click plays the selected sound on the amp's temporary place, which never touches a
+  slot; the editor keeps what it holds. `⌘↩` opens it in the editor and closes the library.
+- **The preview** on the right shows the chosen sound: its chain place by place (switched-off effects dimmed),
+  origin, date and tempo, favorite and "To listen", its tags and notes, the sounds close to it, and the pieces that
+  use it.
+
+![Several sounds selected, grouped by tag](pictures/library-maintenance-dark.png)
+
+**Looking after the library.** `⌘`-click or `⇧`-click selects several sounds, `⌘A` all of the list. Then:
+
+- **Tags**: `⌘T` goes to the tag field; a tag typed there goes to every selected sound. The preview counts how many
+  carry each tag, and × takes it from all of them.
+- **To listen** (`⌘K`) and **Favorite** (`⇧⌘F`) switch for all at once. "To listen" marks a sound that still wants
+  a listen on the amp, such as every new Kemper import, which is an approximation. It is kept as the tag
+  `#listen` in the preset file, so older versions, the Linux app and the sound store keep it unchanged.
+- **Rename** (`⌘E`): one sound as usual; several by replacing a text in their names, with a list of the new names
+  before anything happens. A name the amp would not take (over 31 bytes, or empty) stays as it is.
+- **To the Trash** (`⌘⌫`): when a piece uses one of the sounds, AmpBench names the pieces and asks first. The
+  banner's "Undo" brings all of them back.
+- **Close sounds**: sounds on the same amp whose effects are on and off alike and whose knobs differ by little are
+  close; the same chain under another name is "the same sound". The Kemper import merges only sounds with the same
+  name and the same chain; "Close sounds" shows what else is near, in groups, so you can hear them one after the
+  other and keep one.
+
+![Close sounds, at the smallest window](pictures/library-smallest-dark.png)
+
+On the iPad the library opens from the search line in the sidebar, a tap selects, and the preview's keys "Hear" and
+"Open" do what `↩` and `⌘↩` do. Grouped lists show their sounds there without group titles.
 
 ### Devices
 
@@ -383,6 +437,11 @@ With a keyboard the Mac's shortcuts work (`⌘S`, `⌘Z`, `⌘1` – `⌘4`, `�
 
 - **Sounds** are files in the app's Documents folder, which the Files app shows under "On My iPad → AmpBench". The
   sound store brings the Mac's sounds there. A removed sound goes to a hidden folder `.Trash` beside the others.
+- **The library** opens from the search line on top of the sidebar, the same as on the Mac: tap a sound to see it,
+  "Hear" and "Open" in the preview. Which pieces use a sound is not shown there, since the pieces live in the
+  Mac's recordings.
+
+  ![The library on the iPad](pictures/ipad-library.png)
 - **Tuner**: the input is what the iPad routes in, the Spark over USB-C or the built-in microphone, or the amp's own
   tuner over Bluetooth. It listens only while the tuner shows and the app is in front.
 - **Narrow windows**: in portrait or beside another app the editor is shown smaller instead of cut off. Hide the
