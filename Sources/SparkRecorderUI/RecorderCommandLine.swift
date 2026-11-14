@@ -17,7 +17,8 @@ public enum RecorderCommandLine {
 }
 
 func runCommandLine(_ arguments: [String]) -> Int32? {
-    guard let command = arguments.first, command.hasPrefix("--"), command != "--library" else { return nil }
+    guard let command = arguments.first, command.hasPrefix("--"), command != "--library",
+          command != "--level-measure" else { return nil }
 
     switch command {
     case "--inspect":

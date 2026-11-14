@@ -72,6 +72,7 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
         // As in Spark Recorder: recovery of an interrupted take, then the window, then the self-test.
         studio.recorder.applicationDidFinishLaunching(notification)
         MenuDump.startIfRequested(studio)
+        LevelRun.startIfRequested(studio)
     }
 
     /// A click on the Dock icon brings the window back.
