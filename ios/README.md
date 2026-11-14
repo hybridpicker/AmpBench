@@ -59,6 +59,7 @@ from the real one, and no input is opened for `--tuner-demo`.
 
 - In the simulator (iPad Air 11-inch, iPadOS 26.5): the four UI tests pass. A finger turns a knob in the editor, the
   tuner shows a made-up string, the sound store's sheet makes a key, the Mac's sheets fit.
-- Compiles for a real iPad (arm64), unsigned.
+- On a real iPad (iPad Air 13-inch, 2026-11-14): installed with `./ios/build.sh --device`, signed by hand with a
+  profile; the sound store was set up there with an HTTPS place and brought the Mac's sounds (by the owner's word).
 - **Not yet on a real iPad**: Bluetooth to an amp, the tuner with a guitar (USB-C and microphone), the sound store
-  with a folder from Files or an HTTPS server.
+  with a folder from Files.
