@@ -169,6 +169,8 @@ if [[ $mode == pull ]]; then
         fi
     fi
     want="$(wanted_version)"
+    # Work in progress is never installed in the background; ./build.sh --install or linux/install.sh do that by hand.
+    if [[ "$want" == *+* ]]; then note "Uncommitted changes in what ships, nothing installed."; exit 0; fi
     if [[ "$(installed_here)" == "$want" ]]; then note "Up to date: $want"; exit 0; fi
     if app_running; then
         say "$(date '+%F %T') AmpBench is open, so $want is installed once it is closed."

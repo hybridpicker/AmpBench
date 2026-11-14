@@ -67,7 +67,7 @@ work on:
 ./sync.sh --pull   # only bring this machine up to date with GitHub
 ```
 
-`sync.sh` refuses uncommitted changes and a `main` that has moved on both sides (then `git pull --rebase origin main`
+`sync.sh` refuses uncommitted changes, and the background job never installs them, and a `main` that has moved on both sides (then `git pull --rebase origin main`
 first). Before it pushes, it checks the new commits: author addresses must be GitHub noreply addresses, and no added
 line or message may hold a home folder, one of the host names from `sync.local` or the global Git address; gitleaks
 looks for secrets. On the Mac it installs with `build.sh --install` and checks that `docs/ai/spark-catalog.json`
