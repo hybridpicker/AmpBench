@@ -175,5 +175,17 @@ extension German {
             "Letzter Abgleich: nie",
         "Sounds folder: %@":
             "Sound-Ordner: %@",
+        // Verify
+        "The store is damaged: %d of its sounds cannot be restored.":
+            "Der Store ist beschädigt: %d seiner Sounds lassen sich nicht wiederherstellen.",
+        "Checked: all %d sounds in the store can be read and equal the ones here.":
+            "Geprüft: Alle %d Sounds im Store sind lesbar und gleich denen hier.",
+        "Checked: all %d sounds in the store can be read. %d differ from this device; a sync brings them in step.":
+            "Geprüft: Alle %d Sounds im Store sind lesbar. %d weichen von diesem Gerät ab; ein Abgleich bringt sie in Einklang.",
+        "missing in the store": "fehlt im Store",
+        "damaged in the store": "im Store beschädigt",
+        "differs here": "weicht hier ab",
+        "only in the store": "nur im Store",
+        "only here": "nur hier",
     ]
 }

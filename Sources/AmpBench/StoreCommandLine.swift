@@ -12,6 +12,7 @@ import SparkCore
 ///   --store-key set                      take a key from standard input (the key of a store you already have)
 ///   --store-key show                     print the key, to write it down or to enter it on another device
 ///   --store-sync                         bring the presets folder and the store in step, both ways
+///   --store-verify                       read every sound back from the store, open it and compare it; changes nothing
 ///   --store-status                       where the store is, when it last synced, how many sounds it holds
 /// With `--library <folder>` they work on that test library's presets and a store profile apart from the real one.
 enum StoreCommandLine {
@@ -33,9 +34,10 @@ enum StoreCommandLine {
             case "--store-setup": return try setup(rest, profile)
             case "--store-key": return try key(rest, profile)
             case "--store-sync": return try sync(folder, profile)
+            case "--store-verify": return try verify(folder, profile)
             case "--store-status": return try status(folder, profile)
             default:
-                print("usage: --store-setup | --store-key | --store-sync | --store-status")
+                print("usage: --store-setup | --store-key | --store-sync | --store-verify | --store-status")
                 return 64
             }
         } catch {
@@ -101,6 +103,17 @@ enum StoreCommandLine {
             for name in names { print("  \(label): \(name)") }
         }
         return 0
+    }
+
+    private static func verify(_ folder: URL, _ profile: StoreProfile) throws -> Int32 {
+        let report = try wait { try await profile.verify(folder: folder) }
+        print(report.summary)
+        for (label, names) in [(tr("missing in the store"), report.missing), (tr("damaged in the store"), report.damaged),
+                               (tr("differs here"), report.differing), (tr("only in the store"), report.notHere),
+                               (tr("only here"), report.notStored)] {
+            for name in names { print("  \(label): \(name)") }
+        }
+        return report.isRestorable ? 0 : 1
     }
 
     private static func status(_ folder: URL, _ profile: StoreProfile) throws -> Int32 {

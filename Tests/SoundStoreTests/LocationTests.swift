@@ -226,7 +226,8 @@ final class SSHLocationTests: XCTestCase {
     func testTheCommandsAreWhatTheServerShallRun() {
         XCTAssertEqual(SSHLocation.sshArguments(host: "server", command: "true"),
                        ["-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "--", "server", "true"])
-        XCTAssertEqual(SSHLocation.writeCommand(path: "~/store"), "mkdir -p ~/store && tar -xf - -C ~/store")
+        XCTAssertEqual(SSHLocation.writeCommand(path: "~/store"),
+                       "umask 077; mkdir -p ~/store && chmod 700 ~/store && tar -xf - -C ~/store")
         XCTAssertEqual(SSHLocation.readCommand(path: "~/store", names: ["manifest.age", objectA]),
                        "cd ~/store 2>/dev/null || exit 0; for f in manifest.age \(objectA); do [ -f \"$f\" ] && echo \"$f\"; done | tar -cf - -T -")
     }

@@ -136,6 +136,7 @@ The sound store (see [STORE.md](STORE.md)); with `--library <folder>` on a test 
 AmpBench --store-setup folder <path> | ssh <host> <folder> | https <url> [user]
 AmpBench --store-key new | set | show
 AmpBench --store-sync
+AmpBench --store-verify
 AmpBench --store-status
 ```
 

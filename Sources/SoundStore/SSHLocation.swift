@@ -48,7 +48,9 @@ public struct SSHLocation: StoreLocation {
 
     /// Unpacks the stream on standard input into the folder, which it creates.
     static func writeCommand(path: String) -> String {
-        "mkdir -p \(path) && tar -xf - -C \(path)"
+// Only the owner may read the folder: the files are encrypted, but who else is on the server need not see
+        // how many there are and when they change.
+        "umask 077; mkdir -p \(path) && chmod 700 \(path) && tar -xf - -C \(path)"
     }
 
     /// Packs those of the names that exist. A missing folder is a store with nothing in it, not an error. Only
@@ -121,6 +123,8 @@ public struct SSHLocation: StoreLocation {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
+        // Without this the Mac's tar packs a "._name" file beside every file, for attributes nobody needs there.
+        process.environment = ProcessInfo.processInfo.environment.merging(["COPYFILE_DISABLE": "1"]) { _, new in new }
         let inPipe = Pipe(), outPipe = Pipe(), errorPipe = Pipe()
         process.standardInput = input == nil ? FileHandle.nullDevice : inPipe
         process.standardOutput = outPipe

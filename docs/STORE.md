@@ -77,6 +77,7 @@ AmpBench --store-key new        # makes the key; prints only its public half
 AmpBench --store-key set        # takes a key from standard input
 AmpBench --store-key show       # prints the key
 AmpBench --store-sync           # both ways; exit status 1 when it failed
+AmpBench --store-verify         # reads every sound back, opens it and compares it; changes nothing
 AmpBench --store-status
 ```
 
@@ -85,7 +86,8 @@ user name, `--store-setup` reads the password from standard input, never from an
 
 ## A place of your own
 
-**Over SSH** nothing needs to be installed: the folder is created on the first sync. The server needs `tar`.
+**Over SSH** nothing needs to be installed: the folder is created on the first sync, readable by its owner only.
+The server needs `tar`.
 
 **Over HTTPS**, for devices without SSH such as the iPad, a web server that stores what is PUT is enough. With nginx
 (`ngx_http_dav_module`, part of the standard build):

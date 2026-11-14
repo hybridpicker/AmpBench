@@ -117,6 +117,17 @@ public struct StoreProfile: @unchecked Sendable {
         return report
     }
 
+    /// Reads the whole store back and compares it with `folder`. Changes nothing.
+    public func verify(folder: URL) async throws -> VerifyReport {
+        guard let settings else { throw StoreProfileError.notSetUp }
+        guard let identity else { throw StoreProfileError.noKey }
+        let picked = Self.resolve(settings.folderBookmark)
+        let scoped = picked?.startAccessingSecurityScopedResource() ?? false
+        defer { if scoped { picked?.stopAccessingSecurityScopedResource() } }
+        let location = try settings.location(folder: settings.kind == .folder ? picked : nil, password: password)
+        return try await SoundStore(folder: folder, location: location, identity: identity, stateURL: stateURL).verify()
+    }
+
     private static func resolve(_ bookmark: Data?) -> URL? {
         guard let bookmark else { return nil }
         var stale = false

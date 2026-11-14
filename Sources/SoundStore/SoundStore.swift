@@ -35,6 +35,38 @@ public struct SyncReport: Sendable, Equatable {
     }
 }
 
+/// What reading the whole store back found.
+public struct VerifyReport: Sendable, Equatable {
+    /// Sounds that were fetched, opened with the key and found whole.
+    public var readable = 0
+    /// Named by the index, but their data is not in the store.
+    public var missing: [String] = []
+    /// In the store, but not readable with the key or not what the index says.
+    public var damaged: [String] = []
+    /// Whole in the store, with another content than the file here: changed since the last sync.
+    public var differing: [String] = []
+    /// Whole in the store, not on this device.
+    public var notHere: [String] = []
+    /// On this device, not in the store yet.
+    public var notStored: [String] = []
+
+    public init() {}
+
+    /// True when every sound of the store can be restored.
+    public var isRestorable: Bool { missing.isEmpty && damaged.isEmpty }
+    /// True when the store and this device also hold the same sounds.
+    public var isInStep: Bool { isRestorable && differing.isEmpty && notHere.isEmpty && notStored.isEmpty }
+
+    public var summary: String {
+        if !isRestorable {
+            return tr("The store is damaged: %d of its sounds cannot be restored.", missing.count + damaged.count)
+        }
+        if isInStep { return tr("Checked: all %d sounds in the store can be read and equal the ones here.", readable) }
+        return tr("Checked: all %d sounds in the store can be read. %d differ from this device; a sync brings them in step.",
+                  readable, differing.count + notHere.count + notStored.count)
+    }
+}
+
 /// Keeps a folder of sounds and an encrypted store in step, in both directions.
 ///
 /// Every file is encrypted on this device with the age format before it leaves, and so is the index. The store holds
@@ -146,6 +178,36 @@ public final class SoundStore: Sendable {
         let manifest = try await readManifest() ?? StoreManifest()
         let deleted = manifest.entries.values.filter { $0.deleted != nil }.count
         return (manifest.entries.count - deleted, deleted)
+    }
+
+    // MARK: Verify
+
+    /// Reads every sound back from the store, opens it and compares it with the file here. Changes nothing, here or
+    /// in the store. This is the proof that a backup can be restored, not only that it was written.
+    public func verify() async throws -> VerifyReport {
+        let manifest = try await readManifest() ?? StoreManifest()
+        let live = manifest.entries.filter { $0.value.deleted == nil }
+        let objects = try await location.read(Array(Set(live.values.map(\.object))))
+        var report = VerifyReport()
+        for (path, entry) in live.sorted(by: { $0.key < $1.key }) {
+            guard let sealed = objects[entry.object] else {
+                report.missing.append(path)
+                continue
+            }
+            guard let plain = try? Age.decrypt(sealed, with: identity), objectName(for: plain) == entry.object else {
+                report.damaged.append(path)
+                continue
+            }
+            report.readable += 1
+            guard let here = try? Data(contentsOf: folder.appendingPathComponent(path)) else {
+                report.notHere.append(path)
+                continue
+            }
+            if here != plain { report.differing.append(path) }
+        }
+        let (files, _) = try scan()
+        report.notStored = files.map(\.path).filter { live[$0] == nil }.sorted()
+        return report
     }
 
     // MARK: Manifest

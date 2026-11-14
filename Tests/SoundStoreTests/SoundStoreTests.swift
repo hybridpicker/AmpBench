@@ -381,4 +381,47 @@ final class SoundStoreTests: XCTestCase {
         XCTAssertTrue(report.isEmpty)
         XCTAssertEqual(report.summary, "The store is up to date: 0 sounds.")
     }
+
+    // MARK: Reading the store back
+
+    func testAStoreThatWasJustSyncedReadsBackWhole() async throws {
+        try write("{\"name\":\"Made-up Lead\"}", "Lead.json", on: "Mac")
+        try write("{\"name\":\"Made-up Jazz\"}", "Kemper/Jazz.json", on: "Mac")
+        _ = try await device("Mac").sync()
+        let report = try await device("Mac").verify()
+        XCTAssertEqual(report.readable, 2)
+        XCTAssertTrue(report.isInStep)
+        // A device that has not fetched yet sees a whole store that it does not hold.
+        let other = try await device("iPad").verify()
+        XCTAssertTrue(other.isRestorable)
+        XCTAssertEqual(other.notHere, ["Kemper/Jazz.json", "Lead.json"])
+    }
+
+    func testReadingBackFindsWhatASyncWouldNotNotice() async throws {
+        try write("{\"name\":\"Made-up Lead\"}", "Lead.json", on: "Mac")
+        try write("{\"name\":\"Made-up Jazz\"}", "Jazz.json", on: "Mac")
+        try write("{\"name\":\"Made-up Funk\"}", "Funk.json", on: "Mac")
+        _ = try await device("Mac").sync()
+        // One object rots, one disappears; the Mac's own files are untouched, so a sync would see nothing to do.
+        let objects = try FileManager.default.contentsOfDirectory(at: storeFolder.appendingPathComponent("objects"),
+                                                                  includingPropertiesForKeys: nil)
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        XCTAssertEqual(objects.count, 3)
+        var rotten = try Data(contentsOf: objects[0])
+        rotten[rotten.count - 1] ^= 0x01
+        try rotten.write(to: objects[0])
+        try FileManager.default.removeItem(at: objects[1])
+        let before = sounds(on: "Mac")
+
+        let report = try await device("Mac").verify()
+        XCTAssertFalse(report.isRestorable)
+        XCTAssertEqual(report.readable, 1)
+        XCTAssertEqual(report.damaged.count, 1)
+        XCTAssertEqual(report.missing.count, 1)
+        XCTAssertEqual(sounds(on: "Mac"), before, "reading back must change nothing")
+
+        try write("{\"name\":\"Made-up New\"}", "New.json", on: "Mac")
+        let later = try await device("Mac").verify()
+        XCTAssertEqual(later.notStored, ["New.json"])
+    }
 }
