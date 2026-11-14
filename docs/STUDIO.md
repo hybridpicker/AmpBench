@@ -28,8 +28,8 @@ labels.
 | – | REACTOR 50: reads the eight presets after connecting (own format, checksum CRC-32/MPEG-2) and shows them like Spark slots; "Play on the REACTOR" with live commands; probe `ask`, `read-slot`, `set-one`, `switch-one`, `send-one` | 6bf59ac … 13646ee | seen and heard by the owner (2026-11-10): eight presets with names in the sidebar; gain, bass, reverb on/off and level, amp choice Clean. No preset written, no slot in the editor |
 | – | REACTOR 50 like a Spark: a slot switches, opens in the editor as seven places (`ReactorBridge`), changes go live by name, "Store" rewrites the read bytes and reads back; probe `script` | 84a149b | with the probe on the device (2026-11-11): slot switch, names by marked values, store and read back on Green 4, all eight slots equal to the backup afterwards. Not yet tried from the app on the device |
 | – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 78e8e58, add00c0, 7b6fd83 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
-| – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | d4fce74 | 79 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; see "Sound store" below |
-| – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | d4fce74 | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); compiles for a real iPad; not yet on a real iPad, and not with an amp |
+| – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | d4fce74 | 79 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; since 2026-11-14 the author's Mac and iPad sync 92 sounds through an HTTPS place on a server (nginx), read back whole with `--store-verify`; see "Sound store" below |
+| – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | d4fce74 | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); installed on a real iPad (iPad Air 13-inch) on 2026-11-14, where the store set itself up and brought the sounds; not yet with an amp there |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -120,8 +120,16 @@ Decisions, with the reasons. How the store works is in [STORE.md](STORE.md), the
 - **In the sidebar's foot**, under the connection, with the same lamp and key as the connection: a sound goes to the
   amp or to the store from there, and no new area or window was needed.
 
-Open: Record on the iPad; the store on Linux; a view for earlier versions and removed sounds; a lock for the index;
-everything on a real iPad.
+- **One HTTPS place for every device.** The first backup went over SSH, which the iPad does not have. Rather than
+  one folder written by two server users, the store moved below an HTTPS address of the web server that is there
+  anyway (PUT and GET only, Basic auth, nothing deleted, no listing; the example in STORE.md), and the Mac uses the
+  same address. The password was made on the server and went into the keychain through a pipe.
+- **Signing the iPad app without an account in Xcode.** `ios/build.sh --device` can build unsigned and sign by hand
+  with a development profile that is already on the Mac (`AMPBENCH_PROFILE` in the untracked `Local.xcconfig`), so
+  a Mac whose Xcode has no account signed in can still install.
+
+Open: Record on the iPad; the store on Linux (in work, 2026-11-14); a view for earlier versions and removed sounds;
+a lock for the index; Presets and Tuner on the iPad with an amp.
 
 ## Tuner
 
@@ -783,7 +791,20 @@ For every device, without exception:
 - **Library of the presets:** groups have been pinned hashtags since 2026-11-10 (section "Ordering presets").
   Open: assigning by dragging, favorites and rating in the UI, sorting, export, a version history per
   preset; filtering pieces by key and tempo.
-- **Kemper import:** listen to the translated sounds on the Spark and improve the amp rules after that (above all
+- **Next: the library as an overlay** (the owner's wish, 2026-11-14). With the Kemper import the library grew from
+  a dozen sounds to 92, and the sidebar became one endless list. Planned, not built:
+  - One large view over the window, opened with a key and from the sidebar, closed with Esc; not a second window
+    and not a new area. Search at once, filters (tags, amp model, origin such as Kemper, AI Sound or slot backup,
+    "not yet heard"), a dense grid or table instead of one tall column, grouping by tag, piece or amp, and a
+    preview of the chosen sound with "play on the amp" and "open in the editor".
+  - The sidebar becomes short: the amp's slots, a few pinned or recent sounds, the way into the library.
+  - Maintenance in the same view: several sounds at once (tag, untag, rename, Trash), duplicates and near
+    duplicates, a mark "heard" for sounds that are approximations, slot backups apart from sounds, and which
+    pieces use a sound before it is removed.
+  - Rules: everything by keyboard; the same view on the iPad; a new field of a sound goes into its JSON file so
+    that older versions and the Linux app ignore it and the sound store carries it; Linux gets the same view.
+- **Kemper import:** the author's backup is in the real library since 2026-11-14 (81 presets, 20 pieces, kinds as
+  guessed). Listen to the translated sounds on the Spark and improve the amp rules after that (above all
   Dream Weaver, Divided by 13, Naylor). The Linux app can do the import and hashtags since 2026-11-10
   (`linux/ampbench/kemper.py`, a sidebar with tag chips and pinned sections); on the author's backup both apps
   print the same `--kemper-list` line for line. Linux edits tags through a dialog (Ctrl+T), not in a line
