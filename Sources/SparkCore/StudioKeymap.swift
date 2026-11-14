@@ -54,7 +54,7 @@ public struct StudioShortcut: Hashable, Sendable {
 
     public static var namedKeys: [String: String] { [
         "space": tr("Space"), "escape": "Esc", "left": "←", "right": "→", "up": "↑", "down": "↓",
-        "delete": "⌫", "forwardDelete": "⌦",
+        "delete": "⌫", "forwardDelete": "⌦", "return": "↩",
     ] }
 
     public var display: String {
@@ -133,6 +133,16 @@ public enum StudioKeymap {
         StudioShortcut("l", [.command, .shift], .presets, tr("Hear changes live on or off")),
         StudioShortcut("r", .command, .presets, tr("Read the amp again"), when: tr("Bluetooth connected")),
         StudioShortcut("0", .control, .presets, tr("Selected device of the chain on or off"), when: tr("Preset open")),
+        StudioShortcut("l", .command, .presets, tr("Library: open or close")),
+        StudioShortcut("f", .command, .presets, tr("Search the library")),
+        StudioShortcut("escape", [], .presets, tr("Close the library"), when: tr("Library open")),
+        StudioShortcut("return", [], .presets, tr("Hear the selected sound on the amp"), when: tr("Library open")),
+        StudioShortcut("return", .command, .presets, tr("Open the selected sound in the editor"),
+                       when: tr("Library open")),
+        StudioShortcut("k", .command, .presets, tr("Mark to listen to, or as listened to"), when: tr("Library open")),
+        StudioShortcut("f", [.command, .shift], .presets, tr("Favorite on or off"), when: tr("Library open")),
+        StudioShortcut("t", .command, .presets, tr("Add a tag to the selected sounds"), when: tr("Library open")),
+        StudioShortcut("g", .command, .presets, tr("Next grouping: A–Z, tag, amp, origin"), when: tr("Library open")),
         StudioShortcut("left", [], .presets, tr("Decrease control"), when: tr("Control has the focus")),
         StudioShortcut("right", [], .presets, tr("Increase control"), when: tr("Control has the focus")),
         StudioShortcut("down", [], .presets, tr("Decrease control"), when: tr("Control has the focus")),

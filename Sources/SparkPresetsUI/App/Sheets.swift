@@ -181,3 +181,59 @@ struct ChainMiniature: View {
         .accessibilityHidden(true)
     }
 }
+
+/// Renames several sounds of the library at once: a text in their names is replaced, as the list below shows
+/// before anything happens. A name the amp would not take stays as it is.
+struct BatchRenameSheet: View {
+    @EnvironmentObject private var model: PresetsModel
+    @EnvironmentObject private var browser: LibraryBrowser
+
+    var body: some View {
+        let plan = model.renamePlan()
+        let changing = plan.filter { $0.name != $0.item.name }
+        VStack(alignment: .leading, spacing: 12) {
+            Text(tr("Rename %d sounds", plan.count)).font(.headline)
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text(tr("Find")).foregroundStyle(.secondary)
+                    TextField(tr("Text in the names"), text: $browser.renameFind)
+                        .textFieldStyle(.roundedBorder)
+                }
+                GridRow {
+                    Text(tr("Replace with")).foregroundStyle(.secondary)
+                    TextField(tr("New text, or nothing to remove it"), text: $browser.renameReplace)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(model.commitBatchRename)
+                }
+            }
+            .frame(width: 420)
+            List(plan, id: \.item.url) { step in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(step.item.name).foregroundStyle(step.name == step.item.name ? .primary : .secondary)
+                    if step.name != step.item.name {
+                        Text("→ \(step.name)")
+                            .foregroundStyle(step.problem == nil ? Theme.desk.amber.color : .red)
+                        if let problem = step.problem {
+                            Text(problem).font(.caption).foregroundStyle(.red)
+                        }
+                    }
+                }
+            }
+            .stripedListStyle()
+            .frame(width: 420, height: 220)
+            HStack {
+                Text(changing.isEmpty ? tr("Type a text that the names contain.")
+                     : tr("%d names change.", changing.filter { $0.problem == nil }.count))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button(tr("Cancel")) { browser.renameItems = nil }.keyboardShortcut(.cancelAction)
+                Button(tr("Rename"), action: model.commitBatchRename)
+                    .keyboardShortcut(.defaultAction)
+                    .disabled(!changing.contains { $0.problem == nil })
+            }
+            .frame(width: 420)
+        }
+        .padding(20)
+    }
+}

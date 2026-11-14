@@ -5,19 +5,36 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: PresetsModel
     @EnvironmentObject private var link: SparkLink
+    @EnvironmentObject private var browser: LibraryBrowser
 
     var body: some View {
-        NavigationSplitView {
-            Sidebar()
-                .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 320)
-        } detail: {
-            EditorView()
-                // The editor is drawn for the Mac's smallest window; a narrower iPad shows it scaled, not cut.
-                .fittedOnPad(designWidth: 900)
-                .overlay(alignment: .bottom) { BannerView().padding(14) }
-                .withoutNavigationBarOnPad()
+        ZStack {
+            // The library covers sidebar and editor as one view of its own, and Esc closes it again. The split view
+            // leaves meanwhile: the system sidebar draws parts of itself above anything laid over it. What it shows
+            // lives in the model, so it comes back as it was.
+            if browser.isOpen {
+                LibraryOverlay().transition(.opacity)
+            } else {
+                NavigationSplitView {
+                    Sidebar()
+                        .navigationSplitViewColumnWidth(min: 210, ideal: 240, max: 320)
+                } detail: {
+                    EditorView()
+                        // The editor is drawn for the Mac's smallest window; a narrower iPad shows it scaled, not cut.
+                        .fittedOnPad(designWidth: 900)
+                        .overlay(alignment: .bottom) { BannerView().padding(14) }
+                        .withoutNavigationBarOnPad()
+                }
+            }
         }
-        .searchable(text: $model.search, placement: .splitViewSearch, prompt: tr("Search presets"))
+        .sheet(isPresented: batchRenameShown) { BatchRenameSheet().fittedSheetOnPad() }
+        .confirmationDialog(trashTitle, isPresented: trashShown, presenting: browser.trashRequest) { targets in
+            Button(tr("Move to Trash"), role: .destructive) { model.trash(targets) }
+            Button(tr("Cancel"), role: .cancel) { browser.trashRequest = nil }
+        } message: { targets in
+            Text(tr("Pieces use them: %@. The pieces keep the sound's name and show it as missing.",
+                    model.pieces(using: targets).joined(separator: ", ")))
+        }
         .sheet(isPresented: $model.showsStore) { StoreSheet().fittedSheetOnPad() }
         .sheet(item: $model.renameTarget) { _ in RenameSheet().fittedSheetOnPad() }
         .sheet(isPresented: saveAsShown) { SaveAsSheet().fittedSheetOnPad() }
@@ -66,6 +83,20 @@ struct ContentView: View {
             model.reloadLibrary()
             model.store.syncIfDue()
         }
+    }
+
+    private var batchRenameShown: Binding<Bool> {
+        Binding(get: { browser.renameItems != nil }, set: { if !$0 { browser.renameItems = nil } })
+    }
+
+    private var trashShown: Binding<Bool> {
+        Binding(get: { browser.trashRequest != nil }, set: { if !$0 { browser.trashRequest = nil } })
+    }
+
+    private var trashTitle: String {
+        let count = browser.trashRequest?.count ?? 0
+        return count == 1 ? tr("Move “%@” to the Trash?", browser.trashRequest?.first?.name ?? "")
+                          : tr("Move %d sounds to the Trash?", count)
     }
 
     private var saveAsShown: Binding<Bool> {

@@ -30,58 +30,6 @@ struct TagChip: View {
     }
 }
 
-/// The tags of the library to filter by: a click narrows the list to presets carrying the tag, the context menu pins
-/// a tag as a section of its own.
-struct TagFilterBar: View {
-    static let chipLimit = 8
-    @EnvironmentObject private var model: PresetsModel
-
-    var body: some View {
-        let counts = model.tagCounts
-        // Pinned tags, active filters and the most used ones as chips; the rest in a menu, so the list stays in view.
-        let shown = counts.enumerated().filter { index, entry in
-            index < Self.chipLimit || model.isPinned(entry.tag) || model.isFiltering(by: entry.tag)
-        }.map(\.element)
-        let more = counts.filter { entry in !shown.contains { $0.tag == entry.tag } }
-        if !counts.isEmpty {
-            FlowLayout(spacing: 4) {
-                ForEach(shown, id: \.tag) { entry in
-                    Button {
-                        model.toggleFilter(entry.tag)
-                    } label: {
-                        TagChip(tag: entry.tag, count: entry.count, isOn: model.isFiltering(by: entry.tag),
-                                isPinned: model.isPinned(entry.tag))
-                    }
-                    .buttonStyle(.plain)
-                    .help(tr("Show only presets with #%@. Right-click: pin as a section.", entry.tag))
-                    .contextMenu {
-                        Button(model.isPinned(entry.tag) ? tr("Unpin section") : tr("Pin as a section")) {
-                            model.togglePin(entry.tag)
-                        }
-                    }
-                }
-                if !more.isEmpty {
-                    Menu(tr("+ %d more", more.count)) {
-                        ForEach(more, id: \.tag) { entry in
-                            Button("#\(entry.tag) (\(entry.count))") { model.toggleFilter(entry.tag) }
-                        }
-                    }
-                    .menuStyle(.borderlessButton)
-                    .fixedSize()
-                    .font(.system(size: 10.5))
-                    .help(tr("More tags to filter by"))
-                }
-                if !model.tagFilter.isEmpty {
-                    Button(tr("Show all")) { model.tagFilter = [] }
-                        .linkButtonStyle()
-                        .font(.system(size: 10.5))
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-}
-
 /// The tags and notes of a preset saved on the Mac, below the editor's header. Tags are typed with or without "#",
 /// several at once separated by blanks; a click on a tag's × removes it.
 struct PresetDetailsBar: View {
@@ -110,7 +58,7 @@ struct PresetDetailsBar: View {
                             .accessibilityLabel(tr("Remove tag %@", tag))
                         }
                         .contextMenu {
-                            Button(model.isPinned(tag) ? tr("Unpin section") : tr("Pin as a section")) {
+                            Button(model.isPinned(tag) ? tr("Unpin from the sidebar") : tr("Pin to the sidebar")) {
                                 model.togglePin(tag)
                             }
                         }

@@ -37,6 +37,8 @@ public final class PresetsHost: ObservableObject {
             Snapshot.seededTestFolder(URL(fileURLWithPath: $0, isDirectory: true)
                 .appendingPathComponent("Presets", isDirectory: true))
         }
+        // `--made-up-sounds` gives the test library about a hundred invented sounds, for the library's pictures.
+        if let testFolder, Snapshot.arguments["made-up-sounds"] != nil { MadeUpLibrary.fill(testFolder) }
         // A test library keeps its devices apart from the real ones; `--demo-devices` shows simulated devices only.
         let link: SparkLink? = testFolder.map { _ in
             let defaults = UserDefaults(suiteName: "local.ampbench.devices.tests") ?? .standard
@@ -226,6 +228,12 @@ public final class PresetsHost: ObservableObject {
     /// Gets the songs of an import (a Kemper backup's performances) and says what became of them, for the message.
     public func onImportSongs(_ handler: @escaping @MainActor ([ImportedSong]) -> String?) {
         model.onImportSongs = handler
+    }
+
+    /// Tells the library which pieces use a saved preset, by its id and file name, so it can say so before the
+    /// preset goes to the Trash.
+    public func onPresetUses(_ handler: @escaping @MainActor (String?, String) -> [String]) {
+        model.presetUses = handler
     }
 
     public func onPresetOpened(_ handler: @escaping @MainActor (String, Double) -> Void) {

@@ -235,6 +235,10 @@ final class Studio: ObservableObject {
                 if let problem { self?.recorder.warn(problem) } else { self?.recorder.inform(tr("“%@” is playing on the amp, in the temporary slot.", link.name)) }
             }
         })
+        // The library names the pieces that use a sound before it goes to the Trash.
+        presets.onPresetUses { [weak self] id, fileName in
+            self?.recorder.pieces(usingPresetID: id, fileName: fileName) ?? []
+        }
         // Songs of an import (Kemper performances) become pieces, each part with its preset.
         presets.onImportSongs { [weak self] songs in
             guard let self else { return nil }

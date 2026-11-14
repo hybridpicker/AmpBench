@@ -15,6 +15,7 @@ enum PresetsContent {
             .environmentObject(model)
             .environmentObject(model.link)
             .environmentObject(model.editor)
+            .environmentObject(model.browser)
             .task { await startOnce(model) }
     }
 
@@ -47,6 +48,7 @@ struct PresetCommands: Commands {
     var isActive = true
 
     private var editor: EditorModel { model.editor }
+    private var browser: LibraryBrowser { model.browser }
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -64,6 +66,13 @@ struct PresetCommands: Commands {
             Button(tr("Duplicate")) { model.duplicateCurrent() }
                 .keyboardShortcut(owned(KeyboardShortcut("d", modifiers: .command)))
                 .disabled(editor.preset == nil || !isActive)
+            Divider()
+            Button(browser.isOpen ? tr("Close the sound library") : tr("Sound library")) { model.toggleLibrary() }
+                .keyboardShortcut(owned(KeyboardShortcut("l", modifiers: .command)))
+                .disabled(!isActive)
+            Button(tr("Search sounds")) { model.openLibrary() }
+                .keyboardShortcut(owned(KeyboardShortcut("f", modifiers: .command)))
+                .disabled(!isActive)
         }
         // This group also holds the system's Close (⌘W): replacing it would take that away, so it comes back here.
         CommandGroup(replacing: .saveItem) {
@@ -104,15 +113,40 @@ struct PresetCommands: Commands {
         }
         CommandGroup(after: .pasteboard) {
             Divider()
-            Button(tr("Rename …")) { model.beginRename() }
+            // While the library is open these act on its selection, which may be several sounds.
+            Button(tr("Rename …")) { if browser.isOpen { model.beginRenameInLibrary() } else { model.beginRename() } }
                 .keyboardShortcut(owned(KeyboardShortcut("e", modifiers: .command)))
-                .disabled(model.selectedItem == nil || !isActive)
-            Button(tr("Move to Trash")) { model.trash() }
+                .disabled((browser.isOpen ? model.librarySelection.isEmpty : model.selectedItem == nil) || !isActive)
+            Button(tr("Move to Trash")) { if browser.isOpen { model.trashInLibrary() } else { model.trash() } }
                 .keyboardShortcut(owned(KeyboardShortcut(.delete, modifiers: .command)))
-                .disabled(model.selectedItem == nil || !isActive)
+                .disabled((browser.isOpen ? model.librarySelection.isEmpty : model.selectedItem == nil) || !isActive)
             Button(tr("Show in Finder")) { model.reveal() }
                 .keyboardShortcut(owned(KeyboardShortcut("r", modifiers: [.command, .shift])))
                 .disabled(!isActive)
+        }
+        CommandMenu(tr("Sounds")) {
+            let selected = browser.isOpen ? model.librarySelection : []
+            Button(tr("Hear on the amp")) { model.hearSelection() }
+                .disabled(selected.isEmpty || !model.canUse(.playTemporary) || !isActive)
+            Button(tr("Open in the editor")) { model.openSelectionInEditor() }
+                .keyboardShortcut(owned(KeyboardShortcut(.return, modifiers: .command)))
+                .disabled(selected.count != 1 || !isActive)
+            Divider()
+            Button(tr("Favorite on or off")) { model.toggleFavorite(selected) }
+                .keyboardShortcut(owned(KeyboardShortcut("f", modifiers: [.command, .shift])))
+                .disabled(selected.isEmpty || !isActive)
+            Button(tr("To listen on or off")) { model.toggleListen(selected) }
+                .keyboardShortcut(owned(KeyboardShortcut("k", modifiers: .command)))
+                .disabled(selected.isEmpty || !isActive)
+            Button(tr("Add a tag …")) { browser.focusRequest = .tags }
+                .keyboardShortcut(owned(KeyboardShortcut("t", modifiers: .command)))
+                .disabled(selected.isEmpty || !isActive)
+            Divider()
+            Button(tr("Next grouping")) { browser.grouping = browser.grouping.next }
+                .keyboardShortcut(owned(KeyboardShortcut("g", modifiers: .command)))
+                .disabled(!browser.isOpen || !isActive)
+            Button(tr("Go to the filters")) { browser.focusRequest = .filters }
+                .disabled(!browser.isOpen || !isActive)
         }
         CommandMenu(tr("Amp")) {
             // As many slots as the device has; shortcuts for at most as many as StudioKeymap holds.

@@ -66,7 +66,7 @@ enum Snapshot {
         let values = arguments
         // On the iPad the simulator takes the picture, so a demo device or an opened preset is reason enough.
         guard values["snapshot"] != nil || values["open"] != nil || values["size"] != nil
-            || values["demo-devices"] != nil else { return }
+            || values["demo-devices"] != nil || values["library-open"] != nil else { return }
         try? await Task.sleep(for: .milliseconds(600))
         #if os(macOS)
         if let size = values["size"], let window = target {
@@ -88,6 +88,11 @@ enum Snapshot {
             }
         }
         open(values["open"], in: model)
+        // The made-up songs become pieces of the test library, as after a Kemper import; existing ones stay.
+        if values["made-up-sounds"] != nil, let handOver = model.onImportSongs {
+            _ = handOver(MadeUpLibrary.songs(in: model.items))
+        }
+        openLibrary(values, in: model)
         if let focus = values["focus"], let place = ChainPlace.allCases.first(where: { "\($0)" == focus }) {
             model.editor.focus = place
         }
@@ -130,6 +135,28 @@ enum Snapshot {
         simulated.report(SparkProtocol.Sub.effectOnOff, SimulatedDevice.onOffPayload("DistortionTS9", true))
         simulated.report(SparkProtocol.Sub.tapTempo, [0xCA] + withUnsafeBytes(of: Float(96).bitPattern.bigEndian, Array.init))
         try? await Task.sleep(for: .milliseconds(300))
+    }
+
+    /// `--library-open [all|favorites|toListen|close|backups|#tag]` opens the library, `--library-search <text>`,
+    /// `--library-group none|tag|amp|origin` and `--library-select <name>[,<name>…]` set it up for a picture.
+    private static func openLibrary(_ values: [String: String], in model: PresetsModel) {
+        guard let what = values["library-open"] else { return }
+        let browser = model.browser
+        if what.hasPrefix("#") {
+            model.openLibrary(.tag(String(what.dropFirst())))
+        } else if let scope = LibraryScope(rawValue: what), scope != .all {
+            model.openLibrary(.scope(scope))
+        } else {
+            browser.filters = []
+            model.openLibrary()
+        }
+        browser.search = values["library-search"] ?? ""
+        if let group = values["library-group"].flatMap(LibraryGrouping.init(rawValue:)) { browser.grouping = group }
+        if let names = values["library-select"], !names.isEmpty {
+            let wanted = names.split(separator: ",").map(String.init)
+            model.selectInLibrary(wanted.compactMap { name in model.items.first { $0.name == name } })
+            browser.focusRequest = .table
+        }
     }
 
     private static func open(_ what: String?, in model: PresetsModel) {

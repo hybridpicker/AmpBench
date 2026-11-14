@@ -123,15 +123,3 @@ extension View {
         #endif
     }
 }
-
-extension SearchFieldPlacement {
-    /// Where a split view's search field goes: the window's toolbar on the Mac, the sidebar on the iPad.
-    public static var splitViewSearch: SearchFieldPlacement {
-        #if os(macOS)
-        .toolbar
-        #else
-        // Always there, as on the Mac; the plain sidebar placement hides the field until the list is pulled down.
-        .navigationBarDrawer(displayMode: .always)
-        #endif
-    }
-}

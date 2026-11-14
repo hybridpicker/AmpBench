@@ -42,23 +42,6 @@ extension PresetsModel {
         }
     }
 
-    func isFiltering(by tag: String) -> Bool { tagFilter.contains { $0.caseInsensitiveCompare(tag) == .orderedSame } }
-
-    func toggleFilter(_ tag: String) {
-        if isFiltering(by: tag) {
-            tagFilter.removeAll { $0.caseInsensitiveCompare(tag) == .orderedSame }
-        } else {
-            tagFilter.append(tag)
-        }
-    }
-
-    /// The visible presets carrying a tag, for a pinned section.
-    func visibleItems(tagged tag: String) -> [SavedPreset] {
-        visibleItems.filter { item in
-            !item.file.isBackup && item.file.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
-        }
-    }
-
     /// Sets a preset's tags. Typed with or without "#"; several at once may be separated by blanks or commas.
     func setTags(_ tags: [String], of item: SavedPreset) {
         changeDetails(of: item) { $0.tags = tags }
@@ -190,7 +173,9 @@ extension PresetsModel {
                     let updated = try library.updateDetails(item, reloads: false) { $0.tags += sound.tags }
                     written.append((updated.url.lastPathComponent, updated.file.id, updated.name))
                 } else {
-                    let saved = try library.save(sound.preset, origin: sound.origin, tags: sound.tags,
+                    // A profile captures a real amp and the Spark models one: every new sound wants a listen.
+                    let saved = try library.save(sound.preset, origin: sound.origin,
+                                                 tags: sound.tags + [PresetFile.listenTag],
                                                  notes: sound.notes, reloads: false)
                     written.append((saved.url.lastPathComponent, saved.file.id, saved.name))
                     new += 1
@@ -216,7 +201,7 @@ extension PresetsModel {
                 pinnedTags.append(tag)
             }
             closeKemperImport()
-            show(.info, message + " " + tr("Every sound is an approximation: listen to it on the amp."))
+            show(.info, message + " " + tr("Every sound is an approximation: the new ones are marked “To listen” in the library."))
         } catch {
             kemperError = error.localizedDescription
         }

@@ -52,7 +52,6 @@ final class PresetsModel: ObservableObject {
     @Published private(set) var selection: Selection?
     /// A selection waiting for a decision about unsaved changes.
     @Published var pendingSelection: Selection?
-    @Published var search = ""
     @Published var banner: Banner?
     @Published private(set) var isBusy = false
     @Published var storeRequest: StoreRequest?
@@ -65,8 +64,11 @@ final class PresetsModel: ObservableObject {
     @Published var pinnedTags: [String] = UserDefaults.standard.stringArray(forKey: TagSetting.pinnedKey) ?? [] {
         didSet { UserDefaults.standard.set(pinnedTags, forKey: TagSetting.pinnedKey) }
     }
-    /// Tags the list is narrowed to: a preset must carry all of them.
-    @Published var tagFilter: [String] = []
+    /// The library overlay: what it shows and has selected.
+    let browser = LibraryBrowser()
+    /// The pieces that use a saved preset, by its id and file name, as "Piece · Part". Set by AmpBench, which keeps
+    /// the pieces; nil where there are none, such as on the iPad.
+    var presetUses: ((String?, String) -> [String])?
     // Kemper import: the sheet, the file read, the plan the player adjusts, and why reading failed.
     /// A sound worked out for the REACTOR, waiting for the player's okay before it is sent.
     @Published var reactorRequest: ReactorSound?
@@ -143,6 +145,8 @@ final class PresetsModel: ObservableObject {
         self.store.onChanged = { [weak self] in self?.reloadLibrary() }
         self.store.report = { [weak self] isError, text in self?.show(isError ? .error : .info, text) }
         self.store.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
+        browser.objectWillChange.sink { [weak self] _ in self?.objectWillChange.send() }.store(in: &changes)
+        browser.loadRecent(folder: folder)
         editor.show = { [weak self] kind, text in self?.show(kind, text) }
         self.link.onAmpEvent = { [weak self] text in self?.show(.info, text) }
         self.link.onAmpSelected = { [weak self] slot in self?.ampSelected(slot) }
@@ -203,6 +207,7 @@ final class PresetsModel: ObservableObject {
         case .saved(let url):
             if let item = items.first(where: { $0.url == url }) {
                 editor.open(item.file.preset, from: .saved(url))
+                if !item.file.isBackup { browser.remember(item) }
                 // Clicking through the list sends only the last one: the queue keeps only the newest whole preset.
                 if play, editor.isLiveEnabled { editor.playNow() }
             } else {
@@ -229,37 +234,10 @@ final class PresetsModel: ObservableObject {
         }
         items = library.items
         unreadable = library.unreadable
+        browser.libraryChanged(items)
         store.libraryChanged()
         if case .saved(let url) = selection, !items.contains(where: { $0.url == url }), !editor.isModified {
             apply(nil)
-        }
-    }
-
-    /// The presets that match the search and carry every tag of the filter. The search looks at names, origin,
-    /// models, tags and notes; "#clean" looks at tags only.
-    var visibleItems: [SavedPreset] {
-        Self.matching(items, search: search, tags: tagFilter)
-    }
-
-    nonisolated static func matching(_ items: [SavedPreset], search: String, tags: [String]) -> [SavedPreset] {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        let wanted = tags.map { $0.lowercased() }
-        return items.filter { item in
-            let own = Set(item.file.tags.map { $0.lowercased() })
-            guard wanted.allSatisfy(own.contains) else { return false }
-            guard !query.isEmpty else { return true }
-            if query.hasPrefix("#") {
-                let tag = PresetFile.tagText(query).lowercased()
-                return tag.isEmpty || own.contains { $0.hasPrefix(tag) }
-            }
-            return item.name.localizedCaseInsensitiveContains(query)
-                || item.file.origin.localizedCaseInsensitiveContains(query)
-                || item.file.notes.localizedCaseInsensitiveContains(query)
-                || item.file.tags.contains { $0.localizedCaseInsensitiveContains(query) }
-                || item.file.preset.effects.contains {
-                    $0.name.localizedCaseInsensitiveContains(query)
-                        || (ModelCatalog.known($0.name)?.name.localizedCaseInsensitiveContains(query) ?? false)
-                }
         }
     }
 
@@ -636,6 +614,20 @@ final class PresetsModel: ObservableObject {
         } catch {
             show(.error, error.localizedDescription)
         }
+    }
+
+    /// The editor follows a file renamed elsewhere, such as in the library.
+    func followRename(of old: URL, to renamed: SavedPreset) {
+        guard editor.source == .saved(old) else { return }
+        editor.renameSaved(to: renamed.name, at: renamed.url)
+        selection = .saved(renamed.url)
+    }
+
+    /// Closes the editor when it shows a file that is going away.
+    func closeEditor(ifShowing url: URL) {
+        guard editor.source == .saved(url) else { return }
+        editor.close()
+        selection = nil
     }
 
     func trash(_ item: SavedPreset? = nil) {

@@ -111,4 +111,30 @@ final class PadUITests: XCTestCase {
             XCTAssertTrue(new.waitForExistence(timeout: 5))
         }
     }
+
+    /// The library opens over the area from the sidebar, finds a sound by its name and shows it, and closes again.
+    func testTheLibraryFindsASound() {
+        let app = launch(["--offline", "--made-up-sounds"])
+        let entry = app.buttons["library-entry"].firstMatch
+        XCTAssertTrue(entry.waitForExistence(timeout: 20), "the sidebar has no way into the library")
+        entry.tap()
+        let search = app.textFields["library-search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5), "the library did not open")
+        search.tap()
+        search.typeText("harbor verse")
+        let row = app.staticTexts["Glass Harbor Verse"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "the search does not find the sound")
+        row.tap()
+        XCTAssertTrue(app.buttons["Hear"].waitForExistence(timeout: 5), "the preview does not show the sound")
+        XCTAssertTrue(app.staticTexts["Harbor clean (old)"].exists, "the preview shows the sound's close one")
+        app.buttons["library-close"].firstMatch.tap()
+        XCTAssertTrue(entry.waitForExistence(timeout: 5), "closing must bring back sidebar and editor")
+        app.terminate()
+
+        // The picture without the on-screen keyboard: the library opened at the start, a song's sounds by tag.
+        let shown = launch(["--offline", "--made-up-sounds", "--library-open", "#song", "--library-group", "tag",
+                            "--library-select", "Glass Harbor Verse"])
+        XCTAssertTrue(shown.buttons["Hear"].waitForExistence(timeout: 20), "the library did not open at the start")
+        picture("ipad-library")
+    }
 }

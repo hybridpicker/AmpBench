@@ -39,9 +39,13 @@ struct Sidebar: View {
 
     var body: some View {
         let selection = Binding(get: { model.selection }, set: { model.select($0) })
-        let presets = model.visibleItems.filter { !$0.file.isBackup }
-        let backups = model.visibleItems.filter(\.file.isBackup)
+        let favorites = model.favoriteItems
+        let recent = model.recentItems
         List(selection: selection) {
+            // Where the search used to be: the way into the library, always in view.
+            if !model.items.isEmpty {
+                LibrarySearchEntry(count: soundCount)
+            }
             // The device first: the slots below are its slots.
             Section(tr("Device")) {
                 DeviceChoice()
@@ -60,44 +64,52 @@ struct Sidebar: View {
                         .tag(Selection.draft)
                 }
             }
-            if !model.tagCounts.isEmpty {
-                Section(tr("Tags")) {
-                    TagFilterBar()
-                }
-            }
-            // Pinned tags first, each a section of its own; a preset may stand in several.
-            ForEach(model.pinnedTags, id: \.self) { tag in
-                let tagged = model.visibleItems(tagged: tag)
-                if !tagged.isEmpty {
-                    Section {
-                        ForEach(tagged) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
-                    } header: {
-                        Text("#\(tag)")
-                            .contextMenu { Button(tr("Unpin section")) { model.togglePin(tag) } }
+            // A few sounds at hand; everything else is in the library, which opens over the window.
+            if !favorites.isEmpty {
+                Section(tr("Favorites")) {
+                    ForEach(favorites.prefix(Self.favoriteLimit)) { SoundRow(item: $0).tag(Selection.saved($0.url)) }
+                    if favorites.count > Self.favoriteLimit {
+                        LibraryEntry(title: tr("%d more favorites", favorites.count - Self.favoriteLimit),
+                                     symbol: "star", count: nil, filter: .scope(.favorites))
                     }
                 }
             }
-            Section(model.pinnedTags.isEmpty ? tr("On this Mac") : tr("All on this Mac")) {
+            if !recent.isEmpty {
+                Section(tr("Recently used")) {
+                    ForEach(recent) { SoundRow(item: $0).tag(Selection.saved($0.url)) }
+                }
+            }
+            Section(tr("Library")) {
                 if model.items.isEmpty {
                     Text(tr("No presets yet. Save a slot, create a new one or import sounds from the Kemper."))
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
-                } else if presets.isEmpty {
-                    Text(model.tagFilter.isEmpty ? tr("Nothing found.") : tr("No preset has all the chosen tags."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
+                } else {
+                    LibraryEntry(title: tr("All sounds"), symbol: "square.grid.2x2", count: soundCount, filter: nil)
+                    ForEach(model.pinnedTags, id: \.self) { tag in
+                        let count = model.items.filter { item in
+                            !item.file.isBackup && item.file.tags.contains { $0.caseInsensitiveCompare(tag) == .orderedSame }
+                        }.count
+                        if count > 0 {
+                            LibraryEntry(title: "#\(tag)", symbol: "number", count: count, filter: .tag(tag))
+                                .contextMenu { Button(tr("Unpin from the sidebar")) { model.togglePin(tag) } }
+                        }
+                    }
+                    let toListen = model.items.filter { !$0.file.isBackup && $0.file.needsListen }.count
+                    if toListen > 0 {
+                        LibraryEntry(title: tr("To listen"), symbol: "ear", count: toListen, filter: .scope(.toListen))
+                    }
+                    let backups = model.items.filter(\.file.isBackup).count
+                    if backups > 0 {
+                        LibraryEntry(title: tr("Slot backups"), symbol: "clock", count: backups,
+                                     filter: .scope(.backups))
+                    }
                 }
-                ForEach(presets) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
-            }
-            if !backups.isEmpty {
-                Section(tr("Backups")) {
-                    ForEach(backups) { LibraryRow(item: $0).tag(Selection.saved($0.url)) }
-                }
-            }
-            if !model.unreadable.isEmpty {
-                Section(tr("Unreadable")) {
-                    ForEach(model.unreadable, id: \.self) { Text($0).foregroundStyle(.secondary) }
+                if !model.unreadable.isEmpty {
+                    LibraryEntry(title: model.unreadable.count == 1 ? tr("1 file unreadable")
+                                     : tr("%d files unreadable", model.unreadable.count),
+                                 symbol: "exclamationmark.triangle", count: nil, filter: nil)
                 }
             }
         }
@@ -146,6 +158,11 @@ struct Sidebar: View {
 }
 
 extension Sidebar {
+    /// Favorites shown in the sidebar; more of them are a click away, in the library.
+    static let favoriteLimit = 8
+
+    private var soundCount: Int { model.items.filter { !$0.file.isBackup }.count }
+
     /// The device's slots, in one section, or one per bank ("Red", "Green" on a REACTOR).
     var slotSections: [(title: String, slots: [Int])] {
         let profile = link.profile
@@ -223,8 +240,9 @@ struct DeviceChoice: View {
     }
 }
 
-/// The system sidebar. Window pictures cannot capture its vibrant text, so they show it as a plain list instead.
-private struct SidebarListStyle: ViewModifier {
+/// The system sidebar, also for the library's filters. Window pictures cannot capture its vibrant text, so they show
+/// it as a plain list instead.
+struct SidebarListStyle: ViewModifier {
     func body(content: Content) -> some View {
         if Snapshot.isActive {
             content
@@ -319,7 +337,7 @@ private struct SlotRow: View {
     }
 }
 
-private struct LibraryRow: View {
+private struct SoundRow: View {
     let item: SavedPreset
     @EnvironmentObject private var model: PresetsModel
 
@@ -348,26 +366,78 @@ private struct LibraryRow: View {
         .padding(.vertical, 2)
         .help(tr("Clicking plays the preset for listening, without overwriting a slot"))
         .contextMenu {
-            Menu(tr("Store on slot")) {
-                ForEach(Array(model.link.profile.slots), id: \.self) { slot in
-                    Button(model.link.profile.slotName(slot)) { model.askToStore(item, in: slot) }
-                }
-            }
-            .disabled(!model.canUse(.store))
-            Menu(tr("Tags")) {
-                ForEach(model.tagCounts, id: \.tag) { entry in
-                    Toggle("#\(entry.tag)", isOn: Binding(
-                        get: { item.file.tags.contains { $0.caseInsensitiveCompare(entry.tag) == .orderedSame } },
-                        set: { _ in model.toggleTag(entry.tag, on: item) }))
-                }
-                if model.tagCounts.isEmpty { Text(tr("No tags yet. Add them in the editor below the name.")) }
-            }
-            .disabled(item.file.isBackup)
+            RowMenu(items: [item])
             Divider()
-            Button(tr("Rename …")) { model.beginRename(item) }
-            Button(tr("Show in Finder")) { model.reveal(item) }
-            Button(tr("Move to Trash")) { model.trash(item) }
+            Button(tr("Show in the library")) {
+                model.openLibrary()
+                model.selectInLibrary([item])
+            }
         }
+    }
+}
+
+/// A field-like key at the top of the sidebar that opens the library with its search in focus.
+private struct LibrarySearchEntry: View {
+    let count: Int
+    @EnvironmentObject private var model: PresetsModel
+
+    var body: some View {
+        Button {
+            model.openLibrary(nil)
+            model.browser.filters = []
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
+                Text(tr("Search %d sounds", count)).foregroundStyle(.secondary).lineLimit(1)
+                Spacer(minLength: 4)
+                // On the desk, not a keycap: keycaps belong to the device and fade on the light desk.
+                Text("⌘L").font(Theme.Fonts.mono(10.5)).foregroundStyle(.secondary).accessibilityHidden(true)
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Color.secondary.opacity(0.12)))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tr("Library"))
+        .accessibilityHint(tr("Opens the library"))
+        .accessibilityIdentifier("library-entry")
+        .help(tr("Opens the library, to find, hear and look after every sound (⌘L)"))
+    }
+}
+
+/// A way into the library from the sidebar: all sounds, a pinned tag, the sounds to listen to, the backups.
+private struct LibraryEntry: View {
+    let title: String
+    let symbol: String
+    let count: Int?
+    let filter: LibraryFilter?
+    @EnvironmentObject private var model: PresetsModel
+
+    var body: some View {
+        Button {
+            model.openLibrary(filter)
+            if filter == nil { model.browser.filters = [] }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: symbol)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.systemSecondaryLabel)
+                    .frame(width: 22)
+                    .accessibilityHidden(true)
+                Text(title).lineLimit(1)
+                Spacer(minLength: 4)
+                if let count {
+                    Text("\(count)").font(Theme.Fonts.mono(11)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("library-entry-\(title)")
+        .help(tr("Opens the library"))
+        .accessibilityHint(tr("Opens the library"))
     }
 }
 

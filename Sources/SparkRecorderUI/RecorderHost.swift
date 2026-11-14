@@ -163,6 +163,19 @@ public final class RecorderHost {
         model.addImportedPieces(pieces)
     }
 
+    /// The pieces that name a saved preset, for the piece itself or one of its parts, as "Piece" or "Piece · Part".
+    /// A preset is known by its id, or by its file name in the presets folder when the link has no id.
+    public func pieces(usingPresetID id: String?, fileName: String) -> [String] {
+        func names(_ link: PresetLink?) -> Bool {
+            guard let link else { return false }
+            if let linked = link.presetID, let id { return linked == id }
+            return link.fileName == fileName
+        }
+        return model.pieces.flatMap { piece -> [String] in
+            (names(piece.preset) ? [piece.name] : []) + piece.parts.filter { names($0.preset) }.map { "\(piece.name) · \($0.name)" }
+        }
+    }
+
     public func inform(_ text: String) { model.show(.info, text) }
     public func warn(_ text: String) { model.show(.warning, text) }
 }

@@ -4,7 +4,7 @@
 enum German {
     static let tables: [(name: String, table: [String: String])] = [
         ("Core", core), ("Design", design), ("Control", control), ("RecorderUI", recorderUI),
-        ("PresetsUI", presetsUI), ("TunerUI", tunerUI), ("App", app), ("Store", store),
+        ("PresetsUI", presetsUI), ("Library", library), ("TunerUI", tunerUI), ("App", app), ("Store", store),
     ]
 
     static let all: [String: String] = {

@@ -50,8 +50,6 @@ extension German {
             "**Ziehen** nach oben oder unten dreht einen Regler, ein **Doppeltipp** stellt den Standardwert ein.",
         "**Scrolling** turns finely, **dragging** coarsely, a **double-click** sets the default value.":
             "**Scrollen** dreht fein, **Ziehen** grob, **Doppelklick** setzt den Standardwert.",
-        "+ %d more":
-            "+ %d weitere",
         "1 preset":
             "1 Preset",
         "A backup from the USB stick (.kpabackup) or a single rig (.kipr). AmpBench only reads.":
@@ -80,8 +78,6 @@ extension German {
             "Für KI-Sound braucht AmpBench einen Ollama-API-Schlüssel. Du bekommst ihn kostenlos mit einem Ollama-Konto.",
         "AI Sound …":
             "KI-Sound …",
-        "All on this Mac":
-            "Alle auf dem Mac",
         "Allow access in System Settings → Privacy & Security → Bluetooth.":
             "Erlaube den Zugriff unter Systemeinstellungen → Datenschutz & Sicherheit → Bluetooth.",
         "Amp":
@@ -290,8 +286,6 @@ extension German {
             "Vorbild: %@",
         "More actions":
             "Weitere Aktionen",
-        "More tags to filter by":
-            "Weitere Tags zum Filtern",
         "Move to Trash":
             "In den Papierkorb legen",
         "Name":
@@ -322,8 +316,6 @@ extension German {
             "Kein Gerät gewählt",
         "No device found yet":
             "Noch kein Gerät gefunden",
-        "No preset has all the chosen tags.":
-            "Kein Preset hat alle gewählten Tags.",
     ]
 
     private static let presetsUISecond: [String: String] = [
@@ -349,8 +341,6 @@ extension German {
             "Notizen",
         "Notes: where the sound comes from, what it suits, what to try":
             "Notizen: woher der Sound kommt, wofür er passt, was zu probieren ist",
-        "Nothing found.":
-            "Nichts gefunden.",
         "off":
             "aus",
         "Off":
@@ -375,8 +365,6 @@ extension German {
             "API-Schlüssel einfügen",
         "Performances":
             "Performances",
-        "Pin as a section":
-            "Als Abschnitt anheften",
         "pinned":
             "angeheftet",
         "Play %@":
@@ -453,8 +441,6 @@ extension German {
             "Nach Geräten suchen",
         "Search for devices nearby":
             "Nach Geräten in der Nähe suchen",
-        "Search presets":
-            "Presets suchen",
         "Searching for %@ …":
             "Suche %@ …",
         "Searching for devices …":
@@ -479,12 +465,8 @@ extension German {
             "Diesen Sound am %@ einstellen?",
         "Sets the closest amp, gain, tone controls and effects on the connected REACTOR. No preset is transferred, nothing is stored.":
             "Stellt am verbundenen REACTOR den nächstliegenden Amp, Gain, Klangregler und Effekte ein. Kein Preset wird übertragen, nichts gespeichert.",
-        "Show all":
-            "Alle zeigen",
         "Show in Finder":
             "Im Finder zeigen",
-        "Show only presets with #%@. Right-click: pin as a section.":
-            "Nur Presets mit #%@ zeigen. Rechtsklick: als Abschnitt anheften.",
         "Shows the controls":
             "Zeigt die Regler",
         "Single rigs (%d of %d chosen)":
@@ -603,8 +585,6 @@ extension German {
             "Rückgängig (⌘Z)",
         "unknown":
             "unbekannt",
-        "Unpin section":
-            "Abschnitt lösen",
         "Unreadable":
             "Nicht lesbar",
         "Value %@":
