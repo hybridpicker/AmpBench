@@ -61,11 +61,11 @@ store that keeps your sounds in a place of your choice.
 - Undo, A/B against the saved state, and storing in a slot with a backup and a read-back.
 - Presets are plain JSON files, ordered with hashtags and pinned tags.
 
-**Sound store** (Mac and iPad)
+**Sound store** (Mac, iPad and Linux)
 - Keeps every sound encrypted in a place you choose: a folder (also one iCloud Drive, Google Drive or Dropbox keeps
   in step), your own server over SSH, or an HTTPS address such as a WebDAV folder.
 - Encrypted on the device with the [age](https://age-encryption.org) format; the place sees only unreadable files.
-  The key lives in the system keychain, never in a file.
+  The key lives in the system keychain (on Linux in the desktop's keyring), not in the presets folder or a setting.
 - A second device with the same key gets the same sounds, and changes travel both ways. Nothing is ever deleted in
   the store. See [docs/STORE.md](docs/STORE.md).
 - A catalog of 68 amp and effect models, each checked on the amp.
@@ -167,7 +167,8 @@ On Linux the same keys work with Ctrl in place of `⌘`.
 Folders and files from versions before 1.0 with German names (`Aufnahmen`, `Bibliothek.json`) are renamed once at the
 first start; nothing is copied or deleted. The AI Sound key is kept in the macOS Keychain, on Linux in the desktop's keyring. On the
 iPad the presets are in the app's Documents folder ("On My iPad → AmpBench" in Files). The sound store's key is in the
-keychain and its place in the app's preferences; neither is a file in this folder or in the repository. The full
+keychain and its place in the app's preferences (on Linux: the desktop's keyring and `~/.config/ampbench/`, see
+[docs/STORE.md](docs/STORE.md#on-linux)); neither is a file in this folder or in the repository. The full
 list of files is in the [manual](docs/MANUAL.md#where-things-are).
 
 ## Documentation

@@ -41,6 +41,20 @@ app was called Spark Studio is taken over once. The last 8 wishes are kept under
 further rounds at once; a request already on its way runs to its end (at most 120 s) and its answer is discarded.
 `sound_ai.py` is the port of SoundAI, `ai_key.py` the key store, `ui/ai_sound_dialog.py` the window.
 
+**The sound store** works as on the Mac and shares one store with the Mac and the iPad: the presets folder is kept
+encrypted (age format) in a place you choose, a folder, a server over this computer's `ssh`, or an HTTPS address,
+and the sounds of your other devices arrive here. The row "Sound store" at the foot of the Presets sidebar shows
+its state and opens its dialog, as do Presets ⇒ "Sound store …" and "Sync the sound store now". It syncs at the
+start, when the window comes to the front (at most every five minutes) and about 15 seconds after sounds changed; a
+sound removed on another device goes to the trash here. To join a store, enter its key ("Show key …" on the device
+that made it). The key and an HTTPS password are kept in the desktop's keyring through `secret-tool`, otherwise in
+`~/.config/ampbench/store-key` and `store-password` (mode 0600); the place is in
+`~/.config/ampbench/sound-store.json`, and what was in step after the last sync in
+`~/.local/state/ampbench/store-state.json`. A name with an accent is the same sound whichever way the Mac or Linux
+writes the accent. `age.py` is the port of the age format (with the `cryptography` package), `store_places.py`
+the places, `sound_store.py` the sync, `store_profile.py` settings and secrets, `store_cli.py` the commands,
+`ui/store_view.py` the front. Format and rules: [docs/STORE.md](../docs/STORE.md).
+
 **Not here yet:** reading a REACTOR's presets, and the REACTOR live commands.
 
 ## Install
@@ -97,6 +111,9 @@ ampbench                         # the window; it looks for the amp at once
 ampbench --demo                  # a simulated amp and a temporary folder, to look around
 ampbench --recipe-check my.json  # check a sound recipe, like the Mac app's --recipe-check
 ampbench --kemper-list backup.kpabackup  # what a Kemper import would make, reads only
+ampbench --store-setup folder ~/Drive/AmpBench-Store   # the sound store; or: ssh <host> <folder>, https <url> [user]
+ampbench --store-key new         # or: set (the key on standard input), show
+ampbench --store-sync            # also --store-verify and --store-status, as on the Mac (docs/STORE.md)
 ampbench --version
 ```
 
@@ -107,6 +124,7 @@ service and takes the amp's one control connection: "Disconnect" lets the Spark 
 
 `ampbench/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py`, `kemper.py`, `pitch.py`
 and `tuning.py` are ports of
-`Sources/SparkControl`; the Swift code is the reference, change both together. `link.py` is the port of `SparkLink.swift`
+`Sources/SparkControl`; the Swift code is the reference, change both together. The same holds for the sound store
+(`age.py`, `store_places.py`, `sound_store.py`, `store_profile.py`) and `Sources/SoundStore`. `link.py` is the port of `SparkLink.swift`
 (with a simulated amp in `fake_amp.py`), `qtlink.py` and `ui/` are the window. Tests: `linux/tests`, run by the install
 (`cd linux && QT_QPA_PLATFORM=offscreen python -m pytest`). They read real presets from the amp as fixtures.

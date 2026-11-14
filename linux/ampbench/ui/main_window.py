@@ -179,6 +179,9 @@ class MainWindow(QMainWindow):
         self.resize(1280, 860)
         self.setMinimumSize(1120, 720)
         self._build()
+        # The sound store: its row in the sidebar, its dialog and its syncs (ui/store_view.py).
+        from .store_view import StoreController
+        self.store = StoreController(self)
         self._menus()
         self._wire()
         self.library.reload()
@@ -387,6 +390,8 @@ class MainWindow(QMainWindow):
         preset.addSeparator()
         action(preset, tr("Show in file manager"), self._reveal, "Ctrl+Shift+R")
         action(preset, tr("Move to Trash"), self._trash, "Ctrl+Backspace")
+        preset.addSeparator()
+        self.store.add_menu_items(preset, action)
         preset.addSeparator()
         action(preset, tr("Quit"), self.close, "Ctrl+Q")
 

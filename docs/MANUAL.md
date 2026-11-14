@@ -355,8 +355,8 @@ of this device encrypted in a place you choose and fetches the sounds of your ot
 Mac is on the iPad too, and the other way round.
 
 - **Set up**: the key "Set up" (or File → "Sound store …") opens the sheet. Choose the place: a **folder** (any
-  folder, also one that iCloud Drive, Google Drive or Dropbox keeps in step), a **server over SSH** (Mac only; the
-  Mac's own ssh, no login is stored) or an **HTTPS address** (a WebDAV folder or your own server; the password goes
+  folder, also one that iCloud Drive, Google Drive or Dropbox keeps in step), a **server over SSH** (Mac and Linux; the
+  computer's own ssh, no login is stored) or an **HTTPS address** (a WebDAV folder or your own server; the password goes
   to the keychain). Then "Create a new key" for a new store, or enter the key of a store you already have.
 - **The key** opens the store, and nothing else does. "Show key …" shows it; put a copy in your password manager and
   enter it on your other devices. "Copy" marks it as a secret for clipboard managers, and on the iPad it leaves the
@@ -370,7 +370,8 @@ Mac is on the iPad too, and the other way round.
 - **Disconnect this device …** stops syncing here. The sounds here and in the store stay, and so does the key.
 
 Recordings are not part of the store. How it works, what the place sees, how to read the store without the app and
-how to run a place on your own server is in [STORE.md](STORE.md).
+how to run a place on your own server is in [STORE.md](STORE.md). The Linux app has the same row, dialog and syncs,
+with the two menu items under Presets; where it keeps the key is in [STORE.md](STORE.md#on-linux).
 
 ## On the iPad
 

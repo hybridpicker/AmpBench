@@ -1,21 +1,23 @@
 # The sound store
 
 The sound store keeps every sound of a device (the presets folder) encrypted in a place you choose, and brings the
-sounds of your other devices to this one. It is a backup and a sync in one: a Mac and an iPad with the same key hold
-the same sounds. How to use it is in the [manual](MANUAL.md#the-sound-store); this document says how it works, what
-the place sees, and how to run a place of your own.
+sounds of your other devices to this one. It is a backup and a sync in one: a Mac, an iPad and a Linux computer with
+the same key hold the same sounds. How to use it is in the [manual](MANUAL.md#the-sound-store); this document says
+how it works, what the place sees, and how to run a place of your own.
 
 ## What goes where
 
 - **Encrypted on the device.** Every file is encrypted before it leaves, with the [age](https://age-encryption.org)
   format (X25519, ChaCha20-Poly1305). The place only ever gets ciphertext.
-- **The key** is an age identity (`AGE-SECRET-KEY-1…`), made on the device and kept in the system keychain, never in
-  a file, a setting or the repository. "Show key" in the app and `--store-key show` print it, so you can put it in
-  your password manager and enter it on your other devices. Without the key nobody can read the store, you included.
+- **The key** is an age identity (`AGE-SECRET-KEY-1…`), made on the device and kept in the system keychain (on Linux
+  in the desktop's keyring, see [On Linux](#on-linux)), never in a setting, the presets folder or the repository.
+  "Show key" in the app and `--store-key show` print it, so you can put it in your password manager and enter it on
+  your other devices. Without the key nobody can read the store, you included.
 - **The place** is one of:
   - a **folder**: any folder, also one a cloud drive keeps in step (iCloud Drive, Google Drive, Dropbox, a network
     share). On the iPad the folder comes from the Files dialog, so every provider that shows up in Files works.
-  - a **server over SSH** (Mac only): the Mac's own `ssh` with your keys and `~/.ssh/config`. AmpBench stores no login.
+  - a **server over SSH** (Mac and Linux): the computer's own `ssh` with your keys and `~/.ssh/config`. AmpBench
+    stores no login.
   - an **HTTPS address**: any server that takes `GET` and `PUT` below one address, such as a WebDAV folder
     (Nextcloud) or your own web server. The password is kept in the keychain.
 - **Settings** (which kind of place, its path or address, a user name) are in the app's preferences on that device.
@@ -46,7 +48,7 @@ A sync compares three things: the folder, the manifest, and what was in step aft
 | changed on both sides, the same content | nothing |
 | changed on both sides, differently | the newer one wins; the other stays in the store as an earlier version |
 | removed here, unchanged in the store | marked removed in the store (the object stays) |
-| removed in the store, unchanged here | removed here: to the Trash on the Mac, to the hidden `.Trash` in the presets folder on the iPad |
+| removed in the store, unchanged here | removed here: to the Trash on the Mac and on Linux, to the hidden `.Trash` in the presets folder on the iPad |
 | removed on one side, changed on the other | the change wins |
 
 A wrong key, a damaged index or a damaged object stops the sync before anything changes, here or in the store. Paths
@@ -69,7 +71,7 @@ age -d -i key.txt objects/<name>.age > "Lead.json"   # one sound; the index says
 `key.txt` holds the key as "Show key" prints it. Keep that file out of any folder that is synced or published, and
 delete it afterwards.
 
-## From the command line (Mac)
+## From the command line
 
 ```bash
 AmpBench --store-setup folder ~/Drive/AmpBench-Store   # or: ssh <host> <folder>   or: https <url> [user]
@@ -81,8 +83,31 @@ AmpBench --store-verify         # reads every sound back, opens it and compares 
 AmpBench --store-status
 ```
 
-`AmpBench` is the app's own program, `/Applications/AmpBench.app/Contents/MacOS/AmpBench`. With an HTTPS place and a
-user name, `--store-setup` reads the password from standard input, never from an argument.
+`AmpBench` is the app's own program, `/Applications/AmpBench.app/Contents/MacOS/AmpBench`; on Linux it is `ampbench`,
+with the same commands. With an HTTPS place and a user name, `--store-setup` reads the password from standard input,
+never from an argument.
+
+## On Linux
+
+The Linux app (`linux/ampbench/age.py`, `store_places.py`, `sound_store.py`, `store_profile.py`) writes and reads the
+same store: the same age files, the same index, the same object names, the same decisions. What differs is where the
+device keeps its own things:
+
+```
+keyring (secret-tool), attributes service=ampbench, account=store-key / store-password
+  else ~/.config/ampbench/store-key and store-password   only when there is no keyring; mode 0600
+~/.config/ampbench/sound-store.json                      the place and the time of the last sync; no secret
+~/.local/state/ampbench/store-state.json                 what was in step after the last sync (or $XDG_STATE_HOME)
+```
+
+- `--store-key set` also takes a key file as `age-keygen` writes it: lines that start with `#` are skipped.
+- `--presets-folder DIR` names the folder of sounds. `--store-profile DIR` keeps settings, key and state in DIR
+  instead, in hidden files and without the keyring; tests and `--demo` use that, so they never touch the real store.
+- An HTTPS place is not followed through a redirect: give the address the files really live below.
+- **Names with accents.** The Mac writes "ä" in a file name as "a" plus two dots (decomposed), Linux as one character
+  (composed), and Swift takes both for the same path. The Linux app therefore looks every path up by its composed
+  form and keeps the index's own spelling, so a sound called "Jäzz" is one sound on every device; a file it fetches
+  gets the composed name.
 
 ## A place of your own
 
@@ -116,7 +141,13 @@ place can be the same folder on the server, so the Mac and the iPad meet there.
 
 ## Open
 
-- Linux has no sound store yet. Its presets folder can be kept in step by hand with `age` as above.
+- The Linux store was checked against the Swift code on a Mac (2026-11-14): a made-up store in a folder, synced in
+  turn by the Linux app's Python and by the Swift `SoundStore`, with new, edited and removed sounds, a conflict each
+  way and names with accents in both spellings; both sides read the store back whole. Not yet tried: the Linux app
+  on the Linux laptop against the real store, the keyring there, and its SSH and HTTPS places against a real server.
+- On Linux a folder below the presets folder whose name has an accent can end up twice, once in each spelling, when
+  it is already there in the Mac's spelling (copied over by hand) and a new sound arrives for it. Sounds directly in
+  the presets folder are not affected.
 - Earlier versions and removed sounds stay in the store but the app has no view to bring one back.
 - No lock on the index (see Syncing).
 - The nginx example above runs on a public server: the Mac app synced and read back a store of 92 sounds through

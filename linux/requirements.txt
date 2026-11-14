@@ -4,3 +4,5 @@ bleak>=0.22
 pytest>=8
 # The tuner: FFT and dot products every 5 ms (ampbench/pitch.py).
 numpy>=1.26
+# The sound store: X25519, HKDF and ChaCha20-Poly1305 of the age format (ampbench/age.py).
+cryptography>=42
