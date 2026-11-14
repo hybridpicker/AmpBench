@@ -93,16 +93,23 @@ The server needs `tar`.
 (`ngx_http_dav_module`, part of the standard build):
 
 ```nginx
-location /ampbench-store/ {
-    alias /srv/ampbench-store/;              # owned by the nginx user
-    auth_basic "AmpBench store";
+location ^~ /ampbench-store/ {
+    alias /srv/ampbench-store/;              # owned by the nginx user, mode 700
+    auth_basic           "AmpBench store";
     auth_basic_user_file /etc/nginx/ampbench-store.htpasswd;
-    dav_methods PUT;
-    create_full_put_path on;
-    client_max_body_size 16m;
-    limit_except GET PUT { deny all; }
+    limit_except GET PUT { deny all; }       # no DELETE, no listing
+    dav_methods          PUT;
+    create_full_put_path on;                 # PUT makes "objects/" itself
+    dav_access           user:rw;
+    client_body_temp_path /srv/ampbench-store.tmp;   # same file system, so a PUT lands in one step
+    client_max_body_size  16m;
+    autoindex off;
+    access_log off;
 }
 ```
+
+`^~` keeps regex locations and a catch-all proxy from taking these requests. With SELinux both folders need the type
+`httpd_sys_rw_content_t`.
 
 The app refuses an address that is not `https://` (except on the same machine, for tests). An SSH place and an HTTPS
 place can be the same folder on the server, so the Mac and the iPad meet there.
@@ -112,7 +119,8 @@ place can be the same folder on the server, so the Mac and the iPad meet there.
 - Linux has no sound store yet. Its presets folder can be kept in step by hand with `age` as above.
 - Earlier versions and removed sounds stay in the store but the app has no view to bring one back.
 - No lock on the index (see Syncing).
-- The nginx example above is written from nginx's documentation and was not run; the HTTPS place was checked
-  against a small local test server (GET, PUT, MKCOL, Basic auth).
-- On the iPad the store has run in the simulator only; a folder from a cloud provider in Files and a real HTTPS
+- The nginx example above was run in a private nginx on the loopback address (GET, PUT with a new folder, 401
+  without the password, DELETE and MKCOL refused, 413 above the size limit), not yet from the app against a public
+  server.
+- The iPad app is installed on a real iPad, but the store has run in the simulator only; a folder from a cloud provider in Files and a real HTTPS
   server were not tried from a real iPad.
