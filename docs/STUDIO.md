@@ -31,7 +31,7 @@ labels.
 | – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | d4fce74 | 79 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; since 2026-11-14 the author's Mac and iPad sync 92 sounds through an HTTPS place on a server (nginx), read back whole with `--store-verify`; see "Sound store" below |
 | – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | d4fce74 | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); installed on a real iPad (iPad Air 13-inch) on 2026-11-14, where the store set itself up and brought the sounds; not yet with an amp there |
 | – | The library over the area Presets (⌘L / Ctrl+L): search, filters, a table with groups, a preview, tags, "To listen", favorites, renaming and the Trash for several sounds; close sounds; a short sidebar | 9c5d27e (Mac, iPad), 7e4f451 (Linux) | Mac and iPad installed (2026-11-14), `swift test`, `--menu-dump` and the iPad UI tests green; Linux tests green headless on the Mac (2026-11-15), not yet on the laptop; nothing tried with the real 92 sounds or the amp |
-| – | Levels: a loudness meter (ITU-R BS.1770, `Loudness`) and a measuring run over USB (`--level-measure`) | 1a768df | meter: six unit tests; the run has not measured a sound yet, the matching is not built |
+| – | Levels: a loudness meter (ITU-R BS.1770, `Loudness`) and a measuring run over USB (`--level-measure`) | 1a768df, c05928c | measured on the Spark MINI (2026-11-15): 27 sounds and a master sweep; the owner's library corrected and matched by script, heard in part, not measured again; nothing of the rule in the app yet |
 | – | Tap tempo on every delay: a "Tap" key in the control field sets the preset's BPM and the tempo switch to BPM, sent once after the taps | ced11d6 | 657 Swift tests and the Linux window test green; installed on Mac and iPad (2026-11-15), the laptop catches up when on; not heard on the amp |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
@@ -314,20 +314,51 @@ usual, but no big jumps. This holds for every sound in the library, Kemper impor
   400 ms every 100 ms, with the absolute gate at −70 LUFS and the relative one 10 LU below the mean. Pauses between
   notes therefore do not count. The filters are computed for the sample rate at hand. A full-scale sine at 997 Hz
   reads −3.01 LUFS at 44.1, 48 and 96 kHz.
-- **The measuring run** (`AmpBench --level-measure <plan.json> <results.json> [--level-seconds N] [--quit]`): the
-  plan is a list of `{"label", "file"}`. The app connects to the amp, plays each sound on the temporary place
-  (nothing is stored, up to four tries, one sound at a time with a pause, never a burst), waits 1.5 s, measures N
-  seconds of the amp's USB audio through the recorder's shared input, and writes the results after every sound
-  (LUFS, peak, share of blocks kept, a problem if there was one). The owner plays the same thing throughout; the
-  app switches.
-- **Agreed way** (owner, 2026-11-14): the app switches and measures over USB while the owner plays. A few sounds
-  measured and the rest estimated is acceptable if a full run (about ten minutes for 83 sounds) is too long.
-- **Not built yet:** the matching itself. Planned: a target loudness, the master of each sound moved to reach it,
-  about +3 dB for sounds named solo or lead, an estimate by amp model and gain for what was not measured, the same
-  rule in the Kemper import instead of the constant master, and all of it in the Linux app as well.
-- **Not checked:** the run has not measured a sound. On 2026-11-14 the amp was not on USB and the app did not find
-  it over Bluetooth. Open with it: whether master moves the USB level as it moves the speaker's, and how far a
-  measurement repeats.
+- **The measuring run** (`AmpBench --level-measure <plan.json> <results.json> [--level-seconds N] [--level-pause N]
+  [--quit]`): the plan is a list of `{"label", "file"}`. The app connects to the amp, plays each sound on the
+  temporary place (nothing is stored), waits 1.5 s, measures N seconds of the amp's USB audio through the
+  recorder's shared input, rests (3 s by default) and writes the results after every sound (LUFS, peak, share of
+  blocks kept, a problem if there was one). It ends at the first sound the amp does not answer. The owner plays the
+  same thing throughout; the app switches.
+- **Measured on the Spark MINI on 2026-11-15** (the owner playing one pattern; all values at that playing):
+  - Two trials of four sounds repeated within 2 dB; a control sound read −42.9 and −42.8 LUFS at the start and in
+    the middle of the long run.
+  - 27 sounds as imported, all at master 6: clean sounds −51 to −40 LUFS, crunch −38 to −27, drive and solo −23 to
+    −20. The spread is about 30 dB.
+  - The amp hung in that run: sound 28 came back silent (it had gain 0), sound 29 was not answered, and the amp
+    needed switching off and on. The run then had no rest between sounds and kept trying; both are changed. Whether
+    the number of sounds or that one sound caused it is open.
+  - Master, on one clean and one drive sound: about 20 dB per decade of master on the clean sound (0.3 → 1.0 gave
+    +10 dB), about 11 dB per decade on the saturated one (0.1 → 0.6 gave +8.5 dB). Master alone therefore cannot
+    close the spread.
+- **The cause:** the import copied the Kemper's gain one to one. A Spark amp at gain 2 to 3 is nearly off, and at
+  gain 0 it is silent; on the Kemper a clean profile sits there at full level.
+- **The model** fitted to these measurements: loudness at master 0.6 = `Lmax(amp) − 45 · exp(−3.27 · gain)` in
+  LUFS, gain from 0 to 1 plus what stands in front of the amp (compressor about 0.12, a drive pedal about 0.25, the
+  booster 0.7 × its gain above 0.5). `Lmax` is −24.1 for 94MatchDCV2, −18.0 for Plexi, −16.0 for
+  OverDrivenLuxVerb, −15.7 for Bogner, −29.0 for RolandJC120; guessed at −24 for the other clean amps and −18 for
+  the rest. Master adds between 11 and 20 dB per decade, by how far the sound is from saturation. On the 27
+  measured sounds the model is off by 1.6 dB RMS, 4 dB at worst.
+- **What was done to the owner's library on 2026-11-15**, with scripts kept beside the backups in
+  `~/Music/AmpBench/Levels`, not yet by the app:
+  - Imported sounds: gain = max(Kemper gain / 10, 0.40 + 0.03 × Kemper gain); a slot called crunch gets at least
+    0.55 with what stands in front, one called drive or heavy 0.62. The wah of the paid add-on, which the import had
+    switched on in four sounds, is off: without a pedal it is a fixed filter, and the amp may refuse the model.
+  - Every preset and recipe: master from the model for −30 LUFS, +3 dB when the name contains solo or lead; when
+    full master does not reach it, more gain. The owner's own sounds got the master only.
+  - After listening the owner found the drive sounds short of drive. The 27 sounds tagged `drive` got more gain,
+    and where the drive place was free a pedal in front (KlonCentaurSilver before Plexi, DistortionTS9 elsewhere).
+    "Two Princes" (BE101 with more gain, no pedal) fitted, "Dracula" (Plexi with the pedal) still had too little;
+    the nine Plexi sounds from Kemper gain 7.7 on therefore moved to BE101 without the pedal. Not heard since.
+  - Each sound's notes say what changed. Backups: `Presets-before-2026-11-15` and
+    `Presets-before-more-drive-2026-11-15`.
+- **Not checked:** no second measurement after the changes. The amps that were not measured (Twin, Bassman,
+  Deluxe65, AC Boost, BE101, Checkmate, ODS50CN and those of the recipes) are estimates. Eleven drive sounds stand
+  at the lowest master the scripts allow (1) and may be a little too loud. Whether master moves the speaker's level
+  as it moves the USB level is open. Everything is now about 8 dB quieter than the drive sounds were.
+- **Not built yet:** the rule in the app: the gain mapping and the master in the Kemper import instead of gain one
+  to one and master 6, the Plexi and pedal findings in the amp choice, a way to match a library from the app, and
+  all of it in the Linux app. To be done once the owner's ears and a second measurement confirm the rule.
 
 ## Ordering presets: hashtags
 
@@ -774,8 +805,9 @@ For every device, without exception:
 
 ## Open and next
 
-- **Levels:** measure the library on the Spark MINI (USB to the Mac, Bluetooth free, guitar plugged in): first four
-  sounds as a trial, then all of them or about 25 chosen ones; then build the matching described under "Levels".
+- **Levels:** the owner's verdict on the corrected sounds (which still lack drive, which are too loud); a second
+  measurement in batches of about ten sounds with rests; then the rule into the import and the Linux app (see
+  "Levels").
 - **Reading back after storing** compared, on the Mac until 2026-11-09, the whole preset including the checksum
   byte; a newly built preset would therefore never have counted as arrived. Now as under Linux without the checksum
   byte (`PresetEditor.sameContent`). Not yet stored on the device with the app.

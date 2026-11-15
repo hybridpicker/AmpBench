@@ -108,7 +108,7 @@ key press that a Presets key reaches Presets only while that area shows. `--live
 on the amp's temporary place and reads back after every step (needs the amp). On the Spark MINI all ten checks passed
 in Spark Presets, which ran the same code; in AmpBench it has not been run yet. `--level-measure <plan.json>
 <results.json>` plays the sounds of a plan on the amp one after the other and measures the loudness of each over USB
-(needs the amp and someone playing; see "Levels" in docs/STUDIO.md). Not run on the amp yet.
+(needs the amp and someone playing; see "Levels" in docs/STUDIO.md). Run on the Spark MINI on 2026-11-15.
 
 ## Command-line modes
 

@@ -16,10 +16,10 @@ Template for a block:
 ```
 
 ## Levels (measuring and matching the loudness of sounds)
-- Status: 2026-11-14 – paused. The loudness meter and the measuring run are committed; no measurement on the amp
-  yet (the owner put it off), the matching is not built. The plan is in docs/STUDIO.md under "Levels".
+- Status: 2026-11-15 – paused for the day. Measured on the amp; the owner's library is corrected and matched by
+  scripts outside the repository; the rule is not in the app yet. Details in docs/STUDIO.md under "Levels".
 - In progress: nothing
-- Done and committed: the Linux store; `Sources/SparkCore/Loudness.swift`, `Sources/AmpBench/LevelRun.swift`
+- Done and committed: 1a768df, c05928c
 - Building or testing right now: no
 - Requests to the other session: do not start AmpBench with the amp while a level measurement runs (one Bluetooth
-  connection).
+  connection). `KemperTranslation` (gain and master) will change with this work; say so here before touching it.
