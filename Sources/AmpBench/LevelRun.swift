@@ -8,8 +8,10 @@ import SparkCore
 ///
 /// The plan is a list of `{"label": …, "file": <path of a preset file>}`. The results repeat the label with the
 /// loudness in LUFS (nil when nothing was heard), the peak in dBFS and how much of the time counted. Each sound gets
-/// `--level-seconds` (default 5) after a pause for the amp to switch; sounds follow each other slowly on purpose,
-/// because a quick run of model changes once made the amp hang.
+/// `--level-seconds` (default 5) after a pause for the amp to switch, and `--level-pause` (default 3) seconds of rest
+/// follow it: sounds follow each other slowly on purpose, because runs of model changes made the amp hang (the last
+/// time on 2026-11-15, at the 28th sound of a run without the rest). The run ends at the first sound the amp does
+/// not answer, so a hanging amp gets nothing more.
 @MainActor
 enum LevelRun {
     struct Entry: Decodable {
@@ -34,8 +36,10 @@ enum LevelRun {
         guard let index = arguments.firstIndex(of: "--level-measure"), index + 2 < arguments.count else { return }
         let plan = URL(fileURLWithPath: arguments[index + 1]), output = URL(fileURLWithPath: arguments[index + 2])
         let seconds = arguments.firstIndex(of: "--level-seconds").flatMap { arguments.indices.contains($0 + 1) ? Double(arguments[$0 + 1]) : nil } ?? 5
+        let pause = arguments.firstIndex(of: "--level-pause").flatMap { arguments.indices.contains($0 + 1) ? Double(arguments[$0 + 1]) : nil } ?? 3
         Task {
-            let problem = await run(studio, plan: plan, output: output, seconds: min(max(seconds, 2), 30))
+            let problem = await run(studio, plan: plan, output: output, seconds: min(max(seconds, 2), 30),
+                                    pause: min(max(pause, 0), 30))
             if let problem { say("FAILED: \(problem)") }
             if arguments.contains("--quit") { NSApp.terminate(nil) }
         }
@@ -46,7 +50,7 @@ enum LevelRun {
         fflush(stdout)
     }
 
-    private static func run(_ studio: Studio, plan: URL, output: URL, seconds: Double) async -> String? {
+    private static func run(_ studio: Studio, plan: URL, output: URL, seconds: Double, pause: Double) async -> String? {
         guard let data = try? Data(contentsOf: plan), let entries = try? JSONDecoder().decode([Entry].self, from: data),
               !entries.isEmpty else { return "the plan cannot be read" }
         studio.show(.presets)
@@ -98,15 +102,19 @@ enum LevelRun {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             try? encoder.encode(readings).write(to: output, options: .atomic)
+            if let problem = reading.problem, number + 1 < entries.count {
+                return "stopped at \(entry.label), nothing more is sent: \(problem)"
+            }
+            try? await Task.sleep(for: .seconds(pause))
         }
         say("Done: \(readings.filter { $0.lufs != nil }.count) of \(entries.count) measured.")
         return nil
     }
 
-    /// Plays the sound on the temporary place and waits for the amp's answer. Tries again while the amp is busy.
+    /// Plays the sound on the temporary place and waits for the amp's answer. Tries once more when the amp is busy.
     private static func play(_ sound: Data, on studio: Studio) async -> String? {
         var problem: String?
-        for _ in 0..<4 {
+        for _ in 0..<2 {
             problem = await withCheckedContinuation { (continuation: CheckedContinuation<String?, Never>) in
                 var answered = false
                 studio.presets.play(snapshot: sound) { result in
@@ -116,7 +124,7 @@ enum LevelRun {
                 }
             }
             if problem == nil { return nil }
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: .seconds(3))
         }
         return problem
     }
