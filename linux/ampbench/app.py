@@ -23,6 +23,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--screenshot", metavar="PNG", help="render the window to a file and exit (for checks)")
     parser.add_argument("--size", default="1180x760", help="window size for --screenshot")
     parser.add_argument("--open-slot", type=int, metavar="N", help="open the amp's slot N (1 to 4) at start")
+    parser.add_argument("--made-up-sounds", action="store_true",
+                        help="fill a test presets folder (with --demo or --presets-folder) with about 100 invented "
+                             "sounds and their pieces, once")
+    parser.add_argument("--open-library", nargs="?", const="", metavar="SEARCH",
+                        help="open the sound library at start, optionally with a search")
+    parser.add_argument("--library-select", action="append", metavar="NAME",
+                        help="with --open-library: choose the sound of this name (more than once for several)")
+    parser.add_argument("--library-group", choices=["none", "tag", "amp", "origin"],
+                        help="with --open-library: group the sounds so")
     # The sound store without a window (store_cli.py).
     parser.add_argument("--store-setup", nargs="+", metavar="ARG",
                         help="where the sound store is: folder DIR | ssh HOST DIR | https URL [USER] "
@@ -49,6 +58,14 @@ def main(argv: list[str] | None = None) -> int:
     from . import store_cli
     if store_cli.wanted(args):
         return store_cli.run(args)
+
+    if args.made_up_sounds:
+        # Only ever into a test folder, checked before anything else is opened or carried over.
+        from .library import default_folder
+        given = Path(args.presets_folder).expanduser().resolve() if args.presets_folder else None
+        if not (args.demo or given) or given == default_folder().resolve():
+            print("--made-up-sounds needs --demo or --presets-folder with a test folder", file=sys.stderr)
+            return 2
 
     if not args.demo:
         # Presets, takes and settings from the time the app was called Spark Studio.
@@ -97,7 +114,17 @@ def main(argv: list[str] | None = None) -> int:
         engine, devices = demo_engine(), demo_devices
         recordings = recordings or Path(tempfile.mkdtemp(prefix="ampbench-demo-recordings-"))
     recorder_args = {"devices": devices} if devices else {}
+    if args.made_up_sounds:
+        from . import made_up
+        made_up.fill(folder)
     recorder = RecorderModel(LibraryStore(recordings), engine, **recorder_args)
+    if args.made_up_sounds and recordings is not None:
+        from . import made_up
+        from .store import add_imported_pieces
+        made = PresetLibrary(folder)
+        made.reload()
+        if add_imported_pieces(recorder.store, made_up.pieces(made.items))[0]:
+            recorder.store.save()
     window = MainWindow(link, PresetLibrary(folder), auto_connect=not args.no_connect, recorder=recorder)
     # Only here does a window get the real sound store; the simulated amp's sounds stay out of it.
     from .store_profile import StoreProfile
@@ -108,6 +135,17 @@ def main(argv: list[str] | None = None) -> int:
         window.resize(int(w), int(h))
     window.show()
 
+    if args.open_library is not None:
+        def open_library():
+            window.library_view.open()
+            window.library_view.overlay.search.setText(args.open_library)
+            overlay = window.library_view.overlay
+            if args.library_group:
+                overlay.set_grouping(args.library_group)
+            if args.library_select:
+                overlay.select_paths([i.path for i in window.library.items if i.name in args.library_select])
+                overlay.table.setFocus()
+        QTimer.singleShot(300, open_library)
     if args.open_slot:
         QTimer.singleShot(1500, lambda: window._slot_clicked(args.open_slot - 1))
     if args.screenshot:

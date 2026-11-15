@@ -162,7 +162,9 @@ class PresetLibrary:
         preset.name = name.strip()
         return self.replace(item, preset, item.saved_at)
 
-    def update_meta(self, item: SavedPreset, *, favorite=None, rating=None, tags=None, notes=None) -> SavedPreset:
+    def update_meta(self, item: SavedPreset, *, favorite=None, rating=None, tags=None, notes=None,
+                    reloads: bool = True) -> SavedPreset:
+        """Changes what is kept beside the sound. `reloads=False` for many at once; call `reload()` after them."""
         if favorite is not None:
             item.favorite = favorite
         if rating is not None:
@@ -176,6 +178,8 @@ class PresetLibrary:
             # A recipe becomes a preset file here; songs refer to it by this id.
             item.id = str(uuidlib.uuid4()).upper()
         self._write(item)
+        if not reloads:
+            return item
         self.reload()
         return next(i for i in self.items if i.path == item.path)
 
@@ -201,8 +205,9 @@ class PresetLibrary:
 
     def import_kemper(self, sounds) -> tuple[list[SavedPreset], int]:
         """Writes the sounds of a Kemper import (kemper.Sound). A sound already here under the same name and with
-        the same chain only gets the new tags, so importing twice adds nothing. Returns the saved preset per sound
-        and how many are new."""
+        the same chain only gets the new tags, so importing twice adds nothing. A new sound is marked "To listen"
+        (`#listen`): it is an approximation. Returns the saved preset per sound and how many are new."""
+        from .library_query import LISTEN_TAG
         from .protocol import fingerprint
         existing = {(i.name, fingerprint(i.preset)): i for i in self.items if not i.is_backup}
         written, new = [], 0
@@ -211,15 +216,18 @@ class PresetLibrary:
             if key in existing:
                 saved = self.update_meta(existing[key], tags=existing[key].tags + sound.tags)
             else:
-                saved = self.save(sound.preset, sound.origin, tags=sound.tags, notes=sound.notes)
+                saved = self.save(sound.preset, sound.origin, tags=sound.tags + [LISTEN_TAG], notes=sound.notes)
                 new += 1
             existing[key] = saved
             written.append(saved)
         return written, new
 
-    def trash(self, item: SavedPreset) -> None:
-        self._trash(item.path)
-        self.reload()
+    def trash(self, item: SavedPreset, reloads: bool = True):
+        """Moves the file to the trash; returns where it is now, when the trash says so (for undo)."""
+        where = self._trash(item.path)
+        if reloads:
+            self.reload()
+        return where
 
     def _write(self, item: SavedPreset) -> None:
         data = {"format": CURRENT_FORMAT, "id": item.id, "savedAt": _iso(item.saved_at), "origin": item.origin,
@@ -238,10 +246,10 @@ class PresetLibrary:
         return path
 
 
-def _trash(path: Path) -> None:
+def _trash(path: Path) -> Path:
     """Moves a file to the freedesktop trash; refuses to delete when that is not possible."""
     from . import trash
     try:
-        trash.move(path)
+        return trash.move(path)
     except OSError as error:
         raise LibraryError(tr("The trash cannot be reached, the file stays where it is.")) from error

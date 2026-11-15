@@ -424,7 +424,7 @@ def test_the_window_syncs_reloads_the_library_and_reports(window, tmp_path, monk
     wait_for(lambda: w.store.model.state == IDLE)
     assert w.banner.isVisibleTo(w) and w.banner.label.text() == "Store: 1 stored, 1 fetched."
     assert sorted(item.name for item in w.library.items) == ["From elsewhere", "Made-up Lead"]
-    assert "From elsewhere" in [row.title for row in w.sidebar.rows], "the sidebar shows what arrived"
+    assert "From elsewhere" in w.library_view.overlay.shown_names(), "the library shows what arrived"
     assert w.store.row.detail.text().startswith("in step · ")
 
     # A sound removed elsewhere goes to this window's trash at the next automatic sync, when the window comes up.

@@ -72,6 +72,10 @@ def shortcuts() -> list[tuple[str, str]]:
         ("Alt+1 – 7", tr("Select a unit of the chain")),
         ("Alt+0", tr("Selected unit on or off")),
         (tr("Arrows on a knob"), tr("Turn the knob, with Shift in large steps")),
+        (tr("Ctrl+L / Ctrl+F"), tr("Library: open or close / search it")),
+        (tr("Return / Ctrl+Return"), tr("Library: hear the sound / open it in the editor")),
+        (tr("Ctrl+K / Shift+Ctrl+F"), tr("Library: to listen / favorite on or off")),
+        (tr("Ctrl+T / Ctrl+G / Esc"), tr("Library: add a tag / next grouping / close")),
         (tr("Ctrl+E"), tr("Rename")),
         (tr("Ctrl+Backspace"), tr("Move to Trash")),
         (tr("Shift+Ctrl+R"), tr("Show in file manager")),
@@ -182,6 +186,8 @@ class MainWindow(QMainWindow):
         # The sound store: its row in the sidebar, its dialog and its syncs (ui/store_view.py).
         from .store_view import StoreController
         self.store = StoreController(self)
+        from .library_controller import LibraryController
+        self.library_view = LibraryController(self)
         self._menus()
         self._wire()
         self.library.reload()
@@ -237,7 +243,10 @@ class MainWindow(QMainWindow):
         self.sidebar = Sidebar()
         body.addWidget(self.sidebar)
         body.addWidget(self._build_editor(), 1)
-        self.stack.addWidget(presets)
+        # The library covers sidebar and editor while it is open (ui/library_controller.py adds it).
+        self.presets_page = QStackedWidget()
+        self.presets_page.addWidget(presets)
+        self.stack.addWidget(self.presets_page)
         from ..tuner import TunerModel
         from .tuner_view import TunerView
         self.tuner = TunerModel(self.recorder, self.link)
@@ -394,6 +403,7 @@ class MainWindow(QMainWindow):
         self.store.add_menu_items(preset, action)
         preset.addSeparator()
         action(preset, tr("Quit"), self.close, "Ctrl+Q")
+        self.library_view.add_menu(self.menuBar(), action)
 
         edit = self.menuBar().addMenu(tr("Edit"))
         action(edit, tr("Undo"), self._undo, "Ctrl+Z")
@@ -510,7 +520,6 @@ class MainWindow(QMainWindow):
         sb.slot_played.connect(self._play_slot)
         sb.item_selected.connect(self._item_clicked)
         sb.item_menu.connect(self._item_menu)
-        sb.search_changed.connect(sb.rebuild)
         self.name_edit.editingFinished.connect(self._name_edited)
         self.bpm_edit.editingFinished.connect(self._bpm_edited)
         self.description_edit.editingFinished.connect(self._description_edited)
@@ -651,7 +660,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _say(self, kind: str, text: str, undo=None) -> None:
-        banner = self.recording_banner if self.stack.currentIndex() == 0 else self.banner
+        # While the library covers the editor, its messages go to the banner above the areas.
+        library_open = getattr(self, "library_view", None) is not None and self.library_view.is_open
+        banner = self.recording_banner if self.stack.currentIndex() == 0 or library_open else self.banner
         banner.show_message(kind, text, undo)
 
     def _recording_message(self, kind: str, text: str, undo) -> None:
@@ -744,7 +755,7 @@ class MainWindow(QMainWindow):
             self.recordings.show_tab(0)
             self.recordings.takes.focus_search()
         else:
-            self.sidebar.search.setFocus()
+            self.library_view.open()
 
     def _area(self, index: int) -> None:
         self.tabs.set_index(index)
@@ -757,7 +768,7 @@ class MainWindow(QMainWindow):
         if self.stack.currentIndex() == 2:
             self.tuner.set_strobe(not self.tuner.shows_strobe)
         else:
-            self._edit_tags()
+            self.library_view.focus_tags()
 
     def _tuner_key(self, action) -> None:
         if self.stack.currentIndex() == 2:
@@ -811,6 +822,8 @@ class MainWindow(QMainWindow):
             self._restore_selection()
             return
         self._open(item.preset.copy(), ("file", item))
+        self.library_view.remember(item)
+        self._refresh_library()
         self.sidebar.select(("file", item.path))
         if self.live_enabled and self.link.is_connected:
             self.link.play_now(item.preset)
@@ -825,7 +838,9 @@ class MainWindow(QMainWindow):
 
     def _refresh_library(self) -> None:
         self.sidebar.items = list(self.library.items)
+        self.sidebar.unreadable = list(self.library.unreadable)
         self.sidebar.rebuild()
+        self.library_view.library_changed()
         if self.source and self.source[0] == "file":
             self.sidebar.select(("file", self.source[1].path))
 
@@ -843,6 +858,7 @@ class MainWindow(QMainWindow):
         menu.addAction(tr("Edit tags …"), lambda: self._edit_tags(item))
         menu.addAction(tr("Duplicate"), lambda: self._open(factory.duplicate(item.preset), ("new", None), True))
         menu.addAction(tr("Show in file manager"), lambda: self._reveal(item))
+        menu.addAction(tr("Show in the library"), lambda: self.library_view.show_item(item))
         menu.addSeparator()
         menu.addAction(tr("Move to Trash"), lambda: self._trash(item))
         menu.exec(pos)
@@ -1276,7 +1292,8 @@ class MainWindow(QMainWindow):
         self.sidebar.pin([tag for tag in ("basis", "song", "unterricht")
                           if any(tag in sound.tags for sound in sounds)])
         self._refresh_library()
-        self._say("success", message + " " + tr("Every sound is an approximation: listen to it on the amp."))
+        self._say("success", message + " " + tr("Every sound is an approximation: the new ones are marked “To "
+                                                "listen” in the library."))
 
     def _save_as(self) -> None:
         if self.editor is None:
@@ -1301,6 +1318,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _rename(self, item: SavedPreset | None = None) -> None:
+        if item is None and self.library_view.is_open:
+            self.library_view.rename(self.library_view.targets())
+            return
         if item is None and self.stack.currentIndex() == 0:
             self.recordings.rename()
             return
@@ -1330,6 +1350,9 @@ class MainWindow(QMainWindow):
         self._refresh_editor()
 
     def _trash(self, item: SavedPreset | None = None) -> None:
+        if item is None and self.library_view.is_open:
+            self.library_view.trash(self.library_view.targets())
+            return
         if item is None and self.stack.currentIndex() == 0:
             self.recordings.discard()
             return

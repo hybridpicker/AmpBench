@@ -272,7 +272,7 @@ def test_library_views_rate_search_pieces_and_sound(app, tmp_path, monkeypatch):
         w.close()
 
 
-def test_tags_filter_and_pinned_sections(window, monkeypatch):
+def test_tags_and_pinned_entries(window, monkeypatch):
     w, _ = window
     from PySide6.QtCore import QSettings
     from PySide6.QtWidgets import QInputDialog
@@ -281,22 +281,16 @@ def test_tags_filter_and_pinned_sections(window, monkeypatch):
     clean = w.library.save(factory.empty("Clean A"), "Test", tags=["#basis", "clean"])
     w.library.save(factory.empty("Lead B"), "Test", tags=["song"])
     w._refresh_library()
-    files = lambda: [r.title for r in w.sidebar.rows if r.kind == "file"]
-    assert files() == ["Clean A", "Lead B"]
+    entries = lambda: [(r.title, r.count) for r in w.sidebar.rows if r.kind == "entry"]
     assert w.sidebar.tag_counts() == [("basis", 1), ("clean", 1), ("song", 1)]
-
-    w.sidebar.toggle_filter("basis")
-    assert files() == ["Clean A"]
-    w.sidebar.toggle_filter("basis")
+    assert entries() == [("All sounds", 2)], "the sidebar is short: the sounds are in the library"
     w.sidebar.toggle_pin("basis")
-    assert files() == ["Clean A", "Clean A", "Lead B"], "in its pinned section and in the full list"
-    w.sidebar.search.setText("#so")
-    assert files() == ["Lead B"]
-    w.sidebar.search.setText("")
+    assert entries() == [("All sounds", 2), ("#basis", 1)]
 
     monkeypatch.setattr(QInputDialog, "getText", lambda *a, **k: ("#unterricht clean", True))
     w._edit_tags(clean)
     assert next(i for i in w.library.items if i.name == "Clean A").tags == ["unterricht", "clean"]
+    assert entries() == [("All sounds", 2)], "a pinned tag no sound carries shows no entry"
     w.sidebar.toggle_pin("basis")
 
 
@@ -315,6 +309,7 @@ def test_the_kemper_import_writes_presets_and_pieces(window, tmp_path):
     assert names == ["Can't Stop · Comping", "Can't Stop · Solo"]
     comping = next(i for i in w.library.items if i.name == "Can't Stop · Comping")
     assert "song" in comping.tags and "basis" in comping.tags and "unterricht" not in comping.tags
+    assert "listen" in comping.tags, "a new Kemper sound is marked to listen to"
     pieces = w.recorder.store.document["pieces"]
     assert [p["name"] for p in pieces] == ["Can't Stop"]
     assert [p["name"] for p in pieces[0]["parts"]] == ["Comping", "Solo"]
@@ -417,7 +412,8 @@ def test_kept_ai_sound_lands_in_the_library(window):
 def test_the_window_speaks_english(window):
     w, _ = window
     assert w.windowTitle() == "AmpBench"
-    assert [a.text() for a in w.menuBar().actions()] == ["View", "Presets", "Edit", "Amp", "Chain", "Tuner", "Help"]
+    assert [a.text() for a in w.menuBar().actions()] == ["View", "Presets", "Sounds", "Edit", "Amp", "Chain", "Tuner",
+                                                        "Help"]
     assert w.tabs.names == ["Record", "Presets", "Tuner"]
     assert w.recordings.library_tabs.names == ["Takes", "Pieces", "Statistics"]
     assert w.save_key.text() == "Save" and w.connect_key.text() == "Disconnect"
@@ -437,7 +433,7 @@ def test_the_window_speaks_german_when_asked(app, tmp_path):
     recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
     w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     try:
-        assert [a.text() for a in w.menuBar().actions()][:4] == ["Darstellung", "Presets", "Bearbeiten", "Verstärker"]
+        assert [a.text() for a in w.menuBar().actions()][:4] == ["Darstellung", "Presets", "Sounds", "Bearbeiten"]
         assert w.tabs.names == ["Aufnahme", "Presets", "Stimmgerät"]
         assert w.save_key.text() == "Sichern" and w.connect_key.text() == "Verbinden"
         assert w.recordings.library_tabs.names == ["Aufnahmen", "Stücke", "Statistik"]

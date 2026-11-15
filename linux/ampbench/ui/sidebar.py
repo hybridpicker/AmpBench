@@ -1,11 +1,12 @@
-"""The sidebar of the area Presets: the amp's slots, the presets on this computer and the backups."""
+"""The sidebar of the area Presets, short as on the Mac: the amp's slots, favorites, the sounds used last, and the
+ways into the library (ui/library_overlay.py), which holds everything else."""
 from __future__ import annotations
 
 from datetime import datetime
 
 from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, QSettings, QSize, Qt, Signal
 from PySide6.QtGui import QFontMetrics, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLayout, QLineEdit, QMenu, QPushButton, QScrollArea,
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLayout, QMenu, QPushButton, QScrollArea,
                                QSizePolicy, QToolButton, QVBoxLayout, QWidget)
 
 from .. import catalog, devices
@@ -43,7 +44,9 @@ class Row(QWidget):
         self.key, self.kind, self.title, self.subtitle, self.number = key, kind, title, subtitle, number
         self.selected = False
         self.active = False
-        self.setFixedHeight(58 if kind != "slot" else 54)
+        self.count: int | None = None
+        self.filters = None  # for an entry: the library's filters it opens with
+        self.setFixedHeight(36 if kind == "entry" else 58 if kind != "slot" else 54)
         self.setCursor(Qt.PointingHandCursor)
         self.setContextMenuPolicy(Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(lambda pos: self.context.emit(self, self.mapToGlobal(pos)))
@@ -85,6 +88,18 @@ class Row(QWidget):
                 p.setPen(Qt.NoPen)
                 p.setBrush(c(theme.AMBER))
                 p.drawEllipse(QPointF(r.right() - 14, cy), 4, 4)
+            return
+        if self.kind == "entry":
+            p.setFont(theme.mono(12))
+            p.setPen(c(theme.DESK_MUTED))
+            count = "" if self.count is None else str(self.count)
+            count_w = QFontMetrics(p.font()).horizontalAdvance(count) + 8
+            p.drawText(QRectF(r.left(), r.top(), r.width() - 12, r.height()), Qt.AlignRight | Qt.AlignVCenter, count)
+            p.setFont(theme.sans(14))
+            p.setPen(c(ink))
+            width = int(r.width() - 26 - count_w)
+            p.drawText(QRectF(x, r.top(), width, r.height()), Qt.AlignLeft | Qt.AlignVCenter,
+                       QFontMetrics(p.font()).elidedText(self.title, Qt.ElideRight, width))
             return
         icon = QRectF(x, cy - 9, 20, 18)
         p.setPen(QPen(c(theme.DESK_MUTED), 1.4))
@@ -188,27 +203,8 @@ class FlowLayout(QLayout):
         return y + line - rect.y() + margins.bottom()
 
 
-def matching(items: list, needle: str, tags: list[str]) -> list:
-    """The presets that match the search and carry every tag of the filter. The search looks at names, tags, notes
-    and the chain; "#clean" looks at tags only."""
-    wanted = [t.casefold() for t in tags]
-    result = []
-    for item in items:
-        own = {t.casefold() for t in item.tags}
-        if not all(t in own for t in wanted):
-            continue
-        if needle.startswith("#"):
-            tag = needle.lstrip("#").strip()
-            if tag and not any(t.startswith(tag) for t in own):
-                continue
-        elif needle and needle not in " ".join([item.name, *item.tags, item.notes, item.origin,
-                                                 chain_summary(item.preset)]).casefold():
-            continue
-        result.append(item)
-    return result
-
-
-CHIP_LIMIT = 8
+FAVORITE_LIMIT = 8
+RECENT_LIMIT = 5
 
 
 class Sidebar(QWidget):
@@ -216,7 +212,8 @@ class Sidebar(QWidget):
     slot_played = Signal(int)
     item_selected = Signal(object)
     item_menu = Signal(object, object)
-    search_changed = Signal()
+    # The library is wanted, with these filters (a set) or as it was (None).
+    library_requested = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -235,11 +232,9 @@ class Sidebar(QWidget):
         self.column.setSpacing(0)
         self.scroll.setWidget(self.body)
         outer.addWidget(self.scroll, 1)
-        self.search = QLineEdit()
-        self.search.setPlaceholderText("Suchen")
-        self.search.setClearButtonEnabled(True)
-        self.search.setStyleSheet("margin: 8px;")
-        self.search.textChanged.connect(lambda _: self.search_changed.emit())
+        # The way into the library, where the search field always was: drawn like one, with its key.
+        self.search = LibraryEntry()
+        self.search.clicked.connect(lambda: self.library_requested.emit(None))
         # "+" beside the search, as on the Mac: a new preset, from a template, AI Sound, the Kemper import. The main
         # window fills its menu (`new_menu`).
         self.new_button = QToolButton()
@@ -262,8 +257,10 @@ class Sidebar(QWidget):
         self.slots: list = [None] * 4
         self.profile = devices.SPARK_MINI
         self.items: list[SavedPreset] = []
-        # Tags the list is narrowed to, and tags shown as sections of their own (kept on this computer).
-        self.tag_filter: list[str] = []
+        self.unreadable: list[str] = []
+        # The ids or file names of the sounds opened last, newest first (library_controller.py keeps them).
+        self.recent_keys: list[str] = []
+        # Tags shown as entries of their own under "Library" (kept on this computer).
         self._settings = QSettings("local.ampbench", "AmpBench")
         pinned = self._settings.value("pinnedTags") or []
         self.pinned: list[str] = [pinned] if isinstance(pinned, str) else list(pinned)
@@ -294,67 +291,6 @@ class Sidebar(QWidget):
                 self.pinned.append(tag)
         self._settings.setValue("pinnedTags", self.pinned)
 
-    def toggle_filter(self, tag: str) -> None:
-        if tag.casefold() in (t.casefold() for t in self.tag_filter):
-            self.tag_filter = [t for t in self.tag_filter if t.casefold() != tag.casefold()]
-        else:
-            self.tag_filter.append(tag)
-        self.rebuild()
-
-    def _chip(self, tag: str, count: int) -> QPushButton:
-        on = tag.casefold() in (t.casefold() for t in self.tag_filter)
-        chip = QPushButton(("📌 " if self.is_pinned(tag) else "") + f"#{tag} {count}")
-        chip.setCursor(Qt.PointingHandCursor)
-        chip.setFont(theme.sans(10, bold=on))
-        chip.setStyleSheet(
-            f"QPushButton {{ border: none; border-radius: 9px; padding: 2px 8px; "
-            f"background: {theme.AMBER if on else '#2A2A2E'}; color: {'#1A1206' if on else theme.DESK_TEXT}; }}")
-        chip.setToolTip(tr("Show only presets with #{}. Right-click: pin as a section.", tag))
-        chip.setAccessibleName(tr("Tag {}, {} presets", tag, count) + (", " + tr("filter on") if on else ""))
-        chip.clicked.connect(lambda _=False, t=tag: self.toggle_filter(t))
-        chip.setContextMenuPolicy(Qt.CustomContextMenu)
-        chip.customContextMenuRequested.connect(lambda _pos, t=tag, c=chip: self._chip_menu(t, c))
-        return chip
-
-    def _chip_menu(self, tag: str, chip: QPushButton) -> None:
-        menu = QMenu(self)
-        menu.addAction(tr("Unpin section") if self.is_pinned(tag) else tr("Pin as a section"),
-                       lambda: self.toggle_pin(tag))
-        menu.exec(chip.mapToGlobal(chip.rect().bottomLeft()))
-
-    def _tag_bar(self) -> QWidget | None:
-        counts = self.tag_counts()
-        if not counts:
-            return None
-        filtering = {t.casefold() for t in self.tag_filter}
-        shown = [(t, c) for i, (t, c) in enumerate(counts)
-                 if i < CHIP_LIMIT or self.is_pinned(t) or t.casefold() in filtering]
-        more = [(t, c) for t, c in counts if (t, c) not in shown]
-        box = QWidget()
-        flow = FlowLayout(box)
-        flow.setContentsMargins(14, 8, 14, 4)
-        for tag, count in shown:
-            flow.addWidget(self._chip(tag, count))
-        if more:
-            button = QPushButton(tr("+ {} more", len(more)))
-            button.setFlat(True)
-            button.setFont(theme.sans(10))
-            menu = QMenu(button)
-            for tag, count in more:
-                menu.addAction(f"#{tag} ({count})", lambda t=tag: self.toggle_filter(t))
-            button.setMenu(menu)
-            flow.addWidget(button)
-        if self.tag_filter:
-            clear = QPushButton(tr("Show all"))
-            clear.setFlat(True)
-            clear.setFont(theme.sans(10))
-            clear.clicked.connect(lambda: (self.tag_filter.clear(), self.rebuild()))
-            flow.addWidget(clear)
-        return box
-
-    def needle(self) -> str:
-        return self.search.text().strip().casefold()
-
     def rebuild(self) -> None:
         while self.column.count():
             item = self.column.takeAt(0)
@@ -373,45 +309,57 @@ class Sidebar(QWidget):
             row.clicked.connect(lambda r: self._clicked(r))
             row.double_clicked.connect(lambda r: self.slot_played.emit(r.key[1]))
             self._add(row)
-        needle = self.needle()
-        shown = matching([i for i in self.items if not i.is_backup], needle, self.tag_filter)
-        bar = self._tag_bar()
-        if bar is not None:
+        from .. import library_query as q
+        sounds = [i for i in self.items if not i.is_backup]
+        favorites = [i for i in sounds if i.favorite]
+        if favorites:
             self.column.addSpacing(10)
-            self.column.addWidget(heading(tr("Tags")))
-            self.column.addWidget(bar)
-        # Pinned tags first, each a section of its own; a preset may stand in several.
-        pinned_shown = False
-        for tag in self.pinned:
-            tagged = [i for i in shown if tag.casefold() in (t.casefold() for t in i.tags)]
-            if not tagged:
-                continue
-            pinned_shown = True
+            self.column.addWidget(heading(tr("Favorites")))
+            for item in favorites[:FAVORITE_LIMIT]:
+                self._add_item_row(item)
+            if len(favorites) > FAVORITE_LIMIT:
+                self._add_entry(tr("{} more favorites", len(favorites) - FAVORITE_LIMIT), None,
+                                {("scope", q.FAVORITES)})
+        by_key = {key: i for i in sounds for key in (i.id, i.path.name) if key}
+        recent = [by_key[k] for k in dict.fromkeys(self.recent_keys) if k in by_key][:RECENT_LIMIT]
+        if recent:
             self.column.addSpacing(10)
-            self.column.addWidget(heading(f"#{tag}"))
-            for item in tagged:
+            self.column.addWidget(heading(tr("Recently used")))
+            for item in recent:
                 self._add_item_row(item)
         self.column.addSpacing(10)
-        self.column.addWidget(heading(tr("All on this computer") if pinned_shown else tr("On this computer")))
-        if not shown:
-            note = QLabel(tr("Nothing saved yet.") if not needle and not self.tag_filter else
-                          tr("No preset has all the chosen tags.") if self.tag_filter and not needle else
-                          tr("Nothing found."))
-            note.setContentsMargins(14, 10, 14, 10)
-            note.setStyleSheet(f"background: transparent; color: {theme.DESK_MUTED};")
-            self.column.addWidget(note)
-        for item in shown:
-            self._add_item_row(item)
-        backups = [i for i in self.items if i.is_backup and (not needle or needle in i.name.casefold())]
+        self.column.addWidget(heading(tr("Library")))
+        self._add_entry(tr("All sounds"), len(sounds), set())
+        for tag in self.pinned:
+            count = sum(1 for i in sounds if tag.casefold() in (t.casefold() for t in i.tags))
+            if count:
+                row = self._add_entry(f"#{tag}", count, {("tag", tag)})
+                row.context.connect(lambda r, pos, t=tag: self._pin_menu(t, pos))
+        listen = sum(1 for i in sounds if q.needs_listen(i))
+        if listen:
+            self._add_entry(tr("To listen"), listen, {("scope", q.TO_LISTEN)})
+        backups = sum(1 for i in self.items if i.is_backup)
         if backups:
-            self.column.addSpacing(10)
-            self.column.addWidget(heading(tr("Backups")))
-            for item in sorted(backups, key=lambda i: i.saved_at, reverse=True):
-                row = Row(("file", item.path), "backup", item.name, saved_date(item.saved_at))
-                self._wire_item(row, item)
-                self._add(row)
+            self._add_entry(tr("Slot backups"), backups, {("scope", q.BACKUPS)})
+        if self.unreadable:
+            self._add_entry(tr("1 file unreadable") if len(self.unreadable) == 1
+                            else tr("{} files unreadable", len(self.unreadable)), None, None)
+        self.search.set_count(len(sounds))
         self.column.addStretch(1)
         self._apply_state()
+
+    def _add_entry(self, title: str, count: int | None, filters) -> Row:
+        row = Row(("entry", title), "entry", title)
+        row.count, row.filters = count, filters
+        row.setToolTip(tr("Opens the library"))
+        row.clicked.connect(lambda r: self.library_requested.emit(r.filters))
+        self._add(row)
+        return row
+
+    def _pin_menu(self, tag: str, pos) -> None:
+        menu = QMenu(self)
+        menu.addAction(tr("Unpin from the sidebar"), lambda: self.toggle_pin(tag))
+        menu.exec(pos)
 
     def _add_item_row(self, item: SavedPreset) -> None:
         title = item.name + ("  ✦" if item.is_recipe else "")
@@ -449,3 +397,42 @@ class Sidebar(QWidget):
             row.selected = row.key == self.selection
             row.active = row.kind == "slot" and row.key[1] == self.active_slot
             row.update()
+
+
+class LibraryEntry(QPushButton):
+    """"Search 92 sounds" with its key: drawn like a search field, opens the library."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.count = 0
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedHeight(48)
+        self.setToolTip(tr("Opens the library, to find, hear and look after every sound (Ctrl+L)"))
+        self.set_count(0)
+
+    def set_count(self, count: int) -> None:
+        self.count = count
+        self.setAccessibleName(tr("Search {} sounds", count))
+        self.update()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        r = QRectF(self.rect()).adjusted(8.5, 8.5, -6.5, -8.5)
+        p.setPen(QPen(c(theme.AMBER_DIM if self.hasFocus() else theme.FIELD_EDGE), 1))
+        p.setBrush(c(theme.FIELD))
+        p.drawRoundedRect(r, 8, 8)
+        glass = QRectF(r.left() + 10, r.center().y() - 6, 10, 10)
+        p.setPen(QPen(c(theme.DESK_MUTED), 1.5))
+        p.setBrush(Qt.NoBrush)
+        p.drawEllipse(glass)
+        p.drawLine(QPointF(glass.right() - 1, glass.bottom() - 1), QPointF(glass.right() + 3, glass.bottom() + 3))
+        p.setFont(theme.mono(11))
+        key = tr("Ctrl+L")
+        key_w = QFontMetrics(p.font()).horizontalAdvance(key)
+        p.drawText(QRectF(r.right() - key_w - 10, r.top(), key_w, r.height()), Qt.AlignVCenter, key)
+        p.setFont(theme.sans(13))
+        p.setPen(c(theme.DESK_MUTED))
+        width = int(r.width() - 44 - key_w)
+        p.drawText(QRectF(r.left() + 30, r.top(), width, r.height()), Qt.AlignLeft | Qt.AlignVCenter,
+                   QFontMetrics(p.font()).elidedText(tr("Search {} sounds", self.count), Qt.ElideRight, width))
