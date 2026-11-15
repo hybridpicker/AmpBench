@@ -196,6 +196,18 @@ songs as a Kemper import writes them, with pieces, recipes, slot backups, favori
 `--library-group none|tag|amp|origin` and `--library-select <name>[,<name>…]` set it up. A test library does not
 remember the grouping or the recently used sounds, so pictures never change the app's own preferences.
 
+The Linux app's library pictures come from its `--screenshot` with the same made-up songs (`made_up.py`;
+`--made-up-sounds` only with `--demo` or a test `--presets-folder`). They were rendered headless on a Mac
+(`QT_QPA_PLATFORM=offscreen`), so the fonts are the Mac's:
+
+```bash
+ampbench --demo --presets-folder /tmp/linux-library --made-up-sounds --open-library harbor \
+    --library-select "Glass Harbor Verse" --size 1360x1040 --screenshot docs/pictures/linux-library.png
+ampbench --demo --presets-folder /tmp/linux-library --made-up-sounds --open-library "" --library-group tag \
+    --library-select "Copper Sky Intro" --library-select "Copper Sky Verse" --library-select "Copper Sky Chorus" \
+    --size 1360x1040 --screenshot docs/pictures/linux-library-maintenance.png
+```
+
 `--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth. On a German
 system, add `-AppleLanguages '(en)' -AppleLocale en_US` to every command so the pictures come out in English.
 

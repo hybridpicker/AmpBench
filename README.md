@@ -143,8 +143,8 @@ ampbench --demo                                    # a simulated amp and a tempo
 The iPad app has the areas Presets and Tuner and the sound store; Record is not there yet. More in
 [ios/README.md](ios/README.md).
 
-The Linux app has the areas Record, Presets and Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's
-presets, their editing and storing, live commands and the library overlay are Mac and iPad only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
+The Linux app has the areas Record, Presets and Tuner, the sound library, the Kemper import, hashtags and AI Sound;
+only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
 whichever of the two you develop on. More in [linux/README.md](linux/README.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## First steps

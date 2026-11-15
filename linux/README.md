@@ -4,9 +4,8 @@ AmpBench for Omarchy and other Linux desktops, with the same areas as on the Mac
 the Spark's USB input through PipeWire, the library of takes, pieces), **Presets** (read the amp's slots over
 Bluetooth LE, edit a preset with knobs and the signal chain, hear every change live on the amp, keep presets on the
 computer and store them in a slot, with a backup and a read-back; sound recipes open like presets) and
-**Tuner**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets,
-live commands and the library overlay (`⌘L` on the Mac, 2026-11-14) are not here yet; the sidebar keeps its tag
-chips and pinned sections.
+**Tuner**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets and
+live commands are not here yet. The sound library came on 2026-11-15, the same as on the Mac.
 
 The UI is English by default and German when the system language is German; the menu "Language" switches it, as on
 the Mac. This page quotes the English labels.
@@ -16,10 +15,28 @@ recipes, and the model catalog `docs/ai/spark-catalog.json`, which the Mac app w
 apps know the same amps, effects and start values.
 
 **Hashtags and the Kemper import** work as on the Mac: every preset can carry tags (Preset ⇒ "Edit tags …",
-Ctrl+T, or the context menu), the sidebar filters by tag chips and shows pinned tags as sections of their own, and
-Preset ⇒ "Import from Kemper …" reads a Kemper backup (`.kpabackup`) or rig (`.kipr`) into presets and pieces.
+Ctrl+T, the context menu, or the library), pinned tags have a line of their own in the sidebar, and
+Preset ⇒ "Import from Kemper …" reads a Kemper backup (`.kpabackup`) or rig (`.kipr`) into presets and pieces; every
+new sound is marked "To listen" (the tag `#listen`), because it is an approximation.
 `kemper.py` is the port of `Sources/SparkControl/Kemper`; on the same backup both apps print the same
 `--kemper-list`.
+
+**The sound library** works as on the Mac ([MANUAL.md](../docs/MANUAL.md#the-library)): Ctrl+L, Ctrl+F or
+the line "Search 92 sounds" at the foot of the sidebar opens it over the sidebar and the editor, Esc closes it. The
+search has the keyboard at once (↓ goes to the list, Return plays the first sound found); on the left the filters
+(Show, Origin, Amp, Tags; a click picks one, Ctrl-click adds more), in the middle the sounds as a table (grouping
+A–Z, by tag, by amp or by origin, Ctrl+G for the next; a click on a column header sorts), on the right the chosen
+sound with its chain, facts, tags, notes, close sounds and the pieces that use it. Return or a double click plays it
+on the amp's temporary place, Ctrl+Return opens it in the editor. With several selected (Ctrl-click, Shift-click,
+Ctrl+A): tags (Ctrl+T), "To listen" (Ctrl+K), favorite (Shift+Ctrl+F), renaming by replacing a text (Ctrl+E), and
+the trash (Ctrl+Backspace), which names the pieces that use them first and can be undone. The menu "Sounds" has all
+of it. The sidebar is short: the slots, favorites (up to eight), the five sounds used last, and lines into the
+library (all sounds, pinned tags, to listen, slot backups). Tags, origin and date step aside in a narrow window; the
+preview still shows them. The grouping and the sounds used last are kept in `AmpBench.conf`, only for the real
+presets folder. `library_query.py` is the port of the Mac's LibraryQuery and PresetSimilarity, `ui/library_overlay.py`
+the view, `ui/library_controller.py` what it changes, `made_up.py` the made-up sounds for tests and pictures.
+
+![The library on Linux](../docs/pictures/linux-library.png)
 
 **The area Tuner** (Ctrl+Shift+3) works as on the Mac: a chromatic tuner with string detection for guitar and
 bass, 30 Hz to 1.4 kHz, to a tenth of a cent, A4 from 430.0 to 450.0 Hz, the tunings Standard, Drop D, DADGAD, Open G,
@@ -110,6 +127,7 @@ then run `./sync.sh`.
 ```bash
 ampbench                         # the window; it looks for the amp at once
 ampbench --demo                  # a simulated amp and a temporary folder, to look around
+ampbench --demo --made-up-sounds --open-library   # the same with about 100 invented sounds, the library open
 ampbench --recipe-check my.json  # check a sound recipe, like the Mac app's --recipe-check
 ampbench --kemper-list backup.kpabackup  # what a Kemper import would make, reads only
 ampbench --store-setup folder ~/Drive/AmpBench-Store   # the sound store; or: ssh <host> <folder>, https <url> [user]

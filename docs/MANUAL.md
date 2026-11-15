@@ -332,6 +332,13 @@ find, hear and look after sounds. `Esc` closes it again; sidebar and editor come
 On the iPad the library opens from the search line in the sidebar, a tap selects, and the preview's keys "Hear" and
 "Open" do what `↩` and `⌘↩` do. Grouped lists show their sounds there without group titles.
 
+On Linux the library works the same with Ctrl in place of `⌘` (Ctrl+L, Ctrl+Return, Ctrl+K, Shift+Ctrl+F, Ctrl+T,
+Ctrl+G, Ctrl+E, Ctrl+Backspace); its way in is the search line at the foot of the sidebar, its commands are in the
+menu "Sounds", and the preview's second key is called "Edit". In a narrow window the columns Tags, Origin and Saved
+step aside.
+
+![The library on Linux, several sounds selected, grouped by tag](pictures/linux-library-maintenance.png)
+
 ### Devices
 
 ![Device choice with a Spark NEO](pictures/devices-neo-dark.png)

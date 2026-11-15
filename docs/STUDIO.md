@@ -829,14 +829,15 @@ For every device, without exception:
   `#listen`, not a new field, because older versions and the Linux app rewrite a preset file with the fields they
   know and would drop a new one; favorites are the existing field `favorite`; recently used sounds are kept per
   device in the preferences. Grouping by piece was left out: the pieces live in the Mac's recordings, and a Kemper
-  song's sounds already share a tag. Open: the Linux app's library view (the laptop had uncommitted work in its
-  main window); group titles in the iPad's table (iPadOS draws sections without their header); scrolling the
+  song's sounds already share a tag. The Linux app has the same view since 2026-11-15 (`linux/ampbench/library_query.py`,
+  `ui/library_overlay.py`, `ui/library_controller.py`), tested headless with made-up sounds, not yet on the laptop.
+  Open: group titles in the iPad's table (iPadOS draws sections without their header); scrolling the
   table to a sound chosen from "Close sounds"; trying it with the real 92 sounds and the amp; the 81 Kemper sounds
   imported before 2026-11-14 carry no `#listen` yet (filter Kemper import, `⌘A`, `⌘K`).
 - **Kemper import:** the author's backup is in the real library since 2026-11-14 (81 presets, 20 pieces, kinds as
   guessed). Listen to the translated sounds on the Spark and improve the amp rules after that (above all
   Dream Weaver, Divided by 13, Naylor). The Linux app can do the import and hashtags since 2026-11-10
-  (`linux/ampbench/kemper.py`, a sidebar with tag chips and pinned sections); on the author's backup both apps
+  (`linux/ampbench/kemper.py`; tags and pinned tags are in the library since 2026-11-15); on the author's backup both apps
   print the same `--kemper-list` line for line. Linux edits tags through a dialog (Ctrl+T), not in a line
   below the name.
 - **Setlists and stage mode** build on the pieces: order by drag and drop, a large full-screen mode with

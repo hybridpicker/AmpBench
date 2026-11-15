@@ -172,6 +172,12 @@ a variant of `LEDSegments`).
   against 25 rows at 1180 × 780), their chips overflow with one tag per Kemper performance, and keyboard, multiple
   selection, sorting and VoiceOver would have to be built by hand; the table has them from the system, on the Mac
   and the iPad.
+  On Linux (`ui/library_overlay.py`) the same three columns with Qt: a `QListWidget` for the filters, a
+  `QTreeWidget` for the sounds (group titles as rows across the table, which the iPad lacks), the same front strip,
+  keys and lamps. The way in stays where the Linux search field always was, at the foot of the sidebar and always in
+  sight, below the sound store's row. While the library is open, messages show in the banner above the areas,
+  because the editor's banner is covered. The preview's second key says "Edit", since German "Offen" (an open take)
+  already took "Open".
 - **Device choice:** the sidebar's first section after the search line, "Device": a `DevicePopup` with the chosen device and a `LampDot`
   beside it (green connected, amber nearby, dark not there; the menu says the same in words). The slots below are
   that device's: "On the Spark NEO", or two sections "On the REACTOR 50 · Red" and "· Green" with keys numbered 1–4 per bank.
