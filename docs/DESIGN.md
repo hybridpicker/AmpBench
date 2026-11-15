@@ -199,7 +199,8 @@ a variant of `LEDSegments`).
   narrow window the whole row shrinks together, down to two thirds.
 - **Control field:** a panel with a 3 pt stripe in the place's color; the engraving "Drive · Place 3 of 7", the
   model as a 22 bold amber menu with a chevron, summary and model it follows; on the right lamp, footswitch (38) and
-  ON/OFF. Knobs 56 pt with the ring in the place's color, the name engraved and the value in amber mono. On the right
+  ON/OFF. A delay has a small "Tap" key left of them: the tempo in mono above it (amber while tapping, the key then
+  `.on`), "BPM" engraved below. Knobs 56 pt with the ring in the place's color, the name engraved and the value in amber mono. On the right
   two sentences on how to turn them.
 - **Sheets:** rename and save-as stay system dialogs; the templates show each chain as a miniature row of pedals.
 

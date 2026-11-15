@@ -57,7 +57,8 @@ store that keeps your sounds in a place of your choice.
 
 **Presets**
 - Reads the amp's slots over Bluetooth LE; a click plays a slot or a preset from the computer.
-- An editor with the signal chain as pedals and an amp head; every change is heard live on the amp.
+- An editor with the signal chain as pedals and an amp head; every change is heard live on the amp. Every delay has a
+  Tap key for the tempo.
 - Undo, A/B against the saved state, and storing in a slot with a backup and a read-back.
 - Presets are plain JSON files, ordered with hashtags and pinned tags.
 - A library over the area (`⌘L`) for many sounds: search, filters by tag, amp and origin, a table with groups, a
