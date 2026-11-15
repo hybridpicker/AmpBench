@@ -30,6 +30,7 @@ labels.
 | – | Linux catches up: Kemper import and hashtags, area Tuner (numpy, the amp's own tuner), AI Sound (`secret-tool`) | 78e8e58, add00c0, 7b6fd83 | installed on the Linux laptop (2026-11-10), 194 Linux tests green; not checked under Linux with guitar, amp and the real cloud |
 | – | The sound store: sounds encrypted on the device (age), kept in a folder, on a server over SSH or below an HTTPS address, synced both ways; in the sidebar's foot, a sheet, File menu, `--store-*` | d4fce74 | 79 unit tests with made-up data, among them the format against the `age` tool; folder and HTTPS place run end to end from the command line with two test libraries; since 2026-11-14 the author's Mac and iPad sync 92 sounds through an HTTPS place on a server (nginx), read back whole with `--store-verify`; see "Sound store" below |
 | – | iPad app: the areas Presets and Tuner and the sound store from the Mac's sources (package builds for iOS 17, `ios/` with XcodeGen), the tuner's input through AVAudioEngine | d4fce74 | four UI tests pass in the simulator (iPad Air 11-inch, iPadOS 26.5); installed on a real iPad (iPad Air 13-inch) on 2026-11-14, where the store set itself up and brought the sounds; not yet with an amp there |
+| – | The library over the area Presets (⌘L / Ctrl+L): search, filters, a table with groups, a preview, tags, "To listen", favorites, renaming and the Trash for several sounds; close sounds; a short sidebar | 9c5d27e (Mac, iPad), 7e4f451 (Linux) | Mac and iPad installed (2026-11-14), `swift test`, `--menu-dump` and the iPad UI tests green; Linux tests green headless on the Mac (2026-11-15), not yet on the laptop; nothing tried with the real 92 sounds or the amp |
 | – | Levels: a loudness meter (ITU-R BS.1770, `Loudness`) and a measuring run over USB (`--level-measure`) | 1a768df | meter: six unit tests; the run has not measured a sound yet, the matching is not built |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
@@ -757,6 +758,17 @@ For every device, without exception:
 - Moving into the libraries (21b14cc): window pictures before and after differ only where two
   runs of the same state differ as well.
 - Window pictures of both areas looked at in light and dark and at 1120 × 720 (docs/pictures).
+- The library, with about a hundred made-up sounds (`--made-up-sounds`): `LibraryQueryTests` (origins in both
+  languages, scopes, filters, every word of the search, "#tag", the mark `#listen` as a plain tag in the file,
+  groups and `leaving`, close sounds and backups left out), `LibraryBrowserTests` (the made-up library written once,
+  filters → query, a sound in two tag groups selected once, close groups, gone sounds leave the selection), the
+  iPad UI test `testTheLibraryFindsASound`, `--menu-dump` without a key twice. Linux: `tests/test_library_query.py`
+  (the same cases, pieces by id or file name) and `tests/test_library_view.py` (short sidebar, search and real
+  keys, filters and groups, close sounds, marks and tags for several, renaming, the Trash naming pieces and its
+  undo, German, no shortcut twice). Pictures looked at in dark, light, German and at the smallest window on both.
+  The Linux tests also run on a Mac headless (linux/README.md, "Code"); there two timing tests
+  (`test_the_tuner_listens_only_while_its_area_shows`, `test_demo_engine_records_a_real_take`) sometimes fail in a
+  full run under load and pass alone (2026-11-15).
 - Icon: looked at in 1024 and 32 px.
 
 ## Open and next

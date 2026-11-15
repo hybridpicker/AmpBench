@@ -141,9 +141,22 @@ service and takes the amp's one control connection: "Disconnect" lets the Spark 
 
 ## Code
 
-`ampbench/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py`, `kemper.py`, `pitch.py`
-and `tuning.py` are ports of
+`ampbench/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py`, `library_query.py`,
+`kemper.py`, `pitch.py` and `tuning.py` are ports of
 `Sources/SparkControl`; the Swift code is the reference, change both together. The same holds for the sound store
 (`age.py`, `store_places.py`, `sound_store.py`, `store_profile.py`) and `Sources/SoundStore`. `link.py` is the port of `SparkLink.swift`
 (with a simulated amp in `fake_amp.py`), `qtlink.py` and `ui/` are the window. Tests: `linux/tests`, run by the install
 (`cd linux && QT_QPA_PLATFORM=offscreen python -m pytest`). They read real presets from the amp as fixtures.
+
+The tests also run on a Mac, headless, in a throwaway environment (PySide6 has no wheels for the newest Python yet,
+so take 3.13):
+
+```bash
+uv venv -p 3.13 /tmp/ampbench-linux-venv
+VIRTUAL_ENV=/tmp/ampbench-linux-venv uv pip install -r linux/requirements.txt
+cd linux && QT_QPA_PLATFORM=offscreen /tmp/ampbench-linux-venv/bin/python -m pytest -q
+```
+
+On macOS, Qt keeps the Linux app's settings in the preferences domain `com.local-ampbench.AmpBench`, apart from the
+Mac app's `local.ampbench`; the tests leave a few values there (`defaults delete com.local-ampbench.AmpBench`
+removes them).
