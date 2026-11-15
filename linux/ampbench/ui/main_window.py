@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from pathlib import Path
 
 from PySide6.QtCore import QEvent, QObject, QSettings, Qt, QTimer, QUrl, Signal
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (QAbstractButton, QAbstractSpinBox, QApplication, 
                                QToolButton, QVBoxLayout, QWidget)
 
 from .. import BUILD, VERSION, catalog, devices, factory, i18n, protocol, recipe
-from ..editor import PresetEditor
+from ..editor import TAP_PAUSE, Change, PresetEditor, TapTempo
 from ..i18n import tr
 from ..library import LibraryError, PresetLibrary, SavedPreset
 from ..link import LinkError
@@ -179,6 +180,15 @@ class MainWindow(QMainWindow):
         self._loading = False
         self._library_stamp = None
         self._recording_undo = None
+        # Tap tempo of the delay: every tap of one go is one undo step and reaches the amp once, after the pause.
+        self._tap = TapTempo()
+        self._tap_clock = time.monotonic
+        self._tap_start: protocol.Preset | None = None
+        self.tapped_bpm: float | None = None
+        self._tap_timer = QTimer(self)
+        self._tap_timer.setSingleShot(True)
+        self._tap_timer.setInterval(int(TAP_PAUSE * 1000))
+        self._tap_timer.timeout.connect(lambda: self._finish_tapping(True))
         self.setWindowTitle("AmpBench")
         self.resize(1280, 860)
         self.setMinimumSize(1120, 720)
@@ -530,6 +540,7 @@ class MainWindow(QMainWindow):
         self.more_key.clicked.connect(self._more_menu)
         self.field.model_chosen.connect(self._model_chosen)
         self.field.toggled.connect(lambda on: self._toggle_place(self.place, on))
+        self.field.tapped.connect(self._tap_tempo)
 
     # MARK: Link state
 
@@ -617,6 +628,7 @@ class MainWindow(QMainWindow):
         if self.source and self.source[0] == "slot" and self.editor and not self.editor.is_modified:
             preset = slots[self.source[1]]
             if preset is not None and not preset.same_content(self.editor.current):
+                self._finish_tapping(False)
                 self.editor = PresetEditor(preset)
                 self._refresh_editor()
 
@@ -879,6 +891,7 @@ class MainWindow(QMainWindow):
         return box.clickedButton() is discard
 
     def _open(self, preset: protocol.Preset, source, unsaved: bool = False) -> None:
+        self._finish_tapping(False)
         self.link.core.end_editing()
         self.editor = PresetEditor(preset)
         if unsaved:
@@ -1009,6 +1022,36 @@ class MainWindow(QMainWindow):
         if not self.locked:
             self._edited(self.editor.set_parameter(place, index, value))
 
+    def _tap_tempo(self) -> None:
+        """One tap on the delay's TAP key. From the second tap on, the preset takes the tempo and the delay's tempo
+        switch goes to BPM."""
+        if self.locked:
+            return
+        if not self._tap_timer.isActive() and self._tap_start is None:
+            self._tap_start = self.editor.current.copy()
+            self.editor.begin_gesture()
+        bpm = self._tap.tap(self._tap_clock())
+        if bpm is not None:
+            self.tapped_bpm = float(round(bpm))
+            self.editor.tap_tempo(self.place, bpm)
+        elif self.tapped_bpm is None:
+            self.tapped_bpm = self.editor.current.bpm
+        self._tap_timer.start()
+        self._refresh_editor()
+
+    def _finish_tapping(self, sending: bool) -> None:
+        if self._tap_start is None:
+            return
+        self._tap_timer.stop()
+        start, self._tap_start = self._tap_start, None
+        self.tapped_bpm = None
+        if self.editor is None:
+            return
+        self.editor.end_gesture()
+        if sending and self.editor.current != start:
+            self._edited([Change("whole", preset=self.editor.current.copy())])
+        self._refresh_editor()
+
     def _toggle_place(self, index: int, on: bool) -> None:
         if self.locked:
             return
@@ -1058,16 +1101,19 @@ class MainWindow(QMainWindow):
                 undo()
             return
         if self.editor and not self.show_original:
+            self._finish_tapping(True)
             self._edited(self.editor.undo())
             self._refresh_editor()
 
     def _redo(self) -> None:
         if self.editor and not self.show_original:
+            self._finish_tapping(True)
             self._edited(self.editor.redo())
             self._refresh_editor()
 
     def _revert(self) -> None:
         if self.editor and not self.show_original:
+            self._finish_tapping(True)
             self._edited(self.editor.revert())
             self._refresh_editor()
 
@@ -1312,6 +1358,7 @@ class MainWindow(QMainWindow):
         except (OSError, LibraryError) as error:
             self._report(error)
             return
+        self._finish_tapping(False)
         self.editor = PresetEditor(copy)
         self.source = ("file", saved)
         self._refresh_library()
@@ -1447,6 +1494,7 @@ class ControlField(QFrame):
     """The panel under the chain: the chosen unit with its model, a stripe in the place's color and big knobs."""
     model_chosen = Signal(str)
     toggled = Signal(bool)
+    tapped = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1487,6 +1535,31 @@ class ControlField(QFrame):
         left.addLayout(self.knob_row)
         left.addStretch(1)
         grid.addLayout(left, 1)
+
+        # The delay's tap tempo: the tempo above, the key, "BPM" below.
+        self.tap_box = QWidget()
+        self.tap_box.setFixedWidth(70)
+        tap = QVBoxLayout(self.tap_box)
+        tap.setContentsMargins(0, 0, 0, 0)
+        tap.setSpacing(6)
+        tap.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        self.tap_bpm = QLabel("")
+        self.tap_bpm.setFont(theme.mono(18, True))
+        self.tap_bpm.setAlignment(Qt.AlignCenter)
+        self.tap_key = HardwareKey(tr("Tap"))
+        self.tap_key.setToolTip(tr("Tap the tempo. The delay follows the preset's BPM."))
+        self.tap_key.setAccessibleName(tr("Tap the delay's tempo"))
+        self.tap_key.clicked.connect(self.tapped.emit)
+        tap_unit = QLabel("BPM")
+        tap_unit.setFont(theme.sans(10, bold=True, spacing=0.09))
+        tap_unit.setAlignment(Qt.AlignCenter)
+        tap_unit.setStyleSheet(f"background: transparent; color: {theme.ENGRAVING};")
+        tap.addWidget(self.tap_bpm)
+        tap.addWidget(self.tap_key, 0, Qt.AlignHCenter)
+        tap.addWidget(tap_unit)
+        tap.addStretch(1)
+        self.tap_box.setVisible(False)
+        grid.addWidget(self.tap_box)
 
         right_box = QWidget()
         right_box.setFixedWidth(70)
@@ -1553,6 +1626,13 @@ class ControlField(QFrame):
             self.knob_row.addWidget(self._widget_for(parameter, pinfo, start, place, locked))
         self.knob_row.addStretch(1)
         self.knob_row.addWidget(self._help())
+        tapping = window.tapped_bpm is not None
+        bpm = window.tapped_bpm if tapping else window._shown().bpm
+        self.tap_box.setVisible(place_key == "delay")
+        self.tap_bpm.setText(f"{bpm:.0f}")
+        self.tap_bpm.setStyleSheet(f"background: transparent; color: {theme.AMBER if tapping else theme.TEXT};")
+        self.tap_key.set_style("on" if tapping else "normal")
+        self.tap_key.setEnabled(not locked)
         self.on_foot.setChecked(effect.is_on)
         self.on_foot.setEnabled(not locked)
         self.on_lamp.set_state(effect.is_on, "")

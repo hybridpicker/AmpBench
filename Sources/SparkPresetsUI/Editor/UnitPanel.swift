@@ -59,6 +59,9 @@ struct UnitPanel: View {
                 }
             }
             Spacer(minLength: 8)
+            if place == .delay {
+                TapKey(index: index, bpm: editor.tappedBPM ?? preset.bpm, isTapping: editor.tappedBPM != nil)
+            }
             VStack(spacing: 6) {
                 LampDot(color: place.swatch, isOn: effect.isOn, size: 10)
                 Footswitch(isOn: effect.isOn, label: tr("%@ on or off", place.title), size: 38,
@@ -67,6 +70,32 @@ struct UnitPanel: View {
                 }
                 PanelLabel(effect.isOn ? tr("On") : tr("Off"), color: effect.isOn ? Theme.device.amber : Theme.device.lampOffText)
             }
+        }
+    }
+}
+
+/// Tap tempo for the delay: the preset's BPM from the taps, and the delay's tempo switch on BPM.
+private struct TapKey: View {
+    let index: Int
+    let bpm: Float
+    let isTapping: Bool
+    @EnvironmentObject private var editor: EditorModel
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Text("\(Int(bpm.rounded()))")
+                .font(Theme.Fonts.mono(16))
+                .foregroundStyle(isTapping ? Theme.device.amber : Theme.device.fieldText)
+                .monospacedDigit()
+                .accessibilityHidden(true)
+            Button(tr("Tap")) { editor.tap(place: index) }
+                .buttonStyle(.hardwareKey(isTapping ? .on : .normal, size: .small))
+                .fixedSize()
+                .disabled(editor.isLocked)
+                .help(tr("Tap the tempo. The delay follows the preset's BPM."))
+                .accessibilityLabel(tr("Tap the delay's tempo"))
+                .accessibilityValue(tr("%d beats per minute", Int(bpm.rounded())))
+            PanelLabel("BPM", color: Theme.device.labelDim)
         }
     }
 }

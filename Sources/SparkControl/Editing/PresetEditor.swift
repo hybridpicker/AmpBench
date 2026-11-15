@@ -101,6 +101,22 @@ public struct PresetEditor: Sendable {
         return [.whole(current)]
     }
 
+    /// A tapped tempo for the effect at `place`: the preset's BPM, and the effect's tempo switch on BPM so the echo
+    /// follows it. One undo step; the whole preset goes again, because the BPM has no message of its own.
+    public mutating func tapTempo(place: Int, bpm: Float) -> [LiveChange] {
+        guard current.effects.indices.contains(place) else { return [] }
+        let bpm = min(max(bpm.rounded(), PresetRules.bpmRange.lowerBound), PresetRules.bpmRange.upperBound)
+        let effect = current.effects[place]
+        let info = ModelCatalog.info(for: effect.name, parameterCount: effect.parameters.count)
+        let sync = effect.parameters.firstIndex { info.parameter(Int($0.index)) == .bpm }
+        let syncOff = sync.map { effect.parameters[$0].value < 0.5 } ?? false
+        guard current.bpm != bpm || syncOff else { return [] }
+        record()
+        current.bpm = bpm
+        if let sync, syncOff { current.effects[place].parameters[sync].value = 1 }
+        return [.whole(current)]
+    }
+
     /// Takes over what the amp reports changed by itself, without an undo step.
     public mutating func follow(_ event: SparkEvent) {
         current.apply(event)

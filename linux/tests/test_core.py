@@ -191,6 +191,41 @@ def test_gesture_is_one_undo_step():
     assert not ed.is_modified
 
 
+def test_tapped_tempo_sets_the_bpm_and_puts_the_delay_on_bpm():
+    ed = editor.PresetEditor(factory.empty())
+    ed.set_parameter(5, 4, 0.0)
+    before = ed.current.copy()
+    changes = ed.tap_tempo(5, 92.4)
+    assert ed.current.bpm == 92
+    assert ed.current.effects[5].parameters[4].value == 1.0
+    assert [c.kind for c in changes] == ["whole"]
+    ed.undo()
+    assert ed.current == before
+    assert ed.tap_tempo(5, 92) != []
+    assert ed.tap_tempo(5, 92) == []
+    assert ed.tap_tempo(12, 90) == []
+
+
+def test_tapping_in_one_go_is_one_undo_step():
+    ed = editor.PresetEditor(factory.empty())
+    ed.begin_gesture()
+    for bpm in (80, 95, 101, 100):
+        ed.tap_tempo(5, bpm)
+    ed.end_gesture()
+    assert ed.current.bpm == 100
+    ed.undo()
+    assert not ed.can_undo and not ed.is_modified
+
+
+def test_tap_tempo_counts_the_last_taps():
+    tap = editor.TapTempo(reset_after=2.0)
+    assert tap.tap(0.0) is None
+    assert tap.tap(0.5) == pytest.approx(120)
+    assert tap.tap(1.0) == pytest.approx(120)
+    assert tap.tap(5.0) is None
+    assert tap.tap(5.001) == editor.TAP_RANGE[1]
+
+
 def test_live_queue_keeps_only_the_newest_value():
     q = editor.LiveQueue()
     q.push([editor.Change("parameter", effect="Twin", index=0, value=0.1),

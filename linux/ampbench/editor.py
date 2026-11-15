@@ -13,6 +13,29 @@ MODEL_GAP = 1.0
 MODEL_BURST = 6
 MODEL_WINDOW = 20.0
 HISTORY_LIMIT = 200
+TAP_RANGE = (30.0, 300.0)
+TAP_PAUSE = 1.2  # seconds after the last tap until a tapped tempo goes to the amp
+
+
+class TapTempo:
+    """The tempo of the last few taps. A port of TapTempo in SparkCore."""
+
+    def __init__(self, reset_after: float = 2.0, max_taps: int = 6):
+        self.reset_after = reset_after
+        self.max_taps = max_taps
+        self._taps: list[float] = []
+
+    def tap(self, at: float) -> float | None:
+        """Returns the tempo once two taps are known."""
+        if self._taps and at - self._taps[-1] > self.reset_after:
+            self._taps = []
+        self._taps.append(at)
+        if len(self._taps) > self.max_taps:
+            self._taps.pop(0)
+        if len(self._taps) < 2 or self._taps[-1] <= self._taps[0]:
+            return None
+        bpm = 60.0 * (len(self._taps) - 1) / (self._taps[-1] - self._taps[0])
+        return min(max(bpm, TAP_RANGE[0]), TAP_RANGE[1])
 
 
 @dataclass(frozen=True)
@@ -185,6 +208,25 @@ class PresetEditor:
             return []
         self._record()
         self.current.bpm = bpm
+        return [Change("whole", preset=self.current.copy())]
+
+    def tap_tempo(self, place: int, bpm: float) -> list[Change]:
+        """A tapped tempo for the effect at `place`: the preset's BPM, and the effect's tempo switch on BPM so the
+        echo follows it. One undo step; the whole preset goes again, because the BPM has no message of its own."""
+        effects = self.current.effects
+        if not 0 <= place < len(effects):
+            return []
+        bpm = f32(min(max(float(round(bpm)), BPM_RANGE[0]), BPM_RANGE[1]))
+        effect = effects[place]
+        info = catalog.load().info(effect.name, len(effect.parameters))
+        sync = next((p for p in effect.parameters if info.parameter(p.index).key == "sync"), None)
+        sync_off = sync is not None and sync.value < 0.5
+        if self.current.bpm == bpm and not sync_off:
+            return []
+        self._record()
+        self.current.bpm = bpm
+        if sync_off:
+            sync.value = 1.0
         return [Change("whole", preset=self.current.copy())]
 
     def follow(self, event) -> None:

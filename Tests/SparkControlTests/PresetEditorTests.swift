@@ -23,6 +23,37 @@ final class PresetEditorTests: XCTestCase {
         XCTAssertEqual(editor.setParameter(place: 12, index: 0, value: 1), [])
     }
 
+    func testATappedTempoSetsTheBPMAndPutsTheDelayOnBPM() {
+        var editor = editor()
+        _ = editor.setParameter(place: 5, index: 4, value: 0)
+        let before = editor.current
+        let changes = editor.tapTempo(place: 5, bpm: 92.4)
+        XCTAssertEqual(editor.current.bpm, 92)
+        XCTAssertEqual(editor.current.effects[5].parameters[4].value, 1)
+        XCTAssertEqual(changes, [.whole(editor.current)])
+        _ = editor.undo()
+        XCTAssertEqual(editor.current, before)
+    }
+
+    func testTheSameTappedTempoOnBPMSendsNothing() {
+        var editor = editor()
+        let bpm = editor.current.bpm
+        XCTAssertEqual(editor.current.effects[5].parameters[4].value, 1)
+        XCTAssertEqual(editor.tapTempo(place: 5, bpm: bpm), [])
+        XCTAssertEqual(editor.tapTempo(place: 12, bpm: 90), [])
+    }
+
+    func testTappingInOneGoIsOneUndoStep() {
+        var editor = editor()
+        editor.beginGesture()
+        for bpm in [80, 95, 101, 100] { _ = editor.tapTempo(place: 5, bpm: Float(bpm)) }
+        editor.endGesture()
+        XCTAssertEqual(editor.current.bpm, 100)
+        _ = editor.undo()
+        XCTAssertFalse(editor.canUndo)
+        XCTAssertFalse(editor.isModified)
+    }
+
     func testAKnobTurnIsOneUndoStep() {
         var editor = editor()
         editor.beginGesture()

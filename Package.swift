@@ -29,7 +29,7 @@ let package = Package(
         // The area "Aufnahme" and the deck: window parts, menus, key handling, self-test, headless audio commands.
         .target(name: "SparkRecorderUI", dependencies: ["SparkCore", "SparkDesign", "AmpText"], path: "Sources/SparkRecorderUI"),
         // The area "Presets": sidebar, editor, menus and the Bluetooth link to the amp.
-        .target(name: "SparkPresetsUI", dependencies: ["SparkControl", "SparkDesign", "SoundStore", "AmpText"],
+        .target(name: "SparkPresetsUI", dependencies: ["SparkControl", "SparkCore", "SparkDesign", "SoundStore", "AmpText"],
                 path: "Sources/SparkPresetsUI"),
         // The area "Stimmgerät": the tuner's front and menus. It reads the recorder's input; the amp's own tuner only
         // through the AmpTuner protocol Studio fills in.

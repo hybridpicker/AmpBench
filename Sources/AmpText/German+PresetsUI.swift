@@ -511,6 +511,10 @@ extension German {
             "Tag %@",
         "Tags":
             "Tags",
+        "Tap the delay's tempo":
+            "Tempo des Delays tippen",
+        "Tap the tempo. The delay follows the preset's BPM.":
+            "Tempo tippen. Das Delay folgt den BPM des Presets.",
         "Template":
             "Vorlage",
         "Temporary · %@":

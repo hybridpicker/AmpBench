@@ -1,6 +1,7 @@
 import AmpText
 import Foundation
 import SparkControl
+import SparkCore
 
 /// Where the preset in the editor came from, and where "Save to this Mac" puts it.
 enum EditSource: Equatable {
@@ -35,6 +36,13 @@ final class EditorModel: ObservableObject {
     private var needsCheck = false
     /// A stored preset to switch to before anything else in the queue.
     private var pendingSlot: Int?
+    private var tapTempo = TapTempo()
+    /// Sends a tapped tempo once the taps pause, so tapping never sends a whole preset per tap.
+    private var tapSend: Task<Void, Never>?
+    /// The preset before the first tap of this go.
+    private var tapStart: SparkPreset?
+    /// The tempo of the taps so far, shown on the key while tapping.
+    @Published private(set) var tappedBPM: Float?
     var show: ((Banner.Kind, String) -> Void)?
     /// Called with every preset opened in the editor. AmpBench sets the metronome from its tempo.
     var onOpen: ((SparkPreset) -> Void)?
@@ -80,6 +88,7 @@ final class EditorModel: ObservableObject {
 
     /// What plays on 7F belongs to the previous session, so the next change sends the whole preset again.
     private func stopLive() {
+        finishTapping(sending: false)
         queue.removeAll()
         needsCheck = false
         link.endEditing()
@@ -110,6 +119,43 @@ final class EditorModel: ObservableObject {
         send(editor?.setBPM(bpm) ?? [])
     }
 
+    /// One tap on the TAP key of the effect at `place`. From the second tap on, the preset takes the tempo and the
+    /// effect's tempo switch goes to BPM. All taps of one go are one undo step and reach the amp once, after they pause.
+    func tap(place: Int) {
+        guard !isLocked, let editor else { return }
+        if tapSend == nil {
+            tapStart = editor.current
+            self.editor?.beginGesture()
+        }
+        tapSend?.cancel()
+        if let bpm = tapTempo.tap(at: ProcessInfo.processInfo.systemUptime) {
+            tappedBPM = Float(bpm.rounded())
+            _ = self.editor?.tapTempo(place: place, bpm: Float(bpm))
+        } else if tappedBPM == nil {
+            tappedBPM = editor.current.bpm
+        }
+        tapSend = Task { [weak self] in
+            try? await Task.sleep(for: Self.tapPause)
+            guard !Task.isCancelled else { return }
+            self?.finishTapping(sending: true)
+        }
+    }
+
+    /// How long after the last tap the tempo goes to the amp.
+    static let tapPause: Duration = .milliseconds(1200)
+
+    private func finishTapping(sending: Bool) {
+        guard let task = tapSend else { return }
+        task.cancel()
+        tapSend = nil
+        tappedBPM = nil
+        let start = tapStart
+        tapStart = nil
+        editor?.endGesture()
+        guard sending, let editor, editor.current != start else { return }
+        send([.whole(editor.current)])
+    }
+
     func setName(_ name: String) {
         guard !isLocked else { return }
         editor?.setName(name)
@@ -122,16 +168,19 @@ final class EditorModel: ObservableObject {
 
     func undo() {
         guard !showsOriginal else { return }
+        finishTapping(sending: true)
         send(editor?.undo() ?? [])
     }
 
     func redo() {
         guard !showsOriginal else { return }
+        finishTapping(sending: true)
         send(editor?.redo() ?? [])
     }
 
     func revert() {
         guard !showsOriginal else { return }
+        finishTapping(sending: true)
         send(editor?.revert() ?? [])
     }
 

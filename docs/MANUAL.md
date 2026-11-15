@@ -256,6 +256,10 @@ window or quitting erases the buffer.
   selector. Knobs turn by dragging (`⌥` for fine steps), with the scroll wheel or the arrow keys (`⇧` for big steps),
   a double click goes back to the model's start value, and VoiceOver can adjust them. `⌃1` – `⌃7` choose a unit,
   `⌃0` switches it.
+- **Tap tempo**: every delay has a "Tap" key beside its footswitch, on the Mac, the iPad and Linux. From the second
+  tap on, the preset takes the tapped tempo (from the last six taps) and the delay's tempo switch goes to BPM, so the
+  echo follows it. The tempo above the key is amber while tapping. The amp gets the whole preset once, 1.2 seconds
+  after the last tap, never once per tap; all taps of one go are one undo step.
 - **Live**: the first change sends the preset to the amp's temporary place, without touching a slot, and every change
   after it is heard at once. Only the newest value of a knob is sent, one message at a time, and model changes are
   spaced out, because a fast series of them once made the amp hang. After a lost connection the edited state goes

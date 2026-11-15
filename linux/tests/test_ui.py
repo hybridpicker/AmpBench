@@ -9,7 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QMessageBox  # noqa: E402
 
-from ampbench import factory, i18n  # noqa: E402
+from ampbench import factory, i18n, protocol  # noqa: E402
 from ampbench.fake_amp import FakeAmp  # noqa: E402
 from ampbench.library import PresetLibrary  # noqa: E402
 from ampbench.qtlink import QtLink  # noqa: E402
@@ -94,6 +94,30 @@ def test_first_change_sends_the_whole_preset_then_single_parameters(window):
     w._undo()
     w._undo()
     assert not w.editor.is_modified
+
+
+def test_the_delay_taps_its_tempo_and_sends_once_after_the_taps(window):
+    w, amp = window
+    w._slot_clicked(0)
+    wait_for(lambda: not w.link.core.is_editing_live and amp.active == 0)
+    w._select_place(3)
+    assert not w.field.tap_box.isVisibleTo(w)
+    w._select_place(5)
+    assert w.field.tap_box.isVisibleTo(w)
+    w.parameter_changed(5, 4, 0.0)
+    wait_for(lambda: w.link.core.is_editing_live)
+    sent_before = amp.log.count((protocol.CMD_SET, protocol.SUB_PRESET))
+    clock = iter([10.0, 10.5, 11.0, 11.5])
+    w._tap_clock = lambda: next(clock)
+    for _ in range(4):
+        w.field.tap_key.click()
+    assert w.editor.current.bpm == 120 and w.field.tap_bpm.text() == "120"
+    assert w.editor.current.effects[5].parameters[4].value == 1.0
+    assert amp.log.count((protocol.CMD_SET, protocol.SUB_PRESET)) == sent_before  # nothing sent while tapping
+    wait_for(lambda: amp.temporary is not None and amp.temporary.bpm == 120)
+    assert w.tapped_bpm is None
+    w._undo()
+    assert w.editor.current.bpm != 120 and w.editor.current.effects[5].parameters[4].value == 0.0
 
 
 def test_ab_comparison_plays_the_saved_state_and_locks_the_controls(window):

@@ -824,6 +824,8 @@ For every device, without exception:
   otherwise in `~/.config/ampbench/ollama-key` (0600); a key from the Spark Studio name (`service spark-studio`,
   `~/.config/spark-studio/ollama-key`) is copied over once. A running request cannot be cancelled there, its
   answer is only discarded after "Cancel request".
+  The delay's "Tap" key (2026-11-15, Mac/iPad `EditorModel.tap`, Linux `MainWindow._tap_tempo`) rests on the same
+  assumption: it sets `bpm` and the tempo switch to BPM. Not heard on the amp yet.
   Unchecked on the amp: that a delay with sync = BPM comes as a quarter note on `bpm`; the rule
   "dotted eighth = song tempo × 4/3" in the prompt rests on that.
 - **Audio tests through BlackHole**, keep watching: on 2026-11-08 green in the morning, four failures at noon,
