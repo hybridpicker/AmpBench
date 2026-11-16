@@ -22,8 +22,9 @@
 </div>
 
 Record a take, listen right away, decide and keep practicing, in a few seconds and without the mouse; shape the
-amp's sounds in a preset editor over Bluetooth; tune; and keep with every take the sound it was played with. Native
-on macOS (SwiftUI) and on Linux (Qt), with Presets and Tuner on the iPad from the Mac's code, and an encrypted
+amp's sounds in a preset editor over Bluetooth; tune; practice with a sample-exact metronome; and keep with every
+take the sound it was played with. Native on macOS (SwiftUI) and on Linux (Qt), with Presets, Tuner and Metronome on
+the iPad from the Mac's code, and an encrypted
 store that keeps your sounds in a place of your choice.
 
 | Record | Tuner |
@@ -150,10 +151,10 @@ ampbench --demo                                    # a simulated amp and a tempo
 ./ios/build.sh --device      # builds signed and installs it on a connected iPad
 ```
 
-The iPad app has the areas Presets and Tuner and the sound store; Record is not there yet. More in
+The iPad app has the areas Presets, Tuner and Metronome and the sound store; Record is not there yet. More in
 [ios/README.md](ios/README.md).
 
-The Linux app has the areas Record, Presets and Tuner, the sound library, the Kemper import, hashtags and AI Sound;
+The Linux app has the areas Record, Presets, Tuner and Metronome, the sound library, the Kemper import, hashtags and AI Sound;
 only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far. `./sync.sh` keeps a Mac and a Linux laptop on the same version,
 whichever of the two you develop on. More in [linux/README.md](linux/README.md) and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 

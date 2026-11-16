@@ -81,6 +81,8 @@ field, and only `⌫` removes anything, only to the Trash, undoably. `⌘/` show
 | `⌘T` | Tuner | Needle or strobe |
 | `⌘↑` / `⌘↓` / `⌘0` | Tuner | Concert pitch A4 0.1 Hz up / down / back to 440 Hz |
 | `⌃1` – `⌃6` | Tuner | Tuning: Standard, Drop D, DADGAD, Open G, half a step down, chromatic |
+| `⌘T` | Metronome | Tap the tempo |
+| `⌘↑` / `⌘↓` | Metronome | 1 BPM faster / slower; with `⇧` 10 BPM |
 
 On a device with more slots, `⌘1` – `⌘8` and `⌥⌘1` – `⌥⌘8` reach all of them. The list is
 `Sources/SparkCore/StudioKeymap.swift`, and its tests make sure that no key does two things in one area.

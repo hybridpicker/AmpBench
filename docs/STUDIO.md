@@ -1,7 +1,7 @@
 # AmpBench
 
 Spark Recorder and Spark Presets are one app: one process, one icon, one window with a fixed deck on top and the
-areas below it (Record, Presets, Tuner). Every take knows its sound, the tempo has one source, piece and song are
+areas below it (Record, Presets, Tuner, Metronome). Every take knows its sound, the tempo has one source, piece and song are
 one thing. This document is the one place for structure, decisions and what is still to come. It replaces the earlier
 work briefs (ampbench-prompt.md, spark-presets-next-prompt.md, both in the Git history). The design is in
 [DESIGN.md](DESIGN.md), how to use the app in the [manual](MANUAL.md) and the [README](../README.md).
@@ -38,7 +38,7 @@ labels.
 | – | AI Sound's "Listen" on a REACTOR 50: the suggestion's nearest REACTOR sound as live commands on the playing slot | d099b66 | test with a simulated REACTOR; not yet heard on the device |
 | – | REACTOR 50 as a recording input: "Reactor 50 USB Audio" in the profile (Mac and Linux) | 3120c9b | read on the device (2026-11-16); the deck showed "Ready" with it as input; no take recorded yet |
 | – | The AI key is read when AI Sound opens, not at launch: a Keychain question after an install had held the launch before the window appeared | fea14dd | installed (2026-11-16); launch checked, AI Sound with the key not yet opened since |
-| – | Area Metronome (⇧⌘4) on Mac, iPad and Linux: accents per beat, subdivisions, three sounds, tap, tempo trainer, tempo and pattern kept in a piece; C renderer on the output's sample clock (`spark_metronome_*`), Linux port on `pw-cat` | 9297313, 7125156, 617da0e | offline: two hours at 97 BPM without a millionth of a sample of drift, block-size independent, sub-sample onset, trainer, changes on the beat; seen running in a test instance on the Mac (lamps follow the beat, Space starts and stops); iPad built for the simulator only; Linux tested headless on the Mac; not yet heard by the owner, not run on the laptop or a real iPad |
+| – | Area Metronome (⇧⌘4) on Mac, iPad and Linux: accents per beat, subdivisions, three sounds, tap, tempo trainer, tempo and pattern kept in a piece; C renderer on the output's sample clock (`spark_metronome_*`), Linux port on `pw-cat` | 9297313, 7125156, 617da0e | offline: two hours at 97 BPM without a millionth of a sample of drift, block-size independent, sub-sample onset, trainer, changes on the beat; seen running in a test instance on the Mac (lamps follow the beat, Space starts and stops); installed on the Mac and on the owner's iPad (2026-11-16), not yet opened there; Linux tested headless on the Mac, pulled on the laptop and installed once its open app closes; not yet heard by the owner |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -75,7 +75,7 @@ AmpBench  (app: one window, areas, the connections between them; Info.plist with
   `RecorderSession` (formerly Spark Recorder's AppDelegate) takes over the app's window: the Dock's REC, "the
   recording continues when the window is closed", restoring after a crash and the UI self-test refer to it.
 - **One window.** The deck fixed on top (122 pt), below it the area, chosen with `SegmentTabs` in the toolbar or
-  ⇧⌘1 / ⇧⌘2 / ⇧⌘3 (menu View). Smallest content 1120 × 720. Areas are rebuilt when switching, their state lives in
+  ⇧⌘1 to ⇧⌘4 (menu View). Smallest content 1120 × 720. Areas are rebuilt when switching, their state lives in
   the models (also which pieces are expanded). The recorder's sheets hang on the whole window, its messages appear in
   the area Presets on top, above the content.
 - **Menus follow the area.** `AppCommands` and `PresetCommands` have `isActive`. When their area is not in front,
@@ -455,11 +455,12 @@ Space on a focused key with full keyboard access presses the key, except during 
 
 | Where | Shortcuts |
 |---|---|
-| everywhere | R, Space, ⇧⌘1/⇧⌘2/⇧⌘3, ⌘/, ⌘Z/⇧⌘Z (in the area in front), ⌘S (preset in the editor), ⌘1–⌘8 (connected, as many slots as the device has) |
+| everywhere | R, Space (in Metronome: start/stop), ⇧⌘1–⇧⌘4, ⌃⌘M (metronome), ⌘/, ⌘Z/⇧⌘Z (in the area in front), ⌘S (preset in the editor), ⌘1–⌘8 (connected, as many slots as the device has) |
 | Record | L M K F B N T G, ⌘G, 1–5, - + 0, ← → (with ⇧), ⌫ ⌦ ⌘⌫, ⌘E, ⇧⌘R, ⌘F, Esc |
 | Presets | ⌘N, ⇧⌘N, ⌘D, ⇧⌘S, ⌥⌘1–⌥⌘8, ⌘B, ⇧⌘L, ⌘R, ⌃1–⌃7, ⌃0, arrows on a knob, ⌘E, ⌘⌫, ⇧⌘R, ⌘L, ⌘F |
 | Presets, library open | Esc, ↩, ⌘↩, ⌘K, ⇧⌘F, ⌘T, ⌘G, ⌘A; ⌘E and ⌘⌫ act on the selected sounds |
 | Tuner | ⌘T (needle/strobe), ⌘↑/⌘↓ (concert pitch ±0.1 Hz), ⌘0 (440 Hz), ⌃1–⌃6 (tuning); no single keys |
+| Metronome | ⌘T (tap), ⌘↑/⌘↓ (±1 BPM), ⇧⌘↑/⇧⌘↓ (±10 BPM); no single keys of its own, Space starts and stops |
 
 Decided: ⌘E, ⌘⌫, ⇧⌘R act on the take or the preset depending on the area. ⌘S saves the preset in the editor
 everywhere (the recorder saves by itself). ⌘1–⌘4 everywhere, but only with a connection. R everywhere, even though it

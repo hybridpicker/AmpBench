@@ -281,8 +281,8 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 - `swift test` runs `Tests/SparkDesignTests`, which computes the contrast of every text color on the device, keys,
   nameplates, amp and pills against each background it is drawn on and fails below 4.5 : 1; lines and bars on the
   desk must reach 3 : 1.
-- Smallest window: 1120 × 720 for AmpBench, the deck's 122 pt included; the areas Presets and Tuner get
-  1120 × 598. The
+- Smallest window: 1120 × 720 for AmpBench, the deck's 122 pt included; the areas Presets, Tuner and
+  Metronome get 1120 × 598. The
   `pictures` self-test and the snapshot at `--size 1120x720` show both areas there; nothing may be cut off. At that
   size the editor's board scrolls: the last row of the unit panel (such as the delay's tempo switch) is reached by
   scrolling, it is not cut. A taller minimum would no longer fit 800 pt screens with the Dock. Where room runs short, the design

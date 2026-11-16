@@ -15,8 +15,8 @@ Requires macOS 14 or later and the Swift toolchain from Xcode. There are no exte
 an Apple Development certificate if one exists, because macOS then keeps the microphone permission across rebuilds.
 Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the choice, and `-` forces ad-hoc.
 
-**Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets and
-Tuner, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
+**Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets,
+Tuner and Metronome, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
 See [linux/README.md](../linux/README.md).
 Development happens on either machine. Each has its own clone, and GitHub's `main` is where they meet: `./sync.sh`
 publishes this machine's commits, installs them here and has the other machine pull and install them, then checks
