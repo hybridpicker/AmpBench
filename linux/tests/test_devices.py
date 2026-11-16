@@ -55,7 +55,8 @@ def test_names_slots_and_usb():
     assert devices.loggable_name("Spark NEO Control") == "Spark NEO Control"
     assert devices.REACTOR_50.slot_name(0) == "Red 1" and devices.REACTOR_50.slot_name(7) == "Green 4"
     assert devices.SPARK_NEO.slot_name(2) == "Slot 3"
-    assert devices.recordable_usb_names() == ["spark"]
+    assert devices.recordable_usb_names() == ["spark", "reactor 50"]
+    assert devices.REACTOR_100.usb_audio_names == ()
 
 
 # MARK: The REACTOR's reports

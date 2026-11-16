@@ -6,7 +6,7 @@ watches the level and never waits for the user interface. If the app stalls, the
 complete; if the app dies, the file is repaired on the next start (``wav.repair``).
 
 Like the Mac app it only uses a USB device whose name holds one of the profiles' USB audio names (devices.py, today
-"spark"; the REACTOR's joins once read on the device). There is no microphone fallback.
+"spark" and "reactor 50"). There is no microphone fallback.
 """
 from __future__ import annotations
 

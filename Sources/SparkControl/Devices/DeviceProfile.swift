@@ -177,8 +177,9 @@ public extension DeviceProfile {
         capabilities: [.listen, .buttonEvents, .tuner, .tapTempo, .usbAudio, .textToTone, .liveSound,
                        .reactorPresets, .switchSlot, .liveEdit, .store],
         keepsTemporaryAfterDisconnect: nil, confirmsParameters: false, checkedFirmware: "0.1.4.85",
-        // Its USB audio name was not read yet; it joins once read on the device, so nothing is guessed.
-        usbAudioNames: [],
+        // Read on the device on 2026-11-16: "Reactor 50 USB Audio", 1 in, 2 out, 48 kHz. The owner's own name part
+        // is not in it.
+        usbAudioNames: ["reactor 50"],
         englishChecked: "Read along: knobs, amp choice, Push/Smooth, Heat, effects, TAP, preset, bank and tuner. Sent and heard (2026-11-10): gain, bass, reverb on/off and level, amp choice. Switching slots, storing its own presets and reading them back (2026-11-11). Never a Spark preset.")
 
     /// Like the REACTOR 50, but never checked.
@@ -189,6 +190,8 @@ public extension DeviceProfile {
         profile.bleNamePrefixes = ["Reactor 100"]
         // Never checked: it is only listened to, whatever the 50 takes.
         profile.capabilities.remove([.liveSound, .reactorPresets, .switchSlot, .liveEdit, .store])
+        // Its USB audio name was never read.
+        profile.usbAudioNames = []
         profile.checkedFirmware = nil
         profile.englishChecked = "Not checked. Treated like the REACTOR 50: read only, send nothing."
         return profile

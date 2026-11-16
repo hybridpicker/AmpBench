@@ -91,11 +91,12 @@ SPARK_NEO = DeviceProfile(
 REACTOR_50 = DeviceProfile(
     "reactor50", "REACTOR 50", REACTOR_SERVICE, ("Reactor 50",), (), 8, "spark_ble",
     frozenset({LISTEN, BUTTON_EVENTS, TUNER, TAP_TEMPO, USB_AUDIO, TEXT_TO_TONE}), None, False, None,
-    (),  # its USB audio name joins once read on the device, nothing is guessed
+    ("reactor 50",),  # read on the device on 2026-11-16: "Reactor 50 USB Audio", 1 in, 2 out, 48 kHz
     "Read only: knobs, amp choice, Push/Smooth, Heat, effects, TAP, preset, bank and tuner. Nothing was ever "
     "sent.", bank_size=4, english_bank_names=("Red", "Green"))
 
 REACTOR_100 = replace(REACTOR_50, id="reactor100", display_name="REACTOR 100", ble_name_prefixes=("Reactor 100",),
+                      usb_audio_names=(),  # never read on a REACTOR 100
                       english_checked="Not checked. Treated like the REACTOR 50: read only, send nothing.")
 
 UNKNOWN_SPARK = DeviceProfile(

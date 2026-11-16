@@ -84,7 +84,7 @@ match the catalog in the code. After a change to `Sources/SparkControl/Catalog`,
 `swift run AmpBench --catalog-export docs/ai`.
 
 The audio engine refuses every input outside its policy. The default allows USB devices whose name holds one of the
-device profiles' USB audio names (today "Spark"; the REACTOR's joins once read on the device), and tests use a policy
+device profiles' USB audio names (today "Spark" and the REACTOR 50's "Reactor 50", read on the device), and tests use a policy
 that allows virtual test devices and nothing real, not even the amp. Device tests run against simulated devices
 (`SimulatedDevice`, and `fake_amp.py` on Linux): the NEO drops its temporary sound, and the REACTOR gets nothing but
 its read requests, the slot switch, live commands by the names it takes and its own presets back, never a Spark
