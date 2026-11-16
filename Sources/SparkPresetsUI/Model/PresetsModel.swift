@@ -485,6 +485,12 @@ final class PresetsModel: ObservableObject {
             report?(text)
             return
         }
+        // A REACTOR has no temporary place: it gets the nearest sound of its own as live commands on the slot it
+        // plays, as "Play on the REACTOR" does. The master stays; nothing is stored, a slot change ends it.
+        if !link.profile.can(.playTemporary), link.profile.can(.liveSound) {
+            tryOutOnReactor(preset, report: report)
+            return
+        }
         guard link.profile.can(.playTemporary) else {
             let text = tr("%@ plays no sound from AmpBench. It is only read.", link.profile.displayName)
             show(.warning, text)

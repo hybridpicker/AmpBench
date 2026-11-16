@@ -643,6 +643,8 @@ extension German {
             "„%@“ ist auf %@ gespeichert und geprüft. Das bisherige „%@“ liegt als Sicherung auf dem Mac.",
         "“%@” plays for trying out. Nothing is stored, a preset change ends it.":
             "„%@“ spielt zum Ausprobieren. Gespeichert ist nichts, ein Preset-Wechsel beendet es.",
+        "“%@” as the nearest %@ sound: %@. Master and Volume stay as they are. Nothing is stored, a slot change ends it.":
+            "„%@“ als nächstliegender %@-Sound: %@. Master und Volume bleiben, wie sie sind. Gespeichert ist nichts, ein Platzwechsel beendet es.",
         "“%@” – every suggestion appears as soon as it is ready. “Listen” plays it on the amp, nothing is stored. The buttons below refine only that suggestion. Only “Keep” puts it into your library.":
             "„%@“ – jeder Vorschlag erscheint, sobald er fertig ist. „Anhören“ spielt ihn am Verstärker, gespeichert wird nichts. Die Knöpfe darunter bessern nur diesen Vorschlag nach. Erst „Behalten“ legt ihn in deine Bibliothek.",
     ]

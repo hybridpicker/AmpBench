@@ -231,6 +231,37 @@ extension PresetsModel {
         }
     }
 
+    /// Plays a preset from elsewhere, such as an AI suggestion, on a REACTOR: its nearest REACTOR sound on the slot
+    /// it plays. `report` gets nil when it arrived, or what went wrong.
+    func tryOutOnReactor(_ preset: SparkPreset, report: (@MainActor (String?) -> Void)?) {
+        let device = link.profile.displayName
+        let sound: ReactorSound
+        do {
+            sound = try ReactorSound(preset: preset)
+        } catch {
+            report?(error.localizedDescription)
+            show(.error, error.localizedDescription)
+            return
+        }
+        guard canUseAmp else {
+            report?(tr("The amp is busy right now. Try again in a moment."))
+            return
+        }
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await link.play(sound)
+                show(.info, tr("“%@” as the nearest %@ sound: %@. Master and Volume stay as they are. Nothing is stored, a slot change ends it.",
+                               preset.name, device, sound.summary))
+                report?(nil)
+            } catch {
+                let text = tr("The sound did not fully arrive on the %@: %@", device, error.localizedDescription)
+                show(.error, text)
+                report?(text)
+            }
+        }
+    }
+
     func playOnReactor(_ sound: ReactorSound) {
         reactorRequest = nil
         let device = link.profile.displayName
