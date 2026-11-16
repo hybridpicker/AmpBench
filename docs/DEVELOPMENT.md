@@ -37,7 +37,7 @@ AmpBench joins the former apps Spark Recorder and Spark Presets. Plan, decisions
 ## Project layout
 
 ```
-Sources/CSparkRT        Realtime capture, click and the tuner's tap (C)
+Sources/CSparkRT        Realtime capture, click, the practice metronome's renderer and the tuner's tap (C)
 Sources/SparkCore       Capture, library, repair, edits, playback, export, statistics, the app's folders and keymap,
                         pitch detection for the tuner (no UI)
 Sources/SparkDesign     The design: colors, keys, lamps, displays, knobs, pedals (SwiftUI, no app code)
@@ -46,11 +46,12 @@ Sources/SparkControl    The amp's Bluetooth control protocol, the model catalog,
 Sources/SparkRecorderUI The deck and the area Record: window parts, menus, keys, self-test, headless audio commands
 Sources/SparkPresetsUI  The area Presets: sidebar, editor, menus and the Bluetooth link (CoreBluetooth)
 Sources/SparkTunerUI    The area Tuner: its front and menus; no Bluetooth of its own, no sound
+Sources/SparkMetronomeUI The area Metronome: its front, model and menus; the tempo through MetronomeTempo
 Sources/AmpText         The UI texts: English in the code, German from tables, the language choice
 Sources/SoundStore      The sound store: the age format, the places (folder, SSH, HTTPS), the three-way sync, the
                         device's profile (settings, keychain). Foundation and CryptoKit only
 Sources/AmpBench        The app: one window, the areas, and what ties takes, sounds and tempo together
-Sources/AmpBenchPad     The iPad app's own code: its window with the areas Presets and Tuner, the tuner's input.
+Sources/AmpBenchPad     The iPad app's own code: its window with the areas Presets, Tuner and Metronome, the tuner's input.
                         Empty on the Mac
 ios/                    The iPad app's bundle, Xcode project (XcodeGen), build script and UI tests
 Sources/SparkProbe      spark-probe, the experimental Bluetooth test tool
@@ -58,6 +59,7 @@ Tests/SparkCoreTests    Unit tests and audio tests with synthetic signals
 Tests/SparkControlTests Protocol and library tests with made-up presets and Kemper files built in the test
 Tests/SparkDesignTests  Contrast of every text color against its backgrounds, the tuner's blocks
 Tests/SparkTunerUITests The tuner's model with a made-up input
+Tests/SparkMetronomeUITests The metronome's model with a made-up tempo source (no audio output)
 Tests/AmpTextTests      Every UI text has its German, with matching placeholders
 Tests/SoundStoreTests   The age format against the `age` tool, the places with made-up servers, the sync rules, two
                         devices on one store; made-up data in temporary folders, a keychain service of their own

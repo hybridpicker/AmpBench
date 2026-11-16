@@ -48,6 +48,17 @@ takes USB when the amp has it, otherwise the amp's own tuner. `pitch.py` and `tu
 and tunings with numpy (about 7 % of one core on the laptop); `tuner.py` is the engine and model, `ui/tuner_view.py`
 the front.
 
+**The area Metronome** (Ctrl+Shift+4) works as on the Mac: one lamp per beat that lights when its click is heard
+and cycles accent, normal, soft and silent on a click, 1 to 16 beats per bar, eighths, triplets or sixteenths, three
+sounds, tap tempo (Ctrl+T in this area), Ctrl+↑/↓ for the tempo (with Shift in tens), the tempo trainer, and a
+piece's tempo, bar and pattern loaded and kept in the recordings library (the same JSON as on the Mac). Space starts
+and stops it there, Ctrl+Alt+M from every area; a recording or a playing take stops it. `metronome.py` ports the
+Mac's C renderer: every pulse at `anchor + k × interval`, its click started at the fraction of a sample where it
+lies. The samples go to `pw-cat` through a pipe of one page, so each write waits until PipeWire took the block before
+and the device's clock paces the renderer; the lamps follow what is still in the pipe plus pw-cat's latency. Its
+settings are kept under `metronome` in `~/.config/local.ampbench/AmpBench.conf`; `ui/metronome_view.py` is the front,
+`--area metronome` opens it at start (for pictures).
+
 **AI Sound** (Preset ⇒ "AI Sound from a description …", Ctrl+Alt+N) works as on the Mac: a description in your own
 words goes to Ollama's cloud API, three different suggestions arrive one by one, "Listen" plays one on the amp's
 temporary place, "warmer", "more gain", "less reverb" and "brighter" adjust it, "Keep" puts it into the library

@@ -79,6 +79,15 @@ store that keeps your sounds in a place of your choice.
 - Tunings Standard, Drop D, DADGAD, Open G, half a step down, chromatic; concert pitch 430.0 to 450.0 Hz.
 - Listens along with the recorder's input, or switches on the amp's own tuner over Bluetooth.
 
+**Metronome** (Mac, iPad and Linux)
+- An area of its own (`⇧⌘4`): one lamp per beat that lights when its click is heard, and a click on it makes the
+  beat an accent, normal, soft or silent; eighths, triplets or sixteenths between the beats; three sounds; tap tempo.
+- Every click lies on the output's own sample clock at its exact position, to a fraction of a sample, computed and
+  never added up: after two hours at 97 BPM no beat is off by a millionth of a sample (tested).
+- A tempo trainer raises (or lowers) the tempo by a step every few bars up to a target.
+- A piece keeps its tempo, bar, accents and subdivision; one click loads them. The metronome shares the one tempo
+  of the deck's click and the presets, and a recording takes it over.
+
 **AI Sound**
 - Describe a sound in your own words and get three suggestions, played on the amp to try.
 - "warmer", "more gain", "less reverb" and "brighter" adjust a suggestion.

@@ -25,9 +25,9 @@ itself.
 
 - The **deck** stays on top: the record key with the display, the level, the Spark module (USB input, output, retro,
   and the lamp "BT" for the amp's Bluetooth) and the click.
-- Below it the toolbar's tabs, or `⇧⌘1`, `⇧⌘2` and `⇧⌘3`, choose the **area**: **Record** (waveform, transport,
+- Below it the toolbar's tabs, or `⇧⌘1` to `⇧⌘4`, choose the **area**: **Record** (waveform, transport,
   library, pieces, statistics), **Presets** (the amp's slots, the presets on the Mac and the editor) or
-  **Tuner**.
+  **Tuner** or **Metronome**.
 - A running recording continues when the window closes. The Dock icon then shows REC and brings the window back.
 - **Bluetooth**: on its very first start AmpBench does not look for the amp; it connects when the area Presets or
   Tuner first shows. Once it has been connected to a device, it looks for the amp as soon as it starts, whichever
@@ -49,8 +49,9 @@ field, and only `⌫` removes anything, only to the Trash, undoably. `⌘/` show
 | Key | Where | Action |
 |---|---|---|
 | `R` | all | Start or stop recording, also "Again" |
-| `Space` | all | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels |
-| `⇧⌘1` / `⇧⌘2` / `⇧⌘3` | all | Area Record / Presets / Tuner |
+| `Space` | all | Play or pause. During a recording it stops it and plays the new take right away, during the count-in it cancels. In the area Metronome it starts and stops the metronome |
+| `⇧⌘1` / `⇧⌘2` / `⇧⌘3` / `⇧⌘4` | all | Area Record / Presets / Tuner / Metronome |
+| `⌃⌘M` | all | Start or stop the metronome |
 | `⌘Z` / `⇧⌘Z` | all | Undo / redo, in the area in front |
 | `⌘S` | all | Save the preset in the editor on the Mac |
 | `⌘1` – `⌘4` | all | Play slot 1 to 4 on the amp, while connected |
@@ -451,9 +452,10 @@ with the two menu items under Presets; where it keeps the key is in [STORE.md](S
 
 ![Presets on the iPad](pictures/ipad-presets.png)
 
-The iPad app has the areas Presets and Tuner, the same as on the Mac, with tabs on top. Fingers do what the pointer
+The iPad app has the areas Presets, Tuner and Metronome, the same as on the Mac, with tabs on top. Fingers do what the pointer
 does: tap a slot or a preset to hear it, drag up or down on a knob to turn it, double-tap for the default value.
-With a keyboard the Mac's shortcuts work (`⌘S`, `⌘Z`, `⌘1` – `⌘4`, `⇧⌘2` and `⇧⌘3` for the areas).
+With a keyboard the Mac's shortcuts work (`⌘S`, `⌘Z`, `⌘1` – `⌘4`, `⇧⌘2` to `⇧⌘4` for the areas, Space for the
+metronome).
 
 - **Sounds** are files in the app's Documents folder, which the Files app shows under "On My iPad → AmpBench". The
   sound store brings the Mac's sounds there. A removed sound goes to a hidden folder `.Trash` beside the others.
@@ -466,6 +468,8 @@ With a keyboard the Mac's shortcuts work (`⌘S`, `⌘Z`, `⌘1` – `⌘4`, `�
   tuner over Bluetooth. It listens only while the tuner shows and the app is in front.
 - **Narrow windows**: in portrait or beside another app the editor is shown smaller instead of cut off. Hide the
   sidebar for more room.
+- **Metronome**: the same as on the Mac, on the iPad's current output (other apps keep playing). Its tempo is its
+  own, since the iPad has no recorder; opening a preset sets it, and there are no pieces to keep it in.
 - **Not on the iPad**: the area Record, and a store over SSH (use a folder or an HTTPS address).
 
 ## The area Tuner
@@ -495,3 +499,36 @@ the lamps SIGNAL, TOO LOW, IN TUNE (green, within ±0.5 cents for 0.4 s) and TOO
   reference tone. Audio is analyzed in memory only; nothing is stored, sent or logged.
 
 How it measures, and what the tests prove, is in [STUDIO.md](STUDIO.md#tuner).
+
+## The area Metronome
+
+A practice metronome in an area of its own (`⇧⌘4`). The tempo shows large; beside it the bar and the beat, and while
+the tempo trainer runs, the tempo it has reached.
+
+- **Beats:** one lamp per beat. It lights when its click is heard, not when it is computed: every click comes with
+  the time it leaves the output, latency included. A click on a lamp makes the beat an **accent** (higher and
+  louder), **normal**, **soft** or **silent**; a silent beat is still counted. The first beat is an accent until you
+  change it.
+- **Bar and subdivision:** 1 to 16 beats per bar, and quarters, eighths, triplets or sixteenths between the beats,
+  with their own volume.
+- **Sound:** classic (the recorder's click), wood or beep, and the volume.
+- **Tempo:** 20 to 400 BPM with the arrows, `⌘↑`/`⌘↓` (with `⇧` in tens) or tapped (`⌘T`). A new tempo, bar or
+  subdivision starts on the next beat, never in the middle of one.
+- **Tempo trainer:** raises the tempo by a step (1 to 20 BPM) every 1 to 32 bars until a target; a target below the
+  tempo slows it down instead. It starts again from the set tempo whenever you change something.
+- **Piece:** choose a piece, then "Load" takes its tempo, bar, accents and subdivision, and "Keep in piece" stores
+  them there. "To metronome" in the piece's details does the same as "Load".
+- **One tempo:** the metronome, the deck's click, a preset's tempo and the pieces share it. Opening a preset sets it;
+  a tempo changed here is offered to the open preset, as from the deck.
+- **Start and stop:** `Space` in this area, `⌃⌘M` from every area, or the key "Start". It keeps playing while you
+  change to another area, so a sound can be adjusted while it counts. A recording or a playing take stops it, since
+  they bring their own click on the same tempo.
+- **Where it plays:** on the output chosen in the deck ("Output"). That can be the Spark itself over USB, so the
+  click comes from the amp together with the guitar.
+
+**How exact it is.** The clicks are computed on the audio thread against the output's own sample clock, not by a
+timer: each one lies at `start + n × interval`, a product and never a running sum, and its sound starts at the
+fraction of a sample where it belongs. Tested offline: after two hours at 97 BPM no beat is off by a millionth of a
+sample, and the sound does not depend on how the output cuts it into blocks. What remains is the output device's own
+clock and latency, which the metronome cannot see past.
+
