@@ -85,13 +85,19 @@ final class PresetsModel: ObservableObject {
     /// message after the import.
     var onImportSongs: (([ImportedSong]) -> String?)?
     // AI Sound: a description in words becomes a recipe over Ollama's cloud API.
-    @Published var showsAI = false
+    /// Opening AI Sound reads the key, never the launch: the Keychain may ask first, and that question must not
+    /// hold up the window.
+    @Published var showsAI = false {
+        didSet { if showsAI { loadAIKeyOnce() } }
+    }
+    private var aiKeyLoaded = false
+    private var isLoadingAIKey = false
     @Published var aiRequest = ""
     @Published var aiModel: String = "gpt-oss:120b" {
         didSet { if !aiModel.isEmpty { AISetting.save(AISetting.modelKey, aiModel) } }
     }
     @Published var aiAPIKey: String = "" {
-        didSet { AIKeyStore.save(aiAPIKey) }
+        didSet { if !isLoadingAIKey { AIKeyStore.save(aiAPIKey) } }
     }
     /// Ollama Cloud counts as connected once an API key is stored.
     var aiConnected: Bool { !aiAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
@@ -159,15 +165,6 @@ final class PresetsModel: ObservableObject {
         // "qwen3:32b" was the first default but is not offered by the cloud.
         let storedModel = AISetting.load(AISetting.modelKey, default: AISetting.defaultModel)
         aiModel = storedModel == "qwen3:32b" ? AISetting.defaultModel : storedModel
-        // Earlier versions kept the key in the preferences file; move it into the Keychain and delete the copy.
-        let legacy = AISetting.load("AI Sound API Key", default: "")
-        if !legacy.isEmpty {
-            AIKeyStore.save(legacy)
-            UserDefaults.standard.removeObject(forKey: "AI Sound API Key")
-        }
-        AIKeyStore.carryOverFromSparkStudio()
-        AIKeyStore.bindToThisMac()
-        aiAPIKey = AIKeyStore.load()
         aiHistory = UserDefaults.standard.stringArray(forKey: AISetting.historyKey) ?? []
     }
 
@@ -175,6 +172,23 @@ final class PresetsModel: ObservableObject {
         reloadLibrary()
         store.syncIfDue()
         if bluetooth { link.start() }
+    }
+
+    /// Reads the AI key from the Keychain the first time AI Sound opens. Earlier versions kept it in the preferences
+    /// file, or under Spark Studio's name; both are moved first.
+    func loadAIKeyOnce() {
+        guard !aiKeyLoaded else { return }
+        aiKeyLoaded = true
+        let legacy = AISetting.load("AI Sound API Key", default: "")
+        if !legacy.isEmpty {
+            AIKeyStore.save(legacy)
+            UserDefaults.standard.removeObject(forKey: "AI Sound API Key")
+        }
+        AIKeyStore.carryOverFromSparkStudio()
+        AIKeyStore.bindToThisMac()
+        isLoadingAIKey = true
+        aiAPIKey = AIKeyStore.load()
+        isLoadingAIKey = false
     }
 
     // MARK: Selection
