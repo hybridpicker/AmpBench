@@ -23,8 +23,9 @@ public struct HeardSound {
 /// Spark Presets inside another app, AmpBench: the same model, content and menus as the app, plus what Studio
 /// needs to tie takes, tempo and the deck to the presets.
 ///
-/// Bluetooth starts only when the content first shows, from its own start task, and `disconnect` ends the
-/// connection again, so the Spark app on the phone can take the amp.
+/// Bluetooth starts when the content first shows, from its own start task, or with the app once a device was
+/// connected before (`startsLinkAtLaunch`); `disconnect` ends the connection again, so the Spark app on the phone can
+/// take the amp.
 @MainActor
 public final class PresetsHost: ObservableObject {
     let model: PresetsModel
@@ -126,6 +127,10 @@ public final class PresetsHost: ObservableObject {
         let model = model
         Task { await PresetsContent.startOnce(model) }
     }
+
+    /// True when Bluetooth may start with the app: a device was connected here before, so the amp is ready in every
+    /// area and no permission question comes at launch. A first launch still waits for Presets or the tuner.
+    public var startsLinkAtLaunch: Bool { model.link.knowsDevices }
 
     /// The connected device's name when its own tuner can be switched on from here (Spark MINI, NEO), nil otherwise.
     public var ampTunerDevice: String? { model.link.canUseAmpTuner ? model.link.profile.displayName : nil }

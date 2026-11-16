@@ -35,6 +35,17 @@ final class SparkLinkTests: XCTestCase {
         return condition()
     }
 
+    func testALinkKnowsDevicesOnlyAfterTheFirstConnection() async {
+        let (_, link) = make([.mini])
+        XCTAssertFalse(link.knowsDevices, "a first launch asks for no Bluetooth before an area needs it")
+        link.start()
+        let connected = await until { link.status == .connected }
+        XCTAssertTrue(connected)
+        XCTAssertTrue(link.knowsDevices)
+        let again = SparkLink(transport: SimulatedDevice([]), memory: DeviceMemory(defaults: defaults))
+        XCTAssertTrue(again.knowsDevices, "the next launch starts Bluetooth at once")
+    }
+
     private func ready(_ link: SparkLink) async -> Bool {
         await until {
             link.status == .connected && link.activity == nil
@@ -481,4 +492,5 @@ enum ReactorChainFixture {
         data += [0x9A] + effects.flatMap { ReactorFixture.block($0.0, on: $0.1, $0.2) }
         return data + ReactorPreset.checksum(of: data.dropFirst(2))
     }
+
 }

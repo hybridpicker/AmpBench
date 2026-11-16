@@ -65,8 +65,15 @@ final class StudioDelegate: NSObject, NSApplicationDelegate {
         // pictures with --appearance light, and the recorder's pictures self-test switches by itself.
         NSApp.appearance = NSAppearance(named: .darkAqua)
         studio.makeWindow()
-        // Bluetooth stays off until the area Presets first shows, unless a test asks for it right away.
-        if PresetsHost.isRequestedAtLaunch { studio.area = .presets }
+        // A test that asks for the presets gets them at once. Otherwise Bluetooth starts with the app once a device
+        // was connected here before, so the amp is found whichever area shows; on a first launch it waits for
+        // Presets or the tuner, where the permission question makes sense. Test libraries keep to the old way, so
+        // pictures never reach for a real amp. "Disconnect" still holds until the next launch.
+        if PresetsHost.isRequestedAtLaunch {
+            studio.area = .presets
+        } else if !StudioLaunch.isTestLibrary, studio.presets.startsLinkAtLaunch {
+            studio.presets.startLinkOnce()
+        }
         // First, so that a message of the recorder's start, such as a repaired take, replaces it and is not hidden.
         if let message = StudioLaunch.takeoverMessage { studio.recorder.inform(message) }
         // As in Spark Recorder: recovery of an interrupted take, then the window, then the self-test.

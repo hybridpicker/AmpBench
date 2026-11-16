@@ -196,6 +196,9 @@ final class SparkLink: NSObject, ObservableObject {
         updateDevices()
     }
 
+    /// True once any device was connected here: Bluetooth was allowed before, so starting it asks nothing.
+    var knowsDevices: Bool { !memory.known.isEmpty }
+
     /// The simulated devices of window pictures, nil with real Bluetooth.
     var simulated: SimulatedDevice? { transport as? SimulatedDevice }
 
