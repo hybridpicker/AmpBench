@@ -143,8 +143,11 @@ place can be the same folder on the server, so the Mac and the iPad meet there.
 
 - The Linux store was checked against the Swift code on a Mac (2026-11-14): a made-up store in a folder, synced in
   turn by the Linux app's Python and by the Swift `SoundStore`, with new, edited and removed sounds, a conflict each
-  way and names with accents in both spellings; both sides read the store back whole. Not yet tried: the Linux app
-  on the Linux laptop against the real store, the keyring there, and its SSH and HTTPS places against a real server.
+  way and names with accents in both spellings; both sides read the store back whole. On 2026-11-16 the Linux
+  laptop was set up from the command line against the author's real HTTPS place: place, password and key piped over
+  from the Mac (`--store-setup https`, `--store-key set`), both secrets in the desktop's keyring (reached over SSH
+  through the session's `DBUS_SESSION_BUS_ADDRESS`), the first sync fetched all 92 sounds and `--store-verify` read
+  them back whole. Not yet tried: the window's store on Linux, and the SSH place against a real server.
 - On Linux a folder below the presets folder whose name has an accent can end up twice, once in each spelling, when
   it is already there in the Mac's spelling (copied over by hand) and a new sound arrives for it. Sounds directly in
   the presets folder are not affected.
