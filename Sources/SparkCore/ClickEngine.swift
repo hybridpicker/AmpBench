@@ -6,47 +6,6 @@ import Foundation
 #if os(macOS)
 import CoreAudio
 
-public struct MetronomeSettings: Codable, Equatable, Sendable {
-    public var bpm: Double
-    public var beatsPerBar: Int
-    public var volume: Float
-    public var countInBars: Int
-    /// The click sounds while playing or recording, and never in between.
-    public var clickEnabled: Bool
-
-    public init(bpm: Double = 90, beatsPerBar: Int = 4, volume: Float = 0.6, countInBars: Int = 0,
-                clickEnabled: Bool = false) {
-        self.bpm = bpm
-        self.beatsPerBar = beatsPerBar
-        self.volume = volume
-        self.countInBars = countInBars
-        self.clickEnabled = clickEnabled
-    }
-
-    private enum CodingKeys: String, CodingKey {
-        case bpm, beatsPerBar, volume, countInBars, clickEnabled
-    }
-
-    private enum LegacyKeys: String, CodingKey {
-        case clickWhileRecording
-    }
-
-    /// Someone who chose the click during recordings in an earlier version finds it switched on.
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
-        bpm = try c.decodeIfPresent(Double.self, forKey: .bpm) ?? 90
-        beatsPerBar = try c.decodeIfPresent(Int.self, forKey: .beatsPerBar) ?? 4
-        volume = try c.decodeIfPresent(Float.self, forKey: .volume) ?? 0.6
-        countInBars = try c.decodeIfPresent(Int.self, forKey: .countInBars) ?? 0
-        clickEnabled = try c.decodeIfPresent(Bool.self, forKey: .clickEnabled)
-            ?? legacy.decodeIfPresent(Bool.self, forKey: .clickWhileRecording)
-            ?? false
-    }
-
-    public var countInBeats: Int { countInBars * beatsPerBar }
-    public var countInSeconds: Double { Double(countInBeats) * 60 / bpm }
-}
 
 /// Plays the click through its own output unit.
 ///

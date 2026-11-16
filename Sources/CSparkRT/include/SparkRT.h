@@ -144,6 +144,67 @@ uint64_t spark_click_beat_count(const SparkClick *click);
 /// Beats that came too late to sound, for example after the output stalled. They still count.
 uint64_t spark_click_late_beats(const SparkClick *click);
 
+
+// MARK: Metronome
+
+/// The practice metronome: beats with accents, subdivisions and a tempo trainer, on the output's own sample clock.
+/// Every pulse lies at an exact, fractional output frame (`anchor + k * interval`, never a running sum), and its
+/// sound starts at that fraction of a frame, so no pulse is off by more than float rounding however long it runs.
+typedef struct SparkMetronome SparkMetronome;
+
+#define SPARK_METRONOME_MAX_BEATS 16
+
+/// The level of one beat: silent, soft, normal or accented.
+enum { SPARK_BEAT_MUTE = 0, SPARK_BEAT_SOFT = 1, SPARK_BEAT_NORMAL = 2, SPARK_BEAT_ACCENT = 3 };
+
+typedef struct {
+    double bpm;
+    uint32_t beats_per_bar;
+    uint8_t levels[SPARK_METRONOME_MAX_BEATS];
+    /// Pulses per beat: 1 quarters, 2 eighths, 3 triplets, 4 sixteenths.
+    uint32_t subdivision;
+    /// The subdivisions' loudness against a normal beat, 0 to 1.
+    float subdivision_level;
+    float volume;
+    /// 0 classic, 1 wood, 2 beep.
+    uint32_t sound;
+    /// Tempo trainer: `trainer_step` BPM after every `trainer_every_bars` bars until `trainer_target`; 0 is off.
+    double trainer_step;
+    uint32_t trainer_every_bars;
+    double trainer_target;
+} SparkMetronomeConfig;
+
+/// One pulse as it was placed, for the window.
+typedef struct {
+    uint64_t bar;
+    uint32_t beat;
+    /// 0 on the beat, 1 … subdivision − 1 between.
+    uint32_t sub;
+    double bpm;
+    /// The output frame since the start, with its fraction.
+    double frame;
+    /// When it is heard: the block's output time plus the output latency. 0 while unknown.
+    uint64_t host_time;
+} SparkMetronomeEvent;
+
+SparkMetronome *spark_metronome_create(double sample_rate);
+void spark_metronome_destroy(SparkMetronome *metronome);
+/// From one thread only. Takes effect at the next beat, or at once before the first. A new config also restarts the
+/// trainer from its tempo.
+void spark_metronome_configure(SparkMetronome *metronome, const SparkMetronomeConfig *config);
+/// The time from handing a frame to the output until it is heard, for the events' host times.
+void spark_metronome_set_output_latency(SparkMetronome *metronome, double seconds);
+/// Fills `frames` frames of every channel. `host_time` is the output time of the first frame, 0 if unknown. [RT]
+void spark_metronome_render(SparkMetronome *metronome, float *const *channels, uint32_t channel_count,
+                            uint32_t frames, uint64_t host_time);
+/// The next placed pulse, oldest first. From one reader thread. False when there is none.
+bool spark_metronome_next_event(SparkMetronome *metronome, SparkMetronomeEvent *event);
+/// The tempo now playing, which the trainer may have raised.
+double spark_metronome_current_bpm(const SparkMetronome *metronome);
+/// Output frames rendered since the start.
+uint64_t spark_metronome_frames(const SparkMetronome *metronome);
+extern const AURenderCallback spark_metronome_output_callback;
+
 CF_ASSUME_NONNULL_END
 
 #endif

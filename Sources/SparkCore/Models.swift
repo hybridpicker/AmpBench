@@ -177,10 +177,12 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
     public var parts: [PiecePart]
     /// The key as written by the player, such as "A-Moll".
     public var key: String?
+    /// Time signature, accents and subdivision for the metronome, kept with the tempo.
+    public var meter: PieceMeter?
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil, artist: String = "",
                 bpm: Double? = nil, notes: String = "", preset: PresetLink? = nil, parts: [PiecePart] = [],
-                key: String? = nil) {
+                key: String? = nil, meter: PieceMeter? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
@@ -191,6 +193,7 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         self.preset = preset
         self.parts = parts
         self.key = key
+        self.meter = meter
     }
 
     public init(from decoder: Decoder) throws {
@@ -205,6 +208,18 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         preset = try c.decodeIfPresent(PresetLink.self, forKey: .preset)
         parts = try c.decodeIfPresent([PiecePart].self, forKey: .parts) ?? []
         key = try c.decodeIfPresent(String.self, forKey: .key)
+        meter = try? c.decodeIfPresent(PieceMeter.self, forKey: .meter)
+    }
+}
+
+/// How a piece is counted: beats per bar and the metronome's pattern.
+public struct PieceMeter: Codable, Equatable, Sendable {
+    public var beatsPerBar: Int
+    public var pattern: MetronomePattern
+
+    public init(beatsPerBar: Int, pattern: MetronomePattern) {
+        self.beatsPerBar = beatsPerBar
+        self.pattern = pattern
     }
 }
 
