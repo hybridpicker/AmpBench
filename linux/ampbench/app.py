@@ -23,6 +23,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--screenshot", metavar="PNG", help="render the window to a file and exit (for checks)")
     parser.add_argument("--size", default="1180x760", help="window size for --screenshot")
     parser.add_argument("--open-slot", type=int, metavar="N", help="open the amp's slot N (1 to 4) at start")
+    parser.add_argument("--area", choices=["record", "presets", "tuner", "metronome"],
+                        help="show this area at start (for pictures)")
     parser.add_argument("--made-up-sounds", action="store_true",
                         help="fill a test presets folder (with --demo or --presets-folder) with about 100 invented "
                              "sounds and their pieces, once")
@@ -148,6 +150,9 @@ def main(argv: list[str] | None = None) -> int:
         QTimer.singleShot(300, open_library)
     if args.open_slot:
         QTimer.singleShot(1500, lambda: window._slot_clicked(args.open_slot - 1))
+    if args.area:
+        index = ["record", "presets", "tuner", "metronome"].index(args.area)
+        QTimer.singleShot(400, lambda: window._area(index))
     if args.screenshot:
         def shoot():
             window.grab().save(args.screenshot)

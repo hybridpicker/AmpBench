@@ -840,9 +840,11 @@ class DisplayStepper(QWidget):
     """A number in a small display with arrows."""
     changed = Signal(int)
 
-    def __init__(self, minimum: int, maximum: int, parent=None):
+    def __init__(self, minimum: int, maximum: int, parent=None, signed: bool = True):
         super().__init__(parent)
         self.minimum, self.maximum, self.value = minimum, maximum, 0
+        # Signed numbers, such as a transposition, show "+" above zero; a tempo or a count does not.
+        self.signed = signed
         self.setFixedSize(66, 28)
         self.setCursor(Qt.PointingHandCursor)
 
@@ -872,7 +874,7 @@ class DisplayStepper(QWidget):
         p.drawRoundedRect(r, 7, 7)
         p.setFont(theme.mono(13, True))
         p.setPen(c(theme.AMBER))
-        text = f"+{self.value}" if self.value > 0 else str(self.value)
+        text = f"+{self.value}" if self.signed and self.value > 0 else str(self.value)
         p.drawText(QRectF(8, 0, 30, r.height()), Qt.AlignLeft | Qt.AlignVCenter, text)
         p.setPen(QPen(c(theme.AMBER_DIM), 1.5, Qt.SolidLine, Qt.RoundCap))
         x = r.right() - 14

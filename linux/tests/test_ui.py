@@ -437,8 +437,8 @@ def test_the_window_speaks_english(window):
     w, _ = window
     assert w.windowTitle() == "AmpBench"
     assert [a.text() for a in w.menuBar().actions()] == ["View", "Presets", "Sounds", "Edit", "Amp", "Chain", "Tuner",
-                                                        "Help"]
-    assert w.tabs.names == ["Record", "Presets", "Tuner"]
+                                                        "Metronome", "Help"]
+    assert w.tabs.names == ["Record", "Presets", "Tuner", "Metronome"]
     assert w.recordings.library_tabs.names == ["Takes", "Pieces", "Statistics"]
     assert w.save_key.text() == "Save" and w.connect_key.text() == "Disconnect"
     assert w.recordings.play_key.text() == "Play" and w.deck.check_key.text() == "Check input"
@@ -458,7 +458,7 @@ def test_the_window_speaks_german_when_asked(app, tmp_path):
     w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False, recorder=recorder)
     try:
         assert [a.text() for a in w.menuBar().actions()][:4] == ["Darstellung", "Presets", "Sounds", "Bearbeiten"]
-        assert w.tabs.names == ["Aufnahme", "Presets", "Stimmgerät"]
+        assert w.tabs.names == ["Aufnahme", "Presets", "Stimmgerät", "Metronom"]
         assert w.save_key.text() == "Sichern" and w.connect_key.text() == "Verbinden"
         assert w.recordings.library_tabs.names == ["Aufnahmen", "Stücke", "Statistik"]
         assert w.deck.time_label.text() == "00:00,0"
@@ -538,3 +538,43 @@ def test_bluetooth_off_is_said_above_every_area_until_it_is_on(app, tmp_path):
     assert not w.bluetooth_banner.isVisible()
     w.editor = None
     w.close()
+
+
+def test_the_metronome_area_plays_lights_its_lamps_and_keeps_tempo_in_a_piece(app, tmp_path):
+    from PySide6.QtCore import QSettings
+
+    from ampbench.ui.metronome_view import MetronomeArea, MetronomeView
+
+    class Store:
+        def __init__(self):
+            self.document = {"pieces": [{"id": "p1", "name": "Money", "bpm": 123,
+                                    "meter": {"beatsPerBar": 7, "pattern": {"levels": [3, 2, 3], "subdivision": 2}}}]}
+            self.saved = 0
+
+        def save(self):
+            self.saved += 1
+
+    store = Store()
+    settings = QSettings(str(tmp_path / "metronome.ini"), QSettings.IniFormat)
+    busy = {"on": False}
+    area = MetronomeArea(store=store, busy=lambda: busy["on"], settings=settings, player_command=["cat"])
+    view = MetronomeView(area)
+    view.show()
+    try:
+        area.load_piece("p1")
+        assert area.settings.bpm == 123 and area.settings.beats_per_bar == 7 and area.settings.pattern.subdivision == 2
+        area.cycle_level(1)
+        assert area.settings.levels[1] == 1
+        area.set_bpm(300)
+        area.start()
+        assert area.is_running
+        # cat takes the samples at once; the view lights the lamps as the pulses come due.
+        wait_for(lambda: view.beats.pulse is not None and view.bar_label.text() != "–")
+        area.keep_in_piece("p1")
+        assert store.document["pieces"][0]["bpm"] == 300 and store.saved == 1
+        busy["on"] = True
+        area.check_busy()
+        assert not area.is_running and area.problem
+    finally:
+        area.stop()
+        view.close()

@@ -90,6 +90,10 @@ def shortcuts() -> list[tuple[str, str]]:
         (tr("Ctrl+E"), tr("Rename")),
         (tr("Ctrl+Backspace"), tr("Move to Trash")),
         (tr("Shift+Ctrl+R"), tr("Show in file manager")),
+        (tr("Shift+Ctrl+4"), tr("Metronome area")),
+        (tr("Space (Metronome)"), tr("Start or stop the metronome")),
+        (tr("Ctrl+Alt+M"), tr("Start or stop the metronome, from every area")),
+        (tr("Ctrl+T / Ctrl+↑ ↓ (Metronome)"), tr("Tap tempo / 1 BPM faster or slower, with Shift 10")),
         (tr("Ctrl+/"), tr("This list")),
     ]
 
@@ -247,7 +251,7 @@ class MainWindow(QMainWindow):
         bar.setStyleSheet(f"background: {theme.DESK}; border-bottom: 1px solid {theme.DESK_LINE};")
         bar_row = QHBoxLayout(bar)
         bar_row.setContentsMargins(22, 7, 22, 7)
-        self.tabs = SegmentTabs([tr("Record"), tr("Presets"), tr("Tuner")])
+        self.tabs = SegmentTabs([tr("Record"), tr("Presets"), tr("Tuner"), tr("Metronome")])
         self.tabs.set_index(0)
         bar_row.addWidget(self.tabs)
         bar_row.addStretch(1)
@@ -282,6 +286,13 @@ class MainWindow(QMainWindow):
         self.tuner = TunerModel(self.recorder, self.link)
         self.tuner_view = TunerView(self.tuner)
         self.stack.addWidget(self.tuner_view)
+        from .metronome_view import MetronomeArea, MetronomeView
+        recorder = self.recorder
+        self.metronome = MetronomeArea(
+            store=getattr(recorder, "store", None),
+            busy=lambda: bool(recorder and recorder.is_recording) or self.recordings.player.is_playing)
+        self.metronome_view = MetronomeView(self.metronome)
+        self.stack.addWidget(self.metronome_view)
         self.stack.setCurrentIndex(0)
         self.activity_label = QLabel("")
         status = self.statusBar()
@@ -411,6 +422,7 @@ class MainWindow(QMainWindow):
         action(view, tr("Record"), lambda: self._area(0), "Ctrl+Shift+1")
         action(view, tr("Presets"), lambda: self._area(1), "Ctrl+Shift+2")
         action(view, tr("Tuner"), lambda: self._area(2), "Ctrl+Shift+3")
+        action(view, tr("Metronome"), lambda: self._area(3), "Ctrl+Shift+4")
         view.addSeparator()
         self._language_menu(view)
         preset = self.menuBar().addMenu(tr("Presets"))
@@ -470,11 +482,17 @@ class MainWindow(QMainWindow):
 
         tuner = self.menuBar().addMenu(tr("Tuner"))
         action(tuner, tr("Needle or strobe"), lambda: self.tuner.set_strobe(not self.tuner.shows_strobe))
-        action(tuner, tr("Concert pitch higher"), lambda: self._tuner_key(lambda: self.tuner.set_a4(self.tuner.a4 + 0.1)),
-               "Ctrl+Up")
-        action(tuner, tr("Concert pitch lower"), lambda: self._tuner_key(lambda: self.tuner.set_a4(self.tuner.a4 - 0.1)),
-               "Ctrl+Down")
+        # Ctrl+Up and Ctrl+Down are the concert pitch in the tuner and the tempo in the metronome.
+        action(tuner, tr("Concert pitch higher"), lambda: self._up_down(0.1, 1), "Ctrl+Up")
+        action(tuner, tr("Concert pitch lower"), lambda: self._up_down(-0.1, -1), "Ctrl+Down")
         action(tuner, tr("Concert pitch 440 Hz"), lambda: self._tuner_key(lambda: self.tuner.set_a4(440.0)), "Ctrl+0")
+
+        metronome = self.menuBar().addMenu(tr("Metronome"))
+        action(metronome, tr("Start or stop the metronome"), self.metronome.toggle, "Ctrl+Alt+M")
+        action(metronome, tr("10 BPM faster"), lambda: self._metronome_key(lambda: self.metronome.nudge(10)),
+               "Ctrl+Shift+Up")
+        action(metronome, tr("10 BPM slower"), lambda: self._metronome_key(lambda: self.metronome.nudge(-10)),
+               "Ctrl+Shift+Down")
 
         help_menu = self.menuBar().addMenu(tr("Help"))
         action(help_menu, tr("Keyboard shortcuts"), self._show_shortcuts, "Ctrl+/")
@@ -772,6 +790,9 @@ class MainWindow(QMainWindow):
         if key == Qt.Key_R:
             self.recorder.toggle()
             return True
+        if key == Qt.Key_Space and self.stack.currentIndex() == 3:
+            self.metronome.toggle()
+            return True
         if key == Qt.Key_Space:
             if isinstance(focus, QAbstractButton) and not self.recorder.is_recording:
                 return False
@@ -808,15 +829,27 @@ class MainWindow(QMainWindow):
         self.tuner.set_active(index == 2)
 
     def _ctrl_t(self) -> None:
-        """Ctrl+T: the strobe in the area Tuner, the tags of the preset elsewhere."""
+        """Ctrl+T: the strobe in the area Tuner, tap tempo in the area Metronome, the tags of the preset elsewhere."""
         if self.stack.currentIndex() == 2:
             self.tuner.set_strobe(not self.tuner.shows_strobe)
+        elif self.stack.currentIndex() == 3:
+            self.metronome.tap()
         else:
             self.library_view.focus_tags()
 
     def _tuner_key(self, action) -> None:
         if self.stack.currentIndex() == 2:
             action()
+
+    def _metronome_key(self, action) -> None:
+        if self.stack.currentIndex() == 3:
+            action()
+
+    def _up_down(self, hertz: float, bpm: float) -> None:
+        if self.stack.currentIndex() == 2:
+            self.tuner.set_a4(self.tuner.a4 + hertz)
+        elif self.stack.currentIndex() == 3:
+            self.metronome.nudge(bpm)
 
     def _refresh_recorder(self) -> None:
         self.deck.show_recorder(self.recorder)
@@ -1515,6 +1548,7 @@ class MainWindow(QMainWindow):
             event.ignore()
             return
         self.tuner.set_active(False)
+        self.metronome.stop()
         if self.recorder is not None:
             self.recorder.shutdown()
         QApplication.instance().removeEventFilter(self._router)
