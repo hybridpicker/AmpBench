@@ -254,6 +254,11 @@ GERMAN_UI: dict[str, str] = {
     "Connecting …": "Verbinde …",
     "Bluetooth off": "Bluetooth aus",
     "No Bluetooth": "Kein Bluetooth",
+    "Bluetooth is off on this computer, so AmpBench cannot find the amp. Turn it on and AmpBench connects by itself.":
+        "Bluetooth ist an diesem Computer aus, so findet AmpBench den Verstärker nicht. Schalte es ein, dann verbindet "
+        "sich AmpBench von selbst.",
+    "This computer has no Bluetooth adapter, so AmpBench cannot reach the amp.":
+        "Dieser Computer hat keinen Bluetooth-Adapter, so erreicht AmpBench den Verstärker nicht.",
     "Starting …": "Starte …",
     "connected": "verbunden",
     "No device found yet": "Noch kein Gerät gefunden",

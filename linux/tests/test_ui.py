@@ -506,3 +506,35 @@ def test_a_failed_rename_of_the_old_library_is_reported_and_nothing_is_recorded(
     recorder.start()
     assert not recorder.is_recording
     assert (tmp_path / "Bibliothek.json").read_text() == old and not (tmp_path / "Library.json").exists()
+
+
+def test_bluetooth_off_is_said_above_every_area_until_it_is_on(app, tmp_path):
+    from ampbench.link import BluetoothUnavailable
+
+    class SwitchedOff(FakeAmp):
+        is_off = True
+
+        async def connect(self, on_found, on_notify, on_disconnect, chosen=None):
+            if SwitchedOff.is_off:
+                raise BluetoothUnavailable("off")
+            return await super().connect(on_found, on_notify, on_disconnect, chosen)
+
+    from ampbench.demo_input import demo_devices, demo_engine
+    from ampbench.recorder import RecorderModel
+    from ampbench.store import LibraryStore
+    amp = SwitchedOff()
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), demo_engine(), demo_devices)
+    w = MainWindow(QtLink(lambda: amp), PresetLibrary(tmp_path / "Presets"), auto_connect=True, recorder=recorder)
+    w.show()
+    wait_for(lambda: w.bluetooth_banner.isVisible())
+    assert w.bluetooth_banner.label.text().startswith("Bluetooth is off on this computer")
+    for area in (0, 1, 2):
+        w._area(area)
+        assert w.bluetooth_banner.isVisible()
+    QTest.qWait(9500)  # longer than an ordinary message stays
+    assert w.bluetooth_banner.isVisible()
+    SwitchedOff.is_off = False
+    wait_for(lambda: w.link.core.status == "connected", timeout=8000)
+    assert not w.bluetooth_banner.isVisible()
+    w.editor = None
+    w.close()

@@ -68,7 +68,10 @@ struct PadRootView: View {
             Group {
                 switch studio.area {
                 case .presets: presets.content
-                case .tuner: studio.tuner.content
+                case .tuner:
+                    studio.tuner.content
+                        // Bluetooth off or not allowed is said here as on the Mac; Presets show it over the editor.
+                        .overlay(alignment: .top) { presets.bluetoothHint.padding(.horizontal, 14).padding(.top, 8) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

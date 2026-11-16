@@ -30,13 +30,15 @@ struct StudioWindowView: View {
                 switch studio.area {
                 case .recording:
                     studio.recorder.workspace
+                        .overlay(alignment: .top) { messages(bluetooth: true, recorder: false) }
                 case .presets:
                     presets.content
-                        // The recorder's messages, such as "No Spark" after R, are seen here too.
-                        .overlay(alignment: .top) { recorderBanner }
+                        // The recorder's messages, such as "No Spark" after R, are seen here too. Bluetooth's hint
+                        // is the presets' own, over their editor.
+                        .overlay(alignment: .top) { messages(bluetooth: false, recorder: true) }
                 case .tuner:
                     studio.tuner.content
-                        .overlay(alignment: .top) { recorderBanner }
+                        .overlay(alignment: .top) { messages(bluetooth: true, recorder: true) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -60,10 +62,14 @@ struct StudioWindowView: View {
             .help(StudioArea.allCases.map { "\($0.title) ⇧⌘\($0.digit)" }.joined(separator: ", "))
     }
 
-    private var recorderBanner: some View {
-        studio.recorder.banner
-            .padding(.horizontal, 14)
-            .padding(.top, 8)
+    /// Bluetooth's hint on top, then the recorder's messages where the recorder does not show them itself.
+    private func messages(bluetooth: Bool, recorder: Bool) -> some View {
+        VStack(spacing: 6) {
+            if bluetooth { presets.bluetoothHint }
+            if recorder { studio.recorder.banner }
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 8)
     }
 
     private var bluetooth: DeckBluetooth {

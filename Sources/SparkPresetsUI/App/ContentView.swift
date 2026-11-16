@@ -23,6 +23,8 @@ struct ContentView: View {
                         // The editor is drawn for the Mac's smallest window; a narrower iPad shows it scaled, not cut.
                         .fittedOnPad(designWidth: 900)
                         .overlay(alignment: .bottom) { BannerView().padding(14) }
+                        // Over the editor only: the system sidebar draws itself above anything laid across it.
+                        .overlay(alignment: .top) { BluetoothHint().padding(.horizontal, 14).padding(.top, 8) }
                         .withoutNavigationBarOnPad()
                 }
             }

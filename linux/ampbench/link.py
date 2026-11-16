@@ -68,6 +68,14 @@ class BluetoothUnavailable(LinkError):
         self.reason = reason  # "off" or "unsupported"
 
 
+def bluetooth_off_error(text: str) -> bool:
+    """True when bleak's error says the adapter is off or missing, as BlueZ words it in its different versions:
+    "No powered Bluetooth adapters found.", "No Bluetooth adapters found.", "... not powered", "Resource Not Ready"."""
+    text = text.lower()
+    return any(part in text for part in ("not powered", "no powered", "powered off", "no bluetooth adapters",
+                                         "notready", "not ready"))
+
+
 @dataclass
 class Transfer:
     kind: str  # sending, reading, switching
@@ -121,8 +129,7 @@ class BleakTransport(Transport):
         try:
             device = await BleakScanner.find_device_by_filter(matches, timeout=20)
         except BleakError as error:
-            text = str(error).lower()
-            if "not powered" in text or "no bluetooth adapters" in text or "powered off" in text:
+            if bluetooth_off_error(str(error)):
                 raise BluetoothUnavailable("off") from error
             raise LinkError(str(error)) from error
         if device is None:

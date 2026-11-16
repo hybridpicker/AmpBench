@@ -14,7 +14,8 @@ import SwiftUI
 ///
 /// `--offline` leaves Bluetooth off, `--library <test folder>` keeps made-up presets in its subfolder "Presets".
 /// `--demo-devices [neo|mini|reactor]` (only with `--library`) shows simulated devices instead of Bluetooth and
-/// connects to the one named; a REACTOR then reports a few made-up control changes.
+/// connects to the one named; a REACTOR then reports a few made-up control changes. `--demo-devices bluetooth-off`
+/// shows the window as with Bluetooth switched off.
 /// `--open` takes `template:<name>`, `empty`, `slot:<1-4>` or `saved:<file name>`.
 @MainActor
 enum Snapshot {
@@ -110,7 +111,7 @@ enum Snapshot {
     }
 
     private static func demoDevice(_ name: String?, in model: PresetsModel) async {
-        guard let name, let simulated = model.link.simulated else { return }
+        guard let name, name != "bluetooth-off", let simulated = model.link.simulated else { return }
         let kind: SimulatedDevice.Kind = switch name {
         case "mini": .mini
         case "reactor": .reactor

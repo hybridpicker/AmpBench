@@ -201,3 +201,10 @@ def test_a_reactors_tuner_is_never_switched():
         await core.stop()
         assert amp.written == []
     run(go())
+
+
+def test_bleaks_words_for_an_adapter_that_is_off_are_recognized():
+    for text in ("No powered Bluetooth adapters found.", "No Bluetooth adapters found.",
+                 "Bluetooth adapter hci0 is not powered", "[org.bluez.Error.NotReady] Resource Not Ready"):
+        assert link.bluetooth_off_error(text), text
+    assert not link.bluetooth_off_error("Device with address AA:BB was not found")

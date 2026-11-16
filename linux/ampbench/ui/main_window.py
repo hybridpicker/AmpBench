@@ -50,6 +50,16 @@ def status_text(status: str, default: str = "") -> str:
     return texts.get(status, default)
 
 
+def bluetooth_hint(status: str) -> str | None:
+    """What the window says while Bluetooth itself keeps AmpBench from the amp, None otherwise."""
+    if status == "bluetooth_off":
+        return tr("Bluetooth is off on this computer, so AmpBench cannot find the amp. Turn it on and AmpBench "
+                  "connects by itself.")
+    if status == "unsupported":
+        return tr("This computer has no Bluetooth adapter, so AmpBench cannot reach the amp.")
+    return None
+
+
 def shortcuts() -> list[tuple[str, str]]:
     return [
         ("R", tr("Start or stop recording")),
@@ -134,6 +144,11 @@ class Banner(QFrame):
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self.hide)
         self.hide()
+
+    def show_lasting(self, kind: str, text: str) -> None:
+        """A message that stays until it is closed or no longer true, such as Bluetooth being off."""
+        self.show_message(kind, text)
+        self._timer.stop()
 
     def show_message(self, kind: str, text: str, undo=None) -> None:
         tone = {"info": ("#24323A", "#68C6D6"), "warning": ("#3A2A14", theme.AMBER), "error": ("#3A1A18", theme.DANGER_TEXT),
@@ -243,6 +258,11 @@ class MainWindow(QMainWindow):
         column.addWidget(self.stack, 1)
         self.recording_banner = Banner()
         column.insertWidget(column.indexOf(self.stack), self.recording_banner)
+        # Bluetooth off or missing is said above every area while it lasts, as on the Mac.
+        self.bluetooth_banner = Banner()
+        self.bluetooth_banner.close_key.clicked.connect(self._bluetooth_hint_closed)
+        self._bluetooth_hint_closed_for = None
+        column.insertWidget(column.indexOf(self.recording_banner), self.bluetooth_banner)
         self.recordings = RecordingsPage(self.recorder)
         self.recordings.message.connect(self._recording_message)
         self.stack.addWidget(self.recordings)
@@ -616,6 +636,18 @@ class MainWindow(QMainWindow):
         self.connect_key.setText(tr("Disconnect") if status in ("connected", "connecting", "searching")
                                  else tr("Connect"))
         self.connect_key.set_style("normal" if status == "connected" else "primary")
+        self._refresh_bluetooth_hint(status)
+
+    def _refresh_bluetooth_hint(self, status: str) -> None:
+        text = bluetooth_hint(status)
+        if text is None:
+            self._bluetooth_hint_closed_for = None
+            self.bluetooth_banner.hide()
+        elif self._bluetooth_hint_closed_for != status:
+            self.bluetooth_banner.show_lasting("warning", text)
+
+    def _bluetooth_hint_closed(self) -> None:
+        self._bluetooth_hint_closed_for = self.link.core.status
 
     def _on_active_slot(self, slot) -> None:
         self.sidebar.active_slot = slot

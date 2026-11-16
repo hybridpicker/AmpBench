@@ -44,8 +44,11 @@ public final class PresetsHost: ObservableObject {
             let defaults = UserDefaults(suiteName: "local.ampbench.devices.tests") ?? .standard
             let demo = Snapshot.arguments["demo-devices"]
             if demo != nil { defaults.removePersistentDomain(forName: "local.ampbench.devices.tests") }
-            return SparkLink(transport: demo.map { _ in SimulatedDevice([.mini, .neo, .reactor]) as LinkTransport },
-                             memory: DeviceMemory(defaults: defaults))
+            return SparkLink(transport: demo.map { name in
+                let simulated = SimulatedDevice([.mini, .neo, .reactor])
+                if name == "bluetooth-off" { simulated.powerState = .poweredOff }
+                return simulated as LinkTransport
+            }, memory: DeviceMemory(defaults: defaults))
         }
         // A test library also keeps its sound store apart: its own settings, key and state, never the real ones.
         model = PresetsModel(folder: testFolder ?? folder ?? PresetLibrary.defaultFolder, link: link,
@@ -60,6 +63,12 @@ public final class PresetsHost: ObservableObject {
     /// Sidebar and editor: the area "Presets". It starts Bluetooth the first time it shows.
     public var content: AnyView {
         AnyView(PresetsContent.root(model))
+    }
+
+    /// A strip for the top of the other areas while Bluetooth is off, not allowed or missing, so a device that is
+    /// not found never looks like AmpBench's fault. Empty otherwise. The area Presets shows it over its editor.
+    public var bluetoothHint: AnyView {
+        AnyView(BluetoothHint().environmentObject(model.link))
     }
 
     /// True when the launch asks for the presets at once: a picture, an opened preset or the live self-test.

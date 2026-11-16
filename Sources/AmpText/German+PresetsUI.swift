@@ -100,6 +100,16 @@ extension German {
             "Sicherungen",
         "Blues crunch for my Telecaster":
             "Blues-Crunch für meine Telecaster",
+        "AmpBench may not use Bluetooth, so it cannot find the amp. Allow it in Settings → AmpBench.":
+            "AmpBench darf Bluetooth nicht nutzen und findet so den Verstärker nicht. Erlaube es in Einstellungen → AmpBench.",
+        "AmpBench may not use Bluetooth, so it cannot find the amp. Allow it under Privacy & Security → Bluetooth.":
+            "AmpBench darf Bluetooth nicht nutzen und findet so den Verstärker nicht. Erlaube es unter Datenschutz & Sicherheit → Bluetooth.",
+        "Bluetooth Settings …":
+            "Bluetooth-Einstellungen …",
+        "Bluetooth is off on this iPad, so AmpBench cannot find the amp. Turn it on in Control Center or Settings and AmpBench connects by itself.":
+            "Bluetooth ist an diesem iPad aus, so findet AmpBench den Verstärker nicht. Schalte es im Kontrollzentrum oder in den Einstellungen ein, dann verbindet sich AmpBench von selbst.",
+        "Bluetooth is off on this Mac, so AmpBench cannot find the amp. Turn it on and AmpBench connects by itself.":
+            "Bluetooth ist an diesem Mac aus, so findet AmpBench den Verstärker nicht. Schalte es ein, dann verbindet sich AmpBench von selbst.",
         "Bluetooth is off":
             "Bluetooth ist aus",
         "Bluetooth is starting":
@@ -319,6 +329,12 @@ extension German {
     ]
 
     private static let presetsUISecond: [String: String] = [
+        "Privacy Settings …":
+            "Datenschutz-Einstellungen …",
+        "Settings …":
+            "Einstellungen …",
+        "This device has no Bluetooth LE, so AmpBench cannot reach the amp.":
+            "Dieses Gerät hat kein Bluetooth LE, so erreicht AmpBench den Verstärker nicht.",
         "No presets yet. Save a slot, create a new one or import sounds from the Kemper.":
             "Noch keine Presets. Sichere einen Platz, lege ein neues an oder übernimm Sounds vom Kemper.",
         "No suggestion came back. Try again.":

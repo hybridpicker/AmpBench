@@ -57,10 +57,14 @@ final class SimulatedDevice: LinkTransport {
 
     // MARK: LinkTransport
 
+    /// What Bluetooth reports once started: `.poweredOff` shows the window as with Bluetooth switched off.
+    var powerState = TransportState.poweredOn
+
     func powerUp() {
-        guard state != .poweredOn else { return }
-        state = .poweredOn
-        later { $0.delegate?.transport(changedState: .poweredOn) }
+        guard state != powerState else { return }
+        state = powerState
+        let reported = powerState
+        later { $0.delegate?.transport(changedState: reported) }
     }
 
     func startSearch(services: [String]) {
