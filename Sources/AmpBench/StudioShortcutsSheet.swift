@@ -17,6 +17,7 @@ struct StudioShortcutsSheet: View {
     private static let sections: [(title: String, scope: KeyScope)] = [
         (tr("Everywhere"), .everywhere), (tr("Record area"), .recording), (tr("Presets area"), .presets),
         (tr("Tuner area"), .tuner),
+        (tr("Metronome area"), .metronome),
     ]
 
     var body: some View {

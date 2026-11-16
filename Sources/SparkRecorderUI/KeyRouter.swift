@@ -15,6 +15,9 @@ final class KeyRouter {
     /// AmpBench's area filter: given the key as typed ("r", " ", "left", …), true when it may act now. Nil acts
     /// on every key.
     static var allowsKey: (@MainActor (String) -> Bool)?
+    /// AmpBench's other areas: given the key as typed, true when the area in front acted on it. Asked before the
+    /// recorder, with the same rules (no text being typed, the main window, no sheet).
+    static var areaKeys: (@MainActor (String) -> Bool)?
 
     init(model: AppModel) {
         self.model = model
@@ -84,6 +87,8 @@ final class KeyRouter {
         case 117: "forwardDelete"
         default: event.charactersIgnoringModifiers?.lowercased() ?? ""
         }
+        // Another area may take a key first, such as Space in the area Metronome.
+        if let areaKeys = Self.areaKeys, areaKeys(name) { return true }
         if let allowsKey = Self.allowsKey, !allowsKey(name) { return false }
         switch event.keyCode {
         case 123:

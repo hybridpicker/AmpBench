@@ -1,6 +1,7 @@
 #if os(iOS)
 import AmpText
 import SparkCore
+import SparkMetronomeUI
 import SparkPresetsUI
 import SparkTunerUI
 import SwiftUI
@@ -10,6 +11,7 @@ import SwiftUI
 enum PadArea: String, CaseIterable, Identifiable {
     case presets
     case tuner
+    case metronome
 
     var id: String { rawValue }
 
@@ -17,6 +19,7 @@ enum PadArea: String, CaseIterable, Identifiable {
         switch self {
         case .presets: tr("Presets")
         case .tuner: tr("Tuner")
+        case .metronome: tr("Metronome")
         }
     }
 
@@ -25,6 +28,7 @@ enum PadArea: String, CaseIterable, Identifiable {
         switch self {
         case .presets: 2
         case .tuner: 3
+        case .metronome: 4
         }
     }
 }
@@ -36,6 +40,9 @@ final class PadStudio: ObservableObject {
 
     let presets: PresetsHost
     let tuner: TunerHost
+    /// The practice metronome, with a tempo of its own: the iPad has no recorder whose tempo it could share.
+    let metronome: MetronomeHost
+    private let metronomeTempo: StandaloneMetronomeTempo
     private let input = PadInput()
     @Published var area = PadArea.presets {
         didSet { if area != oldValue { updateTuner() } }
@@ -52,6 +59,14 @@ final class PadStudio: ObservableObject {
         let defaults = isTestLibrary ? UserDefaults(suiteName: "local.ampbench.tuner.tests") : nil
         tuner = TunerHost(input: input, defaults: defaults ?? .standard)
         tuner.offerAmpTuner(presets)
+        let tempo = StandaloneMetronomeTempo()
+        metronomeTempo = tempo
+        metronome = MetronomeHost(tempo: tempo)
+        // Opening a preset sets the metronome to its tempo, as on the Mac.
+        presets.onPresetOpened { _, bpm in
+            guard bpm > 0 else { return }
+            tempo.updateSettings { $0.bpm = bpm }
+        }
         // Pictures from the simulator: `--library <folder> --tuner-demo` shows a made-up string, with no input open.
         if isTestLibrary, CommandLine.arguments.contains("--tuner-demo") {
             isShowingTunerDemo = true

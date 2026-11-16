@@ -1,4 +1,6 @@
 import AppKit
+import Combine
+import CoreAudio
 import SparkCore
 import SwiftUI
 
@@ -92,6 +94,11 @@ public final class RecorderHost {
         KeyRouter.allowsKey = allows
     }
 
+    /// Single keys for another area, asked before the recorder's own: true when that area acted on the key.
+    public func routeAreaKeys(_ handler: @escaping @MainActor (String) -> Bool) {
+        KeyRouter.areaKeys = handler
+    }
+
     // MARK: Sound and tempo, for AmpBench
 
     /// Asked at the start of every take for what the amp plays.
@@ -116,6 +123,42 @@ public final class RecorderHost {
     }
 
     public var tempo: Double { model.metronome.bpm }
+
+    // MARK: The metronome's tempo, for the area Metronome
+
+    /// The one tempo with its bar, pattern and trainer.
+    public var metronome: MetronomeSettings { model.metronome }
+
+    /// Changes it as a change by hand does: AmpBench then offers a new tempo to the open preset.
+    public func updateMetronome(_ change: (inout MetronomeSettings) -> Void) {
+        model.updateMetronome(change)
+    }
+
+    /// Fires whenever the recorder's state changes: tempo, pieces, recording or playing.
+    public var changes: AnyPublisher<Void, Never> {
+        model.objectWillChange.map { _ in () }
+            .merge(with: model.playhead.$isPlaying.removeDuplicates().map { _ in () })
+            .eraseToAnyPublisher()
+    }
+
+    public var pieces: [Piece] { model.pieces }
+    public var currentPieceID: UUID? { model.currentPieceID }
+
+    public func useTempo(ofPiece id: UUID) {
+        guard let piece = model.pieces.first(where: { $0.id == id }) else { return }
+        model.useTempo(of: piece)
+    }
+
+    public func keepTempo(inPiece id: UUID) {
+        model.keepTempo(inPiece: id)
+    }
+
+    /// Recording, counting in or playing a take: their own click uses the tempo then.
+    public var usesTempo: Bool { model.phase != .idle || model.playhead.isPlaying }
+
+    /// The output the deck plays on, nil for the system's.
+    public var outputID: AudioDeviceID? { model.outputID }
+    public var outputName: String { model.outputs.first { $0.id == model.outputID }?.name ?? "" }
 
     /// What "⌘/ Keyboard shortcuts" in the library's status line does.
     public func onShowShortcuts(_ handler: @escaping @MainActor () -> Void) {

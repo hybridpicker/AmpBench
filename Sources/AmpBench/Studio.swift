@@ -2,6 +2,7 @@ import AmpText
 import AppKit
 import SparkControl
 import SparkCore
+import SparkMetronomeUI
 import SparkPresetsUI
 import SparkRecorderUI
 import SparkTunerUI
@@ -16,6 +17,7 @@ enum StudioArea: String, CaseIterable, Identifiable {
     case recording
     case presets
     case tuner
+    case metronome
 
     var id: String { rawValue }
 
@@ -24,6 +26,7 @@ enum StudioArea: String, CaseIterable, Identifiable {
         case .recording: tr("Record")
         case .presets: tr("Presets")
         case .tuner: tr("Tuner")
+        case .metronome: tr("Metronome")
         }
     }
 
@@ -43,6 +46,8 @@ final class Studio: ObservableObject {
     let presets = PresetsHost(folder: StudioLaunch.folders?.presets)
     /// Reads the recorder's input along with it. A test library keeps its settings apart.
     let tuner: TunerHost
+    /// The practice metronome, on the recorder's tempo.
+    let metronome: MetronomeHost
     @Published var area = StudioArea.recording {
         didSet {
             guard area != oldValue else { return }
@@ -64,6 +69,13 @@ final class Studio: ObservableObject {
         let tunerDefaults = StudioLaunch.isTestLibrary ? UserDefaults(suiteName: "local.ampbench.tuner.tests") : nil
         tuner = TunerHost(input: recorder.sharedInput, defaults: tunerDefaults ?? .standard)
         tuner.offerAmpTuner(presets)
+        metronome = MetronomeHost(tempo: RecorderMetronomeTempo(recorder: recorder))
+        // Space starts and stops the metronome in its area, instead of playing a take.
+        recorder.routeAreaKeys { [weak self] key in
+            guard let self, area == .metronome, key == " " else { return false }
+            metronome.toggle()
+            return true
+        }
         // The recorder's single keys act only in its area. R and Space record and play from everywhere.
         recorder.routeKeys { [weak self] key in
             self?.area == .recording || StudioKeymap.isSingleKeyEverywhere(key)

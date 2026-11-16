@@ -1,5 +1,6 @@
 import AmpText
 import SparkDesign
+import SparkMetronomeUI
 import SparkPresetsUI
 import SparkRecorderUI
 import SparkTunerUI
@@ -39,6 +40,9 @@ struct StudioWindowView: View {
                 case .tuner:
                     studio.tuner.content
                         .overlay(alignment: .top) { messages(bluetooth: true, recorder: true) }
+                case .metronome:
+                    studio.metronome.content
+                        .overlay(alignment: .top) { messages(bluetooth: false, recorder: true) }
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)

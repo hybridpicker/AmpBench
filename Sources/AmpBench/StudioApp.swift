@@ -1,5 +1,6 @@
 import AmpText
 import AppKit
+import SparkMetronomeUI
 import SparkPresetsUI
 import SparkRecorderUI
 import SparkTunerUI
@@ -25,6 +26,7 @@ struct StudioCommands: Commands {
         RecorderMenus(studio.recorder, isActive: studio.area == .recording)
         PresetMenus(studio.presets, isActive: studio.area == .presets)
         TunerMenus(studio.tuner, isActive: studio.area == .tuner)
+        MetronomeMenus(studio.metronome, isActive: studio.area == .metronome)
         CommandGroup(after: .appInfo) {
             Menu(tr("Language")) {
                 languageItem(tr("System"), nil)

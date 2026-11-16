@@ -34,16 +34,21 @@ let package = Package(
         // The area "Stimmgerät": the tuner's front and menus. It reads the recorder's input; the amp's own tuner only
         // through the AmpTuner protocol Studio fills in.
         .target(name: "SparkTunerUI", dependencies: ["SparkCore", "SparkDesign", "AmpText"], path: "Sources/SparkTunerUI"),
+        // The area "Metronome": the practice metronome's front and menus. Its tempo comes through the MetronomeTempo
+        // protocol: the recorder's on the Mac, a setting of its own on the iPad.
+        .target(name: "SparkMetronomeUI", dependencies: ["SparkCore", "SparkDesign", "AmpText"],
+                path: "Sources/SparkMetronomeUI"),
         // AmpBench on the iPad: the areas Presets and Tuner in one window, and the input the tuner hears. Empty on
         // the Mac, so `swift build` there still compiles every target.
         .target(name: "AmpBenchPad",
-                dependencies: ["SparkCore", "SparkControl", "SparkDesign", "SparkPresetsUI", "SparkTunerUI", "AmpText"],
+                dependencies: ["SparkCore", "SparkControl", "SparkDesign", "SparkPresetsUI", "SparkTunerUI", "SparkMetronomeUI",
+                               "AmpText"],
                 path: "Sources/AmpBenchPad"),
         // AmpBench: the one window with the deck and the areas, and what ties them together.
         .executableTarget(
             name: "AmpBench",
             dependencies: ["SparkCore", "SparkControl", "SparkDesign", "SparkRecorderUI", "SparkPresetsUI", "SparkTunerUI",
-                           "SoundStore", "AmpText"],
+                           "SparkMetronomeUI", "SoundStore", "AmpText"],
             path: "Sources/AmpBench",
             linkerSettings: [.unsafeFlags(["-Xlinker", "-sectcreate", "-Xlinker", "__TEXT", "-Xlinker", "__info_plist",
                                            "-Xlinker", "\(root)/Resources/Info.plist"])]),
@@ -59,6 +64,8 @@ let package = Package(
         .testTarget(name: "SparkDesignTests", dependencies: ["AmpText", "SparkDesign"], path: "Tests/SparkDesignTests"),
         .testTarget(name: "SparkPresetsUITests", dependencies: ["AmpText", "SparkPresetsUI", "SparkControl"],
                     path: "Tests/SparkPresetsUITests"),
+        .testTarget(name: "SparkMetronomeUITests", dependencies: ["AmpText", "SparkMetronomeUI", "SparkCore"],
+                    path: "Tests/SparkMetronomeUITests"),
         .testTarget(name: "SparkTunerUITests", dependencies: ["AmpText", "SparkTunerUI", "SparkCore"], path: "Tests/SparkTunerUITests"),
     ]
 )

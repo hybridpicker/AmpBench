@@ -1936,7 +1936,23 @@ final class AppModel: ObservableObject {
     /// Sets the click to the piece's tempo. Like any tempo set by hand, AmpBench offers it to the open preset.
     func useTempo(of piece: Piece) {
         guard let bpm = piece.bpm else { return }
-        updateMetronome { $0.bpm = bpm }
+        updateMetronome { settings in
+            settings.bpm = bpm
+            // A piece kept from the area Metronome also brings its bar, accents and subdivision.
+            if let meter = piece.meter {
+                settings.beatsPerBar = meter.beatsPerBar
+                settings.pattern = meter.pattern
+            }
+        }
+    }
+
+    /// Keeps the metronome's tempo, bar, accents and subdivision in the piece.
+    func keepTempo(inPiece id: UUID) {
+        let settings = metronome
+        updatePiece(id) { piece in
+            piece.bpm = settings.bpm
+            piece.meter = PieceMeter(beatsPerBar: settings.beatsPerBar, pattern: settings.pattern)
+        }
     }
 
     func pieceName(_ id: UUID?) -> String {
@@ -2010,7 +2026,8 @@ final class AppModel: ObservableObject {
     private func updateMetronome(notifying: Bool, _ change: (inout MetronomeSettings) -> Void) {
         let previous = metronome
         change(&metronome)
-        metronome.bpm = min(max(metronome.bpm.rounded(), TapTempo.range.lowerBound), TapTempo.range.upperBound)
+        metronome.bpm = min(max(metronome.bpm.rounded(), MetronomeSettings.bpmRange.lowerBound),
+                            MetronomeSettings.bpmRange.upperBound)
         // The bars of a running recording rest on its tempo and meter, so these wait until it is over.
         if phase != .idle {
             metronome.bpm = previous.bpm

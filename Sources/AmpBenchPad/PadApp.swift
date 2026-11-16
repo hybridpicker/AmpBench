@@ -1,6 +1,7 @@
 #if os(iOS)
 import AmpText
 import SparkDesign
+import SparkMetronomeUI
 import SparkPresetsUI
 import SparkTunerUI
 import SwiftUI
@@ -32,6 +33,7 @@ struct PadCommands: Commands {
     var body: some Commands {
         PresetMenus(studio.presets, isActive: studio.area == .presets)
         TunerMenus(studio.tuner, isActive: studio.area == .tuner)
+        MetronomeMenus(studio.metronome, isActive: studio.area == .metronome)
         CommandGroup(before: .toolbar) {
             ForEach(PadArea.allCases) { area in
                 Button(area.title) { studio.area = area }
@@ -68,6 +70,7 @@ struct PadRootView: View {
             Group {
                 switch studio.area {
                 case .presets: presets.content
+                case .metronome: studio.metronome.content
                 case .tuner:
                     studio.tuner.content
                         // Bluetooth off or not allowed is said here as on the Mac; Presets show it over the editor.
@@ -75,6 +78,16 @@ struct PadRootView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        // Space starts and stops the metronome in its area, with a keyboard attached, as on the Mac.
+        .background {
+            if studio.area == .metronome {
+                Button("") { studio.metronome.toggle() }
+                    .keyboardShortcut(.space, modifiers: [])
+                    .opacity(0)
+                    .frame(width: 0, height: 0)
+                    .accessibilityHidden(true)
+            }
         }
     }
 }

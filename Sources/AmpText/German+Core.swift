@@ -87,7 +87,6 @@ extension German {
         "minus %@ cents": "minus %@ Cent",
         "plus %@ cents": "plus %@ Cent",
         "Start or stop recording, also “Again”": "Aufnahme starten oder stoppen, auch „Nochmal“",
-        "Play or pause; while recording, stop and listen": "Abspielen oder anhalten; während der Aufnahme stoppen und anhören",
         "Record area": "Bereich Aufnahme",
         "Presets area": "Bereich Presets",
         "Tuner area": "Bereich Stimmgerät",

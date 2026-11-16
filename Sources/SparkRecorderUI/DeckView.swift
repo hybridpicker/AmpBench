@@ -451,7 +451,7 @@ private struct ClickModule: View {
             HStack(spacing: 6) {
                 DisplayStepper(tr("Tempo"), value: Binding(get: { model.metronome.bpm },
                                                        set: { value in model.updateMetronome { $0.bpm = value } }),
-                               in: TapTempo.range, step: 1, text: "\(Int(model.metronome.bpm))", unit: "BPM", size: 20,
+                               in: MetronomeSettings.bpmRange, step: 1, text: "\(Int(model.metronome.bpm))", unit: "BPM", size: 20,
                                spokenValue: tr("%d beats per minute", Int(model.metronome.bpm)))
                     .disabled(model.phase != .idle)
                 DevicePopup(tr("Time signature"),

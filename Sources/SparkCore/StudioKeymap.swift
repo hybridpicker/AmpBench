@@ -11,6 +11,8 @@ public enum KeyScope: String, CaseIterable, Sendable {
     case presets
     /// Only while the area "Tuner" shows.
     case tuner
+    /// Only while the area "Metronome" shows.
+    case metronome
 
     public func overlaps(_ other: KeyScope) -> Bool {
         self == other || self == .everywhere || other == .everywhere
@@ -71,7 +73,7 @@ public struct StudioShortcut: Hashable, Sendable {
 /// Today's apps do not read this list yet. It is the plan that the Studio key handling will follow, and the tests
 /// keep it free of conflicts.
 public enum StudioKeymap {
-    public static var all: [StudioShortcut] { everywhere + recording + presets + tuner }
+    public static var all: [StudioShortcut] { everywhere + recording + presets + tuner + metronome }
 
     /// Slots that get ⌘ and ⌥⌘ with their digit: as many as the device with the most slots has (REACTOR, 8), and no
     /// more than the map holds without a conflict. A device with fewer slots simply has fewer menu items. SparkControl's
@@ -80,10 +82,12 @@ public enum StudioKeymap {
 
     static var everywhere: [StudioShortcut] { [
         StudioShortcut("r", [], .everywhere, tr("Start or stop recording, also “Again”")),
-        StudioShortcut("space", [], .everywhere, tr("Play or pause; while recording, stop and listen")),
+        StudioShortcut("space", [], .everywhere, tr("Play or pause; while recording, stop and listen; in the Metronome area start or stop it")),
         StudioShortcut("1", [.command, .shift], .everywhere, tr("Record area")),
         StudioShortcut("2", [.command, .shift], .everywhere, tr("Presets area")),
         StudioShortcut("3", [.command, .shift], .everywhere, tr("Tuner area")),
+        StudioShortcut("4", [.command, .shift], .everywhere, tr("Metronome area")),
+        StudioShortcut("m", [.command, .control], .everywhere, tr("Start or stop the metronome")),
         StudioShortcut("/", .command, .everywhere, tr("Keyboard shortcuts")),
         StudioShortcut("z", .command, .everywhere, tr("Undo, in the active area")),
         StudioShortcut("z", [.command, .shift], .everywhere, tr("Redo, in the active area")),
@@ -160,6 +164,15 @@ public enum StudioKeymap {
     } }
 
     /// The tuner has no single keys: R and Space keep recording and playing from there, as everywhere.
+    /// The metronome has no single keys of its own; Space starts and stops it there.
+    static var metronome: [StudioShortcut] { [
+        StudioShortcut("t", .command, .metronome, tr("Tap tempo")),
+        StudioShortcut("up", .command, .metronome, tr("1 BPM faster")),
+        StudioShortcut("down", .command, .metronome, tr("1 BPM slower")),
+        StudioShortcut("up", [.command, .shift], .metronome, tr("10 BPM faster")),
+        StudioShortcut("down", [.command, .shift], .metronome, tr("10 BPM slower")),
+    ] }
+
     static var tuner: [StudioShortcut] { [
         StudioShortcut("t", .command, .tuner, tr("Needle or strobe")),
         StudioShortcut("up", .command, .tuner, tr("Reference pitch 0.1 Hz higher")),
