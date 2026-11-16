@@ -96,7 +96,7 @@ store that keeps your sounds in a place of your choice.
 |---|---|---|
 | Spark MINI | everything above | firmware 1.11.2.75 |
 | Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
-| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); a click on a slot switches the amp to it and opens it in the editor: amp knobs, effects on/off and effect knobs are heard live where the model's name is known, and "Store" writes the preset back in the REACTOR's own format and reads it back; shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" sets amp, gain, tone and effects of a Spark preset with single live commands. Models cannot be exchanged yet; wah, equalizer and FX loop stay as stored; never a Spark preset | presets read and seen, live commands heard by the owner, 2026-11-10; slot switch, store and read back checked with the probe on the amp, 2026-11-11; editing from the app not yet tried on the amp |
+| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); a click on a slot switches the amp to it and opens it in the editor: amp knobs, effects on/off and effect knobs are heard live where the model's name is known, and "Store" writes the preset back in the REACTOR's own format and reads it back; shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" and AI Sound's "Listen" set amp, gain, tone and effects of a Spark preset with single live commands. Records over USB ("Reactor 50 USB Audio"). Models cannot be exchanged yet; wah, equalizer and FX loop stay as stored; never a Spark preset | presets read and seen, live commands heard by the owner, 2026-11-10; slot switch, store and read back checked with the probe on the amp, 2026-11-11; editing from the app, "Listen" and a take over USB not yet tried on the amp |
 | REACTOR 100 | listens only, sends nothing | not checked |
 | any other Spark | reads and switches slots, nothing more, until checked | – |
 
@@ -153,7 +153,8 @@ whichever of the two you develop on. More in [linux/README.md](linux/README.md) 
 1. Connect the Spark over USB and start AmpBench. The deck on top shows the input and its level.
 2. Press `R` to record and `R` again to stop; `Space` plays the take, `K` keeps it, `⌫` moves it to the Trash.
 3. Switch to Presets with `⇧⌘2`. AmpBench connects to the amp over Bluetooth (disconnect the Spark app on the
-   phone first) and reads its slots; click one to hear it and open it in the editor.
+   phone first) and reads its slots; click one to hear it and open it in the editor. From then on it connects as
+   soon as it starts, and says so on top of the window when the computer's Bluetooth is off.
 4. Turn a knob: the change is heard at once, on the amp's temporary place. Nothing is stored in a slot until you
    ask for it, and the slot is backed up first.
 5. `⇧⌘3` opens the tuner. `⌘/` lists every shortcut.

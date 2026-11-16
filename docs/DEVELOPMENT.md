@@ -208,7 +208,8 @@ ampbench --demo --presets-folder /tmp/linux-library --made-up-sounds --open-libr
     --size 1360x1040 --screenshot docs/pictures/linux-library-maintenance.png
 ```
 
-`--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth. On a German
+`--demo-devices neo|mini|reactor` (only with `--library`) shows simulated devices instead of Bluetooth;
+`--demo-devices bluetooth-off` draws the window as with Bluetooth switched off. On a German
 system, add `-AppleLanguages '(en)' -AppleLocale en_US` to every command so the pictures come out in English.
 
 The `pictures` scenario also shows the tuner, fed with a synthetic string through its real pipeline (no input is

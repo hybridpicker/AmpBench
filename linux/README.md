@@ -138,6 +138,9 @@ ampbench --version
 
 Bluetooth goes through BlueZ (`bleak`). Like on the Mac, the app only looks for devices that offer the Spark control
 service and takes the amp's one control connection: "Disconnect" lets the Spark app on the phone take it again.
+When the adapter is off or missing, a strip above the areas says so until Bluetooth is back (`rfkill unblock
+bluetooth`, `bluetoothctl power on` or the desktop's Bluetooth settings); then the app connects by itself. The
+REACTOR 50 records over USB like the Spark MINI ("Reactor 50 USB Audio"; not yet tried under PipeWire).
 
 ## Code
 

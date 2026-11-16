@@ -29,10 +29,14 @@ itself.
   library, pieces, statistics), **Presets** (the amp's slots, the presets on the Mac and the editor) or
   **Tuner**.
 - A running recording continues when the window closes. The Dock icon then shows REC and brings the window back.
-- **Bluetooth on demand**: AmpBench does not look for the amp when it starts. It connects when the area Presets first
-  shows, with the key "Connect" at the foot of the presets' sidebar, with a click on the lamp "BT", or with
-  "Amp → Connect to the amp". "Disconnect" lets the Spark app on the phone take the amp again, because
-  the amp takes only one control connection.
+- **Bluetooth**: on its very first start AmpBench does not look for the amp; it connects when the area Presets or
+  Tuner first shows. Once it has been connected to a device, it looks for the amp as soon as it starts, whichever
+  area shows. The key "Connect" at the foot of the presets' sidebar, a click on the lamp "BT" or
+  "Amp → Connect to the amp" connect by hand. "Disconnect" lets the Spark app on the phone take the amp again,
+  because the amp takes only one control connection; it holds until the next start.
+- **Bluetooth off**: when the computer's Bluetooth is off, or AmpBench may not use it, a strip on top of the window
+  says so, with a key to the Bluetooth settings (or to Privacy & Security). It goes away by itself once Bluetooth
+  is on, and AmpBench then connects.
 - **Several devices**: Spark MINI, Spark NEO and REACTOR 50 (see [Devices](#devices)). The first section of the
   presets' sidebar, **Device**, chooses one; its lamp is green when connected, amber when nearby and dark when not
   there.
@@ -351,7 +355,7 @@ step aside.
 |---|---|---|
 | Spark MINI | everything above | firmware 1.11.2.75 |
 | Spark NEO | everything above; it does not record over USB (its headphones show no audio device) | firmware 1.16.1.60 |
-| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); a click on a slot switches the amp to it and opens it in the editor: amp knobs, effects on/off and effect knobs are heard live where the model's name is known, and "Store" writes the preset back in the REACTOR's own format and reads it back; shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" sets amp, gain, tone and effects of a Spark preset with single live commands. Models cannot be exchanged yet; wah, equalizer and FX loop stay as stored; never a Spark preset | presets read and seen, live commands heard by the owner, 2026-11-10; slot switch, store and read back checked with the probe on the amp, 2026-11-11; editing from the app not yet tried on the amp |
+| REACTOR 50 | reads its eight presets after connecting and shows them like a Spark's slots (name, amp, effects); a click on a slot switches the amp to it and opens it in the editor: amp knobs, effects on/off and effect knobs are heard live where the model's name is known, and "Store" writes the preset back in the REACTOR's own format and reads it back; shows what is turned and pressed on the amp, stamps takes with it. "Play on the REACTOR" and AI Sound's "Listen" set amp, gain, tone and effects of a Spark preset with single live commands. Records over USB ("Reactor 50 USB Audio"). Models cannot be exchanged yet; wah, equalizer and FX loop stay as stored; never a Spark preset | presets read and seen, live commands heard by the owner, 2026-11-10; slot switch, store and read back checked with the probe on the amp, 2026-11-11; editing from the app, "Listen" and a take over USB not yet tried on the amp |
 | REACTOR 100 | listens only, sends nothing | not checked |
 | any other Spark | reads and switches slots, nothing more, until checked | – |
 
@@ -404,7 +408,11 @@ suggestions, each shown as soon as it is ready; “warmer”, “more gain”, �
 with a follow-up request, and a request can be cancelled. Only the description leaves the Mac (a description with an
 e-mail address, phone number or key in it is refused), and the last wishes are kept on this Mac to pick again. It
 needs an Ollama API key (ollama.com/settings/keys), entered in the AI Sound dialog and stored in the macOS Keychain
-(on Linux in the desktop's keyring, see the [Linux app](../linux/README.md)).
+(on Linux in the desktop's keyring, see the [Linux app](../linux/README.md)). The key is read when AI Sound first
+opens; after an update macOS may ask once whether AmpBench may read it ("Always Allow").
+With a REACTOR 50 connected, "Listen" plays a suggestion as the REACTOR's nearest sound on the slot it plays (amp,
+gain, tone, effects on/off, reverb level); the master is not touched, nothing is stored, and a slot change brings the
+stored sound back. Turn the volume down before the first one.
 In this repository the project skill `spark-sound` lets Claude Code build sounds on request.
 
 Positive Grid's REACTOR amp is not compatible with Spark and documents no preset format, so a recipe cannot become a

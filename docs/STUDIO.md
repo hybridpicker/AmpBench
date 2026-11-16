@@ -33,6 +33,11 @@ labels.
 | – | The library over the area Presets (⌘L / Ctrl+L): search, filters, a table with groups, a preview, tags, "To listen", favorites, renaming and the Trash for several sounds; close sounds; a short sidebar | 9c5d27e (Mac, iPad), 7e4f451 (Linux) | Mac and iPad installed (2026-11-14), `swift test`, `--menu-dump` and the iPad UI tests green; Linux tests green headless on the Mac (2026-11-15), not yet on the laptop; nothing tried with the real 92 sounds or the amp |
 | – | Levels: a loudness meter (ITU-R BS.1770, `Loudness`) and a measuring run over USB (`--level-measure`) | 1a768df, c05928c | measured on the Spark MINI (2026-11-15): 27 sounds and a master sweep; the owner's library corrected and matched by script, heard in part, not measured again; nothing of the rule in the app yet |
 | – | Tap tempo on every delay: a "Tap" key in the control field sets the preset's BPM and the tempo switch to BPM, sent once after the taps | ced11d6 | 657 Swift tests and the Linux window test green; installed on Mac and iPad (2026-11-15), the laptop catches up when on; not heard on the amp |
+| – | Bluetooth off or not allowed: a lasting strip on top of every area with a key to the right settings, gone by itself once Bluetooth works; Linux the same, and bleak's "No powered Bluetooth adapters found." counts as off | d767958 | seen with simulated Bluetooth off (`--demo-devices bluetooth-off`); found when the owner's REACTOR was "not found" with the Mac's Bluetooth off (2026-11-16) |
+| – | Bluetooth starts with the app once a device was connected here before, whichever area shows | 3ccd451 | window capture on the Mac (2026-11-16): REACTOR connected while Record shows |
+| – | AI Sound's "Listen" on a REACTOR 50: the suggestion's nearest REACTOR sound as live commands on the playing slot | d099b66 | test with a simulated REACTOR; not yet heard on the device |
+| – | REACTOR 50 as a recording input: "Reactor 50 USB Audio" in the profile (Mac and Linux) | 3120c9b | read on the device (2026-11-16); the deck showed "Ready" with it as input; no take recorded yet |
+| – | The AI key is read when AI Sound opens, not at launch: a Keychain question after an install had held the launch before the window appeared | fea14dd | installed (2026-11-16); launch checked, AI Sound with the key not yet opened since |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -79,10 +84,21 @@ AmpBench  (app: one window, areas, the connections between them; Info.plist with
     leaves out groups that hang on a replaced one.
 - **Always dark.** The app sets `NSApp.appearance` to dark at start, also for the desk, independent of the system
   setting. The light values from DESIGN.md stay valid; `--appearance light` and the picture self-test still draw them.
-- **Bluetooth on demand.** No `CBCentralManager` at start, so no Bluetooth prompt. It connects when the area Presets
-  first shows (only the first time, otherwise "Disconnect" would not hold), with the key "Connect" at the foot of
-  the sidebar, with the lamp "BT" in the deck or through the menu. State `.off` reads "Disconnected". A Bluetooth
-  error is reported and never ends a recording.
+- **Bluetooth at start once known.** On a first launch there is no `CBCentralManager` at start, so no Bluetooth
+  prompt; it connects when the area Presets or Tuner first shows. Once any device was connected here before
+  (`SparkLink.knowsDevices`, the remembered devices), Bluetooth starts with the app (since 3ccd451), so the amp is
+  found while Record shows. Either way it starts only once, otherwise "Disconnect" would not hold until the next
+  launch; the key "Connect" at the foot of the sidebar, the lamp "BT" in the deck and the menu connect again. Test
+  libraries (`--library`) keep the old way, so pictures never reach for a real amp. State `.off` reads
+  "Disconnected". A Bluetooth error is reported and never ends a recording.
+- **Bluetooth off says so.** While Bluetooth is off, not allowed or missing and the link is wanted, a strip on top
+  of every area says why the amp is not found (`BluetoothHint`; in Presets over the editor, since the system
+  sidebar draws itself above anything laid across it). Its key opens the Bluetooth settings, or Privacy & Security
+  when access is missing; on the iPad only access can be opened. It goes away by itself once Bluetooth works;
+  closing it hides it until the state changes.
+- **Nothing waits for the Keychain at launch.** The AI key is read when AI Sound first opens
+  (`PresetsModel.loadAIKeyOnce`); after an install macOS may ask whether the new build may read it, and that
+  question must not hold up the window.
 
 ### Adding an area
 
@@ -436,8 +452,8 @@ check with its owner.
 |---|---|---|---|---|
 | Spark MINI | 4 | everything: read, switch, play temporarily, change live, model change, store, buttons, tuner, tap, USB audio | keeps the temporary sound on disconnect? unchecked, counts as "no" | 1.11.2.75 |
 | Spark NEO | 4 | like the MINI, without USB audio; tuner checked, tap unchecked | drops the temporary sound on disconnect | 1.16.1.60 |
-| REACTOR 50 | 8 (Red 1–4, Green 1–4) | listening, buttons, tuner, tap, USB audio (name not read yet), Text to Tone, a sound as live commands (`.liveSound`), reading its presets (`.reactorPresets`), switching, live changes and storing in its own format (`.switchSlot`, `.liveEdit`, `.store`) | no `.send`: never a Spark preset, no model change, no temporary place | listened to; live commands heard (2026-11-10); switch, names, store checked with the probe (2026-11-11) |
-| REACTOR 100 | 8 | like the 50 | | unchecked |
+| REACTOR 50 | 8 (Red 1–4, Green 1–4) | listening, buttons, tuner, tap, USB audio ("Reactor 50 USB Audio"), Text to Tone, a sound as live commands (`.liveSound`), reading its presets (`.reactorPresets`), switching, live changes and storing in its own format (`.switchSlot`, `.liveEdit`, `.store`) | no `.send`: never a Spark preset, no model change, no temporary place | listened to; live commands heard (2026-11-10); switch, names, store checked with the probe (2026-11-11) |
+| REACTOR 100 | 8 | listening only; no USB audio name | | unchecked |
 | unknown Spark (FFC0) | 4 | read and switch only | | – |
 
 None of them confirms a parameter (`04 04`); the editor never waits for that, and reading back after a pause shows
@@ -455,7 +471,7 @@ whether it arrived. The pacing stays as for the MINI.
   connection, then makes the new one. When something unsaved plays temporarily on a device that loses it on
   disconnect, the app asks first ("The sound on the NEO is lost when you disconnect. Save it as a preset
   first?"), likewise for "Disconnect".
-- **Bluetooth on demand** as before; no scan at start.
+- **Bluetooth at start** only once a device was connected before (see "Bluetooth at start once known" above).
 - **Names in logs:** over Bluetooth the REACTOR is called "Reactor 50 …" with an addition by its owner. The app
   shows it but writes it into no log (`DeviceProfile.loggableName`); take stamps carry the profile name.
 
@@ -502,12 +518,13 @@ factory presets are in the catalog.
 A combo amp, a product line of its own with an app of its own. The owner has the user manual (English, for the 50
 and the 100).
 
-- **USB-C:** a USB audio device with 1 input and 2 outputs, 48 kHz, 24 bits; the input carries the finished sound
-  with all effects. Beside it a serial port "PG Virtual Com" (firmware program) and an Espressif JTAG
+- **USB-C:** a USB audio device with 1 input and 2 outputs, 48 kHz; the input carries the finished sound with all
+  effects. Beside it a serial port "PG Virtual Com" (firmware program) and an Espressif JTAG
   interface (can reset the chip): **never open them, not even for listing.** No USB MIDI. Manual: plug in USB
-  while the REACTOR is off. The exact USB audio name has not been read yet; until then it is not
-  in the profile, and the recorder does not record from the REACTOR (`InputPolicy.usbDevices(named:)` with the names
-  of the profiles replaces the fixed "spark").
+  while the REACTOR is off. Read on the device on 2026-11-16 (macOS audio list only): it is called
+  **"Reactor 50 USB Audio"**, without the owner's own name part, and the Mac takes its input as 16 bits mono. The
+  profile names "reactor 50", so the recorder records from it (`InputPolicy.usbDevices(named:)` with the profiles'
+  names); the deck showed "Ready" with it as input. No take recorded from it yet; latency not measured.
 - **Bluetooth:** A2DP for music and BLE for control: service FFD0, manufacturer id 295D, FFC1 (write without
   response), FFC2 (read, notify). The messages are Spark frames (`F0 01 … F7`, 7-bit packing, texts and floats as
   on the MINI).
@@ -550,10 +567,14 @@ and the 100).
   effects as `PresetStamp.listened`, without fingerprint and snapshot; the inspector shows "Read only".
 - **Tuner:** the REACTOR panel shows on/off and the raw value from `03 64`. It is not attached to the display of the
   area Tuner: the scale of the value is unknown, and the display promises 0.1 cent.
+- **AI Sound's "Listen":** the REACTOR has no temporary place, so a suggestion plays as its nearest REACTOR sound
+  (`ReactorSound`, the same live commands as "Play on the REACTOR") on the slot it plays: amp, Push/Smooth, Heat,
+  gain, tone, effects on/off and the reverb's level. The master is never set, nothing is stored, a slot change ends
+  it (`PresetsModel.tryOutOnReactor`, since d099b66).
 - **Text to Tone:** the editor's "⋯ → Copy text for REACTOR" (like `--recipe-prompt`); the REACTOR interprets the
   text itself.
 - **Open:** the meaning of `03 1A 91 00 02 C3`; Power Control (50/25/1 W); PAIR; expression pedal; wah, EQ and
-  FX loop; the additional bank change; why FX Level was silent twice; USB audio name and latency. Known since
+  FX loop; the additional bank change; why FX Level was silent twice; USB latency. Known since
   2026-11-10: it answers read requests (firmware 0.1.4.85), and `03 1A 91 00 <slot> C3` comes at the first change
   of a slot.
 
