@@ -147,7 +147,8 @@ Decisions, with the reasons. How the store works is in [STORE.md](STORE.md), the
   with a development profile that is already on the Mac (`AMPBENCH_PROFILE` in the untracked `Local.xcconfig`), so
   a Mac whose Xcode has no account signed in can still install.
 
-Open: Record on the iPad; the store on Linux (in work, 2026-11-14); a view for earlier versions and removed sounds;
+Open: Record on the iPad; the store's window on Linux (the laptop syncs the real store from the command line since
+2026-11-16, 92 sounds read back); a view for earlier versions and removed sounds;
 a lock for the index; Presets and Tuner on the iPad with an amp.
 
 ## Tuner
