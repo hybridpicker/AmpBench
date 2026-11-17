@@ -535,7 +535,8 @@ def test_bluetooth_off_is_said_above_every_area_until_it_is_on(app, tmp_path):
     assert w.bluetooth_banner.isVisible()
     SwitchedOff.is_off = False
     wait_for(lambda: w.link.core.status == "connected", timeout=8000)
-    assert not w.bluetooth_banner.isVisible()
+    # The window hears of the new status through a queued signal, a moment after the link has it.
+    wait_for(lambda: not w.bluetooth_banner.isVisible())
     w.editor = None
     w.close()
 
