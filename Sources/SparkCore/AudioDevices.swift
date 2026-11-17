@@ -248,7 +248,26 @@ public enum AudioDevices {
 
     /// Calls `handler` on the main queue whenever the set of devices changes. Returns a token for `stopObserving`.
     public static func observeDeviceList(_ handler: @escaping () -> Void) -> AudioObjectPropertyListenerBlock? {
-        var property = address(kAudioHardwarePropertyDevices)
+        observeSystem(kAudioHardwarePropertyDevices, handler)
+    }
+
+    public static func stopObservingDeviceList(_ listener: @escaping AudioObjectPropertyListenerBlock) {
+        stopObservingSystem(kAudioHardwarePropertyDevices, listener)
+    }
+
+    /// Calls `handler` on the main queue whenever the system's output changes, such as when headphones are plugged
+    /// in: the Mac then switches to a device of its own and mutes the speakers.
+    public static func observeDefaultOutput(_ handler: @escaping () -> Void) -> AudioObjectPropertyListenerBlock? {
+        observeSystem(kAudioHardwarePropertyDefaultOutputDevice, handler)
+    }
+
+    public static func stopObservingDefaultOutput(_ listener: @escaping AudioObjectPropertyListenerBlock) {
+        stopObservingSystem(kAudioHardwarePropertyDefaultOutputDevice, listener)
+    }
+
+    private static func observeSystem(_ selector: AudioObjectPropertySelector,
+                                      _ handler: @escaping () -> Void) -> AudioObjectPropertyListenerBlock? {
+        var property = address(selector)
         // Returns first and reacts afterwards: the reaction can close the input, which removes listeners, and Core
         // Audio waits for a running listener when one gets removed.
         let listener: AudioObjectPropertyListenerBlock = { _, _ in DispatchQueue.main.async(execute: handler) }
@@ -256,8 +275,9 @@ public enum AudioDevices {
         return status == noErr ? listener : nil
     }
 
-    public static func stopObservingDeviceList(_ listener: @escaping AudioObjectPropertyListenerBlock) {
-        var property = address(kAudioHardwarePropertyDevices)
+    private static func stopObservingSystem(_ selector: AudioObjectPropertySelector,
+                                            _ listener: @escaping AudioObjectPropertyListenerBlock) {
+        var property = address(selector)
         AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject), &property, .main, listener)
     }
 }

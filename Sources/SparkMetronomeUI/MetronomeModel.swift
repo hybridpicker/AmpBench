@@ -1,5 +1,8 @@
 import AmpText
 import Combine
+#if os(macOS)
+import CoreAudio
+#endif
 import Foundation
 import SparkCore
 
@@ -31,7 +34,33 @@ final class MetronomeModel: ObservableObject {
         changes = tempo.changes.receive(on: RunLoop.main).sink { [weak self] in
             MainActor.assumeIsolated { self?.tempoChanged() }
         }
+        #if os(macOS)
+        let follow: () -> Void = { [weak self] in MainActor.assumeIsolated { self?.followOutput() } }
+        outputListeners = [AudioDevices.observeDefaultOutput(follow), AudioDevices.observeDeviceList(follow)]
+        #endif
     }
+
+    #if os(macOS)
+    private var outputListeners: [AudioObjectPropertyListenerBlock?] = []
+
+    deinit {
+        if let listener = outputListeners.first ?? nil { AudioDevices.stopObservingDefaultOutput(listener) }
+        if let listener = outputListeners.last ?? nil { AudioDevices.stopObservingDeviceList(listener) }
+    }
+
+    /// The device the metronome belongs on now: the chosen output, else the system's.
+    private var targetDevice: AudioDeviceID? {
+        tempo.outputDeviceID.flatMap { AudioDevices.exists($0) ? $0 : nil } ?? AudioDevices.defaultOutputDevice()
+    }
+
+    /// Moves a running metronome to where the sound belongs now. Without this it kept playing on the device it started
+    /// on: with headphones plugged in, the muted speakers.
+    private func followOutput() {
+        guard isRunning, let target = targetDevice, target != engine.device else { return }
+        stop()
+        start()
+    }
+    #endif
 
     private func tempoChanged() {
         let fresh = tempo.settings
@@ -44,6 +73,9 @@ final class MetronomeModel: ObservableObject {
             problem = tr("The metronome stopped: a recording or a take with its click took over the tempo.")
         }
         if chosenPieceID == nil { chosenPieceID = tempo.currentPieceID }
+        #if os(macOS)
+        followOutput()
+        #endif
         objectWillChange.send()
     }
 

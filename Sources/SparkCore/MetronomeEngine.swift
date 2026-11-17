@@ -37,6 +37,10 @@ public final class MetronomeEngine {
     private var metronome: OpaquePointer?
     public private(set) var sampleRate: Double = 0
     public private(set) var outputLatency: Double = 0
+    #if os(macOS)
+    /// The device playing now; a "system output" start resolves to the device the system had then.
+    public private(set) var device: AudioDeviceID?
+    #endif
 
     public init() {}
 
@@ -94,6 +98,7 @@ public final class MetronomeEngine {
         } latency: { rate in
             Double(AudioDevices.outputLatencyFrames(of: device)) / rate
         }
+        self.device = device
         update(settings: settings)
     }
     #else
@@ -188,6 +193,9 @@ public final class MetronomeEngine {
         metronome = nil
         sampleRate = 0
         outputLatency = 0
+        #if os(macOS)
+        device = nil
+        #endif
     }
 
     private func check(_ step: String, _ status: OSStatus) throws {
