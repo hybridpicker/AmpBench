@@ -261,9 +261,9 @@ def keepsake(data: dict, request: str, adjustments: list[str] | None = None) -> 
 
 ARCHETYPES = [
     ("The Edge (U2)", ["Compressor", "AC Boost", "DelayMono", "bias.reverb"],
-     "gain 3–4, treble 6–7; echo as dotted eighths (bpm = song tempo × 4/3), effect 4–5, feedback 3–4; little reverb."),
+     "gain 4–5, treble 6–7, master 8–9; echo as dotted eighths (bpm = song tempo × 4/3), effect 4–5, feedback 3–4; little reverb."),
     ("David Gilmour (Pink Floyd), lead", ["GuitarMuff", "Twin", "DelayMono", "bias.reverb"],
-     "amp with headroom (gain 3–4), Muff sustain 6–7, tone 4–5; echo around 400–500 ms as eighths (bpm = song tempo × 2); Medium hall or Wide hall, level 3–4."),
+     "amp with headroom (gain 3.5–4, master 6–7), Muff sustain 6–7, tone 4–5; echo around 400–500 ms as eighths (bpm = song tempo × 2); Medium hall or Wide hall, level 3–4."),
     ("Jimi Hendrix", ["Fuzz", "Plexi", "UniVibe", "bias.reverb"],
      "Plexi gain 5–6, Fuzz fuzz 6–8 (the guitar's volume knob cleans it up); UniVibe speed 3–5; hardly any reverb (Room A)."),
     ("Stevie Ray Vaughan, Texas blues", ["DistortionTS9", "Twin", "bias.reverb"],
@@ -273,7 +273,7 @@ ARCHETYPES = [
     ("Eddie Van Halen", ["EVH", "Phaser", "DelayMono", "bias.reverb"],
      "“brown sound”: EVH gain 6–7 or Plexi gain 7–8, middle 6; Phaser speed 2–3 (Eruption) or Flanger (Unchained); short, quiet echo."),
     ("AC/DC", ["Plexi", "bias.reverb"],
-     "no drive pedal, the distortion comes from the amp: Plexi gain 5–6 (rhythm) to 7 (lead), middle 6–7, bass 4; Room A, level 1.5–2; no delay, no gate."),
+     "no drive pedal, the distortion comes from the amp: Plexi gain 5–6 (rhythm) to 7 (lead), middle 6–7, bass 4, master 3–4; Room A, level 1.5–2; no delay, no gate."),
     ("Slash (Guns N' Roses)", ["DistortionTS9", "Plexi", "DelayMono", "bias.reverb"],
      "Plexi gain 7–8 or YJM100, DistortionTS9 drive 1–2 as a push, middle 7; lead echo 350–450 ms, effect 2–3; a room."),
     ("Metallica, thrash rhythm", ["bias.noisegate", "DistortionTS9", "Rectifier", "bias.reverb"],
@@ -281,21 +281,21 @@ ARCHETYPES = [
     ("Modern metal, djent", ["bias.noisegate", "DistortionTS9", "6505Plus"],
      "6505Plus or BE101 gain 5–6.5 (not higher), DistortionTS9 drive 0, level 8; gate 4–5; no reverb and no delay for rhythm."),
     ("Funk (Nile Rodgers)", ["Compressor", "RolandJC120", "bias.reverb"],
-     "Compressor sensitivity 5–6; RolandJC120 or Twin gain 2–3, treble 7, middle 6; no delay, reverb level below 1.5."),
+     "Compressor sensitivity 5–6; Twin gain 4–5 or RolandJC120 gain 5–6, treble 7, middle 6, master 9–10; no delay, reverb level below 1.5."),
     ("Mark Knopfler (Dire Straits)", ["Compressor", "Deluxe65", "bias.reverb"],
-     "clean and mid-focused (gain 4, treble 6, middle 6), light compressor; a room or Natural hall. “Money for Nothing”: Plexi gain 6, middle 8, treble 3."),
+     "clean and mid-focused (gain 4.5, treble 6, middle 6, master 8–9), light compressor; a room or Natural hall. “Money for Nothing”: Plexi gain 6, middle 8, treble 3."),
     ("The Police, 80s clean with chorus", ["RolandJC120", "ChorusAnalog", "DelayMono", "bias.reverb"],
-     "RolandJC120 gain 2–3, ChorusAnalog effect 5, rate 3; echo as eighths (bpm = song tempo × 2), effect 3, feedback 3–4."),
+     "RolandJC120 gain 5–6, master 9–10, ChorusAnalog effect 5, rate 3; echo as eighths (bpm = song tempo × 2), effect 3, feedback 3–4."),
     ("Nirvana, grunge", ["ProCoRat", "AmericanHighGain", "Cloner", "bias.reverb"],
      "chorus of the song: ProCoRat distortion 6–7 into a lightly driven amp (AmericanHighGain gain 4 or Twin gain 5); verse clean with Cloner (Come as You Are); a room."),
     ("Garage rock (The White Stripes, The Black Keys)", ["GuitarMuff", "Checkmate", "bias.reverb"],
      "fuzz (GuitarMuff sustain 7–9 or Fuzz) into a small combo (Checkmate or BluesJrTweed gain 5–6); a room, no delay."),
     ("Surf (Dick Dale, The Ventures)", ["Twin", "Tremolo", "bias.reverb"],
-     "Twin gain 3, treble 7; wet reverb instead of a spring: Rich plate, level 5–6, length 5–6; Tremolo speed 4–6."),
+     "Twin gain 4.5, treble 7, master 9; wet reverb instead of a spring: Rich plate, level 5–6, length 5–6; Tremolo speed 4–6."),
     ("Country, chicken picking", ["Compressor", "Twin", "DelayMono", "bias.reverb"],
-     "Twin or Deluxe65 gain 3, treble 7; Compressor; slapback with DelayMono: sync Free, range “200 ms”, time 4–5, feedback 0–1, effect 3; a room."),
+     "Twin or Deluxe65 gain 4.5, treble 7, master 8–9; Compressor; slapback with DelayMono: sync Free, range “200 ms”, time 4–5, feedback 0–1, effect 3; a room."),
     ("Jazz", ["RolandJC120", "bias.reverb"],
-     "RolandJC120 or Twin gain 2–3, treble 3–4, middle 5, bass 6; a room, level 2; no other effects."),
+     "Twin gain 4–5 or RolandJC120 gain 5–6, treble 3–4, middle 5, bass 6, master 9–10; a room, level 2; no other effects; neck pickup."),
     ("Santana", ["DistortionTS9", "ODS50CN", "DelayMono", "bias.reverb"],
      "singing sustain: ODS50CN or Bogner gain 6–7, middle 7, DistortionTS9 drive 2; quiet echo; Medium hall."),
     ("Queen (Brian May)", ["Booster", "AC Boost", "DelayMono", "bias.reverb"],
@@ -308,13 +308,21 @@ ARCHETYPES = [
      "OrangeAD30 or Plexi gain 6–7, Overdrive drive 3; Phaser speed 2, intensity 4; a room."),
     ("Shoegaze, post-rock, ambient", ["GuitarMuff", "Twin", "DelayRe201", "bias.reverb"],
      "Muff or clean; DelayRe201 sustain 5–6, level 4; Wide hall, length 8–9, level 5; DelayReverse for swells."),
+    ("Pat Metheny, clean (Bright Size Life)", ["BBEOpticalComp", "RolandJC120", "ChorusAnalog", "DelayMono", "bias.reverb"],
+     "warm, dark solid-state clean: RolandJC120 gain 5–6, treble 2–3, middle 5–6, bass 6, master 9–10 (or Twin); light compressor; chorus barely there (effect 3, rate 2); quiet echo; Natural hall, level 3–4; neck pickup, guitar tone rolled back."),
+    ("Pat Metheny, guitar synth lead", ["BlueComp", "GuitarMuff", "Twin", "ChorusAnalog", "DelayMono", "bias.reverb"],
+     "an approximation, the Spark has no synth: GuitarMuff tone 3–4, sustain 6–7; BlueComp attack 6–7, sustain 7; Twin gain 3.5, middle 6.5, master 7; chorus effect 4–5; echo effect 3; Wide hall, level 4; legato, notes faded in with the volume knob."),
+    ("John Scofield", ["DistortionTS9", "Deluxe65", "ChorusAnalog", "bias.reverb"],
+     "jazz with grit: Deluxe65 or AC Boost gain 5–6, middle 6, master 6–7; DistortionTS9 drive 2–3, level 6; chorus effect 3; a room."),
+    ("B.B. King", ["Twin", "bias.reverb"],
+     "no pedals: Twin gain 5–6, treble 6, middle 7, bass 4, master 7–8; Room B or Natural hall, level 2–3; the vibrato comes from the hand."),
 ]
 
 EXAMPLES = [
     ("U2 – Where the Streets Have No Name",
-     '{"format":"spark-sound-recipe","version":1,"name":"Streets Echo","description":"Shimmering British clean with a dotted-eighth echo","bpm":168,"tags":["U2","Clean","Delay"],"notes":"The song runs at about 126 BPM; bpm is 168 (126 × 4/3) so that the synced echo comes as dotted eighths. Set delay.effect by ear first, then amp.treble.","chain":{"compressor":{"model":"Compressor","settings":{"level":6,"sensitivity":4}},"amp":{"model":"AC Boost","settings":{"gain":3.5,"treble":6.5,"middle":5,"bass":4.5,"master":7}},"delay":{"model":"DelayMono","settings":{"effect":4.5,"feedback":3.5,"sync":true}},"reverb":{"model":"bias.reverb","settings":{"level":2,"length":5,"type":"Natural hall"}}}}'),
+     '{"format":"spark-sound-recipe","version":1,"name":"Streets Echo","description":"Shimmering British clean with a dotted-eighth echo","bpm":168,"tags":["U2","Clean","Delay"],"notes":"The song runs at about 126 BPM; bpm is 168 (126 × 4/3) so that the synced echo comes as dotted eighths. Set delay.effect by ear first, then amp.treble.","chain":{"compressor":{"model":"Compressor","settings":{"level":6,"sensitivity":4}},"amp":{"model":"AC Boost","settings":{"gain":4.5,"treble":6.5,"middle":5,"bass":4.5,"master":8.5}},"delay":{"model":"DelayMono","settings":{"effect":4.5,"feedback":3.5,"sync":true}},"reverb":{"model":"bias.reverb","settings":{"level":2,"length":5,"type":"Natural hall"}}}}'),
     ("AC/DC – Back in Black",
-     '{"format":"spark-sound-recipe","version":1,"name":"Black Crunch","description":"Dry Plexi crunch without pedals","bpm":94,"tags":["AC/DC","Rock","Crunch"],"notes":"The distortion comes from the amp alone. Too much drive: amp.gain to 5; too thin: amp.middle up.","chain":{"amp":{"model":"Plexi","settings":{"gain":6,"treble":6,"middle":7,"bass":4,"master":7}},"reverb":{"model":"bias.reverb","settings":{"level":1.5,"length":3.5,"type":"Room A"}}}}'),
+     '{"format":"spark-sound-recipe","version":1,"name":"Black Crunch","description":"Dry Plexi crunch without pedals","bpm":94,"tags":["AC/DC","Rock","Crunch"],"notes":"The distortion comes from the amp alone. Too much drive: amp.gain to 5; too thin: amp.middle up.","chain":{"amp":{"model":"Plexi","settings":{"gain":6,"treble":6,"middle":7,"bass":4,"master":3.5}},"reverb":{"model":"bias.reverb","settings":{"level":1.5,"length":3.5,"type":"Room A"}}}}'),
     ("Pink Floyd – Comfortably Numb, solo",
      '{"format":"spark-sound-recipe","version":1,"name":"Numb Solo","description":"Singing fuzz lead with echo and a big hall","bpm":128,"tags":["Pink Floyd","Lead","Fuzz"],"notes":"The song runs at about 64 BPM; bpm is 128 so that the echo comes as eighths (about 470 ms). Too muddy: drive.tone up; too wet: reverb.level down.","chain":{"compressor":{"model":"BlueComp","settings":{"level":5,"sustain":5}},"drive":{"model":"GuitarMuff","settings":{"sustain":6.5,"tone":4.5,"level":6}},"amp":{"model":"Twin","settings":{"gain":3.5,"treble":5.5,"middle":6,"bass":5,"master":7}},"delay":{"model":"DelayMono","settings":{"effect":3.5,"feedback":3.5,"sync":true}},"reverb":{"model":"bias.reverb","settings":{"level":3.5,"length":7,"type":"Medium hall"}}}}'),
 ]
@@ -406,10 +414,10 @@ Answer ONLY with a single JSON object, with no text before or after it, in exact
   "format": "spark-sound-recipe",
   "version": 1,
   "name": "short name, at most 31 bytes (umlauts count double)",
-  "description": "one sentence saying what the sound is",
+  "description": "one short sentence saying what the sound is, at most 60 characters",
   "bpm": 120,
-  "tags": ["style", "mood"],
-  "notes": "what to turn first by ear, and why",
+  "tags": ["2 to 4 tags: style, mood, artist"],
+  "notes": "what to turn first by ear and why; how to set the guitar if it matters",
   "chain": {{
     "gate":       {{ "model": "<id>", "on": true, "settings": {{ }} }},
     "compressor": {{ "model": "<id>", "on": true, "settings": {{ }} }},
@@ -431,8 +439,9 @@ Rules:
 - The wah of the paid add-on sits in the compressor place. Avoid models marked “PACK” unless the user asks for them explicitly.
 - There is exactly one reverb model (bias.reverb); its “type” chooses room, chamber, hall or plate. There is no spring reverb.
 - Amps have five knobs: gain, treble, middle, bass, master (pack amps call it volume).
-- For a song set "bpm" to fit the song's tempo (see Tempo and delay time), otherwise 120.
+- For a song set "bpm" to fit the song's tempo (see Tempo and delay time), otherwise 120. If you are not sure of the song's tempo, say in "notes" that it is a guess.
 - If a “Direction of this variant” is given, follow it. Variants should differ audibly: another amp, another gain stage or another idea for the effects.
+- Do not add the tag “KI-Sound”; AmpBench adds it.
 
 How to choose (starting points, not law):
 - Sparkling clean, jazz, funk: Twin, RolandJC120, 94MatchDCV2 (clean)
@@ -448,9 +457,9 @@ How to choose (starting points, not law):
 Players and genres – typical signal chains (starting points, only with models from the catalog):
 {archetypes}
 
-Gain staging (knobs 0–10):
-- Clean: amp.gain 2–4 · edge of breakup: 4.5–6 · crunch: 5–7 · high-gain amps mostly 5–7, above 8 it gets fizzy and noisy.
-- master is volume, not distortion: 6–8. The sounds of a set should be about equally loud.
+Gain staging and loudness (knobs 0–10, measured on a Spark MINI):
+- A Spark amp is nearly silent at gain 2–3 and silent at 0. Clean: amp.gain 4–5 (clean amps stay clean there) · edge of breakup: 5–6 · crunch: 6–7 · high-gain amps mostly 5–7, above 8 it gets fizzy and noisy.
+- master is volume, not distortion, and every sound should be about equally loud; a solo or lead may be a little louder. Clean amps need master 8–10 (RolandJC120 is the quietest amp: gain 5–6, master 9–10). Crunch: master 3–5. High gain, or a crunch amp with a drive pedal in front: master 1.5–3. A compressor or a drive pedal in front makes the sound louder, so lower master a little.
 - Tightening high gain: a drive in front with almost no gain and a high level (DistortionTS9 drive 0–1.5, level 7–9), or Booster.
 - Pushing crunch to lead: DistortionTS9 drive 2–4.
 
@@ -469,13 +478,22 @@ Time effects:
 - Modulation: chorus effect 3–5, rate low; tremolo speed 4–6 for a surf pulse.
 - Gate: threshold 1.5–3 crunch, 3–5 high gain; off for clean.
 
+What the Spark cannot do, and what gets close (say in "notes" that it is an approximation):
+- Guitar synth, horn-like lead (Pat Metheny, guitar synth): no synth, no octaver, no pitch shifter. GuitarMuff with tone 3–4 and sustain 6–7, BlueComp with slow attack (6–7) and sustain 7, a clean amp with high middle, chorus, delay and a big hall; play legato and fade notes in with the volume knob.
+- Octave, harmonizer, whammy (Tom Morello, Jimi Hendrix Octavia): not there without the paid add-on; a fuzz gets nearest.
+- Leslie, rotary speaker, organ-like: UniVibe (Chorus mode) or ChorusAnalog with a slow rate.
+- Spring reverb: a plate (Short plate or Rich plate).
+- Wah, auto-wah, envelope filter: only the paid add-on’s wah; without it leave it out and say so.
+- Volume swells, violin-like attacks: the guitar's volume knob, DelayReverse, or a compressor with slow attack.
+- Acoustic guitar from an electric: an acoustic amp (AcousticAmpV2, FatAcousticV2), bridge or middle pickup, light compression.
+
 Tempo and delay time:
 {TEMPO_TEXT}
 
 Reverb by style:
 {REVERB_TEXT}
 
-Keep it simple: a few fitting effects instead of everything at once. Choose the amp first, then build around it. Write in "notes" which one or two knobs the player should turn first by ear.
+Keep it simple: a few fitting effects instead of everything at once. Choose the amp first, then build around it. Write in "notes" which one or two knobs the player should turn first by ear, and the guitar's side when it shapes the sound (pickup, tone knob, picking).
 
 EXAMPLES – valid recipes in exactly the required form:
 

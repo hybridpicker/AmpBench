@@ -179,10 +179,10 @@ public enum SoundAI {
           "format": "spark-sound-recipe",
           "version": 1,
           "name": "short name, at most 31 bytes (umlauts count double)",
-          "description": "one sentence saying what the sound is",
+          "description": "one short sentence saying what the sound is, at most 60 characters",
           "bpm": 120,
-          "tags": ["style", "mood"],
-          "notes": "what to turn first by ear, and why",
+          "tags": ["2 to 4 tags: style, mood, artist"],
+          "notes": "what to turn first by ear and why; how to set the guitar if it matters",
           "chain": {
             "gate":       { "model": "<id>", "on": true, "settings": { } },
             "compressor": { "model": "<id>", "on": true, "settings": { } },
@@ -204,8 +204,9 @@ public enum SoundAI {
         - The wah of the paid add-on sits in the compressor place. Avoid models marked “PACK” unless the user asks for them explicitly.
         - There is exactly one reverb model (bias.reverb); its “type” chooses room, chamber, hall or plate. There is no spring reverb.
         - Amps have five knobs: gain, treble, middle, bass, master (pack amps call it volume).
-        - For a song set "bpm" to fit the song's tempo (see Tempo and delay time), otherwise 120.
+        - For a song set "bpm" to fit the song's tempo (see Tempo and delay time), otherwise 120. If you are not sure of the song's tempo, say in "notes" that it is a guess.
         - If a “Direction of this variant” is given, follow it. Variants should differ audibly: another amp, another gain stage or another idea for the effects.
+        - Do not add the tag “KI-Sound”; AmpBench adds it.
 
         How to choose (starting points, not law):
         - Sparkling clean, jazz, funk: Twin, RolandJC120, 94MatchDCV2 (clean)
@@ -221,9 +222,9 @@ public enum SoundAI {
         Players and genres – typical signal chains (starting points, only with models from the catalog):
         \(archetypeText)
 
-        Gain staging (knobs 0–10):
-        - Clean: amp.gain 2–4 · edge of breakup: 4.5–6 · crunch: 5–7 · high-gain amps mostly 5–7, above 8 it gets fizzy and noisy.
-        - master is volume, not distortion: 6–8. The sounds of a set should be about equally loud.
+        Gain staging and loudness (knobs 0–10, measured on a Spark MINI):
+        - A Spark amp is nearly silent at gain 2–3 and silent at 0. Clean: amp.gain 4–5 (clean amps stay clean there) · edge of breakup: 5–6 · crunch: 6–7 · high-gain amps mostly 5–7, above 8 it gets fizzy and noisy.
+        - master is volume, not distortion, and every sound should be about equally loud; a solo or lead may be a little louder. Clean amps need master 8–10 (RolandJC120 is the quietest amp: gain 5–6, master 9–10). Crunch: master 3–5. High gain, or a crunch amp with a drive pedal in front: master 1.5–3. A compressor or a drive pedal in front makes the sound louder, so lower master a little.
         - Tightening high gain: a drive in front with almost no gain and a high level (DistortionTS9 drive 0–1.5, level 7–9), or Booster.
         - Pushing crunch to lead: DistortionTS9 drive 2–4.
 
@@ -242,13 +243,22 @@ public enum SoundAI {
         - Modulation: chorus effect 3–5, rate low; tremolo speed 4–6 for a surf pulse.
         - Gate: threshold 1.5–3 crunch, 3–5 high gain; off for clean.
 
+        What the Spark cannot do, and what gets close (say in "notes" that it is an approximation):
+        - Guitar synth, horn-like lead (Pat Metheny, guitar synth): no synth, no octaver, no pitch shifter. GuitarMuff with tone 3–4 and sustain 6–7, BlueComp with slow attack (6–7) and sustain 7, a clean amp with high middle, chorus, delay and a big hall; play legato and fade notes in with the volume knob.
+        - Octave, harmonizer, whammy (Tom Morello, Jimi Hendrix Octavia): not there without the paid add-on; a fuzz gets nearest.
+        - Leslie, rotary speaker, organ-like: UniVibe (Chorus mode) or ChorusAnalog with a slow rate.
+        - Spring reverb: a plate (Short plate or Rich plate).
+        - Wah, auto-wah, envelope filter: only the paid add-on’s wah; without it leave it out and say so.
+        - Volume swells, violin-like attacks: the guitar's volume knob, DelayReverse, or a compressor with slow attack.
+        - Acoustic guitar from an electric: an acoustic amp (AcousticAmpV2, FatAcousticV2), bridge or middle pickup, light compression.
+
         Tempo and delay time:
         \(tempoText)
 
         Reverb by style:
         \(reverbText)
 
-        Keep it simple: a few fitting effects instead of everything at once. Choose the amp first, then build around it. Write in "notes" which one or two knobs the player should turn first by ear.
+        Keep it simple: a few fitting effects instead of everything at once. Choose the amp first, then build around it. Write in "notes" which one or two knobs the player should turn first by ear, and the guitar's side when it shapes the sound (pickup, tone knob, picking).
 
         EXAMPLES – valid recipes in exactly the required form:
 

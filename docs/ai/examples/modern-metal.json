@@ -9,7 +9,7 @@
   "chain": {
     "gate": { "model": "bias.noisegate", "settings": { "threshold": 4, "decay": 3 } },
     "drive": { "model": "DistortionTS9", "settings": { "drive": 0.5, "tone": 6, "level": 8 } },
-    "amp": { "model": "6505Plus", "settings": { "gain": 6.5, "treble": 6, "middle": 5, "bass": 5, "master": 6.5 } },
+    "amp": { "model": "6505Plus", "settings": { "gain": 6.5, "treble": 6, "middle": 5, "bass": 5, "master": 2.5 } },
     "reverb": { "model": "bias.reverb", "on": false }
   }
 }

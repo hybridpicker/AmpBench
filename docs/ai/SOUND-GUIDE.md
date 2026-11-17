@@ -48,7 +48,7 @@ The reverse works too. This command describes a saved preset as a recipe, so an 
   "chain": {
     "drive": { "model": "DistortionTS9", "settings": { "drive": 3, "tone": 5.5, "level": 7 } },
     "amp": { "model": "Bassman", "settings": { "gain": 5, "treble": 6, "middle": 6.5, "bass": 4.5, "master": 7 } },
-    "reverb": { "model": "bias.reverb", "settings": { "level": 2.5, "type": "Raum B" } }
+    "reverb": { "model": "bias.reverb", "settings": { "level": 2.5, "type": "Room B" } }
   }
 }
 ```
@@ -59,8 +59,8 @@ The reverse works too. This command describes a saved preset as a recipe, so an 
 - **`settings`** maps parameter keys to values. A key left out keeps the amp's start value from the catalog.
   - Knobs take a number from 0 to 10, like the editor. Values outside are clamped, and the check says so.
   - Switches take `true` or `false`, or one of the labels in the catalog's `off` and `on`, such as `"BPM"`.
-  - Choices take one of the option labels, such as `"Saal weit"` for the reverb type. These labels are stored names and are German in
-    this release, in both UI languages; copy them from the catalog.
+  - Choices take one of the option labels from the catalog: the `label` (English, such as `"Wide hall"`) or the German
+    one under `de` (`"Saal weit"`). Both are read; the check prints the label of the app's language.
 - **`name`** may have at most 31 bytes, and non-ASCII letters such as umlauts count twice. Longer names are cut.
 - **`bpm`** goes from 40 to 250. Delays and modulations whose `sync` is on follow it.
 - An unknown model, a model at the wrong place or an unknown key is an error, so a typo never goes unnoticed.
@@ -101,11 +101,16 @@ Kemper or similar devices cannot be converted. Only their names and descriptions
 
 These are starting points from general guitar practice, not measurements of the Spark. The player fine-tunes by ear.
 
-**Gain staging.**
-- Clean: amp `gain` 2 to 4. Edge of breakup: 4.5 to 6. Crunch: 5 to 7. High gain: 5 to 7 on a high-gain amp is
-  usually enough. Above 8 the sound gets fizzy and noisy.
-- `master` sets loudness, not distortion. Keep it between 6 and 8, and keep presets of one set at a similar level by
-  adjusting `master`.
+**Gain staging and loudness.** Measured on a Spark MINI over USB on 2026-11-15 (see [Levels](../STUDIO.md#levels)):
+a Spark amp is nearly silent at `gain` 2 to 3 and silent at 0, and the owner's library is matched to about the same
+loudness, a solo or lead a little louder. A new sound should land there too.
+- Clean: amp `gain` 4 to 5; clean amps stay clean there. Edge of breakup: 5 to 6. Crunch: 6 to 7. High gain: 5 to 7
+  on a high-gain amp is usually enough. Above 8 the sound gets fizzy and noisy.
+- `master` sets loudness, not distortion. Clean amps need 8 to 10; `RolandJC120` is the quietest amp measured, give it
+  `gain` 5 to 6 and `master` 9 to 10. Crunch: 3 to 5. High gain, or a crunch amp with a drive pedal in front: 1.5 to 3.
+  A compressor or a drive in front adds level, so take `master` down a little.
+- For a closer estimate, the fitted formula and the amps' measured maxima are in [Levels](../STUDIO.md#levels); amps
+  that were not measured are guesses there.
 - To tighten a high-gain amp, put a drive in front with almost no gain and a high level: `DistortionTS9` with `drive`
   0 to 1.5 and `level` 7 to 9, or `Booster`. This cuts the low end in front of the amp instead of adding distortion.
 - To push a crunch amp into a lead, use the same drive with `drive` 2 to 4.
@@ -129,12 +134,29 @@ These are starting points from general guitar practice, not measurements of the 
   `sustain` sets how many repeats; 2 to 4 gives a few, above 7 it runs away.
 - With `sync` on, the echo follows the preset's `bpm`. Set `bpm` to the song's tempo.
 - Reverb: `level` 1.5 to 3 for rhythm, 3 to 5 for clean and ambient. `length` 3 to 5 is a room, 7 to 9 a large hall.
-  `type` (German labels, see above): `Raum A`, `Raum B` (rooms) and `Kammer` (chamber) are small; the halls `Saal natürlich`,
-  `Saal mittel` and `Saal weit` get larger; `Platte kurz`, `Platte satt` and `Platte lang` are plates, bright and smooth.
+  `type`: `Room A`, `Room B` and `Chamber` are small; the halls `Natural hall`, `Medium hall` and `Wide hall` get
+  larger; `Short plate`, `Rich plate` and `Long plate` are plates, bright and smooth (German labels: see the catalog).
 - Modulation: chorus `effect` 3 to 5 for a subtle widening, `rate` low for slow movement. Tremolo `speed` 4 to 6 for a
   surf pulse.
 
 **Gate.** `threshold` 1.5 to 3 for crunch, 3 to 5 for high gain. Too high cuts off quiet notes and sustain. Switch it off for clean sounds.
+
+## What the Spark cannot do
+
+The Spark has no synth, octaver, pitch shifter, harmonizer, rotary speaker, spring reverb or envelope filter, and the
+wah needs the paid add-on. When a wish needs one, build the nearest sound and say in `notes` that it is an
+approximation.
+
+| Wanted | Nearest on the Spark |
+|---|---|
+| Guitar synth, horn-like lead | `GuitarMuff` with `tone` 3 to 4, `sustain` 6 to 7; `BlueComp` with slow `attack` 6 to 7 and `sustain` 7; a clean amp with high `middle`; chorus, echo, a big hall. Played legato, notes faded in with the volume knob |
+| Octave, harmonizer, whammy | a fuzz gets nearest; the Octavia is in the paid add-on |
+| Leslie, organ-like | `UniVibe` in Chorus mode, or `ChorusAnalog` with a slow `rate` |
+| Spring reverb | a plate: `Short plate` or `Rich plate` |
+| Wah, auto-wah, envelope filter | only the add-on's wah; otherwise leave it out and say so |
+| Volume swells | the guitar's volume knob, `DelayReverse`, or a compressor with slow attack |
+
+Write the guitar's side into `notes` when it shapes the sound: pickup, tone knob, picking.
 
 ## What an assistant should know
 
