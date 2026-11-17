@@ -526,7 +526,9 @@ the tempo trainer runs, the tempo it has reached.
   change to another area, so a sound can be adjusted while it counts. A recording or a playing take stops it, since
   they bring their own click on the same tempo.
 - **Where it plays:** on the output chosen in the deck ("Output"). That can be the Spark itself over USB, so the
-  click comes from the amp together with the guitar.
+  click comes from the amp together with the guitar. With "System output" it follows the Mac: plug in headphones
+  while it plays and it moves to them (macOS mutes the speakers then), pull them and it comes back to the speakers.
+  A chosen output that goes away hands it to the system output. On a change it starts again on the new device.
 
 **How exact it is.** The clicks are computed on the audio thread against the output's own sample clock, not by a
 timer: each one lies at `start + n × interval`, a product and never a running sum, and its sound starts at the

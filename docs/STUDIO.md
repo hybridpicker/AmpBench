@@ -38,7 +38,8 @@ labels.
 | – | AI Sound's "Listen" on a REACTOR 50: the suggestion's nearest REACTOR sound as live commands on the playing slot | d099b66 | test with a simulated REACTOR; not yet heard on the device |
 | – | REACTOR 50 as a recording input: "Reactor 50 USB Audio" in the profile (Mac and Linux) | 3120c9b | read on the device (2026-11-16); the deck showed "Ready" with it as input; no take recorded yet |
 | – | The AI key is read when AI Sound opens, not at launch: a Keychain question after an install had held the launch before the window appeared | fea14dd | installed (2026-11-16); launch checked, AI Sound with the key not yet opened since |
-| – | Area Metronome (⇧⌘4) on Mac, iPad and Linux: accents per beat, subdivisions, three sounds, tap, tempo trainer, tempo and pattern kept in a piece; C renderer on the output's sample clock (`spark_metronome_*`), Linux port on `pw-cat` | 9297313, 7125156, 617da0e | offline: two hours at 97 BPM without a millionth of a sample of drift, block-size independent, sub-sample onset, trainer, changes on the beat; seen running in a test instance on the Mac (lamps follow the beat, Space starts and stops); installed on the Mac and on the owner's iPad (2026-11-16), not yet opened there; Linux tested headless on the Mac, pulled on the laptop and installed once its open app closes; not yet heard by the owner |
+| – | Area Metronome (⇧⌘4) on Mac, iPad and Linux: accents per beat, subdivisions, three sounds, tap, tempo trainer, tempo and pattern kept in a piece; C renderer on the output's sample clock (`spark_metronome_*`), Linux port on `pw-cat` | 9297313, 7125156, 617da0e | offline: two hours at 97 BPM without a millionth of a sample of drift, block-size independent, sub-sample onset, trainer, changes on the beat; seen running in a test instance on the Mac (lamps follow the beat, Space starts and stops); installed on the Mac and on the owner's iPad (2026-11-16), not yet opened there; Linux tested headless on the Mac, pulled on the laptop and installed once its open app closes; heard by the owner on the Mac (2026-11-17) |
+| – | Metronome follows the output on the Mac: headphones plugged in or pulled, a device coming or going, another output chosen | b5a6415 | metronome tests; the owner plugged headphones in and out while it played on the Mac and heard it move (2026-11-17) |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -117,6 +118,12 @@ AmpBench  (app: one window, areas, the connections between them; Info.plist with
 - **Output:** AUHAL on the deck's output on the Mac (`MetronomeEngine`), RemoteIO on the iPad with the session's
   output latency, `pw-cat` on Linux paced through a one-page pipe. No Swift and no Python allocation decides a
   pulse's time.
+- **Following the output (Mac).** AUHAL stays on the device it was started on, and "system output" resolves to a
+  device at start. Headphones in the Mac's jack are a device of their own ("External Headphones") and mute the
+  speakers, so the click went silent (b5a6415 fixes it). `MetronomeModel` now listens for the default output and the
+  device list (`AudioDevices.observeDefaultOutput`, `observeDeviceList`) and checks on every tempo change; when the
+  target (the chosen output if it still exists, else the system's) differs from `MetronomeEngine.device`, it stops and
+  starts again there, since the new device may run at another sample rate. RemoteIO and PipeWire follow on their own.
 - **One tempo.** On the Mac the area works on the recorder's `MetronomeSettings` through `MetronomeTempo`
   (`RecorderMetronomeTempo` in AmpBench); `MetronomeSettings` gained `pattern` and `trainer` (older settings decode
   with the defaults) and moved to its own file, available on the iPad. The iPad uses `StandaloneMetronomeTempo`.
