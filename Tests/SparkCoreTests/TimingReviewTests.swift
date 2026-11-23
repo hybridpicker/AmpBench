@@ -89,4 +89,27 @@ final class TimingReviewTests: XCTestCase {
         }
         print("NOTE worst onset error on clean plucks: \(String(format: "%.3f", worst * 1000)) ms")
     }
+
+    func testAStrumCountsFromItsFirstString() throws {
+        let strings = [82.4, 110, 146.8, 196, 246.9, 329.6]
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 100, beatsPerBar: 4, offset: 0.15)
+        for strum in [0.010, 0.025, 0.040] {
+            var notes: [Note] = []
+            for beat in 0..<8 {
+                let first = grid.offset + Double(beat) * grid.secondsPerBeat
+                // Down and up strokes: the first string to sound is the low or the high one.
+                let order = beat % 2 == 0 ? strings : strings.reversed()
+                for (index, frequency) in order.enumerated() {
+                    notes.append(Note(time: first + strum * Double(index) / 5, frequency: frequency, amplitude: 0.25))
+                }
+            }
+            let samples = take(notes, seconds: grid.offset + 8 * grid.secondsPerBeat + 0.3, rate: rate)
+            let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+            XCTAssertEqual(review.counted, 8, "strum of \(strum * 1000) ms")
+            for onset in review.onsets.filter(\.isCounted) {
+                XCTAssertEqual(try XCTUnwrap(onset.offset), 0, accuracy: 0.001, "strum of \(strum * 1000) ms")
+            }
+        }
+    }
 }

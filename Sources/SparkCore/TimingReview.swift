@@ -108,14 +108,16 @@ public enum NoReviewReason: Equatable, Sendable {
 ///
 /// The signal is followed in steps of a millisecond: an attack is a step at least twice as loud as the loudest of the
 /// 25 ms before it, and clearly above the take's floor. Its time is then the first sample that reaches 30 % of the
-/// attack's peak, the rule the click latency measurement uses for the click, so a note played exactly on the click
+/// attack's peak in its first milliseconds, the rule the click latency measurement uses for the click, so a note played exactly on the click
 /// lies exactly on its grid point.
 enum OnsetDetector {
     private static let stepSeconds = 0.001
     private static let lookBackSteps = 25
     private static let rise: Float = 2
     private static let holdSteps = 15
-    private static let peakSeconds = 0.01
+    /// How far past the step that set it off the attack's peak is looked for: short, so the later strings of a
+    /// strum, a few milliseconds behind, do not raise it.
+    private static let peakSeconds = 0.001
     private static let peakShare: Float = 0.3
 
     static func onsets(in samples: [Float], sampleRate: Double) -> [Double] {
