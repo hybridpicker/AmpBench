@@ -46,4 +46,37 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes[1].label, "-10 ms")
         XCTAssertTrue(band.strokes.allSatisfy(\.isCounted))
     }
+
+    func testOnsetsThatDoNotCountAreFaintAndCarryNoOffset() {
+        // A delay echo 30 ms after the note in the same window, and a fill 250 ms after beat 3, between the windows.
+        let times = [beat(1, ofBar: 1) + 0.004, beat(1, ofBar: 1) + 0.034, beat(3, ofBar: 1) + 0.25]
+        let band = TimingBand(review: review(times), grid: grid, bars: 1...2, width: 800)
+
+        XCTAssertEqual(band.strokes.map(\.isCounted), [true, false, false])
+        XCTAssertEqual(band.strokes.map(\.label), ["+4 ms", nil, nil])
+        XCTAssertEqual(band.strokes[1].x, 50 + 50 * 0.034 / 0.06, accuracy: 0.01)
+    }
+
+    func testAnOnsetFurtherOffThanTheCellStaysAtItsEdgeWithItsTrueOffset() {
+        // 120 ms late is still in the catch window of 175 ms, but past the ±60 ms a cell shows.
+        let band = TimingBand(review: review([beat(2, ofBar: 2) + 0.120]), grid: grid, bars: 1...2, width: 800)
+
+        XCTAssertEqual(band.strokes.count, 1)
+        XCTAssertEqual(band.strokes[0].x, 600, accuracy: 0.01, "at the right edge of the cell of beat 2 in bar 2")
+        XCTAssertTrue(band.strokes[0].isPastTheCell)
+        XCTAssertEqual(band.strokes[0].label, "+120 ms")
+    }
+
+    func testTenToFortyMillisecondsStandClearOfTheClickInAThreeMinuteTake() {
+        // 3 minutes at 90 bpm: 67 bars. The band shows two of them however long the take is, at the smallest window.
+        let slow = BeatGrid(bpm: 90, beatsPerBar: 4, offset: 0.15)
+        let times = [beat(1, ofBar: 60, in: slow) + 0.010, beat(2, ofBar: 60, in: slow) + 0.040,
+                     beat(3, ofBar: 60, in: slow) - 0.010]
+        let band = TimingBand(review: review(times, grid: slow, duration: 180), grid: slow, bars: 59...60, width: 700)
+        let clicks = band.clicks.filter { $0.bar == 60 }.map(\.x)
+
+        XCTAssertGreaterThanOrEqual(band.strokes[0].x - clicks[0], 6, "10 ms late")
+        XCTAssertGreaterThanOrEqual(band.strokes[1].x - clicks[1], 24, "40 ms late")
+        XCTAssertGreaterThanOrEqual(clicks[2] - band.strokes[2].x, 6, "10 ms early")
+    }
 }

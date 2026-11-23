@@ -24,6 +24,8 @@ public struct TimingBand: Equatable, Sendable {
         public var isCounted: Bool
         /// The offset in milliseconds, for a counted onset. Faint strokes carry none.
         public var label: String?
+        /// Further off than the cell reaches: drawn at its edge, with its true offset.
+        public var isPastTheCell: Bool
     }
 
     /// How far each side of its click a cell reaches: about ±60 ms, less where the grid points lie closer.
@@ -58,7 +60,7 @@ public struct TimingBand: Equatable, Sendable {
             let offset = onset.offset ?? onset.time - (grid.offset + Double(point) * spacing)
             let shift = min(max(offset / reach, -1), 1) * cellWidth / 2
             return Stroke(x: (Double(index) + 0.5) * cellWidth + shift, offset: offset, isCounted: onset.isCounted,
-                          label: onset.isCounted ? Self.label(offset) : nil)
+                          label: onset.isCounted ? Self.label(offset) : nil, isPastTheCell: abs(offset) > reach)
         }
     }
 
