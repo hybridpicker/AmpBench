@@ -415,8 +415,8 @@ usual, but no big jumps. This holds for every sound in the library, Kemper impor
 
 The owner's wish (2026-11-23): be sure that a take recorded with the click lies exactly on its bars, then see the
 own timing against the click note by note, including playing laid back on purpose. Decided with the owner on
-2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: spec, nothing built. The guiding rule is
-"no number rather than a wrong number".
+2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, the rest is
+spec. The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
 
@@ -524,11 +524,13 @@ Live timing while playing comes next, then Linux and the iPad.
   latency", no new code; (2) the review module in SparkCore, test first with generated audio; (3) the click latency
   per amp and the timing stamp of a take; (4) the timing band in the area Record on the Mac; (5) acceptance with
   the owner: loop probe, check take, real playing including laid back. Steps 1 and 2 do not depend on each other.
-- **Click latency per amp, not per pair:** today the correction is stored per pair of input and click output. It
-  moves to the input (the amp): its measured part holds for every wired output of the computer, the output's part
-  comes from the device's report as today. A measurement keeps its value, its spread and its date. A hand-set value
-  is marked as hand-set; it still corrects the bars but enables no review. Values stored per pair before this change
-  carry over as hand-set, since none was confirmed by the owner as measured.
+- **Click latency per amp, not per pair:** until 2026-11-23 the correction was stored per pair of input and click
+  output. It moved to the input (the amp, `AmpLatencies` in SparkCore): its measured part holds for every wired
+  output of the computer, the output's part comes from the device's report as before. A measurement keeps its value,
+  its spread and its date. A hand-set value is marked as hand-set; it still corrects the bars but enables no review.
+  Values stored per pair before this change carry over as hand-set, except the one measured with the owner on
+  2026-11-23 (the Spark MINI with the built-in headphone output), which carries over as measured with spread 1.2 ms;
+  it is found by the shape of its pair key. The per-pair values stay stored, so an older build still finds them.
 - **Bluetooth click outputs** are recognised by their transport type. Their bars are corrected as today, but their
   takes get no review.
 - **Timing stamp of a take:** a new optional part of the take's library entry, written only by recordings made

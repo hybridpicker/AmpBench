@@ -7,20 +7,121 @@ import Foundation
 /// Core Audio stamps output audio when it reaches the output driver and input audio when it leaves the input
 /// driver. Between those, the sound spends the output's latency in the output device and, once played, the input's
 /// latency in the input device. Both devices report these, but an amp also delays the guitar inside, in its
-/// converters and effects, without reporting it. `correction` holds that rest, measured with a cable or set by hand.
+/// converters and effects, without reporting it. `amp` holds that rest, measured or set by hand.
 public struct ClickLatency: Codable, Equatable, Sendable {
     public var output: Double
     public var input: Double
-    public var correction: Double
+    public var amp: AmpPart?
+    public var outputKind: ClickOutputKind
 
-    public init(output: Double = 0, input: Double = 0, correction: Double = 0) {
+    public init(output: Double = 0, input: Double = 0, amp: AmpPart? = nil, outputKind: ClickOutputKind = .wired) {
         self.output = output
         self.input = input
-        self.correction = correction
+        self.amp = amp
+        self.outputKind = outputKind
     }
 
+    /// The amp's part in seconds, 0 when none is known.
+    public var correction: Double { amp?.seconds ?? 0 }
     public var reported: Double { output + input }
     public var total: Double { reported + correction }
+}
+
+/// How the click reaches the ear. A Bluetooth output's delay is not steady enough for a timing review.
+public enum ClickOutputKind: String, Codable, Equatable, Sendable {
+    case wired
+    case bluetooth
+
+    public init(transport: UInt32) {
+        let bluetooth = transport == kAudioDeviceTransportTypeBluetooth
+            || transport == kAudioDeviceTransportTypeBluetoothLE
+        self = bluetooth ? .bluetooth : .wired
+    }
+}
+
+/// The amp's part of the click latency: what no device reports. It belongs to the input, the amp, and holds for
+/// every wired click output of the computer.
+public struct AmpPart: Codable, Equatable, Sendable {
+    public enum Origin: Codable, Equatable, Sendable {
+        /// Found by a measurement, with the measurement's spread in seconds.
+        case measured(spread: Double, date: Date)
+        case setByHand
+    }
+
+    public var seconds: Double
+    public var origin: Origin
+
+    public init(seconds: Double, origin: Origin) {
+        self.seconds = seconds
+        self.origin = origin
+    }
+}
+
+/// The amp parts of the click latency, one per input.
+public struct AmpLatencies: Codable, Equatable, Sendable {
+    /// Keyed by the input's UID.
+    public private(set) var parts: [String: AmpPart]
+
+    public init(parts: [String: AmpPart] = [:]) {
+        self.parts = parts
+    }
+
+    public func part(for input: DeviceIdentity) -> AmpPart? {
+        parts[input.uid]
+    }
+
+    /// Keeps a measurement's part for the input; it replaces whatever was there.
+    public mutating func store(_ result: LatencyProbe.Result, for input: DeviceIdentity, at date: Date) {
+        parts[input.uid] = AmpPart(seconds: result.correction, origin: .measured(spread: result.spread, date: date))
+    }
+
+    /// The range a hand-set part keeps to, in seconds.
+    public static let handSetRange = -0.1...0.3
+
+    /// Sets the part by hand; it then counts as hand-set even when it was measured before. About zero forgets it.
+    public mutating func setByHand(_ seconds: Double, for input: DeviceIdentity) {
+        let clamped = min(max(seconds, Self.handSetRange.lowerBound), Self.handSetRange.upperBound)
+        if abs(clamped) < 0.00005 {
+            parts.removeValue(forKey: input.uid)
+        } else {
+            parts[input.uid] = AmpPart(seconds: clamped, origin: .setByHand)
+        }
+    }
+
+    /// Takes over the corrections stored per pair of input and click output (`input UID|output UID`) before the
+    /// amp part moved to the input. None was confirmed as measured, so they come over as hand-set, except the one
+    /// measured with the owner on 2026-11-23: the Spark MINI with the built-in headphone output, spread 1.2 ms.
+    /// An input with values for several outputs keeps that measured one, otherwise the first by key.
+    public static func carryOver(pairs: [String: Double]) -> AmpLatencies {
+        var amps = AmpLatencies()
+        for key in pairs.keys.sorted() {
+            guard let value = pairs[key], let bar = key.firstIndex(of: "|") else { continue }
+            let input = String(key[..<bar])
+            let output = String(key[key.index(after: bar)...])
+            guard !input.isEmpty, !output.isEmpty else { continue }
+            if isFirstMeasurement(input: input, output: output) {
+                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: 0.0012, date: firstMeasurementDate))
+            } else if amps.parts[input] == nil {
+                amps.parts[input] = AmpPart(seconds: value, origin: .setByHand)
+            }
+        }
+        return amps
+    }
+
+    /// 2026-11-23, noon UTC.
+    static let firstMeasurementDate = Date(timeIntervalSince1970: 1_795_435_200)
+
+    private static func isFirstMeasurement(input: String, output: String) -> Bool {
+        func squeezed(_ text: String) -> String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
+        return squeezed(input).contains("sparkmini") && squeezed(output).contains("headphone")
+    }
+
+    /// The click latency of a recording from this input, with what the click output and the input report.
+    public func clickLatency(input: DeviceIdentity, reportedOutput: Double, reportedInput: Double,
+                             outputTransport: UInt32) -> ClickLatency {
+        ClickLatency(output: reportedOutput, input: reportedInput, amp: part(for: input),
+                     outputKind: ClickOutputKind(transport: outputTransport))
+    }
 }
 
 /// Where the bars of a recording lie, from the input frames the click and the file are placed on.

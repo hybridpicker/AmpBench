@@ -530,6 +530,10 @@ private struct MetronomeDetails: View {
                     Text(tr("Compensation %+.1f ms", model.currentLatencyCorrection * 1000))
                         .monospacedDigit()
                 }
+                Text(originText)
+                    .font(.callout)
+                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
                 Text(latencyExplanation)
                     .font(.callout)
                     .foregroundStyle(.secondary)
@@ -544,8 +548,21 @@ private struct MetronomeDetails: View {
         }
     }
 
+    /// Whether the compensation was measured, with the measurement's spread and date, or set by hand.
+    private var originText: String {
+        switch model.currentAmpPart?.origin {
+        case .measured(let spread, let date):
+            let day = date.formatted(Date.FormatStyle(date: .abbreviated, time: .omitted).locale(Texts.locale))
+            return tr("Measured on %@, spread %.1f ms.", day, spread * 1000)
+        case .setByHand:
+            return tr("Set by hand.")
+        case nil:
+            return tr("Not measured yet.")
+        }
+    }
+
     private var latencyExplanation: String {
         let reported = model.currentReportedLatency.map { tr("%.1f ms", $0 * 1000) } ?? tr("unknown")
-        return tr("The devices report %@ from the click into the file; the app always compensates for that. The compensation is added for what the amp delays internally. It applies to new takes with this click output.", reported)
+        return tr("The devices report %@ from the click into the file; the app always compensates for that. The compensation is added for what the amp delays internally. It belongs to the amp and applies to new takes with every wired click output.", reported)
     }
 }

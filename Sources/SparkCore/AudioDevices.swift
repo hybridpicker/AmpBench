@@ -10,6 +10,8 @@ public let kAudioDeviceTransportTypeBuiltIn: UInt32 = 0x626C_746E   // 'bltn'
 public let kAudioDeviceTransportTypeUSB: UInt32 = 0x7573_6220       // 'usb '
 public let kAudioDeviceTransportTypeVirtual: UInt32 = 0x7669_7274   // 'virt'
 public let kAudioDeviceTransportTypeAggregate: UInt32 = 0x6772_7570 // 'grup'
+public let kAudioDeviceTransportTypeBluetooth: UInt32 = 0x626C_7565   // 'blue'
+public let kAudioDeviceTransportTypeBluetoothLE: UInt32 = 0x626C_6561 // 'blea'
 #endif
 
 /// An audio device that exposes at least one input stream.

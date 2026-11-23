@@ -200,9 +200,11 @@ final class AppModel: ObservableObject {
     private let recordingFlag = RecordingFlag()
     private let journalQueue = DispatchQueue(label: "local.sparkrecorder.journal", qos: .utility)
     private var measuredClean: Set<String>
-    /// Seconds per pair of input and click output that the devices do not report. Measured or set by hand.
-    @Published private(set) var latencyCorrections: [String: Double]
-    private static let latencyCorrectionsKey = "clickLatencyCorrections"
+    /// The amp's part of the click latency per input, which the devices do not report. Measured or set by hand.
+    @Published private(set) var ampLatencies: AmpLatencies
+    private static let ampLatenciesKey = "clickLatencyAmpParts"
+    /// Where the correction was kept per pair of input and click output before; read once to carry it over.
+    private static let pairCorrectionsKey = "clickLatencyCorrections"
     private var saveTask: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
     private var analysisTask: Task<Void, Never>?
@@ -261,7 +263,18 @@ final class AppModel: ObservableObject {
         retroMinutes = defaults.object(forKey: "retroMinutes") as? Double ?? 5
         autoLevelDefault = defaults.object(forKey: "autoLevel") as? Bool ?? true
         measuredClean = Set(defaults.stringArray(forKey: "measuredCleanPairs") ?? [])
-        latencyCorrections = defaults.dictionary(forKey: Self.latencyCorrectionsKey) as? [String: Double] ?? [:]
+        if let data = defaults.data(forKey: Self.ampLatenciesKey),
+           let saved = try? JSONDecoder().decode(AmpLatencies.self, from: data) {
+            ampLatencies = saved
+        } else {
+            // The per-pair values stay where they were, so an older build still finds them.
+            let pairs = defaults.dictionary(forKey: Self.pairCorrectionsKey) as? [String: Double] ?? [:]
+            let carried = AmpLatencies.carryOver(pairs: pairs)
+            ampLatencies = carried
+            if !pairs.isEmpty, let data = try? JSONEncoder().encode(carried) {
+                defaults.set(data, forKey: Self.ampLatenciesKey)
+            }
+        }
         if let data = defaults.data(forKey: "metronome"),
            let saved = try? JSONDecoder().decode(MetronomeSettings.self, from: data) {
             metronome = saved
@@ -933,8 +946,8 @@ final class AppModel: ObservableObject {
         guard let clock = capture.clock else { throw CaptureError.notOpen }
         try click.start(device: output.id, settings: settings, clock: clock)
         activeClickSettings = settings
-        activeLatency = ClickLatency(output: click.reportedOutputLatency, input: capture.reportedInputLatency,
-                                     correction: latencyCorrection(output: output))
+        activeLatency = clickLatency(output: output, reportedOutput: click.reportedOutputLatency,
+                                     reportedInput: capture.reportedInputLatency)
         isClickRunning = true
     }
 
@@ -2130,18 +2143,29 @@ final class AppModel: ObservableObject {
         !isRecording && !isMeasuring && selectedInput != nil && clickOutput != nil && !isListening
     }
 
-    private func latencyKey(output: OutputDevice) -> String? {
-        guard let input = selectedInput else { return nil }
-        return FeedbackGuard.pairKey(input: input.identity, output: output.identity)
+    /// The amp part of the input in use now, measured or set by hand; it holds for every click output.
+    var currentAmpPart: AmpPart? {
+        selectedInput.flatMap { ampLatencies.part(for: $0.identity) }
     }
 
-    func latencyCorrection(output: OutputDevice) -> Double {
-        latencyKey(output: output).flatMap { latencyCorrections[$0] } ?? 0
-    }
-
-    /// The correction for the input and click output in use now, in seconds.
+    /// The correction for the input in use now, in seconds.
     var currentLatencyCorrection: Double {
-        clickOutput.map(latencyCorrection(output:)) ?? 0
+        currentAmpPart?.seconds ?? 0
+    }
+
+    /// What the bars of a recording from the input in use now rest on, with this click output.
+    private func clickLatency(output: OutputDevice, reportedOutput: Double, reportedInput: Double) -> ClickLatency {
+        guard let input = selectedInput else {
+            return ClickLatency(output: reportedOutput, input: reportedInput,
+                                outputKind: ClickOutputKind(transport: output.transport))
+        }
+        return ampLatencies.clickLatency(input: input.identity, reportedOutput: reportedOutput,
+                                         reportedInput: reportedInput, outputTransport: output.transport)
+    }
+
+    private func saveAmpLatencies() {
+        guard let data = try? JSONEncoder().encode(ampLatencies) else { return }
+        defaults.set(data, forKey: Self.ampLatenciesKey)
     }
 
     /// The delay the devices report for the input and click output in use now, in seconds.
@@ -2156,14 +2180,9 @@ final class AppModel: ObservableObject {
 
     /// Sets the correction by hand. The bars of later recordings move by it; earlier ones stay as they are.
     func setLatencyCorrection(_ seconds: Double) {
-        guard let output = clickOutput, let key = latencyKey(output: output) else { return }
-        let clamped = min(max(seconds, -0.1), 0.3)
-        if abs(clamped) < 0.00005 {
-            latencyCorrections.removeValue(forKey: key)
-        } else {
-            latencyCorrections[key] = clamped
-        }
-        defaults.set(latencyCorrections, forKey: Self.latencyCorrectionsKey)
+        guard let input = selectedInput else { return }
+        ampLatencies.setByHand(seconds, for: input.identity)
+        saveAmpLatencies()
     }
 
     /// Plays clicks into the input through a cable and measures how late they arrive in a file.
@@ -2176,7 +2195,8 @@ final class AppModel: ObservableObject {
             guard await requestMicrophone() else { return }
             do {
                 let result = try await LatencyProbe.measure(input: input, output: output.id, inputPolicy: inputPolicy)
-                setLatencyCorrection(result.correction)
+                ampLatencies.store(result, for: input.identity, at: Date())
+                saveAmpLatencies()
                 let text = tr(
                     "Measured: %.1f ms from the click into the file, of which %.1f ms are not reported by the devices. Spread %.1f ms over %d clicks. The bars of new takes now rest on it. Unplug the cable again.",
                     result.measured * 1000, result.correction * 1000, result.spread * 1000, result.detected)

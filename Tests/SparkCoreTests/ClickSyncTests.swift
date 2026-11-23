@@ -130,7 +130,7 @@ final class ClickSyncTests: XCTestCase {
     // MARK: Grid arithmetic
 
     func testGridOffsetAddsEveryDelay() {
-        let latency = ClickLatency(output: 0.002, input: 0.0015, correction: 0.009)
+        let latency = ClickLatency(output: 0.002, input: 0.0015, amp: AmpPart(seconds: 0.009, origin: .setByHand))
         XCTAssertEqual(latency.reported, 0.0035, accuracy: 1e-12)
         XCTAssertEqual(latency.total, 0.0125, accuracy: 1e-12)
         // Two beats of count-in at 120 bpm and 48 kHz end 48 000 frames after the anchor.

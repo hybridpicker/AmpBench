@@ -412,6 +412,8 @@ extension German {
     ]
 
     private static let recorderUI2: [String: String] = [
+        "Measured on %@, spread %.1f ms.":
+            "Gemessen am %@, Streuung %.1f ms.",
         "Measured: %.1f ms from the click into the file, of which %.1f ms are not reported by the devices. Spread %.1f ms over %d clicks. The bars of new takes now rest on it. Unplug the cable again.":
             "Gemessen: %.1f ms vom Klick bis in die Datei, davon %.1f ms nicht von den Geräten gemeldet. Streuung %.1f ms über %d Klicks. Die Takte neuer Aufnahmen liegen jetzt darauf. Zieh das Kabel wieder ab.",
         "Measured: The sound from “%@” arrives at the input “%@”. Output to it stays blocked during a recording.":
@@ -528,6 +530,8 @@ extension German {
             "Kein Preset: Das Gerät schickt seinen Inhalt nicht. Gezeigt ist, was es beim Start des Takes gemeldet hatte.",
         "not allowed":
             "nicht erlaubt",
+        "Not measured yet.":
+            "Noch nicht gemessen.",
         "Note":
             "Notiz",
         "Notes":
@@ -722,6 +726,8 @@ extension German {
             "Sekunden: %@, Spitze: %@, verloren: %@, Schreibfehler: %@",
         "Select a take below.":
             "Wähle unten eine Aufnahme aus.",
+        "Set by hand.":
+            "Von Hand eingestellt.",
         "Sets the click to this piece's tempo":
             "Stellt den Klick auf das Tempo dieses Stücks",
         "Show in Finder":
@@ -881,8 +887,8 @@ extension German {
             "Das Kontextmenü gilt für alle markierten Aufnahmen.",
         "The count-in was canceled.":
             "Der Einzähler wurde abgebrochen.",
-        "The devices report %@ from the click into the file; the app always compensates for that. The compensation is added for what the amp delays internally. It applies to new takes with this click output.":
-            "Die Geräte melden %@ vom Klick bis in die Datei, das gleicht die App immer aus. Der Ausgleich kommt für das, was der Amp intern verzögert, dazu. Er gilt für neue Aufnahmen mit diesem Klick-Ausgang.",
+        "The devices report %@ from the click into the file; the app always compensates for that. The compensation is added for what the amp delays internally. It belongs to the amp and applies to new takes with every wired click output.":
+            "Die Geräte melden %@ vom Klick bis in die Datei, das gleicht die App immer aus. Der Ausgleich kommt für das, was der Amp intern verzögert, dazu. Er gehört zum Amp und gilt für neue Aufnahmen mit jedem kabelgebundenen Klick-Ausgang.",
         "The disk is almost full. The recording was ended safely.":
             "Die Festplatte ist fast voll. Die Aufnahme wurde sicher beendet.",
         "The export failed: %@":
