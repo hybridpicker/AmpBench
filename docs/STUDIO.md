@@ -411,6 +411,202 @@ usual, but no big jumps. This holds for every sound in the library, Kemper impor
   to one and master 6, the Plexi and pedal findings in the amp choice, a way to match a library from the app, and
   all of it in the Linux app. To be done once the owner's ears and a second measurement confirm the rule.
 
+## Timing review
+
+The owner's wish (2026-11-23): be sure that a take recorded with the click lies exactly on its bars, then see the
+own timing against the click note by note, including playing laid back on purpose. Decided with the owner on
+2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: spec, nothing built. The guiding rule is
+"no number rather than a wrong number".
+
+### Problem Statement
+
+The owner records with the click and wants to work on timing: be exactly on the beat, or deliberately behind it
+(laid back). Two things stand in the way. First, the bars of a take are only as exact as the click latency they
+rest on, and the amp's part of it was never measured, so the bars of every real take still carry the amp's
+internal delay. Second, the app shows bars and a waveform but says nothing about where the notes were played: on a
+3-minute waveform a pixel is about 100 ms wide, and 20 ms behind the beat cannot be seen at all. The owner wants
+numbers they can trust and a picture in which the steady click and their own onsets stand side by side.
+
+### Solution
+
+First the click latency of the amp is measured once on the Mac, with an earbud held on the pickup or a cable. From
+then on every new take recorded with the click on throughout gets a timing review: below the waveform a timing band,
+in step with it but magnified around every beat, shows the fixed click lines with their beat numbers and the
+player's onsets as strokes behind or before them, each with its offset in milliseconds. Per take the review gives
+placement (where the player sits), spread (how steady, the main number) and review accuracy; per bar a colour shows
+the steady and unsteady bars. Laid back is shown as placement, never as an error. Where a review would not be
+exact, there is none, and one line says why. The loop probe proves the precision before the owner relies on it.
+Live timing while playing comes next, then Linux and the iPad.
+
+### User Stories
+
+1. As the owner, I want to measure the amp's click latency once without a special cable, so that the bars of my
+   takes no longer carry the amp's internal delay.
+2. As the owner, I want the measured amp part to hold for every wired output of the Mac, so that I can hear the
+   click on headphones or on the built-in speakers without measuring twice.
+3. As the owner, I want the output's own part of the latency to come from what the device reports, so that
+   switching between headphones and speakers stays exact.
+4. As the owner, I want a measurement whose clicks spread more than 2 ms to be refused, so that a bad measurement
+   never becomes the base of my bars.
+5. As the owner, I want a hand-set correction to stay possible, so that the bars can still be corrected for a
+   setup I cannot measure.
+6. As the owner, I want a hand-set correction to enable no timing review, so that every number I see rests on a
+   measurement.
+7. As the owner, I want every new take to remember whether the click was on for its whole length, so that a take
+   where I switched the click off is not judged against a click I did not hear.
+8. As the owner, I want every new take to remember the click latency it was recorded with and whether it was
+   measured, so that its review stays right after I measure again or change devices.
+9. As the owner, I want every new take to remember whether the click went to a wired or a Bluetooth output, so
+   that a take with an unsteady click path gets no review.
+10. As the owner, I want a timing review for every take that qualifies to appear on its own below the waveform, so
+    that I do not have to ask for it.
+11. As the owner, I want to fold the timing band away, so that the waveform has the room when I only listen.
+12. As the owner, I want a take that does not qualify to say in one line why ("recorded without the click", "click
+    latency not measured", "click on a Bluetooth output", "recorded before the measurement", "accuracy not good
+    enough"), so that I know what to change.
+13. As the owner, I want takes from before the measurement to get no review, so that no old take shows a number
+    that might be off.
+14. As the owner, I want the click lines in the band to stand still with their beat numbers 1, 2, 3, 4, so that I
+    see the steady click as the reference.
+15. As the owner, I want my onsets as strokes beside the click lines, so that I see at a glance whether I am on,
+    behind or ahead.
+16. As the owner, I want each stroke to carry its offset in milliseconds, positive for later, so that laid back
+    reads as "+18 ms" and not as a percentage of a beat.
+17. As the owner, I want the band magnified around each beat to about ±60 ms, so that 10 to 40 ms are clearly
+    visible even in a long take.
+18. As the owner, I want the band to move in step with the waveform and its zoom, so that a stroke and the note I
+    hear belong together.
+19. As the owner, I want the onset of a strummed chord to be its first string, so that a slower strum does not
+    count as playing later.
+20. As the owner, I want only the first onset near a grid point to count, so that delay echoes and later strings
+    of a chord do not count as notes.
+21. As the owner, I want to choose the grid: quarters, eighths, sixteenths or triplets, so that the review matches
+    what I practise.
+22. As the owner, I want the grid to start at the metronome's subdivision of the take, so that the usual case needs
+    no choice.
+23. As the owner, I want an onset to belong to a grid point only within 35 % of the grid spacing, so that a late
+    eighth is never counted as an early next one.
+24. As the owner, I want onsets outside every catch window to be shown faint and not counted, so that fills and
+    passing notes do not distort the numbers.
+25. As the owner, I want onsets detected too unsure (quiet notes, legato, swells) to be shown faint and not counted,
+    so that the numbers rest only on clear attacks.
+26. As the owner, I want the placement of the take, so that I know where I sit against the click on average.
+27. As the owner, I want the spread of the take as the main number, so that steady laid back playing counts as good
+    timing.
+28. As the owner, I want the review accuracy shown next to the numbers, for example ±1 ms, so that I can trust
+    them.
+29. As the owner, I want no review when its accuracy is worse than ±2 ms, so that I never practise against a wrong
+    number.
+30. As the owner, I want each bar coloured as steady or unsteady, so that I find the weak spots at once.
+31. As the owner, I want the placement and spread of a bar when I point at it, so that I can compare bars.
+32. As the owner, I want to loop or record again the unsteady bars with the bar tools I already have, so that
+    practising follows straight from the review.
+33. As the owner, I want a take recorded again for some bars to get its own review, so that I see whether the bars
+    got better.
+34. As the owner, I want a hint when the take's sound has a delay ("delay in the sound, echoes may count as
+    notes"), so that I know to choose a dry sound for exact practice.
+35. As the owner, I want the loop probe to show a placement of 0 ± 1 ms and a spread below 1 ms, both through the
+    headphone output and through the speakers, so that the precision is proven before I rely on it.
+36. As the owner, I want a check take of muted strums on the click to show a plausible placement, so that the
+    whole path is confirmed with my real guitar.
+37. As the owner, I want the band, its numbers and its reasons in English and German, so that the app reads the
+    same as everywhere else.
+38. As the owner, I want the band to follow the app's colours, with red only for recording, so that early and late
+    do not look like an alarm.
+39. As the owner, I want VoiceOver to read a bar's placement and spread, so that the review does not depend on
+    seeing the strokes.
+40. As the owner, I want the same view later on Linux and the iPad, so that the timing review is one piece on
+    every device once it is precise on the Mac.
+
+### Implementation Decisions
+
+- **Order of work:** (1) the measurement with the owner on the MacBook, with today's "Record → Measure click
+  latency", no new code; (2) the review module in SparkCore, test first with generated audio; (3) the click latency
+  per amp and the timing stamp of a take; (4) the timing band in the area Record on the Mac; (5) acceptance with
+  the owner: loop probe, check take, real playing including laid back. Steps 1 and 2 do not depend on each other.
+- **Click latency per amp, not per pair:** today the correction is stored per pair of input and click output. It
+  moves to the input (the amp): its measured part holds for every wired output of the computer, the output's part
+  comes from the device's report as today. A measurement keeps its value, its spread and its date. A hand-set value
+  is marked as hand-set; it still corrects the bars but enables no review. Values stored per pair before this change
+  carry over as hand-set, since none was confirmed by the owner as measured.
+- **Bluetooth click outputs** are recognised by their transport type. Their bars are corrected as today, but their
+  takes get no review.
+- **Timing stamp of a take:** a new optional part of the take's library entry, written only by recordings made
+  after this change: the click on for the whole take (switching the click off at any moment clears it), the click
+  latency used (output part, input part, amp part, measured or hand-set, the measurement's spread) and the click
+  output's kind (wired or Bluetooth). Older entries decode without it, the same way the sound of a take was added;
+  a take without a stamp gets no review.
+- **The review module (`TimingReview` in SparkCore):** one pure entry point. In: the take's samples and sample rate,
+  its bars, its timing stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
+  "no review" with one reason. A review holds every onset (time, grid point, offset in ms, counted or why not), the
+  placement, spread and number of counted onsets per take and per bar, the review accuracy and the hints. It knows
+  nothing of devices, files or the UI, so the Linux port can follow it line by line.
+- **Reasons for no review**, checked in this order: no bars; the click not on throughout; no timing stamp (recorded
+  before this change); the amp part not measured; a Bluetooth click output; review accuracy worse than ±2 ms; too
+  few counted onsets.
+- **Onset:** the first attack of a note or strum, found in the recorded signal as the amp sends it over USB, with
+  effects. For a strummed chord the first string counts. The detector must place a clean synthetic pluck within
+  1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted.
+- **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is the subdivision of the
+  metronome's pattern at the time of the recording, otherwise quarters. The catch window reaches 35 % of the grid
+  spacing to each side; only the first onset in it counts.
+- **Numbers:** offset in milliseconds, positive later than the click. Placement is the mean of the counted offsets.
+  Spread is their standard deviation around the placement, the main number. Review accuracy combines the
+  measurement's spread with the detector's uncertainty; above ±2 ms there is no review. There is no target
+  placement: the owner decided against it, the review only shows where the player is.
+- **Delay in the sound** is read from the take's sound snapshot by the layer that knows the preset format
+  (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal.
+- **The timing band:** below the waveform in the area Record, in step with its position and zoom, each beat
+  magnified to about ±60 ms. Click lines fixed with their beat numbers, onsets as strokes with their offset, faint
+  for onsets not counted, one colour per bar (steady or unsteady) from the design tokens, never red. Per take
+  placement, spread and accuracy in the status line. It opens on its own for a take with a review and can be
+  folded; without a review it is one line with the reason. All texts through `tr()` with German tables, as
+  everywhere.
+- **Devices:** the Mac first. Linux and the iPad get the same view and the same rules once the Mac is accepted, as
+  one piece ("One-piece UI").
+
+### Testing Decisions
+
+- A good test checks what the review says about a signal, not how it finds it: given audio with known onsets on
+  known bars, the offsets, placement, spread, counted onsets and reasons must come out right. No test looks into
+  the detector's internals, so it can be improved without rewriting the tests.
+- **Main seam, the review module:** every rule is tested there with generated audio, as all audio in this project
+  is: plucks with known offsets (on, +20 ms laid back, −10 ms ahead) at several tempi and sample rates; strums
+  of 10 to 40 ms that must count from the first string; delay echoes in the same catch window that must not count;
+  an onset between two grid points; quiet and legato notes that must be faint; each reason for no review;
+  accuracy just inside and just outside ±2 ms. The detector must hold 1 ms on clean plucks.
+- **End-to-end seam, the BlackHole loop:** a real take with the click through the loop, then a review of it: placement
+  0 ± 1 sample, spread close to 0. This covers the timing stamp, the bars and the review together and is the
+  automatic form of the loop probe.
+- **Prior art:** the click latency tests in `ClickSyncTests` (measurement found to a few samples, refused without
+  signal or when uneven), the synthetic signals of `TunerAccuracyTests` and `LoudnessTests`, the BlackHole tests in
+  `AudioPathTests`, and the decoding tests of older library entries (`LibraryTests`) for the optional stamp.
+- **The band** has no test seam of its own; it shows what the review gives and is checked with the self-test and
+  screenshots in both appearances, like the other views.
+- **Acceptance with the owner:** the loop probe with an earbud on the pickup through the headphone output and
+  through the speakers (placement 0 ± 1 ms, spread below 1 ms), then a check take of muted strums, then real
+  playing on the beat and laid back.
+
+### Out of Scope
+
+- Live timing while playing (early or late after each note): the next step, on the same onset detection.
+- Linux and the iPad until the Mac is accepted.
+- Reviews of takes recorded before the timing stamp, and of takes without the click on throughout.
+- Takes with the click on a Bluetooth output.
+- A target placement per piece (decided against on 2026-11-23).
+- Progress over several takes or days.
+- Grades, scores or any verdict beyond placement, spread and the bar colour.
+- Exporting the review or writing it into a file; the take's file stays untouched.
+- Tempo changes within a take (the bars already keep tempo and meter fixed).
+
+### Further Notes
+
+- The measurement is still to do (it waited for a cable); the earbud on the pickup needs none. See "Timing of click
+  and bars" in the manual for the steps.
+- To be settled while building, with the owner where it is a matter of taste: the smallest number of counted onsets
+  for a review; the line between a steady and an unsteady bar; whether the chosen grid is kept per take or per
+  piece; whether a reverb tail needs a hint as well as a delay.
+
 ## Ordering presets: hashtags
 
 - One system instead of folders: every preset has tags (`PresetFile.tags`, stored without "#", shown with "#").
@@ -862,6 +1058,9 @@ For every device, without exception:
 
 ## Open and next
 
+- **Timing review** (the owner's wish, 2026-11-23): first measure the amp's click latency with the owner, then the
+  review module test first, the click latency per amp with a timing stamp per take, the timing band on the Mac and
+  the loop probe as acceptance. Live timing, Linux and the iPad after that. See "Timing review".
 - **Levels:** the owner's verdict on the corrected sounds (which still lack drive, which are too loud); a second
   measurement in batches of about ten sounds with rests; then the rule into the import and the Linux app (see
   "Levels").
