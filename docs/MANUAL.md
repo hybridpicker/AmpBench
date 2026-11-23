@@ -196,8 +196,9 @@ The bars are meant to be as exact as in a DAW, well under a millisecond on the a
 - What the amp does inside, in its converters and effects, no device reports. "Record → Measure click latency" plays
   clicks through a cable from the click output into the amp's guitar input, the way a played note travels, and
   measures where they land in a temporary file. It refuses a result when the clicks are missing or spread more than
-  2 ms. The result counts for exactly that pair of devices and for recordings made afterwards. It can also be set by
-  hand in the metronome details, in steps of 0.5 ms.
+  2 ms. The result belongs to the amp (the input) and counts for recordings made afterwards with every wired click
+  output; each output adds what it reports itself. It can also be set by hand in the metronome details, in steps of
+  0.5 ms; the details show whether the value was measured, with its spread and date, or set by hand.
 
 #### Measuring the latency
 
@@ -217,8 +218,10 @@ Without a cable, a wired headphone or earbud held directly on a pickup works too
 magnetic field without any delay of its own, so the click then takes exactly the way a played note does. Mute the
 strings, turn the Mac up and use a preset with some gain. The neck pickup and single coils give the strongest signal.
 
-The result is stored for the input and the click output it was measured with. The internal delay of the amp is most of
-it, so for another click output, such as the built-in speakers, the same correction can be set by hand.
+The result is stored for the amp, with its spread and the day of the measurement. It holds when the click moves to
+another wired output, such as the built-in speakers: that output's own delay comes from what it reports. A value
+changed by hand afterwards counts as set by hand. A Bluetooth click output is recognised as such; its bars are
+corrected the same way, but its delay is not steady.
 
 On the BlackHole loop test, every beat lands within one sample of the grid.
 
