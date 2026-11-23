@@ -37,4 +37,22 @@ extension PresetFile {
     public static func read(_ data: Data) throws -> PresetFile {
         try PresetLibrary.makeDecoder().decode(PresetFile.self, from: data)
     }
+
+    /// Whether a take's sound snapshot has a delay switched on, for the hint of its timing review. A snapshot that
+    /// cannot be read has none, so the take is reviewed without the hint.
+    public static func soundHasDelay(_ snapshot: Data) -> Bool {
+        (try? read(snapshot))?.preset.hasDelayOn ?? false
+    }
+}
+
+extension SparkPreset {
+    /// A delay switched on: a delay model of the catalog, or an unknown model on the delay place of a full chain.
+    public var hasDelayOn: Bool {
+        let fullChain = effects.count == ChainPlace.allCases.count
+        return effects.enumerated().contains { index, effect in
+            guard effect.isOn else { return false }
+            let place = ModelCatalog.known(effect.name)?.place ?? (fullChain ? ChainPlace(rawValue: index) : nil)
+            return place == .delay
+        }
+    }
 }

@@ -110,6 +110,12 @@ public final class RecorderHost {
         model.soundActions = actions
     }
 
+    /// How to tell from a take's sound snapshot that its delay is on, for the hint of the timing review. Asked away
+    /// from the main thread, while the review is worked out.
+    public func judgeSounds(hasDelay: @escaping @Sendable (Data) -> Bool) {
+        model.soundHasDelay = hasDelay
+    }
+
     /// The saved presets to choose a piece's or part's sound from, and how to play one on the amp.
     public func offerPresets(_ choices: @escaping @MainActor () -> [PresetLink],
                              play: @escaping @MainActor (PresetLink) -> Void) {

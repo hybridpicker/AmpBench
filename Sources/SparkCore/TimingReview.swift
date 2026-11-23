@@ -42,7 +42,7 @@ public struct ClickWatch: Equatable, Sendable {
 
 /// The look at a finished take against its click: every onset with its offset, the placement and the spread.
 ///
-/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:)`, so the Linux port can follow it line
+/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:soundHasDelay:)`, so the Linux port can follow it line
 /// by line. It knows nothing of devices, files or the window. What it grows (bars, accuracy, hints) comes in as
 /// parameters with defaults and out as fields of the review, so callers stay as they are. Times are seconds in the file, offsets
 /// seconds with positive meaning later than the click.
@@ -82,6 +82,19 @@ public struct TimingReview: Equatable, Sendable {
         public var isCounted: Bool { status == .counted }
     }
 
+    /// Something to know about a review that does not stop it.
+    public enum Hint: Hashable, Sendable {
+        /// The take's sound has a delay switched on: its echoes may be taken for notes.
+        case delayInTheSound
+
+        public var text: String {
+            switch self {
+            case .delayInTheSound:
+                return tr("Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.")
+            }
+        }
+    }
+
     public var resolution: Resolution
     public var onsets: [Onset]
     /// The mean offset of the counted onsets.
@@ -89,6 +102,7 @@ public struct TimingReview: Equatable, Sendable {
     /// The standard deviation of the counted offsets around the placement: the main number.
     public var spread: Double
     public var counted: Int
+    public var hints: [Hint]
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35
@@ -96,7 +110,7 @@ public struct TimingReview: Equatable, Sendable {
     public static let minimumCounted = 4
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
-                              resolution: Resolution = .quarters) -> Outcome {
+                              resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         guard let grid else { return .noReview(.noBars) }
         let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
@@ -107,7 +121,8 @@ public struct TimingReview: Equatable, Sendable {
         let placement = offsets.reduce(0, +) / Double(offsets.count)
         let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
-                                    spread: variance.squareRoot(), counted: offsets.count))
+                                    spread: variance.squareRoot(), counted: offsets.count,
+                                    hints: soundHasDelay ? [.delayInTheSound] : []))
     }
 
     /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.
