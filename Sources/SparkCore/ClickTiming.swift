@@ -272,32 +272,10 @@ public enum LatencyProbe {
         click.stop()
         guard capture.stopRecording() != nil, let fileFirst else { throw LatencyProbeError.noSignal }
 
-        let samples = try loudestChannel(url)
+        guard let samples = try AudioAnalyzer.loudestChannel(url)?.samples else { throw LatencyProbeError.noSignal }
         let expected = (0..<beats).map { anchor + Double($0) * interval - Double(fileFirst) }
         let analysis = analyze(samples: samples, sampleRate: rate, expected: expected)
         return try evaluate(analysis, sampleRate: rate, reported: reported)
     }
     #endif
-
-    private static func loudestChannel(_ url: URL) throws -> [Float] {
-        let file = try AVAudioFile(forReading: url)
-        let format = file.processingFormat
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(file.length)) else {
-            return []
-        }
-        try file.read(into: buffer)
-        guard let data = buffer.floatChannelData else { return [] }
-        let frames = Int(buffer.frameLength)
-        var best: [Float] = []
-        var bestPeak: Float = -1
-        for channel in 0..<Int(format.channelCount) {
-            let samples = Array(UnsafeBufferPointer(start: data[channel], count: frames))
-            let peak = samples.reduce(Float(0)) { max($0, abs($1)) }
-            if peak > bestPeak {
-                bestPeak = peak
-                best = samples
-            }
-        }
-        return best
-    }
 }

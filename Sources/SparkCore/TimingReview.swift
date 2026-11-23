@@ -96,10 +96,8 @@ public struct TimingReview: Equatable, Sendable {
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
                               resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
+        if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         guard let grid else { return .noReview(.noBars) }
-        guard let stamp else { return .noReview(.recordedBeforeTheStamp) }
-        guard stamp.clickOnThroughout else { return .noReview(.clickNotOnThroughout) }
-        guard case .measured = stamp.latency.amp?.origin else { return .noReview(.ampPartNotMeasured) }
         let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
         let duration = Double(samples.count) / sampleRate
         let onsets = match(times, to: grid, resolution: resolution, duration: duration)
@@ -109,6 +107,15 @@ public struct TimingReview: Equatable, Sendable {
         let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
                                     spread: variance.squareRoot(), counted: offsets.count))
+    }
+
+    /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.
+    public static func reasonBeforeListening(grid: BeatGrid?, stamp: TimingStamp?) -> NoReviewReason? {
+        guard grid != nil else { return .noBars }
+        guard let stamp else { return .recordedBeforeTheStamp }
+        guard stamp.clickOnThroughout else { return .clickNotOnThroughout }
+        guard case .measured = stamp.latency.amp?.origin else { return .ampPartNotMeasured }
+        return nil
     }
 
     /// Gives each onset its grid point: the nearest one, when the onset lies in its catch window and is the first there.
@@ -157,9 +164,10 @@ public enum NoReviewReason: Hashable, Sendable {
 /// Finds the first attack of each note in a recorded signal.
 ///
 /// The signal is followed in steps of a millisecond: an attack is a step at least twice as loud as the loudest of the
-/// 25 ms before it, and clearly above the take's floor. Its time is then the first sample that reaches 30 % of the
-/// attack's peak in its first milliseconds, the rule the click latency measurement uses for the click, so a note played exactly on the click
-/// lies exactly on its grid point.
+/// 25 ms before it, and clearly above the take's floor. The attack is first placed where it reaches 30 % of its peak
+/// in its first milliseconds, then followed back to the first sample that stands out from what sounded before, so
+/// its time is where the note begins and not where it has grown loud: half a sample before that first sample, since
+/// the note began between it and the last quiet one.
 enum OnsetDetector {
     private static let stepSeconds = 0.001
     private static let lookBackSteps = 25
@@ -199,8 +207,11 @@ enum OnsetDetector {
             let end = min(start + 2 * step + peakLength, samples.count)
             let peak = samples[start..<end].reduce(Float(0)) { max($0, abs($1)) }
             let threshold = max(peak * peakShare, background * 1.5)
-            if let first = samples[start..<end].firstIndex(where: { abs($0) >= threshold }) {
-                onsets.append(Double(first) / sampleRate)
+            if var first = samples[start..<end].firstIndex(where: { abs($0) >= threshold }) {
+                let before = max(background, floor * 0.05)
+                while first > start, abs(samples[first - 1]) > before { first -= 1 }
+                // The note began somewhere between the last quiet sample and the first that stands out.
+                onsets.append((Double(first) - 0.5) / sampleRate)
             }
             index += holdSteps
         }

@@ -368,6 +368,70 @@ final class AudioPathTests: XCTestCase {
         }
     }
 
+    /// The automatic loop probe: a take with the click through the loop, its timing stamp saved in the library, then
+    /// its review. BlackHole adds nothing the devices do not report, so its amp part is a measured 0.
+    func testATakeOfTheLoopedClickIsReviewedOnTheBeat() throws {
+        let capture = CaptureEngine(inputPolicy: .testDevices)
+        try requireMicrophone(capture)
+        try capture.open(device: input)
+        defer { capture.close() }
+        wait(0.2)
+        let clock = try XCTUnwrap(capture.clock)
+        let click = ClickEngine()
+        let settings = MetronomeSettings(bpm: 120, beatsPerBar: 4, volume: 0.5, countInBars: 1)
+        try click.start(device: output.id, settings: settings, clock: clock)
+        defer { click.stop() }
+        let watch = ClickWatch(clickOnAtStart: true)
+        var anchor: Double?
+        for _ in 0..<200 where anchor == nil {
+            anchor = click.anchorFrame
+            wait(0.005)
+        }
+        let anchorFrame = try XCTUnwrap(anchor, "the click must place beat 0")
+        let rate = capture.sampleRate
+        let gate = ClickTiming.gateFrame(anchorFrame: anchorFrame, beatsBefore: settings.countInBeats, bpm: settings.bpm,
+                                         inputRate: rate, preRoll: 0.15)
+        let store = LibraryStore(folder: folder.file("Library"), trasher: FakeTrash(folder: folder.file("Trash")))
+        try store.load()
+        try FileManager.default.createDirectory(at: store.folder, withIntermediateDirectories: true)
+        let url = store.folder.appendingPathComponent("looped take.wav")
+        try capture.startRecording(to: url, gateFrame: gate)
+        wait(settings.countInSeconds + 4.2)
+        let fileFirst = try XCTUnwrap(capture.fileFirstFrame)
+        let loop = AmpPart(seconds: 0, origin: .measured(spread: 0, date: Date(timeIntervalSince1970: 1_795_435_200)))
+        let latency = ClickLatency(output: click.reportedOutputLatency, input: capture.reportedInputLatency, amp: loop,
+                                   outputKind: ClickOutputKind(transport: output.transport))
+        // As at the end of a recording: the stamp is taken before the click stops and its latency is reset.
+        let stamp = watch.stamp(latency: latency)
+        click.stop()
+        let result = try XCTUnwrap(capture.stopRecording())
+        XCTAssertEqual(click.lateBeats, 0)
+        let grid = BeatGrid(
+            bpm: settings.bpm, beatsPerBar: settings.beatsPerBar,
+            offset: ClickTiming.gridOffset(anchorFrame: anchorFrame, beatsBefore: settings.countInBeats,
+                                           bpm: settings.bpm, inputRate: rate, fileFirstFrame: fileFirst,
+                                           latency: latency))
+        store.add(Recording(fileName: url.lastPathComponent, createdAt: Date(), duration: result.seconds, sampleRate: rate,
+                            channels: capture.channels, fileBits: 24, grid: grid, timing: stamp))
+        try store.save()
+
+        let reloaded = LibraryStore(folder: store.folder, trasher: FakeTrash(folder: folder.file("Trash")))
+        try reloaded.load()
+        let take = try XCTUnwrap(reloaded.document.recordings.first)
+        XCTAssertEqual(take.timing, stamp)
+        let audio = try XCTUnwrap(AudioAnalyzer.loudestChannel(reloaded.url(of: take)))
+        guard case .review(let review) = TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate,
+                                                             grid: take.grid, stamp: take.timing) else {
+            return XCTFail("the looped take must have a review")
+        }
+        let sample = 1 / rate
+        XCTAssertGreaterThanOrEqual(review.counted, 8, "about eight beats after the count-in")
+        XCTAssertEqual(review.counted, review.onsets.count, "every click counts, nothing else is heard")
+        XCTAssertEqual(review.placement, 0, accuracy: sample, "placement \(review.placement * 1000) ms")
+        XCTAssertLessThan(review.spread, sample, "spread \(review.spread * 1000) ms")
+        print("NOTE looped take: placement \(review.placement * rate) samples, spread \(review.spread * rate) samples, \(review.counted) clicks")
+    }
+
     func testLatencyProbeMeasuresALoopWithoutDelay() async throws {
         let (input, output) = (self.input!, self.output!)
         guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
