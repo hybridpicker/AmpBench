@@ -154,5 +154,6 @@ extension German {
         "No timing review: recorded before the measurement.": "Keine Timing-Auswertung: vor der Messung aufgenommen.",
         "No timing review: click latency not measured.": "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
         "No timing review: too few clear notes.": "Keine Timing-Auswertung: zu wenige klare Töne.",
+        "%+d ms": "%+d ms",
     ]
 }
