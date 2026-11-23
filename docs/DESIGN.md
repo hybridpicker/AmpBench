@@ -65,6 +65,7 @@ gives a `Color` where one is needed, such as in a `Canvas`.
 | Marker | `#B23B8F` | `#E58CD9` |
 | Bar lines / beat lines | black 50 % / 18 % | white 50 % / 18 % |
 | Playhead | `#1D1D1F` | `#FFFFFF` |
+| Onset in the timing band / not counted | `#1F6F7E` / same at 35 % | `#68C6D6` / same at 35 % |
 | Selected row | `rgba(230,162,60,.18)`, bar `#E6A23C` | `rgba(247,196,92,.14)`, bar `#F7C45C` |
 | Stars | `#F2B233` | `#F2B233` |
 | Pill "Open" | text `#7E5508` | text `#F7C45C` |
@@ -133,6 +134,13 @@ a variant of `LEDSegments`).
 - **Transport:** keys with keycaps, the time in amber, an engraved line, TEMPO as `DeviceSlider`, PITCH as
   `DisplayStepper`, and for an open take Keep (main key), Discard (red text), Again. The bar controls of a take
   with bars are a second row on the same front.
+- **Timing band:** below the waveform on its background, for a take with a timing review. Two bars, one cell per
+  beat magnified to about ±60 ms: the click lines in bar-line color stand fixed in the middle with their beat numbers
+  in secondary text, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
+  onset color with their offset ("+18 ms") in mono; onsets that do not count are faint and carry no number. An onset
+  further off than the cell sits at its edge with a small arrow. The playhead shows in the band only near a click.
+  Never red, early and late are no alarm. The "Timing" row on the transport front holds the take's placement and
+  spread and the key "Fold"/"Unfold"; a take without a review shows only that row with its reason.
 - **Library:** `SegmentTabs`, the piece for new recordings and the search in one header; mono dates and durations,
   amber stars, "Open" as a pill, amber selection; a status line with recordings, open takes, practice time of the
   last 30 days and "⌘/ Keyboard shortcuts". The inspector has `SegmentTabs`, system fields with `DeskCaption`, a two-column
