@@ -934,7 +934,7 @@ final class AppModel: ObservableObject {
         try click.start(device: output.id, settings: settings, clock: clock)
         activeClickSettings = settings
         activeLatency = ClickLatency(output: click.reportedOutputLatency, input: capture.reportedInputLatency,
-                                     correction: latencyCorrection(output: output))
+                                     amp: AmpPart(seconds: latencyCorrection(output: output), origin: .setByHand))
         isClickRunning = true
     }
 
