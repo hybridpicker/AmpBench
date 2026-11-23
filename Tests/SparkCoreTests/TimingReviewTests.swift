@@ -56,6 +56,18 @@ final class TimingReviewTests: XCTestCase {
         return (take(notes, seconds: seconds, rate: rate), grid)
     }
 
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
+    }
+
+    private func reason(_ samples: [Float], rate: Double, grid: BeatGrid?, stamp: TimingStamp?) -> NoReviewReason? {
+        if case .noReview(let reason) = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: stamp) {
+            return reason
+        }
+        return nil
+    }
+
     private func review(_ samples: [Float], rate: Double, grid: BeatGrid?, stamp: TimingStamp?,
                         file: StaticString = #filePath, line: UInt = #line) -> TimingReview? {
         switch TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: stamp) {
@@ -145,5 +157,79 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(outside.first).time, between, accuracy: 0.001)
         XCTAssertNil(outside.first?.offset)
         XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+    }
+
+    // MARK: Numbers
+
+    func testPlacementIsTheMeanAndSpreadTheStandardDeviation() throws {
+        // Laid back and uneven: 4 ms and 16 ms behind in turn, so 10 ms behind on average and 6 ms around it.
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 110, rate: rate) { $0 % 2 == 0 ? 0.004 : 0.016 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.counted, 16)
+        XCTAssertEqual(review.placement, 0.010, accuracy: 0.0005)
+        XCTAssertEqual(review.spread, 0.006, accuracy: 0.0005)
+    }
+
+    func testSteadyLaidBackPlayingHasASpreadOfAlmostNothing() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 80, rate: rate) { _ in 0.018 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.placement, 0.018, accuracy: 0.001)
+        XCTAssertLessThan(review.spread, 0.0003)
+    }
+
+    // MARK: No review
+
+    func testEachReasonForNoReviewInItsOrder() {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 120, rate: rate, bars: 2) { _ in 0 }
+        var clickOff = measured
+        clickOff.clickOnThroughout = false
+        var handSet = measured
+        handSet.latency.amp = AmpPart(seconds: 0.02, origin: .setByHand)
+        var unknown = measured
+        unknown.latency.amp = nil
+
+        XCTAssertEqual(reason(samples, rate: rate, grid: nil, stamp: measured), .noBars)
+        XCTAssertEqual(reason(samples, rate: rate, grid: nil, stamp: nil), .noBars)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: nil), .recordedBeforeTheStamp)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: clickOff), .clickNotOnThroughout)
+        var both = clickOff
+        both.latency.amp = nil
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: both), .clickNotOnThroughout)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: handSet), .ampPartNotMeasured)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: unknown), .ampPartNotMeasured)
+        XCTAssertNil(reason(samples, rate: rate, grid: grid, stamp: measured))
+    }
+
+    func testATakeWithoutClearNotesHasNoReview() {
+        let rate = 44_100.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        let quiet = take([], seconds: 3, rate: rate)
+        XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
+        let three = take((0..<3).map { Note(time: grid.offset + Double($0) * grid.secondsPerBeat) }, seconds: 3, rate: rate)
+        XCTAssertEqual(reason(three, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
+    }
+
+    func testTheReasonsReadInEnglishAndGerman() {
+        let english: [NoReviewReason: String] = [
+            .noBars: "No timing review: recorded without the click.",
+            .clickNotOnThroughout: "No timing review: the click was not on for the whole take.",
+            .recordedBeforeTheStamp: "No timing review: recorded before the measurement.",
+            .ampPartNotMeasured: "No timing review: click latency not measured.",
+            .tooFewOnsets: "No timing review: too few clear notes.",
+        ]
+        let german: [NoReviewReason: String] = [
+            .noBars: "Keine Timing-Auswertung: ohne Klick aufgenommen.",
+            .clickNotOnThroughout: "Keine Timing-Auswertung: Der Klick lief nicht während der ganzen Aufnahme.",
+            .recordedBeforeTheStamp: "Keine Timing-Auswertung: vor der Messung aufgenommen.",
+            .ampPartNotMeasured: "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
+            .tooFewOnsets: "Keine Timing-Auswertung: zu wenige klare Töne.",
+        ]
+        Texts.language = .english
+        for (reason, text) in english { XCTAssertEqual(reason.text, text) }
+        Texts.language = .german
+        for (reason, text) in german { XCTAssertEqual(reason.text, text) }
     }
 }

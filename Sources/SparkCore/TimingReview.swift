@@ -66,17 +66,22 @@ public struct TimingReview: Equatable, Sendable {
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35
+    /// The fewest counted onsets a review rests on: one bar of quarters.
+    public static let minimumCounted = 4
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
                               resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
         guard let grid else { return .noReview(.noBars) }
+        guard let stamp else { return .noReview(.recordedBeforeTheStamp) }
+        guard stamp.clickOnThroughout else { return .noReview(.clickNotOnThroughout) }
+        guard case .measured = stamp.latency.amp?.origin else { return .noReview(.ampPartNotMeasured) }
         let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
         let duration = Double(samples.count) / sampleRate
         let onsets = match(times, to: grid, resolution: resolution, duration: duration)
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
-        let placement = offsets.isEmpty ? 0 : offsets.reduce(0, +) / Double(offsets.count)
-        let variance = offsets.isEmpty ? 0
-            : offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
+        guard offsets.count >= minimumCounted else { return .noReview(.tooFewOnsets) }
+        let placement = offsets.reduce(0, +) / Double(offsets.count)
+        let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
                                     spread: variance.squareRoot(), counted: offsets.count))
     }
@@ -99,9 +104,29 @@ public struct TimingReview: Equatable, Sendable {
     }
 }
 
-/// Why a take has no timing review, checked in this order.
-public enum NoReviewReason: Equatable, Sendable {
+/// Why a take has no timing review. The first that applies is the one shown, in the order of the cases.
+public enum NoReviewReason: Hashable, Sendable {
+    /// Recorded without the click, so the take has no bars to review against.
     case noBars
+    /// The click was switched off at some moment, or started only during the take.
+    case clickNotOnThroughout
+    /// Recorded before takes kept a timing stamp; whether the click stayed on cannot be known.
+    case recordedBeforeTheStamp
+    /// The amp's part of the click latency was set by hand or is not known, so the bars may lie off.
+    case ampPartNotMeasured
+    /// Fewer clear notes on the grid points than a placement and a spread can rest on.
+    case tooFewOnsets
+
+    /// The one line the window shows instead of a review.
+    public var text: String {
+        switch self {
+        case .noBars: return tr("No timing review: recorded without the click.")
+        case .clickNotOnThroughout: return tr("No timing review: the click was not on for the whole take.")
+        case .recordedBeforeTheStamp: return tr("No timing review: recorded before the measurement.")
+        case .ampPartNotMeasured: return tr("No timing review: click latency not measured.")
+        case .tooFewOnsets: return tr("No timing review: too few clear notes.")
+        }
+    }
 }
 
 /// Finds the first attack of each note in a recorded signal.
