@@ -149,5 +149,10 @@ extension German {
         "Device with %d slots connected that may save, preset open": "Gerät mit %d Plätzen verbunden, das speichern darf, Preset offen",
         "Select device %d of the chain": "Gerät %d der Kette wählen",
         "Tuning %@": "Stimmung %@",
+        "No timing review: recorded without the click.": "Keine Timing-Auswertung: ohne Klick aufgenommen.",
+        "No timing review: the click was not on for the whole take.": "Keine Timing-Auswertung: Der Klick lief nicht während der ganzen Aufnahme.",
+        "No timing review: recorded before the measurement.": "Keine Timing-Auswertung: vor der Messung aufgenommen.",
+        "No timing review: click latency not measured.": "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
+        "No timing review: too few clear notes.": "Keine Timing-Auswertung: zu wenige klare Töne.",
     ]
 }

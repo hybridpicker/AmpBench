@@ -1037,5 +1037,15 @@ extension German {
             "„Eingang prüfen“ wurde nach zwei Minuten automatisch beendet.",
         "⌘/ Keyboard shortcuts":
             "⌘/ Tastenkürzel",
+        "Timing":
+            "Timing",
+        "Timing review":
+            "Timing-Auswertung",
+        "Placement %+.1f ms · Spread %.1f ms · %d notes on quarters":
+            "Lage %+.1f ms · Streuung %.1f ms · %d Töne auf Vierteln",
+        "Reviewing the timing …":
+            "Timing wird ausgewertet …",
+        "The timing could not be reviewed.":
+            "Das Timing konnte nicht ausgewertet werden.",
     ]
 }
