@@ -112,4 +112,38 @@ final class TimingReviewTests: XCTestCase {
             }
         }
     }
+
+    func testOnlyTheFirstOnsetInACatchWindowCounts() throws {
+        let rate = 44_100.0
+        let grid = BeatGrid(bpm: 90, beatsPerBar: 4, offset: 0.15)
+        var notes: [Note] = []
+        for beat in 0..<8 {
+            let time = grid.offset + Double(beat) * grid.secondsPerBeat + 0.012
+            notes.append(Note(time: time))
+            // A delay echo 120 ms later, still inside the catch window of 233 ms.
+            notes.append(Note(time: time + 0.120, frequency: 196, amplitude: 0.5))
+        }
+        let samples = take(notes, seconds: grid.offset + 8 * grid.secondsPerBeat + 0.3, rate: rate)
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.counted, 8)
+        XCTAssertEqual(review.onsets.filter { $0.status == .laterInWindow }.count, 8)
+        XCTAssertEqual(review.placement, 0.012, accuracy: 0.001)
+    }
+
+    func testAnOnsetOutsideEveryCatchWindowDoesNotCount() throws {
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        var notes = (0..<8).map { Note(time: grid.offset + Double($0) * grid.secondsPerBeat) }
+        // An eighth note between beats 3 and 4: half a beat from both, outside both windows of 35 %.
+        let between = grid.offset + 2.5 * grid.secondsPerBeat
+        notes.append(Note(time: between, frequency: 330))
+        let samples = take(notes, seconds: grid.offset + 8 * grid.secondsPerBeat + 0.3, rate: rate)
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.counted, 8)
+        let outside = review.onsets.filter { $0.status == .outsideWindows }
+        XCTAssertEqual(outside.count, 1)
+        XCTAssertEqual(try XCTUnwrap(outside.first).time, between, accuracy: 0.001)
+        XCTAssertNil(outside.first?.offset)
+        XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+    }
 }
