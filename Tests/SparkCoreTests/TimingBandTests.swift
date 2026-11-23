@@ -106,4 +106,13 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(TimingBand.pair(showing: 4...6, grid: grid, lastBar: 8), 3...4)
         XCTAssertEqual(TimingBand.pair(showing: 5...5, grid: grid, lastBar: 8), 5...6)
     }
+
+    func testThePlayheadShowsInTheBandOnlyNearAClick() {
+        let band = TimingBand(review: review([]), grid: grid, bars: 1...2, width: 800)
+
+        XCTAssertEqual(band.x(at: beat(2, ofBar: 1) + 0.030) ?? -1, 175, accuracy: 0.01)
+        XCTAssertEqual(band.x(at: beat(1, ofBar: 1) - 0.060) ?? -1, 0, accuracy: 0.01, "at the band's left edge")
+        XCTAssertNil(band.x(at: beat(2, ofBar: 1) + 0.200), "between the cells the band shows no time")
+        XCTAssertNil(band.x(at: beat(1, ofBar: 3)), "in a bar the band does not show")
+    }
 }

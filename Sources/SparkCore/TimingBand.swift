@@ -35,6 +35,13 @@ public struct TimingBand: Equatable, Sendable {
     public var width: Double
     public var clicks: [Click]
     public var strokes: [Stroke]
+    /// The width of the cell around each click.
+    public var cellWidth: Double
+    /// How far each side of its click a cell reaches here, in seconds.
+    public var cellReach: Double
+    /// Where the first click of the band lies in the file, and the time from click to click.
+    private var firstClick: Double
+    private var spacing: Double
 
     public init(review: TimingReview, grid: BeatGrid, bars: ClosedRange<Int>, width: Double) {
         self.bars = bars
@@ -43,6 +50,7 @@ public struct TimingBand: Equatable, Sendable {
         let pointsPerBar = grid.beatsPerBar * pointsPerBeat
         let count = bars.count * pointsPerBar
         let cellWidth = width / Double(max(count, 1))
+        self.cellWidth = cellWidth
         clicks = (0..<count).map { index in
             let inBar = index % pointsPerBar
             return Click(bar: bars.lowerBound + index / pointsPerBar,
@@ -53,6 +61,9 @@ public struct TimingBand: Equatable, Sendable {
         let spacing = grid.secondsPerBeat / Double(pointsPerBeat)
         let reach = min(Self.reach, spacing / 2)
         let firstPoint = (bars.lowerBound - grid.firstBar) * pointsPerBar
+        self.spacing = spacing
+        cellReach = reach
+        firstClick = grid.offset + Double(firstPoint) * spacing
         strokes = review.onsets.compactMap { onset in
             let point = onset.gridPoint ?? Int(((onset.time - grid.offset) / spacing).rounded())
             let index = point - firstPoint
@@ -62,6 +73,15 @@ public struct TimingBand: Equatable, Sendable {
             return Stroke(x: (Double(index) + 0.5) * cellWidth + shift, offset: offset, isCounted: onset.isCounted,
                           label: onset.isCounted ? Self.label(offset) : nil, isPastTheCell: abs(offset) > reach)
         }
+    }
+
+    /// Where a moment of the file lies in the band, such as the playhead: only within a cell, since the band shows
+    /// no time between them.
+    public func x(at seconds: Double) -> Double? {
+        let index = Int(((seconds - firstClick) / spacing).rounded())
+        let offset = seconds - (firstClick + Double(index) * spacing)
+        guard index >= 0, index < clicks.count, abs(offset) <= cellReach else { return nil }
+        return (Double(index) + 0.5 + offset / cellReach / 2) * cellWidth
     }
 
     /// The two bars the band shows with the playhead at `seconds`: bars go in pairs from the take's first bar, so the
