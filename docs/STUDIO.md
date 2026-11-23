@@ -601,8 +601,17 @@ Live timing while playing comes next, then Linux and the iPad.
 
 ### Further Notes
 
-- The measurement is still to do (it waited for a cable); the earbud on the pickup needs none. See "Timing of click
-  and bars" in the manual for the steps.
+- **Measured on 2026-11-23** on the Spark MINI, click on the headphone output, a wired headphone held on the neck
+  pickup, a preset without noise gate: 25.4 ms from the click into the file, 21.7 ms of it not reported by the
+  devices, spread 1.2 ms over 12 clicks. Every take before lay about 22 ms late against its bars. Found on the way:
+  speakers on the headphone jack (shielded) reached the pickup at only about −74 dBFS, too weak; a noise gate turns
+  the quiet input into exact zeros and hides weak clicks; once the MINI sent only zeros over USB until it was
+  switched off and on again. The owner also hears the click on analog desktop speakers (Bose Companion 2
+  Series III) on the same headphone output; they could not be measured this way, but an analog amplifier adds well
+  below a millisecond, so the measured amp part holds for them as well.
+- **Sound in the air** takes about 3 ms per metre. The measurement couples magnetically and leaves that path out, so
+  a player 1.5 m from the speaker who plays exactly on the heard click shows a placement of about +4 ms. The review
+  is right about it; the band could say so when the click output is a speaker.
 - To be settled while building, with the owner where it is a matter of taste: the smallest number of counted onsets
   for a review; the line between a steady and an unsteady bar; whether the chosen grid is kept per take or per
   piece; whether a reverb tail needs a hint as well as a delay.
