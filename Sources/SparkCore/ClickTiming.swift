@@ -12,17 +12,31 @@ public struct ClickLatency: Codable, Equatable, Sendable {
     public var output: Double
     public var input: Double
     public var amp: AmpPart?
+    public var outputKind: ClickOutputKind
 
-    public init(output: Double = 0, input: Double = 0, amp: AmpPart? = nil) {
+    public init(output: Double = 0, input: Double = 0, amp: AmpPart? = nil, outputKind: ClickOutputKind = .wired) {
         self.output = output
         self.input = input
         self.amp = amp
+        self.outputKind = outputKind
     }
 
     /// The amp's part in seconds, 0 when none is known.
     public var correction: Double { amp?.seconds ?? 0 }
     public var reported: Double { output + input }
     public var total: Double { reported + correction }
+}
+
+/// How the click reaches the ear. A Bluetooth output's delay is not steady enough for a timing review.
+public enum ClickOutputKind: String, Codable, Equatable, Sendable {
+    case wired
+    case bluetooth
+
+    public init(transport: UInt32) {
+        let bluetooth = transport == kAudioDeviceTransportTypeBluetooth
+            || transport == kAudioDeviceTransportTypeBluetoothLE
+        self = bluetooth ? .bluetooth : .wired
+    }
 }
 
 /// The amp's part of the click latency: what no device reports. It belongs to the input, the amp, and holds for
@@ -105,7 +119,8 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
     /// The click latency of a recording from this input, with what the click output and the input report.
     public func clickLatency(input: DeviceIdentity, reportedOutput: Double, reportedInput: Double,
                              outputTransport: UInt32) -> ClickLatency {
-        ClickLatency(output: reportedOutput, input: reportedInput, amp: part(for: input))
+        ClickLatency(output: reportedOutput, input: reportedInput, amp: part(for: input),
+                     outputKind: ClickOutputKind(transport: outputTransport))
     }
 }
 

@@ -111,6 +111,27 @@ final class AmpLatencyTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(AmpLatencies.self, from: data), amps)
     }
 
+    // MARK: The click output's kind
+
+    func testABluetoothClickOutputIsKnownByItsTransport() {
+        var amps = AmpLatencies()
+        amps.store(measurement, for: mini, at: measuredAt)
+        let headphones = amps.clickLatency(input: mini, reportedOutput: 0.0012, reportedInput: 0.0025,
+                                           outputTransport: kAudioDeviceTransportTypeBuiltIn)
+        let earbuds = amps.clickLatency(input: mini, reportedOutput: 0.16, reportedInput: 0.0025,
+                                        outputTransport: kAudioDeviceTransportTypeBluetooth)
+        let lowEnergy = amps.clickLatency(input: mini, reportedOutput: 0.16, reportedInput: 0.0025,
+                                          outputTransport: kAudioDeviceTransportTypeBluetoothLE)
+        let interface = amps.clickLatency(input: mini, reportedOutput: 0.003, reportedInput: 0.0025,
+                                          outputTransport: kAudioDeviceTransportTypeUSB)
+        XCTAssertEqual(headphones.outputKind, .wired)
+        XCTAssertEqual(interface.outputKind, .wired)
+        XCTAssertEqual(earbuds.outputKind, .bluetooth)
+        XCTAssertEqual(lowEnergy.outputKind, .bluetooth)
+        // Their bars are still corrected, with the amp part and what the Bluetooth output reports.
+        XCTAssertEqual(earbuds.total, 0.16 + 0.0025 + 0.0217, accuracy: 1e-9)
+    }
+
     func testEachAmpKeepsItsOwnPart() {
         var amps = AmpLatencies()
         amps.store(measurement, for: mini, at: measuredAt)
