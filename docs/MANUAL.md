@@ -225,6 +225,20 @@ corrected the same way, but its delay is not steady.
 
 On the BlackHole loop test, every beat lands within one sample of the grid.
 
+#### Timing review
+
+Every take recorded from now on remembers whether the click was on for its whole length (switching it off for a
+moment is enough to clear that), the click latency its bars rest on, whether the amp's part of it was measured, and
+whether the click went to a wired or a Bluetooth output. A take repaired after a crash remembers none of this.
+
+Below the bar controls, the line "Timing" shows for the take in focus where its notes lie against the click: the
+placement (the average offset, positive is later than the click) and the spread (how tightly the notes lie around
+it), in milliseconds, on a grid of quarters. Each note counts from its first attack, the first string of a strum.
+It belongs to a beat only within 35 % of a beat to either side, and only the first note there counts, so delay
+echoes, later strings and notes between the beats do not. A take that gets no review says why: recorded without the
+click, the click not on for the whole take, recorded before the measurement (every take from before this change), or
+click latency not measured (also when it was set by hand).
+
 ### Audio quality
 
 - The device runs at its highest rate up to 192 kHz during a recording, and its previous rate comes back afterwards.

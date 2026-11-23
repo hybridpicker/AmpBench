@@ -415,7 +415,9 @@ usual, but no big jumps. This holds for every sound in the library, Kemper impor
 
 The owner's wish (2026-11-23): be sure that a take recorded with the click lies exactly on its bars, then see the
 own timing against the click note by note, including playing laid back on purpose. Decided with the owner on
-2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, the rest is
+2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, and so are
+the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
+SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample); the rest is
 spec. The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
