@@ -431,7 +431,7 @@ numbers they can trust and a picture in which the steady click and their own ons
 
 First the click latency of the amp is measured once on the Mac, with an earbud held on the pickup or a cable. From
 then on every new take recorded with the click on throughout gets a timing review: below the waveform a timing band,
-in step with it but magnified around every beat, shows the fixed click lines with their beat numbers and the
+showing the two bars around the playhead magnified around every beat, shows the fixed click lines with their beat numbers and the
 player's onsets as strokes behind or before them, each with its offset in milliseconds. Per take the review gives
 placement (where the player sits), spread (how steady, the main number) and review accuracy; per bar a colour shows
 the steady and unsteady bars. Laid back is shown as placement, never as an error. Where a review would not be
@@ -474,16 +474,16 @@ Live timing while playing comes next, then Linux and the iPad.
     reads as "+18 ms" and not as a percentage of a beat.
 17. As the owner, I want the band magnified around each beat to about ±60 ms, so that 10 to 40 ms are clearly
     visible even in a long take.
-18. As the owner, I want the band to move in step with the waveform and its zoom, so that a stroke and the note I
-    hear belong together.
+18. As the owner, I want the band to show the two bars around the playhead and to follow playback, a click into the
+    waveform and a selection of bars, so that a stroke and the note I hear belong together.
 19. As the owner, I want the onset of a strummed chord to be its first string, so that a slower strum does not
     count as playing later.
 20. As the owner, I want only the first onset near a grid point to count, so that delay echoes and later strings
     of a chord do not count as notes.
 21. As the owner, I want to choose the grid: quarters, eighths, sixteenths or triplets, so that the review matches
     what I practise.
-22. As the owner, I want the grid to start at the metronome's subdivision of the take, so that the usual case needs
-    no choice.
+22. As the owner, I want the grid to start at quarters, the beats the click plays while recording, and a piece to
+    keep the grid I chose for it, so that the usual case needs no choice.
 23. As the owner, I want an onset to belong to a grid point only within 35 % of the grid spacing, so that a late
     eighth is never counted as an early next one.
 24. As the owner, I want onsets outside every catch window to be shown faint and not counted, so that fills and
@@ -537,7 +537,8 @@ Live timing while playing comes next, then Linux and the iPad.
   after this change: the click on for the whole take (switching the click off at any moment clears it), the click
   latency used (output part, input part, amp part, measured or hand-set, the measurement's spread) and the click
   output's kind (wired or Bluetooth). Older entries decode without it, the same way the sound of a take was added;
-  a take without a stamp gets no review.
+  a take without a stamp gets no review. A take rebuilt after a crash gets no stamp, since whether the click stayed
+  on cannot be known. The stamp is saved before the recording's click state and latency are reset at the stop.
 - **The review module (`TimingReview` in SparkCore):** one pure entry point. In: the take's samples and sample rate,
   its bars, its timing stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
   "no review" with one reason. A review holds every onset (time, grid point, offset in ms, counted or why not), the
@@ -549,17 +550,22 @@ Live timing while playing comes next, then Linux and the iPad.
 - **Onset:** the first attack of a note or strum, found in the recorded signal as the amp sends it over USB, with
   effects. For a strummed chord the first string counts. The detector must place a clean synthetic pluck within
   1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted.
-- **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is the subdivision of the
-  metronome's pattern at the time of the recording, otherwise quarters. The catch window reaches 35 % of the grid
+- **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is quarters, because the
+  click plays only quarters while recording, whatever the metronome's pattern; a grid chosen for a take is kept by
+  its piece and used for that piece's takes (quarters: owner, 2026-11-23; keeping the choice per piece is proposed,
+  not yet confirmed). The catch window reaches 35 % of the grid
   spacing to each side; only the first onset in it counts.
 - **Numbers:** offset in milliseconds, positive later than the click. Placement is the mean of the counted offsets.
   Spread is their standard deviation around the placement, the main number. Review accuracy combines the
-  measurement's spread with the detector's uncertainty; above ±2 ms there is no review. There is no target
+  measurement's uncertainty, half the stored spread (which is the range from the earliest to the latest click), with
+  the detector's uncertainty; above ±2 ms there is no review. There is no target
   placement: the owner decided against it, the review only shows where the player is.
 - **Delay in the sound** is read from the take's sound snapshot by the layer that knows the preset format
   (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal.
-- **The timing band:** below the waveform in the area Record, in step with its position and zoom, each beat
-  magnified to about ±60 ms. Click lines fixed with their beat numbers, onsets as strokes with their offset, faint
+- **The timing band:** below the waveform in the area Record. The waveform has no zoom and always shows the whole
+  take, so the band does not follow a zoom: it shows the two bars around the playhead, each beat magnified to about
+  ±60 ms, follows playback and jumps to a click into the waveform or to selected bars (owner, 2026-11-23). The
+  waveform stays as it is. Click lines fixed with their beat numbers, onsets as strokes with their offset, faint
   for onsets not counted, one colour per bar (steady or unsteady) from the design tokens, never red. Per take
   placement, spread and accuracy in the status line. It opens on its own for a take with a review and can be
   folded; without a review it is one line with the reason. All texts through `tr()` with German tables, as
@@ -615,8 +621,7 @@ Live timing while playing comes next, then Linux and the iPad.
   a player 1.5 m from the speaker who plays exactly on the heard click shows a placement of about +4 ms. The review
   is right about it; the band could say so when the click output is a speaker.
 - To be settled while building, with the owner where it is a matter of taste: the smallest number of counted onsets
-  for a review; the line between a steady and an unsteady bar; whether the chosen grid is kept per take or per
-  piece; whether a reverb tail needs a hint as well as a delay.
+  for a review; the line between a steady and an unsteady bar; whether a reverb tail needs a hint as well as a delay.
 
 ## Ordering presets: hashtags
 
