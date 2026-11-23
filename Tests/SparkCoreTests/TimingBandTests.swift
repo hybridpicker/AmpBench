@@ -115,4 +115,22 @@ final class TimingBandTests: XCTestCase {
         XCTAssertNil(band.x(at: beat(2, ofBar: 1) + 0.200), "between the cells the band shows no time")
         XCTAssertNil(band.x(at: beat(1, ofBar: 3)), "in a bar the band does not show")
     }
+
+    func testATakeWithAReviewOpensTheBandWhichFolds() {
+        let outcome = TimingReview.Outcome.review(review([beat(1, ofBar: 1)]))
+
+        XCTAssertEqual(TimingBand.shows(outcome, folded: false), .band)
+        XCTAssertEqual(TimingBand.shows(outcome, folded: true), .folded)
+        XCTAssertTrue(TimingBand.shows(outcome, folded: true).canFold)
+        XCTAssertTrue(TimingBand.shows(outcome, folded: false).canFold)
+    }
+
+    func testATakeWithoutAReviewShowsOnlyItsReasonLine() {
+        let outcome = TimingReview.Outcome.noReview(.ampPartNotMeasured)
+
+        XCTAssertEqual(TimingBand.shows(outcome, folded: false), .line)
+        XCTAssertEqual(TimingBand.shows(outcome, folded: true), .line)
+        XCTAssertFalse(TimingBand.shows(outcome, folded: false).canFold)
+        XCTAssertEqual(TimingBand.shows(nil, folded: false), .line, "while it is worked out, or when unreadable")
+    }
 }

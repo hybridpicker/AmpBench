@@ -75,6 +75,25 @@ public struct TimingBand: Equatable, Sendable {
         }
     }
 
+    /// What the area Record shows of a take's timing below its waveform.
+    public enum Showing: Equatable, Sendable {
+        /// The band with the status line above it.
+        case band
+        /// Only the status line, the band folded away.
+        case folded
+        /// One line: why there is no review, or that it is being worked out.
+        case line
+
+        /// Only a review has a band to fold.
+        public var canFold: Bool { self != .line }
+    }
+
+    /// The band opens on its own for a take with a review, unless it was folded; any other take shows one line.
+    public static func shows(_ outcome: TimingReview.Outcome?, folded: Bool) -> Showing {
+        guard case .review = outcome else { return .line }
+        return folded ? .folded : .band
+    }
+
     /// Where a moment of the file lies in the band, such as the playhead: only within a cell, since the band shows
     /// no time between them.
     public func x(at seconds: Double) -> Double? {
