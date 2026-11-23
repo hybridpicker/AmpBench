@@ -64,6 +64,26 @@ public struct TimingBand: Equatable, Sendable {
         }
     }
 
+    /// The two bars the band shows with the playhead at `seconds`: bars go in pairs from the take's first bar, so the
+    /// band stands still while a pair plays and turns over at the next. Before the first bar it shows the first pair;
+    /// the last bar of an odd take comes with the bar before it.
+    public static func pair(at seconds: Double, grid: BeatGrid, lastBar: Int) -> ClosedRange<Int> {
+        pair(holding: grid.position(at: seconds)?.bar ?? grid.firstBar, firstBar: grid.firstBar, lastBar: lastBar)
+    }
+
+    /// The two bars the band shows for chosen bars: the pair that holds the first of them.
+    public static func pair(showing selection: ClosedRange<Int>, grid: BeatGrid, lastBar: Int) -> ClosedRange<Int> {
+        pair(holding: selection.lowerBound, firstBar: grid.firstBar, lastBar: lastBar)
+    }
+
+    private static func pair(holding bar: Int, firstBar: Int, lastBar: Int) -> ClosedRange<Int> {
+        let last = max(lastBar, firstBar)
+        let bar = min(max(bar, firstBar), last)
+        let start = firstBar + (bar - firstBar) / 2 * 2
+        let end = min(start + 1, last)
+        return max(end - 1, firstBar)...end
+    }
+
     /// The offset in whole milliseconds, signed, as "+18 ms".
     static func label(_ offset: Double) -> String {
         tr("%+d ms", Int((offset * 1000).rounded()))

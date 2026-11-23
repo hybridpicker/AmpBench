@@ -79,4 +79,31 @@ final class TimingBandTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(band.strokes[1].x - clicks[1], 24, "40 ms late")
         XCTAssertGreaterThanOrEqual(clicks[2] - band.strokes[2].x, 6, "10 ms early")
     }
+
+    func testTheBandShowsTheTwoBarsAroundThePlayheadAPairAtATime() {
+        // Eight bars: the band turns over like a page, two bars at a time, so it stands still while a pair plays.
+        XCTAssertEqual(TimingBand.pair(at: 0, grid: grid, lastBar: 8), 1...2, "before bar 1, in the count-in's pre-roll")
+        XCTAssertEqual(TimingBand.pair(at: beat(1, ofBar: 1), grid: grid, lastBar: 8), 1...2)
+        XCTAssertEqual(TimingBand.pair(at: beat(4, ofBar: 2), grid: grid, lastBar: 8), 1...2)
+        XCTAssertEqual(TimingBand.pair(at: beat(1, ofBar: 3), grid: grid, lastBar: 8), 3...4)
+        XCTAssertEqual(TimingBand.pair(at: beat(2, ofBar: 8), grid: grid, lastBar: 8), 7...8)
+        XCTAssertEqual(TimingBand.pair(at: 1_000, grid: grid, lastBar: 8), 7...8, "past the end")
+    }
+
+    func testTheLastBarOfAnOddTakeIsShownWithTheBarBeforeIt() {
+        XCTAssertEqual(TimingBand.pair(at: beat(3, ofBar: 5), grid: grid, lastBar: 5), 4...5)
+        XCTAssertEqual(TimingBand.pair(at: beat(1, ofBar: 1), grid: grid, lastBar: 1), 1...1, "a take of one bar")
+    }
+
+    func testARetakeOfSomeBarsCountsItsPairsFromItsFirstBar() {
+        let retake = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15, firstBar: 7)
+
+        XCTAssertEqual(TimingBand.pair(at: 0, grid: retake, lastBar: 9), 7...8)
+        XCTAssertEqual(TimingBand.pair(at: beat(1, ofBar: 9, in: retake), grid: retake, lastBar: 9), 8...9)
+    }
+
+    func testSelectedBarsShowThePairThatHoldsTheirFirstBar() {
+        XCTAssertEqual(TimingBand.pair(showing: 4...6, grid: grid, lastBar: 8), 3...4)
+        XCTAssertEqual(TimingBand.pair(showing: 5...5, grid: grid, lastBar: 8), 5...6)
+    }
 }
