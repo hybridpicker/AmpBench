@@ -13,6 +13,31 @@ public struct TimingStamp: Codable, Equatable, Sendable {
         self.clickOnThroughout = clickOnThroughout
         self.latency = latency
     }
+
+    /// A stamp that cannot be read in full never passes for one with the click on and the amp part measured.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        clickOnThroughout = (try? c.decodeIfPresent(Bool.self, forKey: .clickOnThroughout)) ?? false
+        latency = (try? c.decodeIfPresent(ClickLatency.self, forKey: .latency)) ?? ClickLatency()
+    }
+}
+
+/// Follows the click through a recording for the take's timing stamp. Once the click is off, even for a moment, the
+/// take is no longer one with the click on throughout.
+public struct ClickWatch: Equatable, Sendable {
+    public private(set) var onThroughout: Bool
+
+    public init(clickOnAtStart: Bool) {
+        onThroughout = clickOnAtStart
+    }
+
+    public mutating func clickSwitched(on: Bool) {
+        if !on { onThroughout = false }
+    }
+
+    public func stamp(latency: ClickLatency) -> TimingStamp {
+        TimingStamp(clickOnThroughout: onThroughout, latency: latency)
+    }
 }
 
 /// The look at a finished take against its click: every onset with its offset, the placement and the spread.

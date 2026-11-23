@@ -82,6 +82,9 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     public var punch: PunchInfo?
     /// The sound the take was recorded with, when the preset editor knew it. Its settings are in a snapshot file.
     public var preset: PresetStamp?
+    /// What the take remembers about its click, for its timing review. Nil in takes from before the timing review
+    /// and in takes repaired after a crash.
+    public var timing: TimingStamp?
 
     public init(
         id: UUID = UUID(), fileName: String, createdAt: Date, duration: Double, sampleRate: Double, channels: Int,
@@ -89,7 +92,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         rating: Int = 0, favorite: Bool = false, tags: [String] = [], note: String = "", markers: [Marker] = [],
         pieceID: UUID? = nil, edit: EditList = EditList(), peakDB: Double? = nil, health: FileHealth = .ok,
         recoveredAfterInterruption: Bool = false, grid: BeatGrid? = nil, punch: PunchInfo? = nil,
-        preset: PresetStamp? = nil
+        preset: PresetStamp? = nil, timing: TimingStamp? = nil
     ) {
         self.id = id
         self.fileName = fileName
@@ -115,6 +118,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         self.grid = grid
         self.punch = punch
         self.preset = preset
+        self.timing = timing
     }
 
     /// Missing fields get defaults, so a file written by an older or newer version still loads.
@@ -144,6 +148,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         grid = try c.decodeIfPresent(BeatGrid.self, forKey: .grid)
         punch = try c.decodeIfPresent(PunchInfo.self, forKey: .punch)
         preset = try c.decodeIfPresent(PresetStamp.self, forKey: .preset)
+        timing = try? c.decodeIfPresent(TimingStamp.self, forKey: .timing)
     }
 
     public var name: String { (fileName as NSString).deletingPathExtension }
