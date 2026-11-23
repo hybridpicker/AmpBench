@@ -42,8 +42,9 @@ public struct ClickWatch: Equatable, Sendable {
 
 /// The look at a finished take against its click: every onset with its offset, the placement and the spread.
 ///
-/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:soundHasDelay:)`, so the Linux port can
-/// follow it line by line. It knows nothing of devices, files or the window. Times are seconds in the file, offsets
+/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:)`, so the Linux port can follow it line
+/// by line. It knows nothing of devices, files or the window. What it grows (bars, accuracy, hints) comes in as
+/// parameters with defaults and out as fields of the review, so callers stay as they are. Times are seconds in the file, offsets
 /// seconds with positive meaning later than the click.
 public struct TimingReview: Equatable, Sendable {
     public enum Outcome: Equatable, Sendable {
@@ -95,7 +96,7 @@ public struct TimingReview: Equatable, Sendable {
     public static let minimumCounted = 4
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
-                              resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
+                              resolution: Resolution = .quarters) -> Outcome {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         guard let grid else { return .noReview(.noBars) }
         let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
