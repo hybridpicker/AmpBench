@@ -32,6 +32,11 @@ struct WavePanel: View {
                         BarControls(recording: recording, grid: grid)
                             .frame(height: 40)
                     }
+                    if !model.isRecording, model.compareIDs.isEmpty, let recording = model.current, recording.health == .ok {
+                        EngravedDivider(.horizontal, inset: 16)
+                        TimingLine()
+                            .frame(height: 28)
+                    }
                 }
                 .padding(.horizontal, 16)
             }
@@ -663,6 +668,43 @@ private struct BarControls: View {
                 .help(tr("Counts in and records the selected bars again at this take's tempo. That becomes a separate take; the original stays unchanged."))
 
             Spacer(minLength: 0)
+        }
+    }
+}
+
+/// One line about the take's timing: its placement and spread against the click, or why it has no review.
+private struct TimingLine: View {
+    @EnvironmentObject private var model: AppModel
+
+    var body: some View {
+        HStack(spacing: 8) {
+            PanelLabel(tr("Timing"))
+            Text(text)
+                .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
+                .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
+                .lineLimit(1)
+                .truncationMode(.tail)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(tr("Timing review"))
+        .accessibilityValue(text)
+    }
+
+    private var isReview: Bool {
+        if case .review = model.timingOutcome { return true }
+        return false
+    }
+
+    private var text: String {
+        switch model.timingOutcome {
+        case .review(let review):
+            return tr("Placement %+.1f ms · Spread %.1f ms · %d notes on quarters",
+                      review.placement * 1000, review.spread * 1000, review.counted)
+        case .noReview(let reason):
+            return reason.text
+        case nil:
+            return model.isReviewingTiming ? tr("Reviewing the timing …") : tr("The timing could not be reviewed.")
         }
     }
 }

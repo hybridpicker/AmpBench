@@ -172,6 +172,10 @@ final class AppModel: ObservableObject {
 
     @Published var metronome: MetronomeSettings
     @Published private(set) var isClickRunning = false
+    /// The timing review of the take in focus, or why it has none. Nil while it is worked out, or when the file
+    /// could not be read.
+    @Published private(set) var timingOutcome: TimingReview.Outcome?
+    @Published private(set) var isReviewingTiming = false
     private var tapTempo = TapTempo()
 
     // MARK: Messages
@@ -208,6 +212,7 @@ final class AppModel: ObservableObject {
     private var saveTask: Task<Void, Never>?
     private var bannerTask: Task<Void, Never>?
     private var analysisTask: Task<Void, Never>?
+    private var timingTask: Task<Void, Never>?
     private var deviceListListener: AudioObjectPropertyListenerBlock?
     private var sleepActivity: NSObjectProtocol?
 
@@ -225,6 +230,8 @@ final class AppModel: ObservableObject {
     private var activeCountInBeats = 0
     /// The delays the bars of the running recording are corrected by.
     private var activeLatency = ClickLatency()
+    /// Whether the click of the running recording stayed on, for the take's timing stamp.
+    private var activeClickWatch: ClickWatch?
     private var bannerUndoAction: (@MainActor (AppModel) -> Void)?
     /// AmpBench's sound of the amp for a new take. Nil in Spark Recorder.
     var soundProvider: (@MainActor () -> TakeSound?)?
@@ -869,6 +876,9 @@ final class AppModel: ObservableObject {
             }
 
             try capture.startRecording(to: url, gateFrame: gate)
+            // Heard from the first bar only when it runs and stays on after the count-in.
+            activeClickWatch = ClickWatch(clickOnAtStart: click.isRunning && activeClickSettings != nil
+                                          && clickSettings.clickEnabled)
             activeFile = url
             activeJournal = journal
             activeSource = source
@@ -1001,6 +1011,7 @@ final class AppModel: ObservableObject {
         punchStopAt = nil
         activeCountInBeats = 0
         activeLatency = ClickLatency()
+        activeClickWatch = nil
         meter.beat = 0
         applyPlaybackClick()
         // Keep the input open only for features that still need it. A buffer turned off during the take ends here.
@@ -1024,6 +1035,10 @@ final class AppModel: ObservableObject {
         let rate = capture.sampleRate
         let channels = capture.channels
         let markers = activeJournal?.markers ?? []
+        // Taken before the click stops and its latency is reset. A click that stopped on its own was not on throughout.
+        var watch = activeClickWatch
+        if !click.isRunning { watch?.clickSwitched(on: false) }
+        let timing = watch?.stamp(latency: activeLatency)
         journalQueue.sync {}
         finishListeningAfterRecording()
         activeFile = nil
@@ -1062,7 +1077,8 @@ final class AppModel: ObservableObject {
             peakDB: peak > 0 ? 20 * log10(Double(peak)) : nil,
             grid: journal.grid,
             punch: journal.punch,
-            preset: journal.preset
+            preset: journal.preset,
+            timing: timing
         )
         store.add(recording)
         store.logPractice(date: start, seconds: result.seconds, pieceID: journal.pieceID)
@@ -1287,6 +1303,7 @@ final class AppModel: ObservableObject {
         analysisTask?.cancel()
         analysisTask = nil
         isAnalyzing = false
+        loadTimingReview(for: recording)
 
         guard recording.health == .ok else {
             playback.unload()
@@ -1303,6 +1320,41 @@ final class AppModel: ObservableObject {
             show(.error, error.localizedDescription)
         }
         if !waveformReady { loadWaveform(for: recording) }
+    }
+
+    /// Works out the timing review of the take in focus in the background, holding back while a recording runs. A
+    /// reason known from the library entry alone needs no reading of the file.
+    private func loadTimingReview(for recording: Recording) {
+        timingTask?.cancel()
+        timingTask = nil
+        isReviewingTiming = false
+        if let reason = TimingReview.reasonBeforeListening(grid: recording.grid, stamp: recording.timing) {
+            timingOutcome = .noReview(reason)
+            return
+        }
+        timingOutcome = nil
+        guard recording.health == .ok else { return }
+        isReviewingTiming = true
+        let id = recording.id
+        let url = store.url(of: recording)
+        let grid = recording.grid
+        let stamp = recording.timing
+        let flag = recordingFlag
+        timingTask = Task { [weak self] in
+            let work = Task.detached(priority: .utility) { () -> TimingReview.Outcome? in
+                guard let audio = try? AudioAnalyzer.loudestChannel(url, shouldPause: { flag.isSet },
+                                                                    isCancelled: { Task.isCancelled }) else { return nil }
+                return TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate, grid: grid, stamp: stamp)
+            }
+            let outcome = await withTaskCancellationHandler {
+                await work.value
+            } onCancel: {
+                work.cancel()
+            }
+            guard let self, !Task.isCancelled, self.currentID == id else { return }
+            self.timingOutcome = outcome
+            self.isReviewingTiming = false
+        }
     }
 
     private func saveWaveform(_ waveform: WaveformData, for id: UUID) {
@@ -1573,6 +1625,9 @@ final class AppModel: ObservableObject {
             playback.unload()
             currentID = nil
             currentWaveform = nil
+            timingTask?.cancel()
+            timingOutcome = nil
+            isReviewingTiming = false
             clearCompare()
             playhead.position = 0
         }
@@ -2067,6 +2122,7 @@ final class AppModel: ObservableObject {
         updateMetronome { $0.clickEnabled.toggle() }
         let isOn = metronome.clickEnabled
         if isRecording {
+            activeClickWatch?.clickSwitched(on: isOn)
             if click.isRunning, let settings = activeClickSettings {
                 // The running click stays, silent or not: the bars of the recording are counted from it.
                 if case .countIn = phase {

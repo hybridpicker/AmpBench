@@ -615,6 +615,8 @@ final class UISelfTest {
             $0.countInBars = 1
         }
         if !model.metronome.clickEnabled { model.toggleClick() }
+        // The test input has no measured amp part, so its takes say so instead of a review.
+        model.setLatencyCorrection(0)
         await press("r", keyCode: 15)
         check(await waitUntil(timeout: 8) { model.phase == .recording }, "recording with bars starts")
         check(await waitUntil { model.activeGrid != nil }, "the bars are known during the recording")
@@ -638,6 +640,14 @@ final class UISelfTest {
             return
         }
         check(model.store.readJournal() == nil, "the journal is gone")
+        check(take.timing?.clickOnThroughout == true, "the take with the click on keeps its timing stamp",
+              detail: "\(String(describing: take.timing))")
+        check(take.timing?.latency.outputKind == .wired, "the stamp knows the click output is wired")
+        check(take.timing?.latency.amp == nil, "the stamp knows the amp part was not measured")
+        check(await waitUntil { model.timingOutcome != nil }, "the timing line is worked out")
+        check(model.timingOutcome == .noReview(.ampPartNotMeasured), "the timing line says the latency was not measured",
+              detail: "\(String(describing: model.timingOutcome))")
+        await snapshot("16a-timing-line")
         try? model.store.save()
         let text = (try? String(contentsOf: model.store.documentURL, encoding: .utf8)) ?? ""
         check(text.contains("\"beatsPerBar\" : 4"), "the bars are in the library file")
@@ -705,6 +715,21 @@ final class UISelfTest {
         check((try? Data(contentsOf: original)) == originalData, "the original file stays byte for byte the same")
         check(model.recordings.contains { $0.id == take.id }, "the original stays in the library")
         check(!model.isClickRunning, "the click stops after re-recording")
+
+        // Switching the click off for a moment during a take leaves it without a review.
+        await press("r", keyCode: 15)
+        check(await waitUntil(timeout: 8) { model.phase == .recording }, "a take with the click switched off starts")
+        await wait(0.5)
+        model.toggleClick()
+        await wait(0.3)
+        model.toggleClick()
+        await wait(0.5)
+        await press("r", keyCode: 15)
+        _ = await waitUntil { model.phase == .idle }
+        check(model.current?.timing?.clickOnThroughout == false, "switching the click off clears on throughout",
+              detail: "\(String(describing: model.current?.timing))")
+        check(await waitUntil { model.timingOutcome == .noReview(.clickNotOnThroughout) },
+              "the timing line says the click was not on throughout", detail: "\(String(describing: model.timingOutcome))")
         model.toggleClick()
         model.updateMetronome { $0.countInBars = 0 }
     }
@@ -920,7 +945,9 @@ final class UISelfTest {
         note("NOTE \(result.named.count) accessibility elements with names, \(result.missing.count) buttons without")
         check(!result.named.isEmpty, "accessibility tree is readable")
         check(result.missing.isEmpty, "every button has a name", detail: result.missing.joined(separator: ", "))
-        for needed in [tr("Start recording (R)"), tr("Input level"), tr("Recording state"), tr("Quality")] {
+        var needed = [tr("Start recording (R)"), tr("Input level"), tr("Recording state"), tr("Quality")]
+        if model.current?.health == .ok, !model.isRecording { needed.append(tr("Timing review")) }
+        for needed in needed {
             check(result.named.contains { $0.contains(needed) }, "VoiceOver finds \(needed)")
         }
         let menus = NSApp.mainMenu?.items.map(\.title) ?? []
