@@ -61,6 +61,47 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
         parts[input.uid] = AmpPart(seconds: result.correction, origin: .measured(spread: result.spread, date: date))
     }
 
+    /// The range a hand-set part keeps to, in seconds.
+    public static let handSetRange = -0.1...0.3
+
+    /// Sets the part by hand; it then counts as hand-set even when it was measured before. About zero forgets it.
+    public mutating func setByHand(_ seconds: Double, for input: DeviceIdentity) {
+        let clamped = min(max(seconds, Self.handSetRange.lowerBound), Self.handSetRange.upperBound)
+        if abs(clamped) < 0.00005 {
+            parts.removeValue(forKey: input.uid)
+        } else {
+            parts[input.uid] = AmpPart(seconds: clamped, origin: .setByHand)
+        }
+    }
+
+    /// Takes over the corrections stored per pair of input and click output (`input UID|output UID`) before the
+    /// amp part moved to the input. None was confirmed as measured, so they come over as hand-set, except the one
+    /// measured with the owner on 2026-11-23: the Spark MINI with the built-in headphone output, spread 1.2 ms.
+    /// An input with values for several outputs keeps that measured one, otherwise the first by key.
+    public static func carryOver(pairs: [String: Double]) -> AmpLatencies {
+        var amps = AmpLatencies()
+        for key in pairs.keys.sorted() {
+            guard let value = pairs[key], let bar = key.firstIndex(of: "|") else { continue }
+            let input = String(key[..<bar])
+            let output = String(key[key.index(after: bar)...])
+            guard !input.isEmpty, !output.isEmpty else { continue }
+            if isFirstMeasurement(input: input, output: output) {
+                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: 0.0012, date: firstMeasurementDate))
+            } else if amps.parts[input] == nil {
+                amps.parts[input] = AmpPart(seconds: value, origin: .setByHand)
+            }
+        }
+        return amps
+    }
+
+    /// 2026-11-23, noon UTC.
+    static let firstMeasurementDate = Date(timeIntervalSince1970: 1_795_435_200)
+
+    private static func isFirstMeasurement(input: String, output: String) -> Bool {
+        func squeezed(_ text: String) -> String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
+        return squeezed(input).contains("sparkmini") && squeezed(output).contains("headphone")
+    }
+
     /// The click latency of a recording from this input, with what the click output and the input report.
     public func clickLatency(input: DeviceIdentity, reportedOutput: Double, reportedInput: Double,
                              outputTransport: UInt32) -> ClickLatency {
