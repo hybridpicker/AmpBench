@@ -9,3 +9,6 @@ sync.local
 # The iPad app: the project is generated, and the signing team stays on this machine.
 ios/AmpBenchPad.xcodeproj/
 ios/Local.xcconfig
+
+# Local issue tracker (tickets and specs), never committed; see docs/agents/issue-tracker.md
+.scratch/
