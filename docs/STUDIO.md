@@ -418,7 +418,8 @@ own timing against the click note by note, including playing laid back on purpos
 2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, and so are
 the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
-band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`); the rest is spec.
+band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`), with the choice of
+the grid (`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take without one); the rest is spec.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement

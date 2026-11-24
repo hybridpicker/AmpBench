@@ -233,9 +233,9 @@ whether the click went to a wired or a Bluetooth output. A take repaired after a
 
 Below the bar controls, the line "Timing" shows for the take in focus where its notes lie against the click: the
 placement (the average offset, positive is later than the click) and the spread (how tightly the notes lie around
-it), in milliseconds, on a grid of quarters. Each note counts from its first attack, the first string of a strum.
-It belongs to a beat only within 35 % of a beat to either side, and only the first note there counts, so delay
-echoes, later strings and notes between the beats do not. A take that gets no review says why: recorded without the
+it), in milliseconds, on the chosen grid. Each note counts from its first attack, the first string of a strum.
+It belongs to a grid point only within 35 % of the grid spacing to either side, and only the first note there
+counts, so delay echoes, later strings and notes between the grid points do not. A take that gets no review says why: recorded without the
 click, the click not on for the whole take, recorded before the measurement (every take from before this change), or
 click latency not measured (also when it was set by hand).
 
@@ -251,6 +251,13 @@ faint and carry no number. A note further off than the band shows sits at the ed
 offset. The band follows the playhead while playing, jumps to a click into the waveform, and shows the bars chosen
 with the bar steppers. "Fold" on the "Timing" line folds it away, and it stays folded for the next takes until
 "Unfold".
+
+The popup "Grid" on the "Timing" line chooses what the notes are matched to: quarters, eighths, triplets or
+sixteenths, and the review and the band change at once. A take opens on quarters, the beats the click plays while
+recording, whatever the metronome's pattern. A grid chosen for a take that belongs to a piece is kept by the piece
+and used for all its takes; a take without a piece keeps it for itself. On eighths a late eighth still counts
+late on its own point, never early on the next beat. In the band the grid points between the beats stand fainter
+than the beats, and where a cell is too narrow for "+18 ms" it says "+18".
 
 ### Audio quality
 
