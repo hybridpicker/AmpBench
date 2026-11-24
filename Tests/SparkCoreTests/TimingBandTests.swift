@@ -45,6 +45,8 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes[1].x, 450 - 50.0 / 6, accuracy: 0.01)
         XCTAssertEqual(band.strokes[1].label, "-10 ms")
         XCTAssertTrue(band.strokes.allSatisfy(\.isCounted))
+        XCTAssertEqual(band.strokes.map { band.clicks[$0.click].bar }, [1, 2], "each stroke knows its click")
+        XCTAssertEqual(band.strokes.map { band.clicks[$0.click].beat }, [2, 1])
     }
 
     func testOnsetsThatDoNotCountAreFaintAndCarryNoOffset() {
