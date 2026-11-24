@@ -17,6 +17,8 @@ final class TimingReviewTests: XCTestCase {
         var time: Double
         var frequency: Double = 196
         var amplitude: Double = 0.5
+        /// Seconds the note takes to swell in, as a legato note or a volume swell does; 0 for a picked attack.
+        var attack: Double = 0
     }
 
     /// A take of `seconds` with the notes in it, over a faint noise floor. Each note starts exactly at its time.
@@ -27,8 +29,10 @@ final class TimingReviewTests: XCTestCase {
             let pluck = Self.pluck(frequency: note.frequency, rate: rate, seed: UInt64(number % 4 + 1))
             let start = Int((note.time * rate).rounded())
             let gain = Float(note.amplitude / 0.5)
+            let attackFrames = note.attack * rate
             for (step, value) in pluck.enumerated() where start + step >= 0 && start + step < samples.count {
-                samples[start + step] += gain * value
+                let swell = attackFrames > 0 ? Float(min(Double(step) / attackFrames, 1)) : 1
+                samples[start + step] += gain * swell * value
             }
         }
         return samples
@@ -235,6 +239,166 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertTrue(late.onsets.filter(\.isCounted).allSatisfy { ($0.gridPoint ?? 1) % 2 == 0 && abs($0.offset ?? 1) < 0.001 })
     }
 
+    func testQuietAndLegatoNotesAreFaintAndNotCounted() throws {
+        // Four bars of clean plucks; two of them played 24 dB quieter, two legato with an attack of 20 ms.
+        let quiet: Set<Int> = [3, 9]
+        let legato: Set<Int> = [6, 13]
+        for rate in [44_100.0, 48_000.0] {
+            let grid = BeatGrid(bpm: 100, beatsPerBar: 4, offset: 0.15)
+            let notes = (0..<16).map { beat -> Note in
+                var note = Note(time: grid.offset + Double(beat) * grid.secondsPerBeat, frequency: beat % 2 == 0 ? 196 : 247)
+                if quiet.contains(beat) { note.amplitude = 0.5 * pow(10, -24.0 / 20) }
+                if legato.contains(beat) { note.attack = 0.020 }
+                return note
+            }
+            let samples = take(notes, seconds: grid.offset + 16 * grid.secondsPerBeat + 0.3, rate: rate)
+            let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+            XCTAssertEqual(review.counted, 12, "\(rate) Hz")
+            let unsure = review.onsets.filter { $0.status == .unsure }
+            XCTAssertEqual(Set(unsure.compactMap(\.gridPoint)), quiet.union(legato), "\(rate) Hz: shown faint")
+            XCTAssertTrue(unsure.allSatisfy { !$0.isCounted })
+            XCTAssertEqual(Set(review.onsets.filter(\.isCounted).compactMap(\.gridPoint)),
+                           Set(0..<16).subtracting(quiet).subtracting(legato), "\(rate) Hz: clean plucks still count")
+            XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+        }
+    }
+
+    func testAVolumeSwellDoesNotCount() throws {
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 90, beatsPerBar: 4, offset: 0.15)
+        let swells: Set<Int> = [4, 11]
+        let notes = (0..<16).map { beat in
+            Note(time: grid.offset + Double(beat) * grid.secondsPerBeat, attack: swells.contains(beat) ? 0.3 : 0)
+        }
+        let samples = take(notes, seconds: grid.offset + 16 * grid.secondsPerBeat + 0.3, rate: rate)
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.counted, 14)
+        XCTAssertTrue(review.onsets.filter(\.isCounted).allSatisfy { !swells.contains($0.gridPoint ?? -1) })
+    }
+
+    // MARK: Reading a take
+
+    func testATakeFileReadsAsTheSameTakeInMemoryFromItsLoudestChannel() throws {
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { $0 % 2 == 0 ? 0.006 : 0.014 }
+        // Stereo with the guitar on the right; the left channel holds only a tenth of it.
+        let interleaved = samples.flatMap { [$0 * 0.1, $0] }
+        let folder = try TemporaryFolder()
+        let url = folder.file("take.wav")
+        try WAVWriter.write(samples: interleaved, sampleRate: rate, channels: 2, to: url)
+
+        let fromFile = try TimingReview.review(TakeFile(url), grid: grid, stamp: measured)
+        guard case .review(let file) = fromFile else { return XCTFail("no review: \(String(describing: fromFile))") }
+        let memory = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(file.counted, 16)
+        XCTAssertEqual(file.placement, memory.placement, accuracy: 0.00002, "24 bits change the samples a little")
+        XCTAssertEqual(file.spread, memory.spread, accuracy: 0.00002)
+        XCTAssertEqual(file.placement, 0.010, accuracy: 0.001)
+    }
+
+    func testAStoppedReadingGivesNothing() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0 }
+        let folder = try TemporaryFolder()
+        let url = folder.file("take.wav")
+        try WAVWriter.write(samples: samples, sampleRate: rate, channels: 1, to: url)
+        XCTAssertNil(try TimingReview.review(TakeFile(url, isCancelled: { true }), grid: grid, stamp: measured))
+    }
+
+    /// A take of steady plucks made up block by block while it is read, so the test never holds it whole either.
+    private struct GeneratedTake: TakeAudio {
+        let sampleRate: Double
+        let seconds: Double
+        let grid: BeatGrid
+        let pluck: [Float]
+        let noise: [Float]
+        /// Called after every block with the frames handed over so far.
+        let onBlock: (Int) -> Void
+
+        func read(_ body: ([UnsafeBufferPointer<Float>]) -> Void) throws -> Bool {
+            let total = Int(seconds * sampleRate)
+            let blockFrames = 65_536
+            // Raw memory, so making up half an hour stays quick in a debug build.
+            let loud = UnsafeMutablePointer<Float>.allocate(capacity: blockFrames)
+            let quiet = UnsafeMutablePointer<Float>.allocate(capacity: blockFrames)
+            defer {
+                loud.deallocate()
+                quiet.deallocate()
+            }
+            let beatFrames = grid.secondsPerBeat * sampleRate
+            let first = grid.offset * sampleRate
+            noise.withUnsafeBufferPointer { noise in
+                pluck.withUnsafeBufferPointer { pluck in
+                    var start = 0
+                    while start < total {
+                        let count = min(blockFrames, total - start)
+                        // Plain loops: a range looks up generic metadata on every step in a debug build.
+                        var index = 0
+                        while index < count {
+                            loud[index] = noise[(start + index) % noise.count]
+                            index += 1
+                        }
+                        var beat = max(Int(((Double(start) - first - Double(pluck.count)) / beatFrames).rounded(.up)), 0)
+                        while true {
+                            let onset = Int((first + Double(beat) * beatFrames).rounded())
+                            if onset >= start + count { break }
+                            var frame = max(onset, start)
+                            while frame < min(onset + pluck.count, start + count) {
+                                loud[frame - start] += pluck[frame - onset]
+                                frame += 1
+                            }
+                            beat += 1
+                        }
+                        index = 0
+                        while index < count {
+                            quiet[index] = loud[index] * 0.25
+                            index += 1
+                        }
+                        body([UnsafeBufferPointer(start: quiet, count: count), UnsafeBufferPointer(start: loud, count: count)])
+                        start += count
+                        onBlock(start)
+                    }
+                }
+            }
+            return true
+        }
+    }
+
+    /// What the process holds in memory now, in bytes.
+    private static func footprint() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let status = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return status == KERN_SUCCESS ? Int(info.phys_footprint) : 0
+    }
+
+    func testAThirtyMinuteTakeIsReadInBlocks() throws {
+        // Holding its loudest channel whole would take 30 × 60 × 48 000 × 4 bytes, about 350 MB.
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        var generator = SeededGenerator(seed: 3)
+        let noise = (0..<48_011).map { _ in Float(generator.gaussian() * 0.0003) }
+        let pluck = TunerTestSignal.karplusStrong(frequency: 196, sampleRate: rate, seconds: 0.45, amplitude: 0.5,
+                                                  ringTime: 0.3, seed: 1)
+        let baseline = Self.footprint()
+        var highest = baseline
+        let take = GeneratedTake(sampleRate: rate, seconds: 30 * 60, grid: grid, pluck: pluck, noise: noise) { frames in
+            if frames % (65_536 * 16) < 65_536 { highest = max(highest, Self.footprint()) }
+        }
+        let outcome = try TimingReview.review(take, grid: grid, stamp: measured)
+        highest = max(highest, Self.footprint())
+        guard case .review(let review) = outcome else { return XCTFail("no review: \(String(describing: outcome))") }
+        XCTAssertEqual(review.counted, 3_600, "every beat of half an hour")
+        XCTAssertEqual(review.placement, 0, accuracy: 0.0005)
+        let grown = Double(highest - baseline) / 1_000_000
+        print("NOTE review of a 30-minute stereo take at 48 kHz: memory grew by \(String(format: "%.0f", grown)) MB")
+        XCTAssertLessThan(grown, 80)
+    }
+
     // MARK: Numbers
 
     func testPlacementIsTheMeanAndSpreadTheStandardDeviation() throws {
@@ -253,6 +417,44 @@ final class TimingReviewTests: XCTestCase {
         let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
         XCTAssertEqual(review.placement, 0.018, accuracy: 0.001)
         XCTAssertLessThan(review.spread, 0.0003)
+    }
+
+    // MARK: Accuracy
+
+    /// The measured stamp with the measurement's spread, a range from the earliest to the latest click, in seconds.
+    private func measured(spread: Double) -> TimingStamp {
+        var stamp = measured
+        stamp.latency.amp = AmpPart(seconds: 0.0217,
+                                    origin: .measured(spread: spread, date: Date(timeIntervalSince1970: 1_795_435_200)))
+        return stamp
+    }
+
+    func testEveryReviewStatesItsAccuracy() throws {
+        // Half of the 1.2 ms the owner's measurement spread, and the detector's half millisecond.
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0.008 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.accuracy, 0.0011, accuracy: 1e-9)
+        let tight = try XCTUnwrap(self.review(samples, rate: rate, grid: grid, stamp: measured(spread: 0)))
+        XCTAssertEqual(tight.accuracy, 0.0005, accuracy: 1e-9)
+    }
+
+    func testAccuracyJustInside2MillisecondsGetsAReviewAndJustOutsideTheReason() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 120, rate: rate, bars: 2) { _ in 0 }
+        let inside = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured(spread: 0.00298)))
+        XCTAssertEqual(inside.accuracy, 0.00199, accuracy: 1e-9)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: measured(spread: 0.00302)), .accuracyNotGoodEnough)
+        // Known from the stamp alone, so the window need not read the file for it.
+        XCTAssertEqual(TimingReview.reasonBeforeListening(grid: grid, stamp: measured(spread: 0.00302)),
+                       .accuracyNotGoodEnough)
+    }
+
+    func testTheAccuracyReadsInEnglishAndGerman() {
+        Texts.language = .english
+        XCTAssertEqual(TimingReview.accuracyText(0.0011), "Accuracy ±1.1 ms")
+        Texts.language = .german
+        XCTAssertEqual(TimingReview.accuracyText(0.0011), "Genauigkeit ±1,1 ms")
     }
 
     // MARK: Hints
@@ -309,6 +511,18 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: both), .clickNotOnThroughout)
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: handSet), .ampPartNotMeasured)
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: unknown), .ampPartNotMeasured)
+        var bluetooth = measured
+        bluetooth.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetooth), .clickOnBluetooth)
+        var bluetoothByHand = handSet
+        bluetoothByHand.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothByHand), .ampPartNotMeasured)
+        var bluetoothUneven = measured(spread: 0.004)
+        bluetoothUneven.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothUneven), .clickOnBluetooth)
+        let quiet = take([], seconds: 3, rate: rate)
+        XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured(spread: 0.004)), .accuracyNotGoodEnough)
+        XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
         XCTAssertNil(reason(samples, rate: rate, grid: grid, stamp: measured))
     }
 
@@ -321,12 +535,25 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(reason(three, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
     }
 
+    func testAReviewNeedsEightCountedOnsets() {
+        // Two bars of quarters; the number waits for the owner's word and lives in one constant.
+        let rate = 44_100.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        func beats(_ count: Int) -> [Float] {
+            take((0..<count).map { Note(time: grid.offset + Double($0) * grid.secondsPerBeat) }, seconds: 5, rate: rate)
+        }
+        XCTAssertEqual(reason(beats(7), rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
+        XCTAssertNil(reason(beats(8), rate: rate, grid: grid, stamp: measured))
+    }
+
     func testTheReasonsReadInEnglishAndGerman() {
         let english: [NoReviewReason: String] = [
             .noBars: "No timing review: recorded without the click.",
             .clickNotOnThroughout: "No timing review: the click was not on for the whole take.",
             .recordedBeforeTheStamp: "No timing review: recorded before the measurement.",
             .ampPartNotMeasured: "No timing review: click latency not measured.",
+            .clickOnBluetooth: "No timing review: the click went to a Bluetooth output.",
+            .accuracyNotGoodEnough: "No timing review: accuracy not good enough. Measure the click latency again.",
             .tooFewOnsets: "No timing review: too few clear notes.",
         ]
         let german: [NoReviewReason: String] = [
@@ -334,6 +561,8 @@ final class TimingReviewTests: XCTestCase {
             .clickNotOnThroughout: "Keine Timing-Auswertung: Der Klick lief nicht während der ganzen Aufnahme.",
             .recordedBeforeTheStamp: "Keine Timing-Auswertung: vor der Messung aufgenommen.",
             .ampPartNotMeasured: "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
+            .clickOnBluetooth: "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
+            .accuracyNotGoodEnough: "Keine Timing-Auswertung: Genauigkeit nicht gut genug. Miss die Klick-Latenz noch einmal.",
             .tooFewOnsets: "Keine Timing-Auswertung: zu wenige klare Töne.",
         ]
         Texts.language = .english

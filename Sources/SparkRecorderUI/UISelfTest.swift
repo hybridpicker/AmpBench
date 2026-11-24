@@ -1266,6 +1266,9 @@ final class UISelfTest {
             named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(1...2)) }
         }
         await voiceOverCheck("the band has a fold key") { $0.contains { $0.contains(tr("Fold the timing band")) } }
+        await voiceOverCheck("the timing line states the review accuracy") { named in
+            named.contains { $0.contains(tr("Timing review")) && $0.contains(TimingReview.accuracyText(review.accuracy)) }
+        }
         for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
             NSApp.appearance = NSAppearance(named: appearance)
             await snapshot("timing-band-\(suffix)")

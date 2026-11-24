@@ -743,8 +743,9 @@ private struct TimingLine: View {
     private var text: String {
         switch model.timingOutcome {
         case .review(let review):
-            return tr("Placement %+.1f ms · Spread %.1f ms · %@",
-                      review.placement * 1000, review.spread * 1000, review.resolution.notes(review.counted))
+            return tr("Placement %+.1f ms · Spread %.1f ms · %@ · %@",
+                      review.placement * 1000, review.spread * 1000, TimingReview.accuracyText(review.accuracy),
+                      review.resolution.notes(review.counted))
         case .noReview(let reason):
             return reason.text
         case nil:

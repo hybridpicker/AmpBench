@@ -77,6 +77,45 @@ public struct WaveformData: Equatable, Sendable {
     }
 }
 
+/// A take's file read block by block from the start, as often as asked, so a long take is never held whole. Reading
+/// holds back while `shouldPause` says so, such as during a recording, and stops when `isCancelled` says so.
+public struct TakeFile: TakeAudio {
+    public let sampleRate: Double
+    public let channelCount: Int
+    public let frames: Int64
+    private let file: AVAudioFile
+    private let shouldPause: @Sendable () -> Bool
+    private let isCancelled: @Sendable () -> Bool
+    private static let chunk: AVAudioFrameCount = 65_536
+
+    public init(_ url: URL, shouldPause: @escaping @Sendable () -> Bool = { false },
+                isCancelled: @escaping @Sendable () -> Bool = { false }) throws {
+        file = try AVAudioFile(forReading: url)
+        sampleRate = file.processingFormat.sampleRate
+        channelCount = Int(file.processingFormat.channelCount)
+        frames = file.length
+        self.shouldPause = shouldPause
+        self.isCancelled = isCancelled
+    }
+
+    public func read(_ body: ([UnsafeBufferPointer<Float>]) -> Void) throws -> Bool {
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: Self.chunk) else { return false }
+        file.framePosition = 0
+        while file.framePosition < file.length {
+            if isCancelled() { return false }
+            while shouldPause() {
+                if isCancelled() { return false }
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+            try file.read(into: buffer, frameCount: Self.chunk)
+            guard buffer.frameLength > 0, let channels = buffer.floatChannelData else { break }
+            let length = Int(buffer.frameLength)
+            body((0..<channelCount).map { UnsafeBufferPointer(start: channels[$0], count: length) })
+        }
+        return true
+    }
+}
+
 public enum AudioAnalyzer {
     public struct Analysis: Sendable {
         public let waveform: WaveformData
@@ -87,45 +126,24 @@ public enum AudioAnalyzer {
     /// The samples of a file's loudest channel, with its sample rate, as onsets are found in. Read in chunks twice,
     /// first for the peaks and then for that channel, so only one channel is ever held. `shouldPause` and
     /// `isCancelled` work as in `analyze`; cancelled, it returns nil.
-    public static func loudestChannel(_ url: URL, shouldPause: @Sendable () -> Bool = { false },
-                                      isCancelled: @Sendable () -> Bool = { false }) throws -> (samples: [Float], sampleRate: Double)? {
-        let file = try AVAudioFile(forReading: url)
-        let format = file.processingFormat
-        let channelCount = Int(format.channelCount)
-        let chunk: AVAudioFrameCount = 65_536
-        guard channelCount > 0, let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: chunk) else { return nil }
-
-        func eachChunk(_ body: (UnsafePointer<UnsafeMutablePointer<Float>>, Int) -> Void) throws -> Bool {
-            file.framePosition = 0
-            while file.framePosition < file.length {
-                if isCancelled() { return false }
-                while shouldPause() {
-                    if isCancelled() { return false }
-                    Thread.sleep(forTimeInterval: 0.25)
-                }
-                try file.read(into: buffer, frameCount: chunk)
-                guard buffer.frameLength > 0, let channels = buffer.floatChannelData else { break }
-                body(channels, Int(buffer.frameLength))
-            }
-            return true
-        }
-
-        var peaks = [Float](repeating: 0, count: channelCount)
-        if channelCount > 1 {
-            let read = try eachChunk { channels, frames in
-                for channel in 0..<channelCount {
-                    for frame in 0..<frames { peaks[channel] = max(peaks[channel], abs(channels[channel][frame])) }
+    public static func loudestChannel(_ url: URL, shouldPause: @escaping @Sendable () -> Bool = { false },
+                                      isCancelled: @escaping @Sendable () -> Bool = { false }) throws -> (samples: [Float], sampleRate: Double)? {
+        let take = try TakeFile(url, shouldPause: shouldPause, isCancelled: isCancelled)
+        guard take.channelCount > 0 else { return nil }
+        var peaks = [Float](repeating: 0, count: take.channelCount)
+        if take.channelCount > 1 {
+            let read = try take.read { channels in
+                for (channel, samples) in channels.enumerated() {
+                    for sample in samples { peaks[channel] = max(peaks[channel], abs(sample)) }
                 }
             }
             guard read else { return nil }
         }
         let loudest = peaks.indices.max { peaks[$0] < peaks[$1] } ?? 0
         var samples: [Float] = []
-        samples.reserveCapacity(Int(file.length))
-        let read = try eachChunk { channels, frames in
-            samples.append(contentsOf: UnsafeBufferPointer(start: channels[loudest], count: frames))
-        }
-        return read ? (samples, format.sampleRate) : nil
+        samples.reserveCapacity(Int(take.frames))
+        let read = try take.read { channels in samples.append(contentsOf: channels[loudest]) }
+        return read ? (samples, take.sampleRate) : nil
     }
 
     /// Reads the whole file. `shouldPause` lets a running recording hold this back, and `isCancelled` stops it.

@@ -419,8 +419,8 @@ own timing against the click note by note, including playing laid back on purpos
 the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
 band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`) with its bars steady
-or unsteady, and the choice of the grid (`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take
-without one); the rest is spec.
+or unsteady, its review accuracy, faint unsure onsets and every reason for no review, and the choice of the grid
+(`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take without one); the rest is spec.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
@@ -554,7 +554,12 @@ Live timing while playing comes next, then Linux and the iPad.
   few counted onsets.
 - **Onset:** the first attack of a note or strum, found in the recorded signal as the amp sends it over USB, with
   effects. For a strummed chord the first string counts. The detector must place a clean synthetic pluck within
-  1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted.
+  1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted: more than
+  18 dB below the take's median attack, or more than 2 ms from its beginning to a quarter of its level, as a legato
+  note or a swell. Such an onset still takes its catch window, so a later one there (maybe its echo) does not count
+  instead. The click latency measurement places its clicks with the same detector, so a note played exactly on the
+  click reviews as on it. The review reads a take twice in blocks (the loudness of each channel in steps of a
+  millisecond, then the loudest channel around each attack) and never holds the whole take.
 - **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is quarters, because the
   click plays only quarters while recording, whatever the metronome's pattern; a grid chosen for a take is kept by
   its piece and used for that piece's takes (quarters: owner, 2026-11-23; kept per piece: owner, 2026-11-24). The catch window reaches 35 % of the grid
@@ -562,7 +567,11 @@ Live timing while playing comes next, then Linux and the iPad.
 - **Numbers:** offset in milliseconds, positive later than the click. Placement is the mean of the counted offsets.
   Spread is their standard deviation around the placement, the main number. Review accuracy combines the
   measurement's uncertainty, half the stored spread (which is the range from the earliest to the latest click), with
-  the detector's uncertainty; above ±2 ms there is no review. There is no target
+  the detector's uncertainty; above ±2 ms there is no review. Both are bounds, not standard deviations, so they are
+  added: half the spread plus 0.5 ms for the detector (well above its worst error of 0.03 ms on clean synthetic plucks, below the 1 ms
+  it must hold). The
+  owner's measurement of 1.2 ms gives ±1.1 ms; a measurement is refused above 2 ms spread, so only a stored spread
+  above 3 ms gives the reason. The status line shows it next to placement and spread. There is no target
   placement: the owner decided against it, the review only shows where the player is.
 - **Delay in the sound** is read from the take's sound snapshot by the layer that knows the preset format
   (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal. A delay counts when it is
@@ -636,9 +645,17 @@ Live timing while playing comes next, then Linux and the iPad.
 - **Sound in the air** takes about 3 ms per metre. The measurement couples magnetically and leaves that path out, so
   a player 1.5 m from the speaker who plays exactly on the heard click shows a placement of about +4 ms. The review
   is right about it; the band could say so when the click output is a speaker.
-- To be settled while building, with the owner where it is a matter of taste: the smallest number of counted onsets
-  for a review; the line between a steady and an unsteady bar (provisional rule under "Bars"); whether a reverb tail
-  needs a hint as well as a delay.
+- **The measurement's onset moved (2026-11-24): the owner measures again.** Until then the click latency
+  measurement placed a click at its first sample reaching 30 % of its peak, the review a note where it begins. Now
+  both use the review's detector. On a generated click (the click engine's sine, through a synthetic amp: high pass
+  80 Hz, soft drive, a fourth-order low pass at 4.5 kHz) the measurement now lands about 0.1 ms earlier (0.10 ms at
+  44.1 kHz, 0.11 ms at 48 kHz) and agrees with the review within 0.1 ms. A real amp and an earbud on the pickup
+  may rise more slowly than that, so the amp part measured on 2026-11-23 (21.7 ms) is likely a little too large: the
+  owner should measure again before trusting a review to a tenth of a millisecond.
+- **The smallest number of counted onsets** for a review is 8, two bars of quarters (provisional, 2026-11-24, asked
+  of the owner; one constant, `TimingReview.minimumCounted`).
+- To be settled while building, with the owner where it is a matter of taste: the line between a steady and an
+  unsteady bar (provisional rule under "Bars"); whether a reverb tail needs a hint as well as a delay.
 
 ## Ordering presets: hashtags
 

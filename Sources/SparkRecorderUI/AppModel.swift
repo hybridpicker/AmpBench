@@ -1376,12 +1376,14 @@ final class AppModel: ObservableObject {
         let hasDelay = soundHasDelay
         timingTask = Task { [weak self] in
             let work = Task.detached(priority: .utility) { () -> TimingReview.Outcome? in
-                guard let audio = try? AudioAnalyzer.loudestChannel(url, shouldPause: { flag.isSet },
-                                                                    isCancelled: { Task.isCancelled }) else { return nil }
+                // Read in blocks: a long take is never held whole.
+                guard let take = try? TakeFile(url, shouldPause: { flag.isSet }, isCancelled: { Task.isCancelled }) else {
+                    return nil
+                }
                 let snapshot = snapshotURL.flatMap { try? Data(contentsOf: $0) }
                 let delay = snapshot.map { hasDelay?($0) ?? false } ?? false
-                return TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate, grid: grid, stamp: stamp,
-                                           resolution: resolution, soundHasDelay: delay)
+                return (try? TimingReview.review(take, grid: grid, stamp: stamp, resolution: resolution,
+                                                 soundHasDelay: delay)) ?? nil
             }
             let outcome = await withTaskCancellationHandler {
                 await work.value
