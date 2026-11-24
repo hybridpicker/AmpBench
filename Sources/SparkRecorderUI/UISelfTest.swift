@@ -969,7 +969,8 @@ final class UISelfTest {
         if role == kAXMenuBarRole { return }
         let name = [text(kAXDescriptionAttribute), text(kAXTitleAttribute)].first { !$0.isEmpty } ?? ""
         if !name.isEmpty {
-            let value = text(kAXValueAttribute)
+            // SwiftUI hands a view's accessibility value to VoiceOver as its value description; controls have a value.
+            let value = [text(kAXValueAttribute), text("AXValueDescription")].first { !$0.isEmpty } ?? ""
             named.append("\(role): \(name)\(value.isEmpty ? "" : " = \(value)")")
         } else if role == kAXButtonRole {
             // The window's own title bar buttons are named by the system.
@@ -1354,6 +1355,9 @@ final class UISelfTest {
         check(model.store.recording(take.id)?.timingGrid == .eighths, "the take without a piece keeps the grid")
         model.setBarSelection(1...2)
         await wait(0.3)
+        await voiceOverCheck("on eighths VoiceOver reads the fill by its place, the and of beat 2") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(tr("bar %d beat %d and %@", 1, 2, "")) }
+        }
         for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
             NSApp.appearance = NSAppearance(named: appearance)
             await snapshot("timing-band-eighths-\(suffix)")
