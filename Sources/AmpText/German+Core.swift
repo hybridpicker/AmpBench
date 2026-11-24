@@ -154,6 +154,8 @@ extension German {
         "No timing review: recorded before the measurement.": "Keine Timing-Auswertung: vor der Messung aufgenommen.",
         "No timing review: click latency not measured.": "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
         "No timing review: the click went to a Bluetooth output.": "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
+        "No timing review: accuracy not good enough. Measure the click latency again.": "Keine Timing-Auswertung: Genauigkeit nicht gut genug. Miss die Klick-Latenz noch einmal.",
+        "Accuracy ±%.1f ms": "Genauigkeit ±%.1f ms",
         "No timing review: too few clear notes.": "Keine Timing-Auswertung: zu wenige klare Töne.",
         "%+d ms": "%+d ms",
         "Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.":

@@ -179,6 +179,44 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertLessThan(review.spread, 0.0003)
     }
 
+    // MARK: Accuracy
+
+    /// The measured stamp with the measurement's spread, a range from the earliest to the latest click, in seconds.
+    private func measured(spread: Double) -> TimingStamp {
+        var stamp = measured
+        stamp.latency.amp = AmpPart(seconds: 0.0217,
+                                    origin: .measured(spread: spread, date: Date(timeIntervalSince1970: 1_795_435_200)))
+        return stamp
+    }
+
+    func testEveryReviewStatesItsAccuracy() throws {
+        // Half of the 1.2 ms the owner's measurement spread, and the detector's half millisecond.
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0.008 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.accuracy, 0.0011, accuracy: 1e-9)
+        let tight = try XCTUnwrap(self.review(samples, rate: rate, grid: grid, stamp: measured(spread: 0)))
+        XCTAssertEqual(tight.accuracy, 0.0005, accuracy: 1e-9)
+    }
+
+    func testAccuracyJustInside2MillisecondsGetsAReviewAndJustOutsideTheReason() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 120, rate: rate, bars: 2) { _ in 0 }
+        let inside = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured(spread: 0.00298)))
+        XCTAssertEqual(inside.accuracy, 0.00199, accuracy: 1e-9)
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: measured(spread: 0.00302)), .accuracyNotGoodEnough)
+        // Known from the stamp alone, so the window need not read the file for it.
+        XCTAssertEqual(TimingReview.reasonBeforeListening(grid: grid, stamp: measured(spread: 0.00302)),
+                       .accuracyNotGoodEnough)
+    }
+
+    func testTheAccuracyReadsInEnglishAndGerman() {
+        Texts.language = .english
+        XCTAssertEqual(TimingReview.accuracyText(0.0011), "Accuracy ±1.1 ms")
+        Texts.language = .german
+        XCTAssertEqual(TimingReview.accuracyText(0.0011), "Genauigkeit ±1,1 ms")
+    }
+
     // MARK: Hints
 
     func testADelayInTheSoundGivesAHintAndStillAReview() throws {
@@ -239,6 +277,12 @@ final class TimingReviewTests: XCTestCase {
         var bluetoothByHand = handSet
         bluetoothByHand.latency.outputKind = .bluetooth
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothByHand), .ampPartNotMeasured)
+        var bluetoothUneven = measured(spread: 0.004)
+        bluetoothUneven.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothUneven), .clickOnBluetooth)
+        let quiet = take([], seconds: 3, rate: rate)
+        XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured(spread: 0.004)), .accuracyNotGoodEnough)
+        XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
         XCTAssertNil(reason(samples, rate: rate, grid: grid, stamp: measured))
     }
 
@@ -269,6 +313,7 @@ final class TimingReviewTests: XCTestCase {
             .recordedBeforeTheStamp: "No timing review: recorded before the measurement.",
             .ampPartNotMeasured: "No timing review: click latency not measured.",
             .clickOnBluetooth: "No timing review: the click went to a Bluetooth output.",
+            .accuracyNotGoodEnough: "No timing review: accuracy not good enough. Measure the click latency again.",
             .tooFewOnsets: "No timing review: too few clear notes.",
         ]
         let german: [NoReviewReason: String] = [
@@ -277,6 +322,7 @@ final class TimingReviewTests: XCTestCase {
             .recordedBeforeTheStamp: "Keine Timing-Auswertung: vor der Messung aufgenommen.",
             .ampPartNotMeasured: "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
             .clickOnBluetooth: "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
+            .accuracyNotGoodEnough: "Keine Timing-Auswertung: Genauigkeit nicht gut genug. Miss die Klick-Latenz noch einmal.",
             .tooFewOnsets: "Keine Timing-Auswertung: zu wenige klare Töne.",
         ]
         Texts.language = .english

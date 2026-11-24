@@ -1041,8 +1041,8 @@ extension German {
             "Timing",
         "Timing review":
             "Timing-Auswertung",
-        "Placement %+.1f ms · Spread %.1f ms · %d notes on quarters":
-            "Lage %+.1f ms · Streuung %.1f ms · %d Töne auf Vierteln",
+        "Placement %+.1f ms · Spread %.1f ms · %@ · %d notes on quarters":
+            "Lage %+.1f ms · Streuung %.1f ms · %@ · %d Töne auf Vierteln",
         "Reviewing the timing …":
             "Timing wird ausgewertet …",
         "The timing could not be reviewed.":

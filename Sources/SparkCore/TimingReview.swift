@@ -103,16 +103,35 @@ public struct TimingReview: Equatable, Sendable {
     public var spread: Double
     public var counted: Int
     public var hints: [Hint]
+    /// How far the offsets may be off, plus or minus, in seconds: see `accuracy(of:)`.
+    public var accuracy: Double = 0
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35
     /// The fewest counted onsets a review rests on: two bars of quarters (provisional, until the owner confirms it).
     public static let minimumCounted = 8
+    /// The worst review accuracy a review is given with; above it there is none.
+    public static let worstAccuracy = 0.002
+    /// How far the detector may place a clear attack off its true beginning, in seconds.
+    public static let detectorUncertainty = 0.0005
+
+    /// The review accuracy a take's stamp allows: half the measurement's spread, which is the range from its
+    /// earliest to its latest click, added to the detector's uncertainty. Both are bounds, not standard deviations,
+    /// so they add up. Nil when the amp part was not measured.
+    public static func accuracy(of stamp: TimingStamp) -> Double? {
+        guard case .measured(let spread, _) = stamp.latency.amp?.origin else { return nil }
+        return spread / 2 + detectorUncertainty
+    }
+
+    /// The accuracy as the status line shows it, such as "Accuracy ±1.1 ms".
+    public static func accuracyText(_ accuracy: Double) -> String {
+        tr("Accuracy ±%.1f ms", accuracy * 1000)
+    }
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
                               resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
-        guard let grid else { return .noReview(.noBars) }
+        guard let grid, let stamp, let accuracy = accuracy(of: stamp) else { return .noReview(.noBars) }
         let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
         let duration = Double(samples.count) / sampleRate
         let onsets = match(times, to: grid, resolution: resolution, duration: duration)
@@ -122,7 +141,7 @@ public struct TimingReview: Equatable, Sendable {
         let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
                                     spread: variance.squareRoot(), counted: offsets.count,
-                                    hints: soundHasDelay ? [.delayInTheSound] : []))
+                                    hints: soundHasDelay ? [.delayInTheSound] : [], accuracy: accuracy))
     }
 
     /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.
@@ -132,6 +151,8 @@ public struct TimingReview: Equatable, Sendable {
         guard stamp.clickOnThroughout else { return .clickNotOnThroughout }
         guard case .measured = stamp.latency.amp?.origin else { return .ampPartNotMeasured }
         guard stamp.latency.outputKind == .wired else { return .clickOnBluetooth }
+        // A tiny margin, so an accuracy that is 2 ms on paper is not refused for a rounding error.
+        guard let accuracy = accuracy(of: stamp), accuracy <= worstAccuracy + 1e-9 else { return .accuracyNotGoodEnough }
         return nil
     }
 
@@ -165,6 +186,8 @@ public enum NoReviewReason: Hashable, Sendable {
     case ampPartNotMeasured
     /// The click went to a Bluetooth output, whose delay is not steady enough to judge against.
     case clickOnBluetooth
+    /// The review accuracy the measurement allows is worse than ±2 ms.
+    case accuracyNotGoodEnough
     /// Fewer clear notes on the grid points than a placement and a spread can rest on.
     case tooFewOnsets
 
@@ -176,6 +199,8 @@ public enum NoReviewReason: Hashable, Sendable {
         case .recordedBeforeTheStamp: return tr("No timing review: recorded before the measurement.")
         case .ampPartNotMeasured: return tr("No timing review: click latency not measured.")
         case .clickOnBluetooth: return tr("No timing review: the click went to a Bluetooth output.")
+        case .accuracyNotGoodEnough:
+            return tr("No timing review: accuracy not good enough. Measure the click latency again.")
         case .tooFewOnsets: return tr("No timing review: too few clear notes.")
         }
     }
