@@ -66,6 +66,7 @@ gives a `Color` where one is needed, such as in a `Canvas`.
 | Bar lines / beat lines | black 50 % / 18 % | white 50 % / 18 % |
 | Playhead | `#1D1D1F` | `#FFFFFF` |
 | Onset in the timing band / not counted | `#1F6F7E` / same at 35 % | `#68C6D6` / same at 35 % |
+| Bar in the timing band, steady / unsteady | `#1F6F7E` at 7 % / `rgba(230,162,60,.22)`, word `#7E5508` | `#68C6D6` at 7 % / `rgba(247,196,92,.16)`, word `#F7C45C` |
 | Selected row | `rgba(230,162,60,.18)`, bar `#E6A23C` | `rgba(247,196,92,.14)`, bar `#F7C45C` |
 | Stars | `#F2B233` | `#F2B233` |
 | Pill "Open" | text `#7E5508` | text `#F7C45C` |

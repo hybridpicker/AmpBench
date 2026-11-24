@@ -1,0 +1,144 @@
+import AmpText
+import XCTest
+@testable import SparkCore
+
+/// What the timing review says about each bar of a generated take: its placement, spread and counted onsets, and
+/// whether it is steady or unsteady.
+final class TimingReviewBarsTests: XCTestCase {
+    /// A click latency measured on the amp, clicks through a wired output, the click on for the whole take.
+    private let measured = TimingStamp(
+        clickOnThroughout: true,
+        latency: ClickLatency(output: 0.004, input: 0.003,
+                              amp: AmpPart(seconds: 0.0217,
+                                           origin: .measured(spread: 0.0012, date: Date(timeIntervalSince1970: 1_795_435_200))),
+                              outputKind: .wired))
+    private let rate = 48_000.0
+
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
+    }
+
+    /// Plucks are computed once per seed; the tests use many of the same.
+    private static var plucks: [UInt64: [Float]] = [:]
+
+    private static func pluck(seed: UInt64, rate: Double) -> [Float] {
+        if let pluck = plucks[seed] { return pluck }
+        let pluck = TunerTestSignal.karplusStrong(frequency: 196, sampleRate: rate, seconds: 0.6, amplitude: 0.5,
+                                                  ringTime: 0.5, seed: seed)
+        plucks[seed] = pluck
+        return pluck
+    }
+
+    /// Bars in 4/4 at 120 bpm from 0.15 s on, as after a count-in, with a pluck `offset(beat)` seconds off each beat
+    /// from the first one, or none where it gives nil.
+    private func review(bars: Int, firstBar: Int = 1, offset: (Int) -> Double?) throws -> TimingReview {
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15, firstBar: firstBar)
+        let beats = bars * 4
+        var generator = SeededGenerator(seed: 5)
+        let seconds = grid.offset + Double(beats) * grid.secondsPerBeat + 0.3
+        var samples = (0..<Int(seconds * rate)).map { _ in Float(generator.gaussian() * 0.0003) }
+        for beat in 0..<beats {
+            guard let shift = offset(beat) else { continue }
+            let start = Int(((grid.offset + Double(beat) * grid.secondsPerBeat + shift) * rate).rounded())
+            for (step, value) in Self.pluck(seed: UInt64(beat % 4 + 1), rate: rate).enumerated()
+                where start + step < samples.count {
+                samples[start + step] += value
+            }
+        }
+        let outcome = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured)
+        guard case .review(let review) = outcome else { return try XCTUnwrap(nil, "\(outcome)") }
+        return review
+    }
+
+    func testEveryBarHasItsPlacementSpreadAndCountedOnsets() throws {
+        // Bar 1 on the click, bar 2 laid back by 20 ms, bar 3 12 ms early and late in turn, bar 4 on the click.
+        let review = try review(bars: 4) { beat in
+            switch beat / 4 {
+            case 1: return 0.020
+            case 2: return beat % 2 == 0 ? -0.012 : 0.012
+            default: return 0
+            }
+        }
+
+        // The take's file ends just after the first beat of bar 5, which counts as a bar of its own, without notes.
+        XCTAssertEqual(review.bars.map(\.number), [1, 2, 3, 4, 5])
+        XCTAssertEqual(review.bars.map(\.counted), [4, 4, 4, 4, 0])
+        let placements = review.bars.map(\.placement)
+        let spreads = review.bars.map(\.spread)
+        XCTAssertEqual(try XCTUnwrap(placements[0]), 0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(placements[1]), 0.020, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(placements[2]), 0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(spreads[0]), 0, accuracy: 0.0005)
+        XCTAssertEqual(try XCTUnwrap(spreads[1]), 0, accuracy: 0.0005)
+        XCTAssertEqual(try XCTUnwrap(spreads[2]), 0.012, accuracy: 0.0005)
+        XCTAssertNil(placements[4])
+        XCTAssertNil(spreads[4])
+    }
+
+    // MARK: Steady and unsteady
+
+    func testABarFarLessSteadyThanTheTakeIsUnsteady() throws {
+        // Bar 3 lies 12 ms early and late in turn, the others on the click: the take spreads by 6 ms, bar 3 by 12.
+        let review = try review(bars: 4) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.012 : 0.012) : 0 }
+
+        XCTAssertEqual(review.bars.map(\.steadiness), [.steady, .steady, .unsteady, .steady, nil])
+    }
+
+    func testATakeUnevenThroughoutHasNoUnsteadyBar() throws {
+        // Every bar spreads by 12 ms, as the take does: no bar is a weak spot of its own.
+        let review = try review(bars: 4) { beat in beat % 2 == 0 ? -0.012 : 0.012 }
+
+        XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .steady, .steady])
+    }
+
+    func testASmallSpreadIsSteadyEvenWhenTheRestIsSteadier() throws {
+        // Bar 3 spreads by 5 ms against 2.5 ms for the take: twice the take, but too little to call unsteady.
+        let review = try review(bars: 4) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.005 : 0.005) : 0 }
+
+        XCTAssertEqual(review.bars[2].steadiness, .steady)
+    }
+
+    func testABarWithASingleNoteHasNoSpreadAndIsNotJudged() throws {
+        // Bar 2 has only its first beat; the rest of the take is on the click.
+        let review = try review(bars: 3) { beat in beat / 4 == 1 && beat % 4 != 0 ? nil : 0 }
+
+        let bar = review.bars[1]
+        XCTAssertEqual(bar.counted, 1)
+        XCTAssertEqual(try XCTUnwrap(bar.placement), 0, accuracy: 0.001)
+        XCTAssertNil(bar.spread)
+        XCTAssertNil(bar.steadiness)
+    }
+
+    // MARK: Bars recorded again
+
+    func testATakeRecordedAgainForBars5To8HasItsOwnReview() throws {
+        // A retake of bars 5 to 8: its bars start at 5, and bar 7 was still uneven.
+        let review = try review(bars: 4, firstBar: 5) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.012 : 0.012) : 0 }
+
+        XCTAssertEqual(review.bars.prefix(4).map(\.number), [5, 6, 7, 8])
+        XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .unsteady, .steady])
+        XCTAssertEqual(review.counted, 16)
+    }
+
+    // MARK: What a bar says
+
+    func testABarReadsItsNumbersInEnglishAndGerman() {
+        let unsteady = TimingReview.Bar(number: 7, counted: 4, placement: 0.0123, spread: 0.0095, steadiness: .unsteady)
+        let steady = TimingReview.Bar(number: 8, counted: 3, placement: -0.004, spread: 0.0021, steadiness: .steady)
+        let single = TimingReview.Bar(number: 9, counted: 1, placement: 0.018)
+        let empty = TimingReview.Bar(number: 10, counted: 0)
+
+        Texts.language = .english
+        XCTAssertEqual(unsteady.text, "Bar 7, unsteady: placement +12.3 ms, spread 9.5 ms, 4 notes")
+        XCTAssertEqual(steady.text, "Bar 8, steady: placement -4.0 ms, spread 2.1 ms, 3 notes")
+        XCTAssertEqual(single.text, "Bar 9: placement +18.0 ms, a single note, too few to judge")
+        XCTAssertEqual(empty.text, "Bar 10: no counted notes")
+
+        Texts.language = .german
+        XCTAssertEqual(unsteady.text, "Takt 7, unruhig: Lage +12,3 ms, Streuung 9,5 ms, 4 Töne")
+        XCTAssertEqual(steady.text, "Takt 8, ruhig: Lage -4,0 ms, Streuung 2,1 ms, 3 Töne")
+        XCTAssertEqual(single.text, "Takt 9: Lage +18,0 ms, ein einzelner Ton, zu wenige für ein Urteil")
+        XCTAssertEqual(empty.text, "Takt 10: keine gezählten Töne")
+    }
+}

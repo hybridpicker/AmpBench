@@ -263,6 +263,11 @@ public struct DeskPalette: Sendable {
     /// An onset in the timing band, in the wave's color: the player's notes. Faint when it does not count.
     public let onset = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6)
     public let onsetFaint = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6, alpha: 0.35)
+    /// The tint behind a bar of the timing band: the wave's color for a steady bar, amber for an unsteady one, with
+    /// the word "unsteady" beside its number. Never red.
+    public let barSteady = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6, alpha: 0.07)
+    public let barUnsteady = DeskSwatch(light: Swatch(hex: 0xE6A23C, alpha: 0.22), dark: Swatch(hex: 0xF7C45C, alpha: 0.16))
+    public let barUnsteadyText = DeskSwatch(light: 0x7E5508, dark: 0xF7C45C)
     /// The tint of a selected row, instead of the system's blue.
     public let selection = DeskSwatch(light: Swatch(hex: 0xE6A23C, alpha: 0.18), dark: Swatch(hex: 0xF7C45C, alpha: 0.14))
     /// The 3 pt bar on the left of a selected row.

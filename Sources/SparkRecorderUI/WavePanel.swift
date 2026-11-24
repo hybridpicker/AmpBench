@@ -773,7 +773,7 @@ private struct TimingBandView: View {
         GeometryReader { geometry in
             let band = TimingBand(review: review, grid: grid, bars: bars, width: Double(geometry.size.width))
             ZStack(alignment: .topLeading) {
-                TimingBandCanvas(band: band)
+                TimingBandCanvas(band: band, bars: review.bars)
                     .equatable()
                 if let x = band.x(at: playhead.position) {
                     Rectangle()
@@ -786,12 +786,33 @@ private struct TimingBandView: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(tr("Timing band"))
             .accessibilityValue(spoken(band))
+            .overlay(alignment: .topLeading) { barAreas(band, height: geometry.size.height) }
         }
         .onChange(of: model.barSelection) { _, selection in
             chosen = selection.map { TimingBand.pair(showing: $0, grid: grid, lastBar: lastBar) }
         }
         .onChange(of: playhead.position) { _, _ in
             chosen = nil
+        }
+    }
+
+    /// One area per bar: pointing at it shows the bar's numbers, a click chooses it for the bar tools, and VoiceOver
+    /// reads it.
+    private func barAreas(_ band: TimingBand, height: CGFloat) -> some View {
+        ForEach(band.barSpans, id: \.bar) { span in
+            if let bar = review.bars.first(where: { $0.number == span.bar }) {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .frame(width: span.width, height: height)
+                    .offset(x: span.left)
+                    .help(bar.text)
+                    .onTapGesture { model.setBarSelection(bar.number...bar.number) }
+                    .accessibilityElement()
+                    .accessibilityLabel(bar.text)
+                    .accessibilityHint(tr("Chooses this bar for Loop bars and Record bars again"))
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityAction { model.setBarSelection(bar.number...bar.number) }
+            }
         }
     }
 
@@ -809,6 +830,8 @@ private struct TimingBandView: View {
 /// The still part of the band, drawn again only when its bars, its width or the review change.
 private struct TimingBandCanvas: View, Equatable {
     let band: TimingBand
+    /// The review's bars, for the colour of each: steady or unsteady.
+    let bars: [TimingReview.Bar]
 
     /// The lane the click lines and strokes stand in, between the numbers above and the offsets below.
     static let laneTop: CGFloat = 14
@@ -821,6 +844,15 @@ private struct TimingBandCanvas: View, Equatable {
             context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 6),
                          with: .color(Theme.desk.waveBackground.color))
             let cell = band.cellWidth
+            // Each bar in its colour, steady or unsteady, with the word beside its number; a bar not judged stays plain.
+            var steadiness: [Int: TimingReview.Steadiness] = [:]
+            for bar in bars { steadiness[bar.number] = bar.steadiness }
+            for span in band.barSpans {
+                guard let state = steadiness[span.bar] else { continue }
+                let rect = CGRect(x: span.left, y: 0, width: span.width, height: top + height)
+                context.fill(Path(rect), with: .color(state == .unsteady ? Theme.desk.barUnsteady.color
+                                                                         : Theme.desk.barSteady.color))
+            }
             var edges = Path()
             var bars = Path()
             var clicks = Path()
@@ -841,6 +873,17 @@ private struct TimingBandCanvas: View, Equatable {
                         .foregroundStyle(.secondary))
                     context.draw(text, at: CGPoint(x: click.x, y: 6), anchor: .center)
                 }
+            }
+            // The word of each judged bar between its first two beat numbers, where it fits.
+            for span in band.barSpans {
+                guard let state = steadiness[span.bar] else { continue }
+                let beats = band.clicks.filter { $0.bar == span.bar && $0.beat != nil }.prefix(2).map(\.x)
+                guard beats.count == 2 else { continue }
+                let word = context.resolve(Text(state.word)
+                    .font(Theme.Fonts.mono(9.5, weight: .bold))
+                    .foregroundStyle(state == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.gridBar.color))
+                guard Double(word.measure(in: size).width) <= beats[1] - beats[0] - 16 else { continue }
+                context.draw(word, at: CGPoint(x: (beats[0] + beats[1]) / 2, y: 6), anchor: .center)
             }
             context.fill(edges, with: .color(Theme.desk.gridBeat.color))
             context.fill(bars, with: .color(Theme.desk.gridBar.color))

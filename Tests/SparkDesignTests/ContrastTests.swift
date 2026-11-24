@@ -101,6 +101,22 @@ final class ContrastTests: XCTestCase {
         }
     }
 
+    /// The bars of the timing band: each tint is seen, steady and unsteady are told apart, and the word "unsteady"
+    /// reads on its tint.
+    func testBarsInTheTimingBand() {
+        for (name, pick) in [("light", { (s: DeskSwatch) in s.light }), ("dark", { (s: DeskSwatch) in s.dark })] {
+            let background = pick(desk.waveBackground)
+            let steady = pick(desk.barSteady).over(background)
+            let unsteady = pick(desk.barUnsteady).over(background)
+            XCTAssertGreaterThanOrEqual(steady.contrast(with: background), 1.04, "steady bar \(name) is seen")
+            XCTAssertGreaterThanOrEqual(unsteady.contrast(with: background), 1.08, "unsteady bar \(name) is seen")
+            XCTAssertGreaterThanOrEqual(unsteady.contrast(with: steady), 1.04, "unsteady \(name) differs from steady")
+            assertReadable(pick(desk.barUnsteadyText), on: unsteady, "unsteady word \(name)")
+            XCTAssertGreaterThanOrEqual(pick(desk.onset).contrast(with: unsteady), 3, "onset on an unsteady bar \(name)")
+            XCTAssertGreaterThanOrEqual(pick(desk.onset).contrast(with: steady), 3, "onset on a steady bar \(name)")
+        }
+    }
+
     func testCompositing() {
         let half = Swatch.white(0.5).over(Swatch(hex: 0x000000))
         XCTAssertEqual(half.red, 0.5, accuracy: 0.001)

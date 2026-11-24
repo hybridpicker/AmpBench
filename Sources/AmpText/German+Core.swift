@@ -160,5 +160,11 @@ extension German {
         "%+d ms": "%+d ms",
         "Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.":
             "Delay im Sound: Echos können als Töne zählen. Für genaues Üben einen trockenen Sound wählen.",
+        "steady": "ruhig",
+        "unsteady": "unruhig",
+        "Bar %d, %@: placement %+.1f ms, spread %.1f ms, %d notes": "Takt %d, %@: Lage %+.1f ms, Streuung %.1f ms, %d Töne",
+        "Bar %d: placement %+.1f ms, a single note, too few to judge":
+            "Takt %d: Lage %+.1f ms, ein einzelner Ton, zu wenige für ein Urteil",
+        "Bar %d: no counted notes": "Takt %d: keine gezählten Töne",
     ]
 }

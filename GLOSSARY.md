@@ -48,6 +48,10 @@ _Avoid_: Pocket, average, lag
 How tightly the counted onsets lie around their own placement. It is the main measure of good timing.
 _Avoid_: Consistency, jitter, tightness
 
+**Unsteady bar**:
+A bar whose spread stands out against the take's: in a timing review it is coloured apart from the steady bars, as a weak spot to practise. A bar with fewer than two counted onsets is neither.
+_Avoid_: Bad bar, error, wrong bar
+
 **Timing review**:
 The look at a finished take, recorded with the click on throughout, that shows each onset's offset, the placement and the spread. It exists only for takes recorded after the click latency of that setup was measured.
 _Avoid_: Timing analysis, score, grading
