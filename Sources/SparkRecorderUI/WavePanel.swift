@@ -782,7 +782,7 @@ private struct TimingBandView: View {
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(tr("Timing band"))
-            .accessibilityValue(spoken(band))
+            .accessibilityValue(band.spoken)
             .overlay(alignment: .topLeading) { barAreas(band, height: geometry.size.height) }
         }
         .onChange(of: model.barSelection) { _, selection in
@@ -813,15 +813,6 @@ private struct TimingBandView: View {
         }
     }
 
-    private func spoken(_ band: TimingBand) -> String {
-        let notes = band.strokes.compactMap { stroke -> String? in
-            guard let label = stroke.label else { return nil }
-            let point = band.points[stroke.point]
-            return tr("bar %d beat %d %@", point.bar, point.beat ?? 1, label)
-        }
-        let bars = AppModel.barsText(band.bars)
-        return notes.isEmpty ? tr("%@, no counted notes", bars) : "\(bars): " + notes.joined(separator: ", ")
-    }
 }
 
 /// The still part of the band, drawn again only when its bars, its width or the review change.
@@ -856,14 +847,14 @@ private struct TimingBandCanvas: View, Equatable {
                              with: .color(tint.color))
             }
             if span.left > 0 { barLines.addRect(CGRect(x: span.left, y: 0, width: 1, height: top + height)) }
-            let beats = band.points.filter { $0.bar == span.bar && $0.beat != nil }
+            let beats = band.points.filter { $0.bar == span.bar && $0.number != nil }
             for point in beats {
-                let number = context.resolve(Text("\(point.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold))
+                let number = context.resolve(Text("\(point.beat)").font(Theme.Fonts.mono(10, weight: .semibold))
                     .foregroundStyle(.secondary))
                 context.draw(number, at: CGPoint(x: point.x, y: 6), anchor: .center)
             }
             guard let first = beats.first else { continue }
-            let firstNumber = context.resolve(Text("\(first.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold)))
+            let firstNumber = context.resolve(Text("\(first.beat)").font(Theme.Fonts.mono(10, weight: .semibold)))
             let numberHalf = Double(firstNumber.measure(in: size).width) / 2
             let label = context.resolve(Text(tr("Bar %d", span.bar)).font(Theme.Fonts.mono(9.5, weight: .bold))
                 .foregroundStyle(Theme.desk.gridBar.color))
@@ -899,7 +890,7 @@ private struct TimingBandCanvas: View, Equatable {
             if index > 0, band.points[index - 1].bar == point.bar {
                 cellEdges.addRect(CGRect(x: Double(index) * band.cellWidth, y: top, width: 1, height: height))
             }
-            if point.beat == nil {
+            if point.number == nil {
                 betweenLines.addRect(CGRect(x: point.x - 0.5, y: top, width: 1, height: height))
             } else {
                 beatLines.addRect(CGRect(x: point.x - 0.75, y: top, width: 1.5, height: height))

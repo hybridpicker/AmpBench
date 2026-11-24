@@ -31,7 +31,7 @@ final class TimingBandTests: XCTestCase {
     func testTheClickLinesStandInTheMiddleOfEachBeatWithTheirNumbers() {
         let band = TimingBand(review: review([]), grid: grid, bars: 1...2, width: 800)
 
-        XCTAssertEqual(band.points.map(\.beat), [1, 2, 3, 4, 1, 2, 3, 4])
+        XCTAssertEqual(band.points.map(\.number), [1, 2, 3, 4, 1, 2, 3, 4])
         XCTAssertEqual(band.points.map(\.bar), [1, 1, 1, 1, 2, 2, 2, 2])
         XCTAssertEqual(band.points.map(\.x), [50, 150, 250, 350, 450, 550, 650, 750])
     }
@@ -48,7 +48,7 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes[1].label, "-10 ms")
         XCTAssertTrue(band.strokes.allSatisfy(\.isCounted))
         XCTAssertEqual(band.strokes.map { band.points[$0.point].bar }, [1, 2], "each stroke knows its click")
-        XCTAssertEqual(band.strokes.map { band.points[$0.point].beat }, [2, 1])
+        XCTAssertEqual(band.strokes.map { band.points[$0.point].number }, [2, 1])
     }
 
     func testOnsetsThatDoNotCountAreFaintAndCarryNoOffset() {
@@ -75,7 +75,7 @@ final class TimingBandTests: XCTestCase {
         let band = TimingBand(review: review([], resolution: .eighths), grid: grid, bars: 1...2, width: 800)
 
         XCTAssertEqual(band.points.count, 16)
-        XCTAssertEqual(band.points.prefix(8).map(\.beat), [1, nil, 2, nil, 3, nil, 4, nil])
+        XCTAssertEqual(band.points.prefix(8).map(\.number), [1, nil, 2, nil, 3, nil, 4, nil])
         XCTAssertEqual(band.points.prefix(3).map(\.x), [25, 75, 125])
     }
 
@@ -88,10 +88,38 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes.count, 1)
         let click = band.points[band.strokes[0].point]
         XCTAssertEqual(click.bar, 1)
-        XCTAssertNil(click.beat, "between the beats")
+        XCTAssertNil(click.number, "between the beats")
+        XCTAssertEqual(click.beat, 3)
+        XCTAssertEqual(click.step, 1)
         XCTAssertEqual(band.strokes[0].point, 7, "beat 3 is the seventh triplet, its second the eighth")
         XCTAssertEqual(band.strokes[0].label, "+12 ms")
         XCTAssertEqual(band.strokes[0].x, 7.5 * 50 + 25 * 0.012 / 0.060, accuracy: 0.01)
+    }
+
+    /// VoiceOver reads the bars shown, then every counted note by its place in the bar, also between the beats.
+    func testVoiceOverReadsEachCountedNoteByItsPlaceInTheBar() {
+        let half = grid.secondsPerBeat / 2
+        let eighths = TimingBand(review: review([beat(2, ofBar: 1) + 0.018, beat(2, ofBar: 1) + half - 0.007,
+                                                 beat(4, ofBar: 2) + half + 0.003], resolution: .eighths),
+                                 grid: grid, bars: 1...2, width: 800)
+        let third = grid.secondsPerBeat / 3
+        let triplets = TimingBand(review: review([beat(3, ofBar: 1) + third + 0.012, beat(3, ofBar: 1) + 2 * third],
+                                                 resolution: .triplets), grid: grid, bars: 1...2, width: 1200)
+        let sixteenths = TimingBand(review: review([beat(1, ofBar: 2) + 3 * grid.secondsPerBeat / 4 - 0.004],
+                                                   resolution: .sixteenths), grid: grid, bars: 1...2, width: 1600)
+        let empty = TimingBand(review: review([]), grid: grid, bars: 3...3, width: 800)
+
+        Texts.language = .english
+        XCTAssertEqual(eighths.spoken, "Bars 1–2: bar 1 beat 2 +18 ms, bar 1 beat 2 and -7 ms, bar 2 beat 4 and +3 ms")
+        XCTAssertEqual(triplets.spoken, "Bars 1–2: bar 1 beat 3 triplet 2 +12 ms, bar 1 beat 3 triplet 3 +0 ms")
+        XCTAssertEqual(sixteenths.spoken, "Bars 1–2: bar 2 beat 1 sixteenth 4 -4 ms")
+        XCTAssertEqual(empty.spoken, "Bar 3, no counted notes")
+        Texts.language = .german
+        XCTAssertEqual(eighths.spoken,
+                       "Takte 1–2: Takt 1 Schlag 2 +18 ms, Takt 1 Schlag 2 und -7 ms, Takt 2 Schlag 4 und +3 ms")
+        XCTAssertEqual(triplets.spoken, "Takte 1–2: Takt 1 Schlag 3 Triole 2 +12 ms, Takt 1 Schlag 3 Triole 3 +0 ms")
+        XCTAssertEqual(sixteenths.spoken, "Takte 1–2: Takt 2 Schlag 1 Sechzehntel 4 -4 ms")
+        XCTAssertEqual(empty.spoken, "Takt 3, keine gezählten Töne")
     }
 
     func testEveryCountedStrokeCarriesItsOffsetAlsoWithoutTheUnitForNarrowCells() {

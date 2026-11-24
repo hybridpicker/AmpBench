@@ -10,9 +10,14 @@ public struct TimingBand: Equatable, Sendable {
     /// A grid point of the band, its click line in the middle of its cell.
     public struct GridPoint: Equatable, Sendable {
         public var bar: Int
-        /// The beat number on a beat, from 1. Nil on a grid point between the beats.
-        public var beat: Int?
+        /// The beat it lies in, from 1.
+        public var beat: Int
+        /// Its place in the beat: 0 on the beat, 1 for the next grid point, and so on.
+        public var step: Int
         public var x: Double
+
+        /// The beat number drawn above it: on a beat its number, nil between the beats.
+        public var number: Int? { step == 0 ? beat : nil }
     }
 
     /// An onset beside the click line of its grid point.
@@ -37,6 +42,7 @@ public struct TimingBand: Equatable, Sendable {
 
     public var bars: ClosedRange<Int>
     public var width: Double
+    public var resolution: TimingReview.Resolution
     public var points: [GridPoint]
     public var strokes: [Stroke]
     /// The bars of the band from left to right, for the color of each and for pointing at it.
@@ -52,6 +58,7 @@ public struct TimingBand: Equatable, Sendable {
     public init(review: TimingReview, grid: BeatGrid, bars: ClosedRange<Int>, width: Double) {
         self.bars = bars
         self.width = width
+        resolution = review.resolution
         let take = GridPoints(grid: grid, resolution: review.resolution)
         let pointsPerBeat = take.pointsPerBeat
         let pointsPerBar = take.pointsPerBar
@@ -60,9 +67,8 @@ public struct TimingBand: Equatable, Sendable {
         self.cellWidth = cellWidth
         points = (0..<count).map { index in
             let inBar = index % pointsPerBar
-            return GridPoint(bar: bars.lowerBound + index / pointsPerBar,
-                             beat: inBar % pointsPerBeat == 0 ? inBar / pointsPerBeat + 1 : nil,
-                             x: (Double(index) + 0.5) * cellWidth)
+            return GridPoint(bar: bars.lowerBound + index / pointsPerBar, beat: inBar / pointsPerBeat + 1,
+                             step: inBar % pointsPerBeat, x: (Double(index) + 0.5) * cellWidth)
         }
         barSpans = bars.enumerated().map { index, bar in
             BarSpan(bar: bar, left: Double(index * pointsPerBar) * cellWidth, width: Double(pointsPerBar) * cellWidth,
@@ -133,6 +139,25 @@ public struct TimingBand: Equatable, Sendable {
         let start = firstBar + (bar - firstBar) / 2 * 2
         let end = min(start + 1, last)
         return max(end - 1, firstBar)...end
+    }
+
+    /// What VoiceOver reads for the band: the bars it shows, then every counted note by its place in the bar and its
+    /// offset, as "Bars 1–2: bar 1 beat 2 +18 ms, bar 1 beat 2 and -7 ms".
+    public var spoken: String {
+        let shown = bars.count == 1 ? tr("Bar %d", bars.lowerBound) : tr("Bars %d–%d", bars.lowerBound, bars.upperBound)
+        let notes = strokes.compactMap { stroke in stroke.label.map { place(of: points[stroke.point], offset: $0) } }
+        guard !notes.isEmpty else { return tr("%@, no counted notes", shown) }
+        return tr("%@: %@", shown, notes.joined(separator: ", "))
+    }
+
+    /// A note's place and offset, as "bar 1 beat 2 and +18 ms".
+    private func place(of point: GridPoint, offset: String) -> String {
+        guard point.step > 0 else { return tr("bar %d beat %d %@", point.bar, point.beat, offset) }
+        switch resolution {
+        case .quarters, .eighths: return tr("bar %d beat %d and %@", point.bar, point.beat, offset)
+        case .triplets: return tr("bar %d beat %d triplet %d %@", point.bar, point.beat, point.step + 1, offset)
+        case .sixteenths: return tr("bar %d beat %d sixteenth %d %@", point.bar, point.beat, point.step + 1, offset)
+        }
     }
 
     /// The offset in whole milliseconds, signed, as "+18 ms".
