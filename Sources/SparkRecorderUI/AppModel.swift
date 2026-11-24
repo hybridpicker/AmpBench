@@ -239,6 +239,9 @@ final class AppModel: ObservableObject {
     var soundProvider: (@MainActor () -> TakeSound?)?
     /// AmpBench's actions for a take's sound: play it on the amp, open it in the editor. Nil in Spark Recorder.
     var soundActions: SoundActions?
+    /// AmpBench's reading of a take's sound snapshot: true when its delay is on, for the hint of the timing review.
+    /// Nil in Spark Recorder, whose takes then get no hint.
+    var soundHasDelay: (@Sendable (Data) -> Bool)?
     /// Called after the metronome's tempo was changed by hand, so AmpBench can offer it to the preset.
     var onTempoChanged: (@MainActor (Double) -> Void)?
     /// AmpBench's saved presets, for the sounds of pieces and their parts. Nil without the presets.
@@ -1347,11 +1350,17 @@ final class AppModel: ObservableObject {
         let grid = recording.grid
         let stamp = recording.timing
         let flag = recordingFlag
+        // A take without a sound stamp, or whose sound was only listened to, has no snapshot and so no hint.
+        let snapshotURL = recording.preset == nil ? nil : store.presetSnapshotURL(of: id)
+        let hasDelay = soundHasDelay
         timingTask = Task { [weak self] in
             let work = Task.detached(priority: .utility) { () -> TimingReview.Outcome? in
                 guard let audio = try? AudioAnalyzer.loudestChannel(url, shouldPause: { flag.isSet },
                                                                     isCancelled: { Task.isCancelled }) else { return nil }
-                return TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate, grid: grid, stamp: stamp)
+                let snapshot = snapshotURL.flatMap { try? Data(contentsOf: $0) }
+                let delay = snapshot.map { hasDelay?($0) ?? false } ?? false
+                return TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate, grid: grid, stamp: stamp,
+                                           soundHasDelay: delay)
             }
             let outcome = await withTaskCancellationHandler {
                 await work.value

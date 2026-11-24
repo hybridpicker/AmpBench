@@ -179,6 +179,39 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertLessThan(review.spread, 0.0003)
     }
 
+    // MARK: Hints
+
+    func testADelayInTheSoundGivesAHintAndStillAReview() throws {
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0.005 }
+        let outcome = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured,
+                                          soundHasDelay: true)
+        guard case .review(let review) = outcome else { return XCTFail("no review: \(outcome)") }
+        XCTAssertEqual(review.hints, [.delayInTheSound])
+        XCTAssertEqual(review.counted, 16)
+        XCTAssertEqual(review.placement, 0.005, accuracy: 0.001)
+    }
+
+    func testASoundWithoutADelayOrNotKnownGivesNoHint() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0 }
+        let dry = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured,
+                                      soundHasDelay: false)
+        guard case .review(let review) = dry else { return XCTFail("no review: \(dry)") }
+        XCTAssertEqual(review.hints, [])
+        // A caller that knows nothing of the sound, such as a take without a sound stamp, is reviewed without a hint.
+        XCTAssertEqual(try XCTUnwrap(self.review(samples, rate: rate, grid: grid, stamp: measured)).hints, [])
+    }
+
+    func testTheDelayHintReadsInEnglishAndGerman() {
+        Texts.language = .english
+        XCTAssertEqual(TimingReview.Hint.delayInTheSound.text,
+                       "Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.")
+        Texts.language = .german
+        XCTAssertEqual(TimingReview.Hint.delayInTheSound.text,
+                       "Delay im Sound: Echos können als Töne zählen. Für genaues Üben einen trockenen Sound wählen.")
+    }
+
     // MARK: No review
 
     func testEachReasonForNoReviewInItsOrder() {

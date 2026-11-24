@@ -23,7 +23,8 @@ final class TimingBandTests: XCTestCase {
         let grid = grid ?? self.grid
         let onsets = TimingReview.match(times, to: grid, resolution: .quarters, duration: duration)
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
-        return TimingReview(resolution: .quarters, onsets: onsets, placement: 0, spread: 0, counted: offsets.count)
+        return TimingReview(resolution: .quarters, onsets: onsets, placement: 0, spread: 0, counted: offsets.count,
+                            hints: [])
     }
 
     func testTheClickLinesStandInTheMiddleOfEachBeatWithTheirNumbers() {

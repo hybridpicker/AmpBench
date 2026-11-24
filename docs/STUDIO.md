@@ -418,7 +418,8 @@ own timing against the click note by note, including playing laid back on purpos
 2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, and so are
 the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
-band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`); the rest is spec. The guiding rule is "no number rather than a wrong number".
+band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`); the rest is spec.
+The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
 
@@ -563,7 +564,9 @@ Live timing while playing comes next, then Linux and the iPad.
   the detector's uncertainty; above ±2 ms there is no review. There is no target
   placement: the owner decided against it, the review only shows where the player is.
 - **Delay in the sound** is read from the take's sound snapshot by the layer that knows the preset format
-  (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal.
+  (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal. A delay counts when it is
+  switched on: a delay model of the catalog, or an unknown model on the delay place of a full chain. A take without
+  a snapshot gets no hint. Built; whether a reverb tail needs a hint too is open and asked of the owner.
 - **The timing band:** below the waveform in the area Record. The waveform has no zoom and always shows the whole
   take, so the band does not follow a zoom: it shows the two bars around the playhead, each beat magnified to about
   ±60 ms, follows playback and jumps to a click into the waveform or to selected bars (owner, 2026-11-23). The

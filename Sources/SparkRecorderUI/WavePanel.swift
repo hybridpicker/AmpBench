@@ -43,7 +43,7 @@ struct WavePanel: View {
                     if !model.isRecording, model.compareIDs.isEmpty, let recording = model.current, recording.health == .ok {
                         EngravedDivider(.horizontal, inset: 16)
                         TimingLine()
-                            .frame(height: 28)
+                            .frame(minHeight: 28)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -686,16 +686,28 @@ private struct TimingLine: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            PanelLabel(tr("Timing"))
-            Text(text)
-                .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
-                .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
-                .lineLimit(1)
-                .truncationMode(.tail)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(tr("Timing review"))
-                .accessibilityValue(text)
-            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    PanelLabel(tr("Timing"))
+                    Text(text)
+                        .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
+                        .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                }
+                if let hints {
+                    Text(hints)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.device.amberDim)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(hints)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(tr("Timing review"))
+            .accessibilityValue(hints.map { "\(text) \($0)" } ?? text)
             if showing.canFold {
                 Button(showing == .folded ? tr("Unfold") : tr("Fold"), action: model.toggleTimingBand)
                     .buttonStyle(.hardwareKey(size: .small))
@@ -714,6 +726,12 @@ private struct TimingLine: View {
     private var isReview: Bool {
         if case .review = model.timingOutcome { return true }
         return false
+    }
+
+    /// What to know about the review, such as a delay in the sound. Nil without hints.
+    private var hints: String? {
+        guard case .review(let review) = model.timingOutcome, !review.hints.isEmpty else { return nil }
+        return review.hints.map(\.text).joined(separator: " ")
     }
 
     private var text: String {
