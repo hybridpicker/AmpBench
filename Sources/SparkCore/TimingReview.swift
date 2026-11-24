@@ -131,6 +131,7 @@ public struct TimingReview: Equatable, Sendable {
         guard let stamp else { return .recordedBeforeTheStamp }
         guard stamp.clickOnThroughout else { return .clickNotOnThroughout }
         guard case .measured = stamp.latency.amp?.origin else { return .ampPartNotMeasured }
+        guard stamp.latency.outputKind == .wired else { return .clickOnBluetooth }
         return nil
     }
 
@@ -162,6 +163,8 @@ public enum NoReviewReason: Hashable, Sendable {
     case recordedBeforeTheStamp
     /// The amp's part of the click latency was set by hand or is not known, so the bars may lie off.
     case ampPartNotMeasured
+    /// The click went to a Bluetooth output, whose delay is not steady enough to judge against.
+    case clickOnBluetooth
     /// Fewer clear notes on the grid points than a placement and a spread can rest on.
     case tooFewOnsets
 
@@ -172,6 +175,7 @@ public enum NoReviewReason: Hashable, Sendable {
         case .clickNotOnThroughout: return tr("No timing review: the click was not on for the whole take.")
         case .recordedBeforeTheStamp: return tr("No timing review: recorded before the measurement.")
         case .ampPartNotMeasured: return tr("No timing review: click latency not measured.")
+        case .clickOnBluetooth: return tr("No timing review: the click went to a Bluetooth output.")
         case .tooFewOnsets: return tr("No timing review: too few clear notes.")
         }
     }

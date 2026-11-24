@@ -233,6 +233,12 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: both), .clickNotOnThroughout)
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: handSet), .ampPartNotMeasured)
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: unknown), .ampPartNotMeasured)
+        var bluetooth = measured
+        bluetooth.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetooth), .clickOnBluetooth)
+        var bluetoothByHand = handSet
+        bluetoothByHand.latency.outputKind = .bluetooth
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothByHand), .ampPartNotMeasured)
         XCTAssertNil(reason(samples, rate: rate, grid: grid, stamp: measured))
     }
 
@@ -262,6 +268,7 @@ final class TimingReviewTests: XCTestCase {
             .clickNotOnThroughout: "No timing review: the click was not on for the whole take.",
             .recordedBeforeTheStamp: "No timing review: recorded before the measurement.",
             .ampPartNotMeasured: "No timing review: click latency not measured.",
+            .clickOnBluetooth: "No timing review: the click went to a Bluetooth output.",
             .tooFewOnsets: "No timing review: too few clear notes.",
         ]
         let german: [NoReviewReason: String] = [
@@ -269,6 +276,7 @@ final class TimingReviewTests: XCTestCase {
             .clickNotOnThroughout: "Keine Timing-Auswertung: Der Klick lief nicht während der ganzen Aufnahme.",
             .recordedBeforeTheStamp: "Keine Timing-Auswertung: vor der Messung aufgenommen.",
             .ampPartNotMeasured: "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
+            .clickOnBluetooth: "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
             .tooFewOnsets: "Keine Timing-Auswertung: zu wenige klare Töne.",
         ]
         Texts.language = .english
