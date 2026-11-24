@@ -2250,8 +2250,8 @@ final class AppModel: ObservableObject {
         selectedInput.flatMap { ampLatencies.part(for: $0.identity) }
     }
 
-    /// The correction for the input in use now, in seconds.
-    var currentLatencyCorrection: Double {
+    /// The amp part of the input in use now, in seconds; 0 without one.
+    var currentAmpSeconds: Double {
         currentAmpPart?.seconds ?? 0
     }
 
@@ -2270,8 +2270,9 @@ final class AppModel: ObservableObject {
             + Double(AudioDevices.outputLatencyFrames(of: output.id)) / outputRate
     }
 
-    /// Sets the correction by hand. The bars of later recordings move by it; earlier ones stay as they are.
-    func setLatencyCorrection(_ seconds: Double) {
+    /// Sets the amp part of the input in use by hand. The bars of later recordings move by it; earlier ones stay as
+    /// they are.
+    func setAmpPartByHand(_ seconds: Double) {
         guard let input = selectedInput else { return }
         ampLatencies.setByHand(seconds, for: input.identity)
         saveAmpLatencies()

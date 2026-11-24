@@ -25,15 +25,15 @@ final class TimingBandTests: XCTestCase {
         let onsets = TimingReview.match(times, to: GridPoints(grid: grid, resolution: resolution, duration: duration))
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
         return TimingReview(resolution: resolution, onsets: onsets, placement: 0, spread: 0, counted: offsets.count,
-                            hints: [])
+                            hints: [], accuracy: 0.001, bars: [])
     }
 
     func testTheClickLinesStandInTheMiddleOfEachBeatWithTheirNumbers() {
         let band = TimingBand(review: review([]), grid: grid, bars: 1...2, width: 800)
 
-        XCTAssertEqual(band.clicks.map(\.beat), [1, 2, 3, 4, 1, 2, 3, 4])
-        XCTAssertEqual(band.clicks.map(\.bar), [1, 1, 1, 1, 2, 2, 2, 2])
-        XCTAssertEqual(band.clicks.map(\.x), [50, 150, 250, 350, 450, 550, 650, 750])
+        XCTAssertEqual(band.points.map(\.beat), [1, 2, 3, 4, 1, 2, 3, 4])
+        XCTAssertEqual(band.points.map(\.bar), [1, 1, 1, 1, 2, 2, 2, 2])
+        XCTAssertEqual(band.points.map(\.x), [50, 150, 250, 350, 450, 550, 650, 750])
     }
 
     func testOnsetsAreStrokesBesideTheirClickWithTheirOffsetInMilliseconds() {
@@ -47,8 +47,8 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes[1].x, 450 - 50.0 / 6, accuracy: 0.01)
         XCTAssertEqual(band.strokes[1].label, "-10 ms")
         XCTAssertTrue(band.strokes.allSatisfy(\.isCounted))
-        XCTAssertEqual(band.strokes.map { band.clicks[$0.click].bar }, [1, 2], "each stroke knows its click")
-        XCTAssertEqual(band.strokes.map { band.clicks[$0.click].beat }, [2, 1])
+        XCTAssertEqual(band.strokes.map { band.points[$0.point].bar }, [1, 2], "each stroke knows its click")
+        XCTAssertEqual(band.strokes.map { band.points[$0.point].beat }, [2, 1])
     }
 
     func testOnsetsThatDoNotCountAreFaintAndCarryNoOffset() {
@@ -74,9 +74,9 @@ final class TimingBandTests: XCTestCase {
     func testOnEighthsTheBandShowsAClickForEveryEighthWithNumbersOnTheBeats() {
         let band = TimingBand(review: review([], resolution: .eighths), grid: grid, bars: 1...2, width: 800)
 
-        XCTAssertEqual(band.clicks.count, 16)
-        XCTAssertEqual(band.clicks.prefix(8).map(\.beat), [1, nil, 2, nil, 3, nil, 4, nil])
-        XCTAssertEqual(band.clicks.prefix(3).map(\.x), [25, 75, 125])
+        XCTAssertEqual(band.points.count, 16)
+        XCTAssertEqual(band.points.prefix(8).map(\.beat), [1, nil, 2, nil, 3, nil, 4, nil])
+        XCTAssertEqual(band.points.prefix(3).map(\.x), [25, 75, 125])
     }
 
     func testOnTripletsAnOnsetSitsInTheCellOfItsOwnTriplet() {
@@ -84,12 +84,12 @@ final class TimingBandTests: XCTestCase {
         let second = beat(3, ofBar: 1) + grid.secondsPerBeat / 3 + 0.012
         let band = TimingBand(review: review([second], resolution: .triplets), grid: grid, bars: 1...2, width: 1200)
 
-        XCTAssertEqual(band.clicks.count, 24)
+        XCTAssertEqual(band.points.count, 24)
         XCTAssertEqual(band.strokes.count, 1)
-        let click = band.clicks[band.strokes[0].click]
+        let click = band.points[band.strokes[0].point]
         XCTAssertEqual(click.bar, 1)
         XCTAssertNil(click.beat, "between the beats")
-        XCTAssertEqual(band.strokes[0].click, 7, "beat 3 is the seventh triplet, its second the eighth")
+        XCTAssertEqual(band.strokes[0].point, 7, "beat 3 is the seventh triplet, its second the eighth")
         XCTAssertEqual(band.strokes[0].label, "+12 ms")
         XCTAssertEqual(band.strokes[0].x, 7.5 * 50 + 25 * 0.012 / 0.060, accuracy: 0.01)
     }
@@ -110,7 +110,7 @@ final class TimingBandTests: XCTestCase {
         let times = [beat(1, ofBar: 60, in: slow) + 0.010, beat(2, ofBar: 60, in: slow) + 0.040,
                      beat(3, ofBar: 60, in: slow) - 0.010]
         let band = TimingBand(review: review(times, grid: slow, duration: 180), grid: slow, bars: 59...60, width: 700)
-        let clicks = band.clicks.filter { $0.bar == 60 }.map(\.x)
+        let clicks = band.points.filter { $0.bar == 60 }.map(\.x)
 
         XCTAssertGreaterThanOrEqual(band.strokes[0].x - clicks[0], 6, "10 ms late")
         XCTAssertGreaterThanOrEqual(band.strokes[1].x - clicks[1], 24, "40 ms late")
@@ -154,9 +154,10 @@ final class TimingBandTests: XCTestCase {
     }
 
     func testATakeWithAReviewOpensTheBandWhichFolds() {
-        let outcome = TimingReview.Outcome.review(review([beat(1, ofBar: 1)]))
+        let reviewed = review([beat(1, ofBar: 1)])
+        let outcome = TimingReview.Outcome.review(reviewed)
 
-        XCTAssertEqual(TimingBand.shows(outcome, folded: false), .band)
+        XCTAssertEqual(TimingBand.shows(outcome, folded: false), .band(reviewed))
         XCTAssertEqual(TimingBand.shows(outcome, folded: true), .folded)
         XCTAssertTrue(TimingBand.shows(outcome, folded: true).canFold)
         XCTAssertTrue(TimingBand.shows(outcome, folded: false).canFold)

@@ -524,10 +524,10 @@ private struct MetronomeDetails: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             if model.clickOutput != nil {
-                Stepper(value: Binding(get: { model.currentLatencyCorrection * 1000 },
-                                       set: { model.setLatencyCorrection($0 / 1000) }),
+                Stepper(value: Binding(get: { model.currentAmpSeconds * 1000 },
+                                       set: { model.setAmpPartByHand($0 / 1000) }),
                         in: -100...300, step: 0.5) {
-                    Text(tr("Compensation %+.1f ms", model.currentLatencyCorrection * 1000))
+                    Text(tr("Compensation %+.1f ms", model.currentAmpSeconds * 1000))
                         .monospacedDigit()
                 }
                 Text(originText)

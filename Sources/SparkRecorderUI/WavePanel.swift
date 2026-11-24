@@ -18,8 +18,7 @@ struct WavePanel: View {
                     VStack(spacing: 6) {
                         singleWave.frame(height: 132)
                         if let recording = model.current, recording.health == .ok, let grid = recording.grid,
-                           case .review(let review) = model.timingOutcome,
-                           TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band {
+                           case .band(let review) = TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) {
                             TimingBandView(recording: recording, grid: grid, review: review)
                                 .frame(height: TimingBandView.height)
                         }
@@ -685,13 +684,16 @@ private struct TimingLine: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
+        let review = model.timingOutcome?.review
+        let text = text(review)
+        let hints = review.flatMap(Self.hints)
         HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 8) {
                     PanelLabel(tr("Timing"))
                     Text(text)
-                        .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
-                        .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
+                        .font(Theme.Fonts.mono(12, weight: review != nil ? .semibold : .regular))
+                        .foregroundStyle(review != nil ? Theme.device.amber : Theme.device.labelDim)
                         .lineLimit(1)
                         .truncationMode(.tail)
                     Spacer(minLength: 0)
@@ -714,43 +716,32 @@ private struct TimingLine: View {
                     .frame(width: 112)
                     .help(tr("The grid the notes are matched to. The click plays quarters; a piece keeps the grid chosen for one of its takes."))
             }
+            let showing = TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded)
             if showing.canFold {
-                Button(showing == .folded ? tr("Unfold") : tr("Fold"), action: model.toggleTimingBand)
+                let folded = showing == .folded
+                Button(folded ? tr("Unfold") : tr("Fold"), action: model.toggleTimingBand)
                     .buttonStyle(.hardwareKey(size: .small))
                     .fixedSize()
-                    .help(showing == .folded ? tr("Shows the timing band below the waveform")
-                                             : tr("Folds the timing band away, so the waveform has the room"))
-                    .accessibilityLabel(showing == .folded ? tr("Unfold the timing band") : tr("Fold the timing band"))
+                    .help(folded ? tr("Shows the timing band below the waveform")
+                                 : tr("Folds the timing band away, so the waveform has the room"))
+                    .accessibilityLabel(folded ? tr("Unfold the timing band") : tr("Fold the timing band"))
             }
         }
     }
 
-    private var showing: TimingBand.Showing {
-        TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded)
-    }
-
-    private var isReview: Bool {
-        if case .review = model.timingOutcome { return true }
-        return false
-    }
-
     /// What to know about the review, such as a delay in the sound. Nil without hints.
-    private var hints: String? {
-        guard case .review(let review) = model.timingOutcome, !review.hints.isEmpty else { return nil }
-        return review.hints.map(\.text).joined(separator: " ")
+    private static func hints(_ review: TimingReview) -> String? {
+        review.hints.isEmpty ? nil : review.hints.map(\.text).joined(separator: " ")
     }
 
-    private var text: String {
-        switch model.timingOutcome {
-        case .review(let review):
+    private func text(_ review: TimingReview?) -> String {
+        if let review {
             return tr("Placement %+.1f ms · Spread %.1f ms · %@ · %@",
                       review.placement * 1000, review.spread * 1000, TimingReview.accuracyText(review.accuracy),
                       review.resolution.notes(review.counted))
-        case .noReview(let reason):
-            return reason.text
-        case nil:
-            return model.isReviewingTiming ? tr("Reviewing the timing …") : tr("The timing could not be reviewed.")
         }
+        if case .noReview(let reason) = model.timingOutcome { return reason.text }
+        return model.isReviewingTiming ? tr("Reviewing the timing …") : tr("The timing could not be reviewed.")
     }
 }
 
@@ -771,15 +762,15 @@ private struct TimingBandView: View {
 
     private var lastBar: Int { recording.lastBar ?? grid.firstBar }
 
-    private var bars: ClosedRange<Int> {
+    private var shownBars: ClosedRange<Int> {
         chosen ?? TimingBand.pair(at: playhead.position, grid: grid, lastBar: lastBar)
     }
 
     var body: some View {
         GeometryReader { geometry in
-            let band = TimingBand(review: review, grid: grid, bars: bars, width: Double(geometry.size.width))
+            let band = TimingBand(review: review, grid: grid, bars: shownBars, width: Double(geometry.size.width))
             ZStack(alignment: .topLeading) {
-                TimingBandCanvas(band: band, bars: review.bars)
+                TimingBandCanvas(band: band)
                     .equatable()
                 if let x = band.x(at: playhead.position) {
                     Rectangle()
@@ -806,18 +797,18 @@ private struct TimingBandView: View {
     /// reads it.
     private func barAreas(_ band: TimingBand, height: CGFloat) -> some View {
         ForEach(band.barSpans, id: \.bar) { span in
-            if let bar = review.bars.first(where: { $0.number == span.bar }) {
+            if let reviewed = span.reviewed {
                 Color.clear
                     .contentShape(Rectangle())
                     .frame(width: span.width, height: height)
                     .offset(x: span.left)
-                    .help(bar.text)
-                    .onTapGesture { model.setBarSelection(bar.number...bar.number) }
+                    .help(reviewed.text)
+                    .onTapGesture { model.setBarSelection(span.bar...span.bar) }
                     .accessibilityElement()
-                    .accessibilityLabel(bar.text)
+                    .accessibilityLabel(reviewed.text)
                     .accessibilityHint(tr("Chooses this bar for Loop bars and Record bars again"))
                     .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { model.setBarSelection(bar.number...bar.number) }
+                    .accessibilityAction { model.setBarSelection(span.bar...span.bar) }
             }
         }
     }
@@ -825,8 +816,8 @@ private struct TimingBandView: View {
     private func spoken(_ band: TimingBand) -> String {
         let notes = band.strokes.compactMap { stroke -> String? in
             guard let label = stroke.label else { return nil }
-            let click = band.clicks[stroke.click]
-            return tr("bar %d beat %d %@", click.bar, click.beat ?? 1, label)
+            let point = band.points[stroke.point]
+            return tr("bar %d beat %d %@", point.bar, point.beat ?? 1, label)
         }
         let bars = AppModel.barsText(band.bars)
         return notes.isEmpty ? tr("%@, no counted notes", bars) : "\(bars): " + notes.joined(separator: ", ")
@@ -836,8 +827,6 @@ private struct TimingBandView: View {
 /// The still part of the band, drawn again only when its bars, its width or the review change.
 private struct TimingBandCanvas: View, Equatable {
     let band: TimingBand
-    /// The review's bars, for the colour of each: steady or unsteady.
-    let bars: [TimingReview.Bar]
 
     /// The lane the click lines and strokes stand in, between the numbers above and the offsets below.
     static let laneTop: CGFloat = 14
@@ -849,106 +838,110 @@ private struct TimingBandCanvas: View, Equatable {
             let height = Double(Self.laneHeight)
             context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 6),
                          with: .color(Theme.desk.waveBackground.color))
-            let cell = band.cellWidth
-            // Each bar in its colour, steady or unsteady, with the word beside its number; a bar not judged stays plain.
-            var steadiness: [Int: TimingReview.Steadiness] = [:]
-            for bar in bars { steadiness[bar.number] = bar.steadiness }
-            for span in band.barSpans {
-                guard let state = steadiness[span.bar] else { continue }
-                let rect = CGRect(x: span.left, y: 0, width: span.width, height: top + height)
-                context.fill(Path(rect), with: .color(state == .unsteady ? Theme.desk.barUnsteady.color
-                                                                         : Theme.desk.barSteady.color))
-            }
-            var edges = Path()
-            var bars = Path()
-            var clicks = Path()
-            var between = Path()
-            // Where the label "Bar 3" ends when it stands right of the bar's first beat number, by bar.
-            var labelEnds: [Int: Double] = [:]
-            for (index, click) in band.clicks.enumerated() {
-                let left = Double(index) * cell
-                if index == 0 || band.clicks[index - 1].bar != click.bar {
-                    if index > 0 { bars.addRect(CGRect(x: left, y: 0, width: 1, height: top + height)) }
-                    let number = context.resolve(Text(tr("Bar %d", click.bar))
-                        .font(Theme.Fonts.mono(9.5, weight: .bold))
-                        .foregroundStyle(Theme.desk.gridBar.color))
-                    let width = Double(number.measure(in: size).width)
-                    let beat = context.resolve(Text("\(click.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold)))
-                    let beatHalf = Double(beat.measure(in: size).width) / 2
-                    // On fine grids the first cell is too narrow for the label before the beat number: it goes after it.
-                    if left + 4 + width <= click.x - beatHalf - 3 {
-                        context.draw(number, at: CGPoint(x: left + 4, y: 6), anchor: .leading)
-                    } else {
-                        let start = click.x + beatHalf + 5
-                        context.draw(number, at: CGPoint(x: start, y: 6), anchor: .leading)
-                        labelEnds[click.bar] = start + width
-                    }
-                } else {
-                    edges.addRect(CGRect(x: left, y: top, width: 1, height: height))
-                }
-                // The click plays only the beats while recording; the grid points between them are drawn fainter.
-                if click.beat == nil {
-                    between.addRect(CGRect(x: click.x - 0.5, y: top, width: 1, height: height))
-                } else {
-                    clicks.addRect(CGRect(x: click.x - 0.75, y: top, width: 1.5, height: height))
-                }
-                if let beat = click.beat {
-                    let text = context.resolve(Text("\(beat)").font(Theme.Fonts.mono(10, weight: .semibold))
-                        .foregroundStyle(.secondary))
-                    context.draw(text, at: CGPoint(x: click.x, y: 6), anchor: .center)
-                }
-            }
-            // The word of each judged bar between its first two beat numbers, after the bar's label, where it fits.
-            for span in band.barSpans {
-                guard let state = steadiness[span.bar] else { continue }
-                let beats = band.clicks.filter { $0.bar == span.bar && $0.beat != nil }.prefix(2).map(\.x)
-                guard beats.count == 2 else { continue }
-                let word = context.resolve(Text(state.word)
-                    .font(Theme.Fonts.mono(9.5, weight: .bold))
-                    .foregroundStyle(state == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.gridBar.color))
-                let low = max(beats[0], labelEnds[span.bar] ?? beats[0]) + 8
-                let high = beats[1] - 8
-                guard Double(word.measure(in: size).width) <= high - low else { continue }
-                context.draw(word, at: CGPoint(x: (low + high) / 2, y: 6), anchor: .center)
-            }
-            context.fill(edges, with: .color(Theme.desk.gridBeat.color))
-            context.fill(bars, with: .color(Theme.desk.gridBar.color))
-            context.fill(clicks, with: .color(Theme.desk.gridBar.color))
-            context.fill(between, with: .color(Theme.desk.gridBeat.color))
-
-            var faint = Path()
-            var counted = Path()
-            for stroke in band.strokes {
-                let rect = CGRect(x: stroke.x - (stroke.isCounted ? 1 : 0.75), y: top + 3,
-                                  width: stroke.isCounted ? 2 : 1.5, height: height - 6)
-                if stroke.isCounted { counted.addRect(rect) } else { faint.addRect(rect) }
-                if stroke.isPastTheCell {
-                    // A small arrow points on, out of the cell, to where the onset really lies.
-                    let side: Double = stroke.offset > 0 ? 1 : -1
-                    var arrow = Path()
-                    arrow.move(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 - 4))
-                    arrow.addLine(to: CGPoint(x: stroke.x - side * 2, y: top + height / 2))
-                    arrow.addLine(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 + 4))
-                    arrow.closeSubpath()
-                    if stroke.isCounted { counted.addPath(arrow) } else { faint.addPath(arrow) }
-                }
-                // On fine grids the cell may be too narrow for "+18 ms": then "+18", or no number (VoiceOver still reads it).
-                let texts = [stroke.label, stroke.shortLabel].compactMap { $0 }.map {
-                    context.resolve(Text($0).font(Theme.Fonts.mono(10, weight: .semibold))
-                        .foregroundStyle(Theme.desk.onset.color))
-                }
-                guard let text = texts.first(where: { Double($0.measure(in: size).width) + 4 <= cell }) else { continue }
-                let width = Double(text.measure(in: size).width)
-                let left = Double(stroke.click) * cell
-                let low = left + width / 2 + 2
-                let high = left + cell - width / 2 - 2
-                let x = min(max(stroke.x, low), high)
-                context.draw(text, at: CGPoint(x: x, y: top + height + 9), anchor: .center)
-            }
-            context.fill(faint, with: .color(Theme.desk.onsetFaint.color))
-            context.fill(counted, with: .color(Theme.desk.onset.color))
+            drawBars(in: &context, size: size, top: top, height: height)
+            drawClickLines(in: &context, top: top, height: height)
+            drawStrokes(in: &context, size: size, top: top, height: height)
         }
         .allowsHitTesting(false)
+    }
+
+    /// Each bar in its color, steady or unsteady, with its line, its label "Bar 3", its beat numbers and its word;
+    /// a bar not judged stays plain.
+    private func drawBars(in context: inout GraphicsContext, size: CGSize, top: Double, height: Double) {
+        var barLines = Path()
+        for span in band.barSpans {
+            if let steadiness = span.steadiness {
+                let tint = steadiness == .unsteady ? Theme.desk.barUnsteady : Theme.desk.barSteady
+                context.fill(Path(CGRect(x: span.left, y: 0, width: span.width, height: top + height)),
+                             with: .color(tint.color))
+            }
+            if span.left > 0 { barLines.addRect(CGRect(x: span.left, y: 0, width: 1, height: top + height)) }
+            let beats = band.points.filter { $0.bar == span.bar && $0.beat != nil }
+            for point in beats {
+                let number = context.resolve(Text("\(point.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold))
+                    .foregroundStyle(.secondary))
+                context.draw(number, at: CGPoint(x: point.x, y: 6), anchor: .center)
+            }
+            guard let first = beats.first else { continue }
+            let firstNumber = context.resolve(Text("\(first.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold)))
+            let numberHalf = Double(firstNumber.measure(in: size).width) / 2
+            let label = context.resolve(Text(tr("Bar %d", span.bar)).font(Theme.Fonts.mono(9.5, weight: .bold))
+                .foregroundStyle(Theme.desk.gridBar.color))
+            let labelWidth = Double(label.measure(in: size).width)
+            // On fine grids the first cell is too narrow for the label before the beat number: it goes after it.
+            var labelEnd = first.x
+            if span.left + 4 + labelWidth <= first.x - numberHalf - 3 {
+                context.draw(label, at: CGPoint(x: span.left + 4, y: 6), anchor: .leading)
+            } else {
+                let start = first.x + numberHalf + 5
+                context.draw(label, at: CGPoint(x: start, y: 6), anchor: .leading)
+                labelEnd = start + labelWidth
+            }
+            // The word between the bar's first two beat numbers, after its label, where it fits.
+            guard let steadiness = span.steadiness, beats.count >= 2 else { continue }
+            let word = context.resolve(Text(steadiness.word).font(Theme.Fonts.mono(9.5, weight: .bold))
+                .foregroundStyle(steadiness == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.gridBar.color))
+            let low = max(first.x, labelEnd) + 8
+            let high = beats[1].x - 8
+            guard Double(word.measure(in: size).width) <= high - low else { continue }
+            context.draw(word, at: CGPoint(x: (low + high) / 2, y: 6), anchor: .center)
+        }
+        context.fill(barLines, with: .color(Theme.desk.gridBar.color))
+    }
+
+    /// The click line of every grid point; the click plays only the beats while recording, so the grid points between
+    /// them are drawn fainter. Thin lines part the cells of a bar.
+    private func drawClickLines(in context: inout GraphicsContext, top: Double, height: Double) {
+        var cellEdges = Path()
+        var beatLines = Path()
+        var betweenLines = Path()
+        for (index, point) in band.points.enumerated() {
+            if index > 0, band.points[index - 1].bar == point.bar {
+                cellEdges.addRect(CGRect(x: Double(index) * band.cellWidth, y: top, width: 1, height: height))
+            }
+            if point.beat == nil {
+                betweenLines.addRect(CGRect(x: point.x - 0.5, y: top, width: 1, height: height))
+            } else {
+                beatLines.addRect(CGRect(x: point.x - 0.75, y: top, width: 1.5, height: height))
+            }
+        }
+        context.fill(cellEdges, with: .color(Theme.desk.gridBeat.color))
+        context.fill(beatLines, with: .color(Theme.desk.gridBar.color))
+        context.fill(betweenLines, with: .color(Theme.desk.gridBeat.color))
+    }
+
+    /// The onsets as strokes, counted ones full with their offset below, the others faint.
+    private func drawStrokes(in context: inout GraphicsContext, size: CGSize, top: Double, height: Double) {
+        let cell = band.cellWidth
+        var faint = Path()
+        var counted = Path()
+        for stroke in band.strokes {
+            let rect = CGRect(x: stroke.x - (stroke.isCounted ? 1 : 0.75), y: top + 3,
+                              width: stroke.isCounted ? 2 : 1.5, height: height - 6)
+            if stroke.isCounted { counted.addRect(rect) } else { faint.addRect(rect) }
+            if stroke.isPastTheCell {
+                // A small arrow points on, out of the cell, to where the onset really lies.
+                let side: Double = stroke.offset > 0 ? 1 : -1
+                var arrow = Path()
+                arrow.move(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 - 4))
+                arrow.addLine(to: CGPoint(x: stroke.x - side * 2, y: top + height / 2))
+                arrow.addLine(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 + 4))
+                arrow.closeSubpath()
+                if stroke.isCounted { counted.addPath(arrow) } else { faint.addPath(arrow) }
+            }
+            // On fine grids the cell may be too narrow for "+18 ms": then "+18", or no number (VoiceOver still reads it).
+            let texts = [stroke.label, stroke.shortLabel].compactMap { $0 }.map {
+                context.resolve(Text($0).font(Theme.Fonts.mono(10, weight: .semibold))
+                    .foregroundStyle(Theme.desk.onset.color))
+            }
+            guard let text = texts.first(where: { Double($0.measure(in: size).width) + 4 <= cell }) else { continue }
+            let width = Double(text.measure(in: size).width)
+            let left = Double(stroke.point) * cell
+            let x = min(max(stroke.x, left + width / 2 + 2), left + cell - width / 2 - 2)
+            context.draw(text, at: CGPoint(x: x, y: top + height + 9), anchor: .center)
+        }
+        context.fill(faint, with: .color(Theme.desk.onsetFaint.color))
+        context.fill(counted, with: .color(Theme.desk.onset.color))
     }
 }
 

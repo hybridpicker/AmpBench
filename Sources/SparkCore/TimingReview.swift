@@ -59,6 +59,12 @@ public struct TimingReview: Equatable, Sendable {
     public enum Outcome: Equatable, Sendable {
         case review(TimingReview)
         case noReview(NoReviewReason)
+
+        /// The review, nil when there is none.
+        public var review: TimingReview? {
+            if case .review(let review) = self { return review }
+            return nil
+        }
     }
 
     /// The grid points onsets are matched to, as points per beat.
@@ -136,9 +142,9 @@ public struct TimingReview: Equatable, Sendable {
     public var counted: Int
     public var hints: [Hint]
     /// How far the offsets may be off, plus or minus, in seconds: see `accuracy(of:)`.
-    public var accuracy: Double = 0
+    public var accuracy: Double
     /// Every bar of the take, each with its own placement and spread.
-    public var bars: [Bar] = []
+    public var bars: [Bar]
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35

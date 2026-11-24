@@ -41,13 +41,13 @@ extension TimingReview {
         /// than 1.5 times as much as the whole take and by more than 8 ms. So a take uneven throughout has no bar
         /// of its own to point at, and a few milliseconds are never a weak spot.
         public init(spread: Double, takeSpread: Double) {
-            self = spread > Self.share * takeSpread && spread > Self.least ? .unsteady : .steady
+            self = spread > Self.timesTheTake * takeSpread && spread > Self.smallestUnsteady ? .unsteady : .steady
         }
 
         /// How many times the take's spread an unsteady bar spreads by, at least.
-        public static let share = 1.5
+        public static let timesTheTake = 1.5
         /// The spread an unsteady bar exceeds in any case, in seconds.
-        public static let least = 0.008
+        public static let smallestUnsteady = 0.008
     }
 
     /// Every bar the take's grid points reach into, with the numbers of its counted onsets.

@@ -617,7 +617,7 @@ final class UISelfTest {
         }
         if !model.metronome.clickEnabled { model.toggleClick() }
         // The test input has no measured amp part, so its takes say so instead of a review.
-        model.setLatencyCorrection(0)
+        model.setAmpPartByHand(0)
         await press("r", keyCode: 15)
         check(await waitUntil(timeout: 8) { model.phase == .recording }, "recording with bars starts")
         check(await waitUntil { model.activeGrid != nil }, "the bars are known during the recording")
@@ -1259,7 +1259,8 @@ final class UISelfTest {
         guard case .review(let review) = model.timingOutcome else { return }
         check(review.counted == bars * 4, "every beat counts once", detail: "\(review.counted)")
         check(review.onsets.contains { $0.status == .outsideWindows }, "the fill is found and not counted")
-        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "the band opens by itself")
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band(review),
+              "the band opens by itself")
 
         // At the start the band shows bars 1 and 2.
         await voiceOverCheck("VoiceOver finds the band on bars 1–2") { named in
@@ -1338,7 +1339,7 @@ final class UISelfTest {
         }
         await snapshot("timing-band-folded-dark")
         model.toggleTimingBand()
-        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "unfolded again")
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band(review), "unfolded again")
 
         // On eighths the two fills between the beats lie on grid points of their own and count; the take, which has
         // no piece, keeps the grid for itself and opens on it again.

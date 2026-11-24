@@ -22,9 +22,9 @@ public struct ClickLatency: Codable, Equatable, Sendable {
     }
 
     /// The amp's part in seconds, 0 when none is known.
-    public var correction: Double { amp?.seconds ?? 0 }
+    public var ampSeconds: Double { amp?.seconds ?? 0 }
     public var reported: Double { output + input }
-    public var total: Double { reported + correction }
+    public var total: Double { reported + ampSeconds }
 }
 
 /// How the click reaches the ear. The delay of a Bluetooth or AirPlay output is not steady enough for a timing

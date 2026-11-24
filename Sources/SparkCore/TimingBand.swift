@@ -7,18 +7,18 @@ import Foundation
 /// fixed in the middle of its cell with its beat number; the onsets are strokes beside it, as far off as they were
 /// played. Positions are points from the band's left edge, for the width it is drawn at. The view only draws this.
 public struct TimingBand: Equatable, Sendable {
-    /// A click line: a grid point in the middle of its cell.
-    public struct Click: Equatable, Sendable {
+    /// A grid point of the band, its click line in the middle of its cell.
+    public struct GridPoint: Equatable, Sendable {
         public var bar: Int
         /// The beat number on a beat, from 1. Nil on a grid point between the beats.
         public var beat: Int?
         public var x: Double
     }
 
-    /// An onset beside the click of its grid point.
+    /// An onset beside the click line of its grid point.
     public struct Stroke: Equatable, Sendable {
         public var x: Double
-        /// From the click, positive later.
+        /// From the click line, positive later.
         public var offset: Double
         /// Counted onsets are drawn full, the others faint.
         public var isCounted: Bool
@@ -28,62 +28,69 @@ public struct TimingBand: Equatable, Sendable {
         public var shortLabel: String?
         /// Further off than the cell reaches: drawn at its edge, with its true offset.
         public var isPastTheCell: Bool
-        /// The index of its click in `clicks`, whose cell it is drawn in.
-        public var click: Int
+        /// The index of its grid point in `points`, whose cell it is drawn in.
+        public var point: Int
     }
 
-    /// How far each side of its click a cell reaches: about ±60 ms, less where the grid points lie closer.
+    /// How far each side of its click line a cell reaches: about ±60 ms, less where the grid points lie closer.
     public static let reach = 0.060
 
     public var bars: ClosedRange<Int>
     public var width: Double
-    public var clicks: [Click]
+    public var points: [GridPoint]
     public var strokes: [Stroke]
-    /// The width of the cell around each click.
+    /// The bars of the band from left to right, for the color of each and for pointing at it.
+    public var barSpans: [BarSpan]
+    /// The width of the cell around each grid point.
     public var cellWidth: Double
-    /// How far each side of its click a cell reaches here, in seconds.
+    /// How far each side of its click line a cell reaches here, in seconds.
     public var cellReach: Double
-    /// Where the first click of the band lies in the file, and the time from click to click.
-    private var firstClick: Double
+    /// Where the first grid point of the band lies in the file, and the time from one to the next.
+    private var firstTime: Double
     private var spacing: Double
 
     public init(review: TimingReview, grid: BeatGrid, bars: ClosedRange<Int>, width: Double) {
         self.bars = bars
         self.width = width
-        let pointsPerBeat = review.resolution.pointsPerBeat
-        let pointsPerBar = grid.beatsPerBar * pointsPerBeat
+        let take = GridPoints(grid: grid, resolution: review.resolution)
+        let pointsPerBeat = take.pointsPerBeat
+        let pointsPerBar = take.pointsPerBar
         let count = bars.count * pointsPerBar
         let cellWidth = width / Double(max(count, 1))
         self.cellWidth = cellWidth
-        clicks = (0..<count).map { index in
+        points = (0..<count).map { index in
             let inBar = index % pointsPerBar
-            return Click(bar: bars.lowerBound + index / pointsPerBar,
-                         beat: inBar % pointsPerBeat == 0 ? inBar / pointsPerBeat + 1 : nil,
-                         x: (Double(index) + 0.5) * cellWidth)
+            return GridPoint(bar: bars.lowerBound + index / pointsPerBar,
+                             beat: inBar % pointsPerBeat == 0 ? inBar / pointsPerBeat + 1 : nil,
+                             x: (Double(index) + 0.5) * cellWidth)
+        }
+        barSpans = bars.enumerated().map { index, bar in
+            BarSpan(bar: bar, left: Double(index * pointsPerBar) * cellWidth, width: Double(pointsPerBar) * cellWidth,
+                    reviewed: review.bars.first { $0.number == bar })
         }
 
-        let spacing = grid.secondsPerBeat / Double(pointsPerBeat)
-        let reach = min(Self.reach, spacing / 2)
-        let firstPoint = (bars.lowerBound - grid.firstBar) * pointsPerBar
-        self.spacing = spacing
+        let reach = min(Self.reach, take.spacing / 2)
+        let firstPoint = take.first(ofBar: bars.lowerBound)
+        spacing = take.spacing
         cellReach = reach
-        firstClick = grid.offset + Double(firstPoint) * spacing
+        firstTime = take.time(of: firstPoint)
         strokes = review.onsets.compactMap { onset in
-            let point = onset.gridPoint ?? Int(((onset.time - grid.offset) / spacing).rounded())
+            let point = onset.gridPoint ?? take.nearest(to: onset.time)
             let index = point - firstPoint
             guard index >= 0, index < count else { return nil }
-            let offset = onset.offset ?? onset.time - (grid.offset + Double(point) * spacing)
+            let offset = onset.offset ?? onset.time - take.time(of: point)
             let shift = min(max(offset / reach, -1), 1) * cellWidth / 2
             return Stroke(x: (Double(index) + 0.5) * cellWidth + shift, offset: offset, isCounted: onset.isCounted,
                           label: onset.isCounted ? Self.label(offset) : nil,
-                          shortLabel: onset.isCounted ? Self.shortLabel(offset) : nil, isPastTheCell: abs(offset) > reach, click: index)
+                          shortLabel: onset.isCounted ? Self.shortLabel(offset) : nil,
+                          isPastTheCell: abs(offset) > reach, point: index)
         }
     }
 
     /// What the area Record shows of a take's timing below its waveform.
     public enum Showing: Equatable, Sendable {
-        /// The band with the status line above it.
-        case band
+        /// The band of this review, with the status line below the transport.
+        case band(TimingReview)
         /// Only the status line, the band folded away.
         case folded
         /// One line: why there is no review, or that it is being worked out.
@@ -95,16 +102,16 @@ public struct TimingBand: Equatable, Sendable {
 
     /// The band opens on its own for a take with a review, unless it was folded; any other take shows one line.
     public static func shows(_ outcome: TimingReview.Outcome?, folded: Bool) -> Showing {
-        guard case .review = outcome else { return .line }
-        return folded ? .folded : .band
+        guard let review = outcome?.review else { return .line }
+        return folded ? .folded : .band(review)
     }
 
     /// Where a moment of the file lies in the band, such as the playhead: only within a cell, since the band shows
     /// no time between them.
     public func x(at seconds: Double) -> Double? {
-        let index = Int(((seconds - firstClick) / spacing).rounded())
-        let offset = seconds - (firstClick + Double(index) * spacing)
-        guard index >= 0, index < clicks.count, abs(offset) <= cellReach else { return nil }
+        let index = Int(((seconds - firstTime) / spacing).rounded())
+        let offset = seconds - (firstTime + Double(index) * spacing)
+        guard index >= 0, index < points.count, abs(offset) <= cellReach else { return nil }
         return (Double(index) + 0.5 + offset / cellReach / 2) * cellWidth
     }
 

@@ -23,8 +23,8 @@ final class AmpLatencyTests: XCTestCase {
         let speakers = amps.clickLatency(input: mini, reportedOutput: 0.0105, reportedInput: 0.0025,
                                          outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn))
 
-        XCTAssertEqual(headphones.correction, 0.0217, accuracy: 1e-9)
-        XCTAssertEqual(speakers.correction, 0.0217, accuracy: 1e-9)
+        XCTAssertEqual(headphones.ampSeconds, 0.0217, accuracy: 1e-9)
+        XCTAssertEqual(speakers.ampSeconds, 0.0217, accuracy: 1e-9)
         XCTAssertEqual(headphones.total, 0.0012 + 0.0025 + 0.0217, accuracy: 1e-9)
         XCTAssertEqual(speakers.total, 0.0105 + 0.0025 + 0.0217, accuracy: 1e-9)
         XCTAssertEqual(speakers.amp?.origin, .measured(spread: 0.0012, date: measuredAt))
