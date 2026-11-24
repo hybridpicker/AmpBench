@@ -220,8 +220,8 @@ strings, turn the Mac up and use a preset with some gain. The neck pickup and si
 
 The result is stored for the amp, with its spread and the day of the measurement. It holds when the click moves to
 another wired output, such as the built-in speakers: that output's own delay comes from what it reports. A value
-changed by hand afterwards counts as set by hand. A Bluetooth click output is recognised as such; its bars are
-corrected the same way, but its delay is not steady.
+changed by hand afterwards counts as set by hand. A Bluetooth or AirPlay click output is recognised as such, also
+behind an aggregate or multi-output device; its bars are corrected the same way, but its delay is not steady.
 
 On the BlackHole loop test, every beat lands within one sample of the grid.
 
@@ -229,7 +229,7 @@ On the BlackHole loop test, every beat lands within one sample of the grid.
 
 Every take recorded from now on remembers whether the click was on for its whole length (switching it off for a
 moment is enough to clear that), the click latency its bars rest on, whether the amp's part of it was measured, and
-whether the click went to a wired or a Bluetooth output. A take repaired after a crash remembers none of this.
+whether the click went to a wired, a Bluetooth or an AirPlay output. A take repaired after a crash remembers none of this.
 
 Below the bar controls, the line "Timing" shows for the take in focus where its notes lie against the click: the
 placement (the average offset, positive is later than the click) and the spread (how tightly the notes lie around

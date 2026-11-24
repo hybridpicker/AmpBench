@@ -536,8 +536,8 @@ Live timing while playing comes next, then Linux and the iPad.
   Values stored per pair before this change carry over as hand-set, except the one measured with the owner on
   2026-11-23 (the Spark MINI with the built-in headphone output), which carries over as measured with spread 1.2 ms;
   it is found by the shape of its pair key. The per-pair values stay stored, so an older build still finds them.
-- **Bluetooth click outputs** are recognised by their transport type. Their bars are corrected as today, but their
-  takes get no review.
+- **Bluetooth and AirPlay click outputs** are recognised by their transport type, also when an aggregate or
+  multi-output device plays to one of them. Their bars are corrected as today, but their takes get no review.
 - **Timing stamp of a take:** a new optional part of the take's library entry, written only by recordings made
   after this change: the click on for the whole take (switching the click off at any moment clears it), the click
   latency used (output part, input part, amp part, measured or hand-set, the measurement's spread) and the click
@@ -550,9 +550,10 @@ Live timing while playing comes next, then Linux and the iPad.
   "no review" with one reason. A review holds every onset (time, grid point, offset in ms, counted or why not), the
   placement, spread and number of counted onsets per take and per bar, the review accuracy and the hints. It knows
   nothing of devices, files or the UI, so the Linux port can follow it line by line.
-- **Reasons for no review**, checked in this order: no bars; the click not on throughout; no timing stamp (recorded
-  before this change); the amp part not measured; a Bluetooth click output; review accuracy worse than ±2 ms; too
-  few counted onsets.
+- **Reasons for no review**, checked in this order: no bars; no timing stamp (recorded before this change), checked
+  before the click since only the stamp knows whether it stayed on; the click not on throughout; the amp part not
+  measured; a Bluetooth click output; an AirPlay click output; review accuracy worse than ±2 ms; too few counted
+  onsets.
 - **Onset:** the first attack of a note or strum, found in the recorded signal as the amp sends it over USB, with
   effects. For a strummed chord the first string counts. The detector must place a clean synthetic pluck within
   1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted: more than

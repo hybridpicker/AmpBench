@@ -963,8 +963,9 @@ final class AppModel: ObservableObject {
         guard let clock = capture.clock else { throw CaptureError.notOpen }
         try click.start(device: output.id, settings: settings, clock: clock)
         activeClickSettings = settings
-        activeLatency = clickLatency(output: output, reportedOutput: click.reportedOutputLatency,
-                                     reportedInput: capture.reportedInputLatency)
+        activeLatency = ampLatencies.clickLatency(input: selectedInput?.identity,
+                                                  reportedOutput: click.reportedOutputLatency,
+                                                  reportedInput: capture.reportedInputLatency, outputKind: output.clickKind)
         isClickRunning = true
     }
 
@@ -2252,16 +2253,6 @@ final class AppModel: ObservableObject {
     /// The correction for the input in use now, in seconds.
     var currentLatencyCorrection: Double {
         currentAmpPart?.seconds ?? 0
-    }
-
-    /// What the bars of a recording from the input in use now rest on, with this click output.
-    private func clickLatency(output: OutputDevice, reportedOutput: Double, reportedInput: Double) -> ClickLatency {
-        guard let input = selectedInput else {
-            return ClickLatency(output: reportedOutput, input: reportedInput,
-                                outputKind: ClickOutputKind(transport: output.transport))
-        }
-        return ampLatencies.clickLatency(input: input.identity, reportedOutput: reportedOutput,
-                                         reportedInput: reportedInput, outputTransport: output.transport)
     }
 
     private func saveAmpLatencies() {

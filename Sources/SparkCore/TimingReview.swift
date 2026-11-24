@@ -204,7 +204,11 @@ public struct TimingReview: Equatable, Sendable {
         guard let stamp else { return .recordedBeforeTheStamp }
         guard stamp.clickOnThroughout else { return .clickNotOnThroughout }
         guard case .measured = stamp.latency.amp?.origin else { return .ampPartNotMeasured }
-        guard stamp.latency.outputKind == .wired else { return .clickOnBluetooth }
+        switch stamp.latency.outputKind {
+        case .wired: break
+        case .bluetooth: return .clickOnBluetooth
+        case .airPlay: return .clickOnAirPlay
+        }
         // A tiny margin, so an accuracy that is 2 ms on paper is not refused for a rounding error.
         guard let accuracy = accuracy(of: stamp), accuracy <= worstAccuracy + 1e-9 else { return .accuracyNotGoodEnough }
         return nil
@@ -280,14 +284,17 @@ struct GridPoints {
 public enum NoReviewReason: Hashable, Sendable {
     /// Recorded without the click, so the take has no bars to review against.
     case noBars
+    /// Recorded before takes kept a timing stamp; whether the click stayed on cannot be known. Checked before the
+    /// click, since only the stamp knows whether it stayed on.
+    case recordedBeforeTheStamp
     /// The click was switched off at some moment, or started only during the take.
     case clickNotOnThroughout
-    /// Recorded before takes kept a timing stamp; whether the click stayed on cannot be known.
-    case recordedBeforeTheStamp
     /// The amp's part of the click latency was set by hand or is not known, so the bars may lie off.
     case ampPartNotMeasured
     /// The click went to a Bluetooth output, whose delay is not steady enough to judge against.
     case clickOnBluetooth
+    /// The click went to an AirPlay output, whose delay is not steady enough either.
+    case clickOnAirPlay
     /// The review accuracy the measurement allows is worse than ±2 ms.
     case accuracyNotGoodEnough
     /// Fewer clear notes on the grid points than a placement and a spread can rest on.
@@ -297,10 +304,11 @@ public enum NoReviewReason: Hashable, Sendable {
     public var text: String {
         switch self {
         case .noBars: return tr("No timing review: recorded without the click.")
-        case .clickNotOnThroughout: return tr("No timing review: the click was not on for the whole take.")
         case .recordedBeforeTheStamp: return tr("No timing review: recorded before the measurement.")
+        case .clickNotOnThroughout: return tr("No timing review: the click was not on for the whole take.")
         case .ampPartNotMeasured: return tr("No timing review: click latency not measured.")
         case .clickOnBluetooth: return tr("No timing review: the click went to a Bluetooth output.")
+        case .clickOnAirPlay: return tr("No timing review: the click went to an AirPlay output.")
         case .accuracyNotGoodEnough:
             return tr("No timing review: accuracy not good enough. Measure the click latency again.")
         case .tooFewOnsets: return tr("No timing review: too few clear notes.")

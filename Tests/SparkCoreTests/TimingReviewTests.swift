@@ -520,6 +520,9 @@ final class TimingReviewTests: XCTestCase {
         var bluetoothUneven = measured(spread: 0.004)
         bluetoothUneven.latency.outputKind = .bluetooth
         XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: bluetoothUneven), .clickOnBluetooth)
+        var airPlay = measured
+        airPlay.latency.outputKind = .airPlay
+        XCTAssertEqual(reason(samples, rate: rate, grid: grid, stamp: airPlay), .clickOnAirPlay)
         let quiet = take([], seconds: 3, rate: rate)
         XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured(spread: 0.004)), .accuracyNotGoodEnough)
         XCTAssertEqual(reason(quiet, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
@@ -553,6 +556,7 @@ final class TimingReviewTests: XCTestCase {
             .recordedBeforeTheStamp: "No timing review: recorded before the measurement.",
             .ampPartNotMeasured: "No timing review: click latency not measured.",
             .clickOnBluetooth: "No timing review: the click went to a Bluetooth output.",
+            .clickOnAirPlay: "No timing review: the click went to an AirPlay output.",
             .accuracyNotGoodEnough: "No timing review: accuracy not good enough. Measure the click latency again.",
             .tooFewOnsets: "No timing review: too few clear notes.",
         ]
@@ -562,6 +566,7 @@ final class TimingReviewTests: XCTestCase {
             .recordedBeforeTheStamp: "Keine Timing-Auswertung: vor der Messung aufgenommen.",
             .ampPartNotMeasured: "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
             .clickOnBluetooth: "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
+            .clickOnAirPlay: "Keine Timing-Auswertung: Der Klick lief über einen AirPlay-Ausgang.",
             .accuracyNotGoodEnough: "Keine Timing-Auswertung: Genauigkeit nicht gut genug. Miss die Klick-Latenz noch einmal.",
             .tooFewOnsets: "Keine Timing-Auswertung: zu wenige klare Töne.",
         ]

@@ -27,15 +27,25 @@ public struct ClickLatency: Codable, Equatable, Sendable {
     public var total: Double { reported + correction }
 }
 
-/// How the click reaches the ear. A Bluetooth output's delay is not steady enough for a timing review.
+/// How the click reaches the ear. The delay of a Bluetooth or AirPlay output is not steady enough for a timing
+/// review.
 public enum ClickOutputKind: String, Codable, Equatable, Sendable {
     case wired
     case bluetooth
+    case airPlay
 
-    public init(transport: UInt32) {
-        let bluetooth = transport == kAudioDeviceTransportTypeBluetooth
-            || transport == kAudioDeviceTransportTypeBluetoothLE
-        self = bluetooth ? .bluetooth : .wired
+    /// The kind of an output by its transport. `parts` are the transports of the devices an aggregate or multi-output
+    /// device plays to: one Bluetooth or AirPlay device among them makes the whole output so.
+    public init(transport: UInt32, parts: [UInt32] = []) {
+        let transports = [transport] + parts
+        if transports.contains(where: { $0 == kAudioDeviceTransportTypeBluetooth
+                                        || $0 == kAudioDeviceTransportTypeBluetoothLE }) {
+            self = .bluetooth
+        } else if transports.contains(kAudioDeviceTransportTypeAirPlay) {
+            self = .airPlay
+        } else {
+            self = .wired
+        }
     }
 }
 
@@ -126,11 +136,12 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
         return product == "sparkmini" || product == "sparkminiusb"
     }
 
-    /// The click latency of a recording from this input, with what the click output and the input report.
-    public func clickLatency(input: DeviceIdentity, reportedOutput: Double, reportedInput: Double,
-                             outputTransport: UInt32) -> ClickLatency {
-        ClickLatency(output: reportedOutput, input: reportedInput, amp: part(for: input),
-                     outputKind: ClickOutputKind(transport: outputTransport))
+    /// The click latency of a recording from this input, with what the click output and the input report. Without
+    /// an input there is no amp part.
+    public func clickLatency(input: DeviceIdentity?, reportedOutput: Double, reportedInput: Double,
+                             outputKind: ClickOutputKind) -> ClickLatency {
+        ClickLatency(output: reportedOutput, input: reportedInput, amp: input.flatMap(part(for:)),
+                     outputKind: outputKind)
     }
 }
 
