@@ -89,6 +89,18 @@ final class ContrastTests: XCTestCase {
         }
     }
 
+    /// The timing band: counted onsets stand out like the wave; onsets that do not count are faint, yet still seen.
+    func testOnsetsInTheTimingBand() {
+        for (name, pick) in [("light", { (s: DeskSwatch) in s.light }), ("dark", { (s: DeskSwatch) in s.dark })] {
+            let background = pick(desk.waveBackground)
+            let full = pick(desk.onset).over(background).contrast(with: background)
+            let faint = pick(desk.onsetFaint).over(background).contrast(with: background)
+            XCTAssertGreaterThanOrEqual(full, 3, "onset \(name)")
+            XCTAssertGreaterThanOrEqual(faint, 1.4, "faint onset \(name) is still seen")
+            XCTAssertLessThanOrEqual(faint, full / 2, "faint onset \(name) is clearly fainter")
+        }
+    }
+
     func testCompositing() {
         let half = Swatch.white(0.5).over(Swatch(hex: 0x000000))
         XCTAssertEqual(half.red, 0.5, accuracy: 0.001)

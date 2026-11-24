@@ -15,7 +15,15 @@ struct WavePanel: View {
                 } else if model.isRecording {
                     LiveWaveView().frame(height: 132)
                 } else {
-                    singleWave.frame(height: 132)
+                    VStack(spacing: 6) {
+                        singleWave.frame(height: 132)
+                        if let recording = model.current, recording.health == .ok, let grid = recording.grid,
+                           case .review(let review) = model.timingOutcome,
+                           TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band {
+                            TimingBandView(recording: recording, grid: grid, review: review)
+                                .frame(height: TimingBandView.height)
+                        }
+                    }
                 }
             }
             .padding(.horizontal, 16)
@@ -677,28 +685,42 @@ private struct TimingLine: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 8) {
-                PanelLabel(tr("Timing"))
-                Text(text)
-                    .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
-                    .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer(minLength: 0)
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 8) {
+                    PanelLabel(tr("Timing"))
+                    Text(text)
+                        .font(Theme.Fonts.mono(12, weight: isReview ? .semibold : .regular))
+                        .foregroundStyle(isReview ? Theme.device.amber : Theme.device.labelDim)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                    Spacer(minLength: 0)
+                }
+                if let hints {
+                    Text(hints)
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.device.amberDim)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .help(hints)
+                }
             }
-            if let hints {
-                Text(hints)
-                    .font(.system(size: 11))
-                    .foregroundStyle(Theme.device.amberDim)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(hints)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(tr("Timing review"))
+            .accessibilityValue(hints.map { "\(text) \($0)" } ?? text)
+            if showing.canFold {
+                Button(showing == .folded ? tr("Unfold") : tr("Fold"), action: model.toggleTimingBand)
+                    .buttonStyle(.hardwareKey(size: .small))
+                    .fixedSize()
+                    .help(showing == .folded ? tr("Shows the timing band below the waveform")
+                                             : tr("Folds the timing band away, so the waveform has the room"))
+                    .accessibilityLabel(showing == .folded ? tr("Unfold the timing band") : tr("Fold the timing band"))
             }
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(tr("Timing review"))
-        .accessibilityValue(hints.map { "\(text) \($0)" } ?? text)
+    }
+
+    private var showing: TimingBand.Showing {
+        TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded)
     }
 
     private var isReview: Bool {
@@ -722,6 +744,137 @@ private struct TimingLine: View {
         case nil:
             return model.isReviewingTiming ? tr("Reviewing the timing …") : tr("The timing could not be reviewed.")
         }
+    }
+}
+
+// MARK: - Timing band
+
+/// Two bars of the take's timing review around the playhead, each beat magnified: the click lines fixed with their
+/// beat numbers, the onsets as strokes beside them. `TimingBand` says where everything sits; this only draws it.
+private struct TimingBandView: View {
+    @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var playhead: PlayheadState
+    let recording: Recording
+    let grid: BeatGrid
+    let review: TimingReview
+    /// Bars chosen with the steppers while the playhead stands elsewhere. Moving the playhead lets the band follow it.
+    @State private var chosen: ClosedRange<Int>?
+
+    static let height: CGFloat = 62
+
+    private var lastBar: Int { recording.lastBar ?? grid.firstBar }
+
+    private var bars: ClosedRange<Int> {
+        chosen ?? TimingBand.pair(at: playhead.position, grid: grid, lastBar: lastBar)
+    }
+
+    var body: some View {
+        GeometryReader { geometry in
+            let band = TimingBand(review: review, grid: grid, bars: bars, width: Double(geometry.size.width))
+            ZStack(alignment: .topLeading) {
+                TimingBandCanvas(band: band)
+                    .equatable()
+                if let x = band.x(at: playhead.position) {
+                    Rectangle()
+                        .fill(Theme.desk.playhead)
+                        .frame(width: 1.5, height: TimingBandCanvas.laneHeight)
+                        .offset(x: x - 0.75, y: TimingBandCanvas.laneTop)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(tr("Timing band"))
+            .accessibilityValue(spoken(band))
+        }
+        .onChange(of: model.barSelection) { _, selection in
+            chosen = selection.map { TimingBand.pair(showing: $0, grid: grid, lastBar: lastBar) }
+        }
+        .onChange(of: playhead.position) { _, _ in
+            chosen = nil
+        }
+    }
+
+    private func spoken(_ band: TimingBand) -> String {
+        let notes = band.strokes.compactMap { stroke -> String? in
+            guard let label = stroke.label else { return nil }
+            let click = band.clicks[stroke.click]
+            return tr("bar %d beat %d %@", click.bar, click.beat ?? 1, label)
+        }
+        let bars = AppModel.barsText(band.bars)
+        return notes.isEmpty ? tr("%@, no counted notes", bars) : "\(bars): " + notes.joined(separator: ", ")
+    }
+}
+
+/// The still part of the band, drawn again only when its bars, its width or the review change.
+private struct TimingBandCanvas: View, Equatable {
+    let band: TimingBand
+
+    /// The lane the click lines and strokes stand in, between the numbers above and the offsets below.
+    static let laneTop: CGFloat = 14
+    static let laneHeight: CGFloat = 30
+
+    var body: some View {
+        Canvas { context, size in
+            let top = Double(Self.laneTop)
+            let height = Double(Self.laneHeight)
+            context.fill(Path(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 6),
+                         with: .color(Theme.desk.waveBackground.color))
+            let cell = band.cellWidth
+            var edges = Path()
+            var bars = Path()
+            var clicks = Path()
+            for (index, click) in band.clicks.enumerated() {
+                let left = Double(index) * cell
+                if index == 0 || band.clicks[index - 1].bar != click.bar {
+                    if index > 0 { bars.addRect(CGRect(x: left, y: 0, width: 1, height: top + height)) }
+                    let number = context.resolve(Text(tr("Bar %d", click.bar))
+                        .font(Theme.Fonts.mono(9.5, weight: .bold))
+                        .foregroundStyle(Theme.desk.gridBar.color))
+                    context.draw(number, at: CGPoint(x: left + 4, y: 6), anchor: .leading)
+                } else {
+                    edges.addRect(CGRect(x: left, y: top, width: 1, height: height))
+                }
+                clicks.addRect(CGRect(x: click.x - 0.75, y: top, width: 1.5, height: height))
+                if let beat = click.beat {
+                    let text = context.resolve(Text("\(beat)").font(Theme.Fonts.mono(10, weight: .semibold))
+                        .foregroundStyle(.secondary))
+                    context.draw(text, at: CGPoint(x: click.x, y: 6), anchor: .center)
+                }
+            }
+            context.fill(edges, with: .color(Theme.desk.gridBeat.color))
+            context.fill(bars, with: .color(Theme.desk.gridBar.color))
+            context.fill(clicks, with: .color(Theme.desk.gridBar.color))
+
+            var faint = Path()
+            var counted = Path()
+            for stroke in band.strokes {
+                let rect = CGRect(x: stroke.x - (stroke.isCounted ? 1 : 0.75), y: top + 3,
+                                  width: stroke.isCounted ? 2 : 1.5, height: height - 6)
+                if stroke.isCounted { counted.addRect(rect) } else { faint.addRect(rect) }
+                if stroke.isPastTheCell {
+                    // A small arrow points on, out of the cell, to where the onset really lies.
+                    let side: Double = stroke.offset > 0 ? 1 : -1
+                    var arrow = Path()
+                    arrow.move(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 - 4))
+                    arrow.addLine(to: CGPoint(x: stroke.x - side * 2, y: top + height / 2))
+                    arrow.addLine(to: CGPoint(x: stroke.x - side * 6, y: top + height / 2 + 4))
+                    arrow.closeSubpath()
+                    if stroke.isCounted { counted.addPath(arrow) } else { faint.addPath(arrow) }
+                }
+                guard let label = stroke.label else { continue }
+                let text = context.resolve(Text(label).font(Theme.Fonts.mono(10, weight: .semibold))
+                    .foregroundStyle(Theme.desk.onset.color))
+                let width = Double(text.measure(in: size).width)
+                let left = Double(stroke.click) * cell
+                let low = left + width / 2 + 2
+                let high = left + cell - width / 2 - 2
+                let x = low <= high ? min(max(stroke.x, low), high) : left + cell / 2
+                context.draw(text, at: CGPoint(x: x, y: top + height + 9), anchor: .center)
+            }
+            context.fill(faint, with: .color(Theme.desk.onsetFaint.color))
+            context.fill(counted, with: .color(Theme.desk.onset.color))
+        }
+        .allowsHitTesting(false)
     }
 }
 

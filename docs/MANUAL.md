@@ -243,6 +243,15 @@ When the sound the take was recorded with has a delay switched on, a second line
 may count as notes. For exact practice choose a dry sound." The review is still shown. A take without a known
 sound (recorded without the preset editor, or with a sound only listened to on REACTOR) gets no hint.
 
+A take with a review opens the timing band below the waveform. It shows two bars at a time, bars 1–2, 3–4 and so
+on, with each beat magnified to about ±60 ms, so 10 ms are already a clear gap. The click lines stand still in the
+middle of each beat with their numbers 1, 2, 3, 4; your notes are strokes beside them, later to the right, each
+with its offset below it ("+18 ms"). Notes that do not count (echoes, later strings, notes between the beats) are
+faint and carry no number. A note further off than the band shows sits at the edge with a small arrow and its true
+offset. The band follows the playhead while playing, jumps to a click into the waveform, and shows the bars chosen
+with the bar steppers. "Fold" on the "Timing" line folds it away, and it stays folded for the next takes until
+"Unfold".
+
 ### Audio quality
 
 - The device runs at its highest rate up to 192 kHz during a recording, and its previous rate comes back afterwards.

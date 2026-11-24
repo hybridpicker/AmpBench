@@ -222,6 +222,7 @@ final class UISelfTest {
         case "nospark": await noSparkScenario()
         case "reconnect": await reconnectScenario()
         case "sound": await soundScenario()
+        case "timing": await timingScenario()
         default: note("FAIL unknown scenario")
         }
         await finish()
@@ -1215,6 +1216,129 @@ final class UISelfTest {
     // MARK: Pictures
 
     /// A filled library in both appearances, for looking at the design.
+    /// The timing band of a generated take: plucks a little off a click at 120 bpm, a fill between the beats and a
+    /// late note past the cell, with a measured click latency. Pictures in dark and light, folded and in the smallest
+    /// window; the band follows the playhead and the chosen bars.
+    private func timingScenario() async {
+        useTestDevices()
+        let rate = 44_100.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        let bars = 8
+        let offsets = [0.004, 0.018, -0.010, 0.025, 0.012, -0.006, 0.030, 0.008]
+        var notes: [(time: Double, amplitude: Double)] = (0..<(bars * 4)).map { beat in
+            let late = beat == 13 ? 0.085 : offsets[beat % offsets.count]
+            return (grid.offset + Double(beat) * grid.secondsPerBeat + late, 0.35)
+        }
+        // A fill between beats 2 and 3 of bar 1 and of bar 3: shown faint, not counted.
+        notes.append((grid.offset + 1.5 * grid.secondsPerBeat, 0.6))
+        notes.append((grid.offset + 9.5 * grid.secondsPerBeat, 0.6))
+        let seconds = grid.offset + Double(bars) * grid.secondsPerBar + 0.5
+        var samples = [Float](repeating: 0, count: Int(seconds * rate))
+        for (number, note) in notes.enumerated() {
+            let pluck = TunerTestSignal.karplusStrong(frequency: 196, sampleRate: rate, seconds: 0.4,
+                                                      amplitude: note.amplitude, ringTime: 0.12,
+                                                      seed: UInt64(number % 4 + 1))
+            let start = Int((note.time * rate).rounded())
+            for (step, value) in pluck.enumerated() where start + step < samples.count { samples[start + step] += value }
+        }
+        let url = model.store.folder.appendingPathComponent("Timing check.wav")
+        try? WAVWriter.write(samples: samples, sampleRate: rate, channels: 1, to: url)
+        let stamp = TimingStamp(clickOnThroughout: true, latency: ClickLatency(
+            output: 0.004, input: 0.003,
+            amp: AmpPart(seconds: 0.02, origin: .measured(spread: 0.0012, date: Date())), outputKind: .wired))
+        let take = Recording(fileName: url.lastPathComponent, createdAt: Date(), duration: seconds, sampleRate: rate,
+                             channels: 1, fileBits: 24,
+                             source: SourceFormat(deviceName: InputPolicy.testDeviceName, bits: 24, sampleRate: rate, channels: 1),
+                             grid: grid, timing: stamp)
+        model.store.add(take)
+        try? model.store.save()
+        model.select(take.id)
+        _ = await waitUntil(timeout: 5) { model.currentWaveform != nil }
+        check(await waitUntil(timeout: 10) { if case .review = model.timingOutcome { return true } else { return false } },
+              "the generated take gets a timing review", detail: "\(String(describing: model.timingOutcome))")
+        guard case .review(let review) = model.timingOutcome else { return }
+        check(review.counted == bars * 4, "every beat counts once", detail: "\(review.counted)")
+        check(review.onsets.contains { $0.status == .outsideWindows }, "the fill is found and not counted")
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "the band opens by itself")
+
+        // At the start the band shows bars 1 and 2.
+        await voiceOverCheck("VoiceOver finds the band on bars 1–2") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(1...2)) }
+        }
+        await voiceOverCheck("the band has a fold key") { $0.contains { $0.contains(tr("Fold the timing band")) } }
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-\(suffix)")
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+
+        // A click into the waveform in bar 4 moves the band to bars 3 and 4, which hold the late note.
+        model.seek(to: grid.time(ofBar: 4) + 0.02)
+        await wait(0.3)
+        await voiceOverCheck("the band follows the playhead to bars 3–4") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(3...4)) }
+        }
+        await snapshot("timing-band-bars-3-4-dark")
+
+        // Chosen bars move it without moving the playhead.
+        model.setBarSelection(5...6)
+        await wait(0.3)
+        await voiceOverCheck("the band jumps to the chosen bars 5–6") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(5...6)) }
+        }
+        await snapshot("timing-band-bars-5-6-dark")
+
+        // A moving playhead takes it on, as playback does. Playback itself is left out: the silent test output
+        // does not always run, and the player then stops the app.
+        model.seek(to: grid.time(ofBar: 7) + 0.1)
+        await wait(0.3)
+        await voiceOverCheck("the band follows the playhead on to bars 7–8") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(7...8)) }
+        }
+        await snapshot("timing-band-bars-7-8-dark")
+
+        // The smallest window keeps the band and everything below it.
+        if let window {
+            let frame = window.frame
+            window.setContentSize(window.contentMinSize)
+            for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+                NSApp.appearance = NSAppearance(named: appearance)
+                await snapshot("timing-band-smallest-\(suffix)")
+            }
+            window.setFrame(frame, display: true)
+            NSApp.appearance = NSAppearance(named: .darkAqua)
+        }
+
+        // Folded, only the status line stays, and the band stays folded until it is unfolded.
+        model.toggleTimingBand()
+        await wait(0.3)
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .folded, "the band folds")
+        await voiceOverCheck("folded, the band is gone, its key unfolds it and the status line stays") { named in
+            !named.contains { $0.contains(": \(tr("Timing band")) =") }
+                && named.contains { $0.contains(tr("Unfold the timing band")) }
+                && named.contains { $0.contains(tr("Timing review")) }
+        }
+        await snapshot("timing-band-folded-dark")
+        model.toggleTimingBand()
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "unfolded again")
+    }
+
+    /// A check through the interface VoiceOver uses. Where the app's accessibility tree cannot be read, such as from
+    /// a process without the right to it, the check is noted as skipped instead of failing.
+    private func voiceOverCheck(_ text: String, _ condition: @escaping ([String]) -> Bool) async {
+        let named = await Task.detached(priority: .userInitiated) { () -> [String] in
+            var named: [String] = []
+            var missing: [String] = []
+            Self.walkAccessibility(AXUIElementCreateApplication(getpid()), into: &named, missing: &missing)
+            return named
+        }.value
+        guard named.contains(where: { !$0.hasPrefix("AXApplication") }) else {
+            note("NOTE skipped, accessibility tree not readable here: \(text)")
+            return
+        }
+        check(condition(named), text, detail: named.filter { $0.contains(tr("Timing")) }.joined(separator: " | "))
+    }
+
     private func pictureScenario() async {
         useTestDevices()
         let piece = model.store.addPiece(named: "Blues in A")

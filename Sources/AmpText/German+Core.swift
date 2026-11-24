@@ -154,6 +154,7 @@ extension German {
         "No timing review: recorded before the measurement.": "Keine Timing-Auswertung: vor der Messung aufgenommen.",
         "No timing review: click latency not measured.": "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
         "No timing review: too few clear notes.": "Keine Timing-Auswertung: zu wenige klare Töne.",
+        "%+d ms": "%+d ms",
         "Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.":
             "Delay im Sound: Echos können als Töne zählen. Für genaues Üben einen trockenen Sound wählen.",
     ]

@@ -260,6 +260,9 @@ public struct DeskPalette: Sendable {
     public let gridBar = DeskSwatch(light: Swatch.black(0.5), dark: Swatch.white(0.5))
     public let gridBeat = DeskSwatch(light: Swatch.black(0.18), dark: Swatch.white(0.18))
     public let playhead = DeskSwatch(light: 0x1D1D1F, dark: 0xFFFFFF)
+    /// An onset in the timing band, in the wave's color: the player's notes. Faint when it does not count.
+    public let onset = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6)
+    public let onsetFaint = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6, alpha: 0.35)
     /// The tint of a selected row, instead of the system's blue.
     public let selection = DeskSwatch(light: Swatch(hex: 0xE6A23C, alpha: 0.18), dark: Swatch(hex: 0xF7C45C, alpha: 0.14))
     /// The 3 pt bar on the left of a selected row.
