@@ -863,6 +863,8 @@ private struct TimingBandCanvas: View, Equatable {
             var bars = Path()
             var clicks = Path()
             var between = Path()
+            // Where the label "Bar 3" ends when it stands right of the bar's first beat number, by bar.
+            var labelEnds: [Int: Double] = [:]
             for (index, click) in band.clicks.enumerated() {
                 let left = Double(index) * cell
                 if index == 0 || band.clicks[index - 1].bar != click.bar {
@@ -870,7 +872,17 @@ private struct TimingBandCanvas: View, Equatable {
                     let number = context.resolve(Text(tr("Bar %d", click.bar))
                         .font(Theme.Fonts.mono(9.5, weight: .bold))
                         .foregroundStyle(Theme.desk.gridBar.color))
-                    context.draw(number, at: CGPoint(x: left + 4, y: 6), anchor: .leading)
+                    let width = Double(number.measure(in: size).width)
+                    let beat = context.resolve(Text("\(click.beat ?? 1)").font(Theme.Fonts.mono(10, weight: .semibold)))
+                    let beatHalf = Double(beat.measure(in: size).width) / 2
+                    // On fine grids the first cell is too narrow for the label before the beat number: it goes after it.
+                    if left + 4 + width <= click.x - beatHalf - 3 {
+                        context.draw(number, at: CGPoint(x: left + 4, y: 6), anchor: .leading)
+                    } else {
+                        let start = click.x + beatHalf + 5
+                        context.draw(number, at: CGPoint(x: start, y: 6), anchor: .leading)
+                        labelEnds[click.bar] = start + width
+                    }
                 } else {
                     edges.addRect(CGRect(x: left, y: top, width: 1, height: height))
                 }
@@ -886,7 +898,7 @@ private struct TimingBandCanvas: View, Equatable {
                     context.draw(text, at: CGPoint(x: click.x, y: 6), anchor: .center)
                 }
             }
-            // The word of each judged bar between its first two beat numbers, where it fits.
+            // The word of each judged bar between its first two beat numbers, after the bar's label, where it fits.
             for span in band.barSpans {
                 guard let state = steadiness[span.bar] else { continue }
                 let beats = band.clicks.filter { $0.bar == span.bar && $0.beat != nil }.prefix(2).map(\.x)
@@ -894,8 +906,10 @@ private struct TimingBandCanvas: View, Equatable {
                 let word = context.resolve(Text(state.word)
                     .font(Theme.Fonts.mono(9.5, weight: .bold))
                     .foregroundStyle(state == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.gridBar.color))
-                guard Double(word.measure(in: size).width) <= beats[1] - beats[0] - 16 else { continue }
-                context.draw(word, at: CGPoint(x: (beats[0] + beats[1]) / 2, y: 6), anchor: .center)
+                let low = max(beats[0], labelEnds[span.bar] ?? beats[0]) + 8
+                let high = beats[1] - 8
+                guard Double(word.measure(in: size).width) <= high - low else { continue }
+                context.draw(word, at: CGPoint(x: (low + high) / 2, y: 6), anchor: .center)
             }
             context.fill(edges, with: .color(Theme.desk.gridBeat.color))
             context.fill(bars, with: .color(Theme.desk.gridBar.color))

@@ -135,16 +135,18 @@ a variant of `LEDSegments`).
 - **Transport:** keys with keycaps, the time in amber, an engraved line, TEMPO as `DeviceSlider`, PITCH as
   `DisplayStepper`, and for an open take Keep (main key), Discard (red text), Again. The bar controls of a take
   with bars are a second row on the same front.
-- **Timing band:** below the waveform on its background, for a take with a timing review. Two bars, one cell per
-  beat magnified to about ±60 ms: the click lines in bar-line color stand fixed in the middle with their beat numbers
-  in secondary text, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
+- **Timing band:** below the waveform on its background, for a take with a timing review. Two bars, one cell per beat
+  magnified to about ±60 ms: the click lines in bar-line color stand fixed in the middle with their beat numbers in
+  secondary text, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
   onset color with their offset ("+18 ms") in mono; onsets that do not count are faint and carry no number. An onset
-  further off than the cell sits at its edge with a small arrow. The playhead shows in the band only near a click.
-  On eighths, triplets or sixteenths there is one cell per grid point; the points between the beats are thinner, in
+  further off than the cell sits at its edge with a small arrow. The playhead shows in the band only near a click. On
+  eighths, triplets or sixteenths there is one cell per grid point; the points between the beats are thinner, in
   beat-line color, since the click plays only the beats. Where a cell is too narrow for "+18 ms" the offset reads
-  "+18", and without room for that none. Never red, early and late are no alarm. The "Timing" row on the transport
-  front holds the take's placement and spread, the `DevicePopup` "Grid" and the key "Fold"/"Unfold"; a take without
-  a review shows only that row with its reason.
+  "+18", and without room for that none. Where the first cell of a bar has no room for "Bar 3" before the beat number,
+  the label stands right after it and the bar's steady/unsteady word follows. Never red, early and late are no alarm.
+  The "Timing" row on the transport front holds the take's placement, spread, review accuracy and counted notes on the
+  grid, the `DevicePopup` "Grid" and the key "Fold"/"Unfold"; a take without a review shows only that row with its
+  reason.
 - **Library:** `SegmentTabs`, the piece for new recordings and the search in one header; mono dates and durations,
   amber stars, "Open" as a pill, amber selection; a status line with recordings, open takes, practice time of the
   last 30 days and "⌘/ Keyboard shortcuts". The inspector has `SegmentTabs`, system fields with `DeskCaption`, a two-column
