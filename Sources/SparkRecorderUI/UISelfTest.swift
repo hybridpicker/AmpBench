@@ -1282,7 +1282,12 @@ final class UISelfTest {
         await voiceOverCheck("the band follows the playhead to bars 3–4") { named in
             named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(3...4)) }
         }
-        await snapshot("timing-band-bars-3-4-dark")
+        // Bars 3–4 hold the unsteady bar 4, in both appearances.
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-bars-3-4-\(suffix)")
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
 
         // Bar 4 holds the late note, so it alone is unsteady; pointing at it reads its numbers, and the bar tools take it.
         check(review.bars.prefix(bars).map(\.steadiness) == [.steady, .steady, .steady, .unsteady,
@@ -1361,6 +1366,17 @@ final class UISelfTest {
         for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
             NSApp.appearance = NSAppearance(named: appearance)
             await snapshot("timing-band-eighths-\(suffix)")
+        }
+        // On eighths, too, bar 4 with its late note is the unsteady one.
+        model.setBarSelection(3...4)
+        await wait(0.3)
+        if case .review(let eighths) = model.timingOutcome {
+            check(eighths.bars.first { $0.number == 4 }?.steadiness == .unsteady, "on eighths bar 4 is unsteady",
+                  detail: "\(eighths.bars.map(\.steadiness))")
+        }
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-eighths-bars-3-4-\(suffix)")
         }
         NSApp.appearance = NSAppearance(named: .darkAqua)
         model.select(take.id)
