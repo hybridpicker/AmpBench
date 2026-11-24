@@ -200,6 +200,129 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertTrue(review.onsets.filter(\.isCounted).allSatisfy { !swells.contains($0.gridPoint ?? -1) })
     }
 
+    // MARK: Reading a take
+
+    func testATakeFileReadsAsTheSameTakeInMemoryFromItsLoudestChannel() throws {
+        let rate = 48_000.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { $0 % 2 == 0 ? 0.006 : 0.014 }
+        // Stereo with the guitar on the right; the left channel holds only a tenth of it.
+        let interleaved = samples.flatMap { [$0 * 0.1, $0] }
+        let folder = try TemporaryFolder()
+        let url = folder.file("take.wav")
+        try WAVWriter.write(samples: interleaved, sampleRate: rate, channels: 2, to: url)
+
+        let fromFile = try TimingReview.review(TakeFile(url), grid: grid, stamp: measured)
+        guard case .review(let file) = fromFile else { return XCTFail("no review: \(String(describing: fromFile))") }
+        let memory = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(file.counted, 16)
+        XCTAssertEqual(file.placement, memory.placement, accuracy: 0.00002, "24 bits change the samples a little")
+        XCTAssertEqual(file.spread, memory.spread, accuracy: 0.00002)
+        XCTAssertEqual(file.placement, 0.010, accuracy: 0.001)
+    }
+
+    func testAStoppedReadingGivesNothing() throws {
+        let rate = 44_100.0
+        let (samples, grid) = plucksOnBars(bpm: 100, rate: rate) { _ in 0 }
+        let folder = try TemporaryFolder()
+        let url = folder.file("take.wav")
+        try WAVWriter.write(samples: samples, sampleRate: rate, channels: 1, to: url)
+        XCTAssertNil(try TimingReview.review(TakeFile(url, isCancelled: { true }), grid: grid, stamp: measured))
+    }
+
+    /// A take of steady plucks made up block by block while it is read, so the test never holds it whole either.
+    private struct GeneratedTake: TakeAudio {
+        let sampleRate: Double
+        let seconds: Double
+        let grid: BeatGrid
+        let pluck: [Float]
+        let noise: [Float]
+        /// Called after every block with the frames handed over so far.
+        let onBlock: (Int) -> Void
+
+        func read(_ body: ([UnsafeBufferPointer<Float>]) -> Void) throws -> Bool {
+            let total = Int(seconds * sampleRate)
+            let blockFrames = 65_536
+            // Raw memory, so making up half an hour stays quick in a debug build.
+            let loud = UnsafeMutablePointer<Float>.allocate(capacity: blockFrames)
+            let quiet = UnsafeMutablePointer<Float>.allocate(capacity: blockFrames)
+            defer {
+                loud.deallocate()
+                quiet.deallocate()
+            }
+            let beatFrames = grid.secondsPerBeat * sampleRate
+            let first = grid.offset * sampleRate
+            noise.withUnsafeBufferPointer { noise in
+                pluck.withUnsafeBufferPointer { pluck in
+                    var start = 0
+                    while start < total {
+                        let count = min(blockFrames, total - start)
+                        // Plain loops: a range looks up generic metadata on every step in a debug build.
+                        var index = 0
+                        while index < count {
+                            loud[index] = noise[(start + index) % noise.count]
+                            index += 1
+                        }
+                        var beat = max(Int(((Double(start) - first - Double(pluck.count)) / beatFrames).rounded(.up)), 0)
+                        while true {
+                            let onset = Int((first + Double(beat) * beatFrames).rounded())
+                            if onset >= start + count { break }
+                            var frame = max(onset, start)
+                            while frame < min(onset + pluck.count, start + count) {
+                                loud[frame - start] += pluck[frame - onset]
+                                frame += 1
+                            }
+                            beat += 1
+                        }
+                        index = 0
+                        while index < count {
+                            quiet[index] = loud[index] * 0.25
+                            index += 1
+                        }
+                        body([UnsafeBufferPointer(start: quiet, count: count), UnsafeBufferPointer(start: loud, count: count)])
+                        start += count
+                        onBlock(start)
+                    }
+                }
+            }
+            return true
+        }
+    }
+
+    /// What the process holds in memory now, in bytes.
+    private static func footprint() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let status = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return status == KERN_SUCCESS ? Int(info.phys_footprint) : 0
+    }
+
+    func testAThirtyMinuteTakeIsReadInBlocks() throws {
+        // Holding its loudest channel whole would take 30 × 60 × 48 000 × 4 bytes, about 350 MB.
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        var generator = SeededGenerator(seed: 3)
+        let noise = (0..<48_011).map { _ in Float(generator.gaussian() * 0.0003) }
+        let pluck = TunerTestSignal.karplusStrong(frequency: 196, sampleRate: rate, seconds: 0.45, amplitude: 0.5,
+                                                  ringTime: 0.3, seed: 1)
+        let baseline = Self.footprint()
+        var highest = baseline
+        let take = GeneratedTake(sampleRate: rate, seconds: 30 * 60, grid: grid, pluck: pluck, noise: noise) { frames in
+            if frames % (65_536 * 16) < 65_536 { highest = max(highest, Self.footprint()) }
+        }
+        let outcome = try TimingReview.review(take, grid: grid, stamp: measured)
+        highest = max(highest, Self.footprint())
+        guard case .review(let review) = outcome else { return XCTFail("no review: \(String(describing: outcome))") }
+        XCTAssertEqual(review.counted, 3_600, "every beat of half an hour")
+        XCTAssertEqual(review.placement, 0, accuracy: 0.0005)
+        let grown = Double(highest - baseline) / 1_000_000
+        print("NOTE review of a 30-minute stereo take at 48 kHz: memory grew by \(String(format: "%.0f", grown)) MB")
+        XCTAssertLessThan(grown, 80)
+    }
+
     // MARK: Numbers
 
     func testPlacementIsTheMeanAndSpreadTheStandardDeviation() throws {
