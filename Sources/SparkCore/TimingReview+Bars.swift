@@ -13,11 +13,29 @@ extension TimingReview {
         public var spread: Double?
         /// Nil for a bar without a spread: a single note says nothing about how steady it was.
         public var steadiness: Steadiness?
+
+        /// What pointing at the bar shows and VoiceOver reads: its number, how steady and its numbers.
+        public var text: String {
+            guard let placement else { return tr("Bar %d: no counted notes", number) }
+            guard let spread, let steadiness else {
+                return tr("Bar %d: placement %+.1f ms, a single note, too few to judge", number, placement * 1000)
+            }
+            return tr("Bar %d, %@: placement %+.1f ms, spread %.1f ms, %d notes", number, steadiness.word,
+                      placement * 1000, spread * 1000, counted)
+        }
     }
 
     public enum Steadiness: Equatable, Sendable {
         case steady
         case unsteady
+
+        /// The word beside the bar's colour, so the colour is never alone.
+        public var word: String {
+            switch self {
+            case .steady: return tr("steady")
+            case .unsteady: return tr("unsteady")
+            }
+        }
 
         /// The line between them (provisional, the owner's answer is pending): a bar is unsteady when it spreads more
         /// than 1.5 times as much as the whole take and by more than 8 ms. So a take uneven throughout has no bar

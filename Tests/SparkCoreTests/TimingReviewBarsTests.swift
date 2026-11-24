@@ -120,4 +120,25 @@ final class TimingReviewBarsTests: XCTestCase {
         XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .unsteady, .steady])
         XCTAssertEqual(review.counted, 16)
     }
+
+    // MARK: What a bar says
+
+    func testABarReadsItsNumbersInEnglishAndGerman() {
+        let unsteady = TimingReview.Bar(number: 7, counted: 4, placement: 0.0123, spread: 0.0095, steadiness: .unsteady)
+        let steady = TimingReview.Bar(number: 8, counted: 3, placement: -0.004, spread: 0.0021, steadiness: .steady)
+        let single = TimingReview.Bar(number: 9, counted: 1, placement: 0.018)
+        let empty = TimingReview.Bar(number: 10, counted: 0)
+
+        Texts.language = .english
+        XCTAssertEqual(unsteady.text, "Bar 7, unsteady: placement +12.3 ms, spread 9.5 ms, 4 notes")
+        XCTAssertEqual(steady.text, "Bar 8, steady: placement -4.0 ms, spread 2.1 ms, 3 notes")
+        XCTAssertEqual(single.text, "Bar 9: placement +18.0 ms, a single note, too few to judge")
+        XCTAssertEqual(empty.text, "Bar 10: no counted notes")
+
+        Texts.language = .german
+        XCTAssertEqual(unsteady.text, "Takt 7, ungleichmäßig: Lage +12,3 ms, Streuung 9,5 ms, 4 Töne")
+        XCTAssertEqual(steady.text, "Takt 8, gleichmäßig: Lage -4,0 ms, Streuung 2,1 ms, 3 Töne")
+        XCTAssertEqual(single.text, "Takt 9: Lage +18,0 ms, ein einzelner Ton, zu wenige für ein Urteil")
+        XCTAssertEqual(empty.text, "Takt 10: keine gezählten Töne")
+    }
 }
