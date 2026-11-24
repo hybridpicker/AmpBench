@@ -850,14 +850,14 @@ private struct TimingBandCanvas: View, Equatable {
             let beats = band.points.filter { $0.bar == span.bar && $0.number != nil }
             for point in beats {
                 let number = context.resolve(Text("\(point.beat)").font(Theme.Fonts.mono(10, weight: .semibold))
-                    .foregroundStyle(.secondary))
+                    .foregroundStyle(Theme.desk.bandLabel.color))
                 context.draw(number, at: CGPoint(x: point.x, y: 6), anchor: .center)
             }
             guard let first = beats.first else { continue }
             let firstNumber = context.resolve(Text("\(first.beat)").font(Theme.Fonts.mono(10, weight: .semibold)))
             let numberHalf = Double(firstNumber.measure(in: size).width) / 2
             let label = context.resolve(Text(tr("Bar %d", span.bar)).font(Theme.Fonts.mono(9.5, weight: .bold))
-                .foregroundStyle(Theme.desk.gridBar.color))
+                .foregroundStyle(Theme.desk.bandLabel.color))
             let labelWidth = Double(label.measure(in: size).width)
             // On fine grids the first cell is too narrow for the label before the beat number: it goes after it.
             var labelEnd = first.x
@@ -871,7 +871,7 @@ private struct TimingBandCanvas: View, Equatable {
             // The word between the bar's first two beat numbers, after its label, where it fits.
             guard let steadiness = span.steadiness, beats.count >= 2 else { continue }
             let word = context.resolve(Text(steadiness.word).font(Theme.Fonts.mono(9.5, weight: .bold))
-                .foregroundStyle(steadiness == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.gridBar.color))
+                .foregroundStyle(steadiness == .unsteady ? Theme.desk.barUnsteadyText.color : Theme.desk.bandLabel.color))
             let low = max(first.x, labelEnd) + 8
             let high = beats[1].x - 8
             guard Double(word.measure(in: size).width) <= high - low else { continue }

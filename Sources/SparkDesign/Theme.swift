@@ -268,6 +268,9 @@ public struct DeskPalette: Sendable {
     public let barSteady = DeskSwatch(light: 0x1F6F7E, dark: 0x68C6D6, alpha: 0.07)
     public let barUnsteady = DeskSwatch(light: Swatch(hex: 0xE6A23C, alpha: 0.22), dark: Swatch(hex: 0xF7C45C, alpha: 0.16))
     public let barUnsteadyText = DeskSwatch(light: 0x7E5508, dark: 0xF7C45C)
+    /// The bar labels, beat numbers and the word "steady" in the timing band: as gray as the bar lines, dark enough
+    /// to read on every bar's tint.
+    public let bandLabel = DeskSwatch(light: 0x5E5E63, dark: 0xA3A3A8)
     /// The tint of a selected row, instead of the system's blue.
     public let selection = DeskSwatch(light: Swatch(hex: 0xE6A23C, alpha: 0.18), dark: Swatch(hex: 0xF7C45C, alpha: 0.14))
     /// The 3 pt bar on the left of a selected row.

@@ -117,6 +117,22 @@ final class ContrastTests: XCTestCase {
         }
     }
 
+    /// Every text of the timing band reads at 4.5 : 1 on whatever it is drawn on: the bar labels "Bar 3", the beat
+    /// numbers and the word "steady" on a plain, a steady and an unsteady bar, the word "unsteady" on its tint, and
+    /// the offsets ("+18 ms"), which stand below the tints on the band's background.
+    func testTextInTheTimingBand() {
+        for (name, pick) in [("light", { (s: DeskSwatch) in s.light }), ("dark", { (s: DeskSwatch) in s.dark })] {
+            let background = pick(desk.waveBackground)
+            let bars = [("plain", background), ("steady", pick(desk.barSteady).over(background)),
+                        ("unsteady", pick(desk.barUnsteady).over(background))]
+            for (barName, bar) in bars {
+                assertReadable(pick(desk.bandLabel), on: bar, "band label \(name) on a \(barName) bar")
+            }
+            assertReadable(pick(desk.barUnsteadyText), on: pick(desk.barUnsteady).over(background), "unsteady word \(name)")
+            assertReadable(pick(desk.onset), on: background, "offset \(name)")
+        }
+    }
+
     func testCompositing() {
         let half = Swatch.white(0.5).over(Swatch(hex: 0x000000))
         XCTAssertEqual(half.red, 0.5, accuracy: 0.001)
