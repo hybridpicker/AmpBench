@@ -159,6 +159,82 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(review.placement, 0, accuracy: 0.001)
     }
 
+    // MARK: Grid resolution
+
+    /// Notes on every grid point of `pointsPerBeat` per beat over two bars of 4/4 at `bpm`, each `offset(point)` off it,
+    /// on strings in turn so a note is not lost in the ring of the one before.
+    private func notesOnPoints(bpm: Double, pointsPerBeat: Int, rate: Double, offset: (Int) -> Double)
+        -> (samples: [Float], grid: BeatGrid) {
+        let grid = BeatGrid(bpm: bpm, beatsPerBar: 4, offset: 0.15)
+        let spacing = grid.secondsPerBeat / Double(pointsPerBeat)
+        let points = 8 * pointsPerBeat
+        let strings = [196.0, 293.7, 246.9, 329.6]
+        let notes = (0..<points).map {
+            Note(time: grid.offset + Double($0) * spacing + offset($0), frequency: strings[$0 % strings.count])
+        }
+        let seconds = grid.offset + 8 * grid.secondsPerBeat + 0.3
+        return (take(notes, seconds: seconds, rate: rate), grid)
+    }
+
+    private func review(_ samples: [Float], rate: Double, grid: BeatGrid, resolution: TimingReview.Resolution,
+                        file: StaticString = #filePath, line: UInt = #line) -> TimingReview? {
+        switch TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured, resolution: resolution) {
+        case .review(let review):
+            return review
+        case .noReview(let reason):
+            XCTFail("no review: \(reason)", file: file, line: line)
+            return nil
+        }
+    }
+
+    func testEighthsAndTripletsAreMatchedToTheirOwnGridPoints() throws {
+        let rate = 48_000.0
+        for (resolution, points) in [(TimingReview.Resolution.eighths, 2), (.triplets, 3), (.sixteenths, 4)] {
+            // Laid back by 8 ms on the beats and 15 ms on the points between them.
+            let (samples, grid) = notesOnPoints(bpm: 90, pointsPerBeat: points, rate: rate) {
+                $0 % points == 0 ? 0.008 : 0.015
+            }
+            let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, resolution: resolution))
+            XCTAssertEqual(review.resolution, resolution)
+            XCTAssertEqual(review.counted, 8 * points, "\(resolution)")
+            let counted = review.onsets.filter(\.isCounted)
+            XCTAssertEqual(counted.compactMap(\.gridPoint), Array(0..<(8 * points)), "\(resolution)")
+            for onset in counted {
+                let expected = (onset.gridPoint ?? 0) % points == 0 ? 0.008 : 0.015
+                XCTAssertEqual(try XCTUnwrap(onset.offset), expected, accuracy: 0.001, "\(resolution) \(onset.gridPoint ?? -1)")
+            }
+        }
+    }
+
+    func testOnQuartersTheEighthsBetweenTheBeatsDoNotCount() throws {
+        let rate = 44_100.0
+        let (samples, grid) = notesOnPoints(bpm: 90, pointsPerBeat: 2, rate: rate) { _ in 0.005 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, resolution: .quarters))
+        XCTAssertEqual(review.counted, 8)
+        XCTAssertEqual(review.onsets.filter { $0.status == .outsideWindows }.count, 8)
+        XCTAssertEqual(review.placement, 0.005, accuracy: 0.001)
+    }
+
+    func testALateEighthIsNeverCountedAsAnEarlyNextOne() throws {
+        // 100 bpm eighths lie 300 ms apart, so a catch window reaches 105 ms. The eighths after the beats come 95 ms
+        // late, inside their own window and 205 ms before the next beat: they count late, never early on that beat.
+        let rate = 48_000.0
+        let (samples, grid) = notesOnPoints(bpm: 100, pointsPerBeat: 2, rate: rate) { $0 % 2 == 0 ? 0 : 0.095 }
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, resolution: .eighths))
+        XCTAssertEqual(review.counted, 16)
+        for onset in review.onsets.filter(\.isCounted) {
+            let point = try XCTUnwrap(onset.gridPoint)
+            XCTAssertEqual(try XCTUnwrap(onset.offset), point % 2 == 0 ? 0 : 0.095, accuracy: 0.001, "point \(point)")
+        }
+
+        // 115 ms late is past the window of its own eighth and still 185 ms before the next beat: it counts nowhere.
+        let (tooLate, _) = notesOnPoints(bpm: 100, pointsPerBeat: 2, rate: rate) { $0 % 2 == 0 ? 0 : 0.115 }
+        let late = try XCTUnwrap(self.review(tooLate, rate: rate, grid: grid, resolution: .eighths))
+        XCTAssertEqual(late.counted, 8)
+        XCTAssertEqual(late.onsets.filter { $0.status == .outsideWindows }.count, 8)
+        XCTAssertTrue(late.onsets.filter(\.isCounted).allSatisfy { ($0.gridPoint ?? 1) % 2 == 0 && abs($0.offset ?? 1) < 0.001 })
+    }
+
     // MARK: Numbers
 
     func testPlacementIsTheMeanAndSpreadTheStandardDeviation() throws {
