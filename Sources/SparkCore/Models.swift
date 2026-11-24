@@ -85,6 +85,9 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
     /// What the take remembers about its click, for its timing review. Nil in takes from before the timing review
     /// and in takes repaired after a crash.
     public var timing: TimingStamp?
+    /// The grid of the timing review chosen for this take, when it has no piece to keep it. See
+    /// `LibraryStore.timingGrid(of:)`.
+    public var timingGrid: TimingReview.Resolution?
 
     public init(
         id: UUID = UUID(), fileName: String, createdAt: Date, duration: Double, sampleRate: Double, channels: Int,
@@ -92,7 +95,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         rating: Int = 0, favorite: Bool = false, tags: [String] = [], note: String = "", markers: [Marker] = [],
         pieceID: UUID? = nil, edit: EditList = EditList(), peakDB: Double? = nil, health: FileHealth = .ok,
         recoveredAfterInterruption: Bool = false, grid: BeatGrid? = nil, punch: PunchInfo? = nil,
-        preset: PresetStamp? = nil, timing: TimingStamp? = nil
+        preset: PresetStamp? = nil, timing: TimingStamp? = nil, timingGrid: TimingReview.Resolution? = nil
     ) {
         self.id = id
         self.fileName = fileName
@@ -119,6 +122,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         self.punch = punch
         self.preset = preset
         self.timing = timing
+        self.timingGrid = timingGrid
     }
 
     /// Missing fields get defaults, so a file written by an older or newer version still loads.
@@ -149,6 +153,7 @@ public struct Recording: Codable, Identifiable, Equatable, Sendable {
         punch = try c.decodeIfPresent(PunchInfo.self, forKey: .punch)
         preset = try c.decodeIfPresent(PresetStamp.self, forKey: .preset)
         timing = try? c.decodeIfPresent(TimingStamp.self, forKey: .timing)
+        timingGrid = try? c.decodeIfPresent(TimingReview.Resolution.self, forKey: .timingGrid)
     }
 
     public var name: String { (fileName as NSString).deletingPathExtension }
@@ -184,10 +189,13 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
     public var key: String?
     /// Time signature, accents and subdivision for the metronome, kept with the tempo.
     public var meter: PieceMeter?
+    /// The grid of the timing review chosen for one of its takes, used for all of them. See
+    /// `LibraryStore.timingGrid(of:)`.
+    public var timingGrid: TimingReview.Resolution?
 
     public init(id: UUID = UUID(), name: String, createdAt: Date = Date(), bestTakeID: UUID? = nil, artist: String = "",
                 bpm: Double? = nil, notes: String = "", preset: PresetLink? = nil, parts: [PiecePart] = [],
-                key: String? = nil, meter: PieceMeter? = nil) {
+                key: String? = nil, meter: PieceMeter? = nil, timingGrid: TimingReview.Resolution? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
@@ -199,6 +207,7 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         self.parts = parts
         self.key = key
         self.meter = meter
+        self.timingGrid = timingGrid
     }
 
     public init(from decoder: Decoder) throws {
@@ -214,6 +223,7 @@ public struct Piece: Codable, Identifiable, Equatable, Sendable {
         parts = try c.decodeIfPresent([PiecePart].self, forKey: .parts) ?? []
         key = try c.decodeIfPresent(String.self, forKey: .key)
         meter = try? c.decodeIfPresent(PieceMeter.self, forKey: .meter)
+        timingGrid = try? c.decodeIfPresent(TimingReview.Resolution.self, forKey: .timingGrid)
     }
 }
 
