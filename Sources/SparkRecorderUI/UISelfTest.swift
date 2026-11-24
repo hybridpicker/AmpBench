@@ -1215,7 +1215,6 @@ final class UISelfTest {
 
     // MARK: Pictures
 
-    /// A filled library in both appearances, for looking at the design.
     /// The timing band of a generated take: plucks a little off a click at 120 bpm, a fill between the beats and a
     /// late note past the cell, with a measured click latency. Pictures in dark and light, folded and in the smallest
     /// window; the band follows the playhead and the chosen bars.
@@ -1386,6 +1385,7 @@ final class UISelfTest {
         check(condition(named), text, detail: named.filter { $0.contains(tr("Timing")) }.joined(separator: " | "))
     }
 
+    /// A filled library in both appearances, for looking at the design.
     private func pictureScenario() async {
         useTestDevices()
         let piece = model.store.addPiece(named: "Blues in A")
