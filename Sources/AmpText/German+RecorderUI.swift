@@ -1041,8 +1041,12 @@ extension German {
             "Timing",
         "Timing review":
             "Timing-Auswertung",
-        "Placement %+.1f ms · Spread %.1f ms · %d notes on quarters":
-            "Lage %+.1f ms · Streuung %.1f ms · %d Töne auf Vierteln",
+        "Placement %+.1f ms · Spread %.1f ms · %@":
+            "Lage %+.1f ms · Streuung %.1f ms · %@",
+        "The grid the notes are matched to. The click plays quarters; a piece keeps the grid chosen for one of its takes.":
+            "Das Raster, auf das die Töne bezogen werden. Der Klick spielt Viertel; ein Stück behält das Raster, das für eine seiner Aufnahmen gewählt wurde.",
+        "Timing on %@":
+            "Timing auf %@",
         "Reviewing the timing …":
             "Timing wird ausgewertet …",
         "The timing could not be reviewed.":
