@@ -103,7 +103,8 @@ goes to a silent virtual output, and the presets live in its subfolder `Presets`
 ```
 
 Other scenarios are `legacy`, `crash-start`, `crash-verify`, `realwindow`, `pictures` and `sound` (a take keeps a
-made-up sound, and an amp action that fails during the recording must not end it). Two more cover the Spark-only rule
+made-up sound, and an amp action that fails during the recording must not end it) and `timing` (the timing band of a
+generated take, in both appearances, folded and in the smallest window). Two more cover the Spark-only rule
 and take an extra option: `nospark` with `--test-input none`, and `reconnect` with `--test-input aggregate`.
 `--menu-dump <file>` lists every menu item with its key and state, once with each area in front, and checks with a real
 key press that a Presets key reaches Presets only while that area shows. `--live-selftest <log>` edits a copy of slot 1

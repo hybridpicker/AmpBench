@@ -239,6 +239,15 @@ echoes, later strings and notes between the beats do not. A take that gets no re
 click, the click not on for the whole take, recorded before the measurement (every take from before this change), or
 click latency not measured (also when it was set by hand).
 
+A take with a review opens the timing band below the waveform. It shows two bars at a time, bars 1–2, 3–4 and so
+on, with each beat magnified to about ±60 ms, so 10 ms are already a clear gap. The click lines stand still in the
+middle of each beat with their numbers 1, 2, 3, 4; your notes are strokes beside them, later to the right, each
+with its offset below it ("+18 ms"). Notes that do not count (echoes, later strings, notes between the beats) are
+faint and carry no number. A note further off than the band shows sits at the edge with a small arrow and its true
+offset. The band follows the playhead while playing, jumps to a click into the waveform, and shows the bars chosen
+with the bar steppers. "Fold" on the "Timing" line folds it away, and it stays folded for the next takes until
+"Unfold".
+
 ### Audio quality
 
 - The device runs at its highest rate up to 192 kHz during a recording, and its previous rate comes back afterwards.
