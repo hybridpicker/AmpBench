@@ -1336,6 +1336,34 @@ final class UISelfTest {
         await snapshot("timing-band-folded-dark")
         model.toggleTimingBand()
         check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "unfolded again")
+
+        // On eighths the two fills between the beats lie on grid points of their own and count; the take, which has
+        // no piece, keeps the grid for itself and opens on it again.
+        check(model.timingGrid == .quarters && model.canChooseTimingGrid, "the take opens on quarters, the grid can be chosen")
+        await voiceOverCheck("VoiceOver finds the grid choice") { $0.contains { $0.contains(tr("Grid")) && $0.contains(tr("Quarters")) } }
+        model.setTimingGrid(.eighths)
+        check(await waitUntil(timeout: 10) {
+            if case .review(let review) = model.timingOutcome { return review.resolution == .eighths } else { return false }
+        }, "choosing eighths reviews the take again", detail: "\(String(describing: model.timingOutcome))")
+        if case .review(let eighths) = model.timingOutcome {
+            check(eighths.counted == bars * 4 + 2, "on eighths the fills count too", detail: "\(eighths.counted)")
+        }
+        check(model.store.recording(take.id)?.timingGrid == .eighths, "the take without a piece keeps the grid")
+        model.setBarSelection(1...2)
+        await wait(0.3)
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-eighths-\(suffix)")
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
+        model.select(take.id)
+        check(model.timingGrid == .eighths, "opened again, the take is on eighths")
+        model.setTimingGrid(.sixteenths)
+        _ = await waitUntil(timeout: 10) {
+            if case .review(let review) = model.timingOutcome { return review.resolution == .sixteenths } else { return false }
+        }
+        await snapshot("timing-band-sixteenths-dark")
+        model.setTimingGrid(.quarters)
     }
 
     /// A check through the interface VoiceOver uses. Where the app's accessibility tree cannot be read, such as from

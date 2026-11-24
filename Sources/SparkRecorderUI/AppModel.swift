@@ -178,6 +178,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var isReviewingTiming = false
     /// The timing band folded away: it stays so for the next takes until it is unfolded.
     @Published private(set) var isTimingBandFolded = false
+    /// The grid the review of the take in focus uses: the one its piece or the take keeps, else quarters.
+    @Published private(set) var timingGrid: TimingReview.Resolution = .quarters
     private var tapTempo = TapTempo()
 
     // MARK: Messages
@@ -1332,17 +1334,36 @@ final class AppModel: ObservableObject {
         announce(isTimingBandFolded ? tr("Timing band folded") : tr("Timing band shown"))
     }
 
+    /// A grid can be chosen for a take that could have a review; whether it has one may depend on the grid.
+    var canChooseTimingGrid: Bool {
+        guard let recording = current, recording.health == .ok else { return false }
+        return TimingReview.reasonBeforeListening(grid: recording.grid, stamp: recording.timing) == nil
+    }
+
+    /// Reviews the take in focus again on another grid, and keeps the grid where the library keeps such a choice.
+    func setTimingGrid(_ resolution: TimingReview.Resolution) {
+        guard let id = currentID, resolution != timingGrid else { return }
+        store.keepTimingGrid(resolution, for: id)
+        scheduleSave()
+        guard let recording = store.recording(id) else { return }
+        loadTimingReview(for: recording, keepShowing: true)
+        announce(tr("Timing on %@", resolution.name))
+    }
+
     /// Works out the timing review of the take in focus in the background, holding back while a recording runs. A
-    /// reason known from the library entry alone needs no reading of the file.
-    private func loadTimingReview(for recording: Recording) {
+    /// reason known from the library entry alone needs no reading of the file. `keepShowing` leaves the review on
+    /// screen until the new one is there, so choosing another grid does not blink.
+    private func loadTimingReview(for recording: Recording, keepShowing: Bool = false) {
         timingTask?.cancel()
         timingTask = nil
         isReviewingTiming = false
+        let resolution = store.timingGrid(of: recording)
+        timingGrid = resolution
         if let reason = TimingReview.reasonBeforeListening(grid: recording.grid, stamp: recording.timing) {
             timingOutcome = .noReview(reason)
             return
         }
-        timingOutcome = nil
+        if !keepShowing { timingOutcome = nil }
         guard recording.health == .ok else { return }
         isReviewingTiming = true
         let id = recording.id
@@ -1360,7 +1381,7 @@ final class AppModel: ObservableObject {
                 let snapshot = snapshotURL.flatMap { try? Data(contentsOf: $0) }
                 let delay = snapshot.map { hasDelay?($0) ?? false } ?? false
                 return TimingReview.review(samples: audio.samples, sampleRate: audio.sampleRate, grid: grid, stamp: stamp,
-                                           soundHasDelay: delay)
+                                           resolution: resolution, soundHasDelay: delay)
             }
             let outcome = await withTaskCancellationHandler {
                 await work.value
@@ -1960,6 +1981,10 @@ final class AppModel: ObservableObject {
     func assign(_ ids: Set<UUID>, toPiece pieceID: UUID?) {
         for id in ids { store.assign(id, toPiece: pieceID) }
         scheduleSave()
+        // The take in focus now uses the grid its new piece keeps.
+        if let current, ids.contains(current.id), store.timingGrid(of: current) != timingGrid {
+            loadTimingReview(for: current, keepShowing: true)
+        }
     }
 
     func toggleBestTake(_ id: UUID? = nil) {

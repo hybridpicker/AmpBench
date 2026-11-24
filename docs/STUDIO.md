@@ -419,7 +419,8 @@ own timing against the click note by note, including playing laid back on purpos
 the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
 band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`) with its bars steady
-or unsteady; the rest is spec.
+or unsteady, and the choice of the grid (`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take
+without one); the rest is spec.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement

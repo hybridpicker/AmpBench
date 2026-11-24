@@ -24,6 +24,8 @@ public struct TimingBand: Equatable, Sendable {
         public var isCounted: Bool
         /// The offset in milliseconds, for a counted onset. Faint strokes carry none.
         public var label: String?
+        /// The same offset without its unit, as "+18", for cells too narrow for the label, as on sixteenths.
+        public var shortLabel: String?
         /// Further off than the cell reaches: drawn at its edge, with its true offset.
         public var isPastTheCell: Bool
         /// The index of its click in `clicks`, whose cell it is drawn in.
@@ -73,7 +75,8 @@ public struct TimingBand: Equatable, Sendable {
             let offset = onset.offset ?? onset.time - (grid.offset + Double(point) * spacing)
             let shift = min(max(offset / reach, -1), 1) * cellWidth / 2
             return Stroke(x: (Double(index) + 0.5) * cellWidth + shift, offset: offset, isCounted: onset.isCounted,
-                          label: onset.isCounted ? Self.label(offset) : nil, isPastTheCell: abs(offset) > reach, click: index)
+                          label: onset.isCounted ? Self.label(offset) : nil,
+                          shortLabel: onset.isCounted ? Self.shortLabel(offset) : nil, isPastTheCell: abs(offset) > reach, click: index)
         }
     }
 
@@ -128,5 +131,10 @@ public struct TimingBand: Equatable, Sendable {
     /// The offset in whole milliseconds, signed, as "+18 ms".
     static func label(_ offset: Double) -> String {
         tr("%+d ms", Int((offset * 1000).rounded()))
+    }
+
+    /// The offset in whole milliseconds, signed, without the unit.
+    static func shortLabel(_ offset: Double) -> String {
+        String(format: "%+d", Int((offset * 1000).rounded()))
     }
 }

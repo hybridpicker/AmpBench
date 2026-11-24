@@ -140,8 +140,11 @@ a variant of `LEDSegments`).
   in secondary text, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
   onset color with their offset ("+18 ms") in mono; onsets that do not count are faint and carry no number. An onset
   further off than the cell sits at its edge with a small arrow. The playhead shows in the band only near a click.
-  Never red, early and late are no alarm. The "Timing" row on the transport front holds the take's placement and
-  spread and the key "Fold"/"Unfold"; a take without a review shows only that row with its reason.
+  On eighths, triplets or sixteenths there is one cell per grid point; the points between the beats are thinner, in
+  beat-line color, since the click plays only the beats. Where a cell is too narrow for "+18 ms" the offset reads
+  "+18", and without room for that none. Never red, early and late are no alarm. The "Timing" row on the transport
+  front holds the take's placement and spread, the `DevicePopup` "Grid" and the key "Fold"/"Unfold"; a take without
+  a review shows only that row with its reason.
 - **Library:** `SegmentTabs`, the piece for new recordings and the search in one header; mono dates and durations,
   amber stars, "Open" as a pill, amber selection; a status line with recordings, open takes, practice time of the
   last 30 days and "⌘/ Keyboard shortcuts". The inspector has `SegmentTabs`, system fields with `DeskCaption`, a two-column

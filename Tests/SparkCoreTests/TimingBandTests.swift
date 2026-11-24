@@ -19,11 +19,12 @@ final class TimingBandTests: XCTestCase {
     }
 
     /// A review of the given onsets, matched to the grid as the review module does.
-    private func review(_ times: [Double], grid: BeatGrid? = nil, duration: Double = 20) -> TimingReview {
+    private func review(_ times: [Double], grid: BeatGrid? = nil, duration: Double = 20,
+                        resolution: TimingReview.Resolution = .quarters) -> TimingReview {
         let grid = grid ?? self.grid
-        let onsets = TimingReview.match(times, to: grid, resolution: .quarters, duration: duration)
+        let onsets = TimingReview.match(times, to: grid, resolution: resolution, duration: duration)
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
-        return TimingReview(resolution: .quarters, onsets: onsets, placement: 0, spread: 0, counted: offsets.count,
+        return TimingReview(resolution: resolution, onsets: onsets, placement: 0, spread: 0, counted: offsets.count,
                             hints: [])
     }
 
@@ -68,6 +69,39 @@ final class TimingBandTests: XCTestCase {
         XCTAssertEqual(band.strokes[0].x, 600, accuracy: 0.01, "at the right edge of the cell of beat 2 in bar 2")
         XCTAssertTrue(band.strokes[0].isPastTheCell)
         XCTAssertEqual(band.strokes[0].label, "+120 ms")
+    }
+
+    func testOnEighthsTheBandShowsAClickForEveryEighthWithNumbersOnTheBeats() {
+        let band = TimingBand(review: review([], resolution: .eighths), grid: grid, bars: 1...2, width: 800)
+
+        XCTAssertEqual(band.clicks.count, 16)
+        XCTAssertEqual(band.clicks.prefix(8).map(\.beat), [1, nil, 2, nil, 3, nil, 4, nil])
+        XCTAssertEqual(band.clicks.prefix(3).map(\.x), [25, 75, 125])
+    }
+
+    func testOnTripletsAnOnsetSitsInTheCellOfItsOwnTriplet() {
+        // 120 bpm triplets lie 167 ms apart: the second triplet of beat 3 in bar 1, 12 ms late.
+        let second = beat(3, ofBar: 1) + grid.secondsPerBeat / 3 + 0.012
+        let band = TimingBand(review: review([second], resolution: .triplets), grid: grid, bars: 1...2, width: 1200)
+
+        XCTAssertEqual(band.clicks.count, 24)
+        XCTAssertEqual(band.strokes.count, 1)
+        let click = band.clicks[band.strokes[0].click]
+        XCTAssertEqual(click.bar, 1)
+        XCTAssertNil(click.beat, "between the beats")
+        XCTAssertEqual(band.strokes[0].click, 7, "beat 3 is the seventh triplet, its second the eighth")
+        XCTAssertEqual(band.strokes[0].label, "+12 ms")
+        XCTAssertEqual(band.strokes[0].x, 7.5 * 50 + 25 * 0.012 / 0.060, accuracy: 0.01)
+    }
+
+    func testEveryCountedStrokeCarriesItsOffsetAlsoWithoutTheUnitForNarrowCells() {
+        let band = TimingBand(review: review([beat(2, ofBar: 1) + 0.018, beat(3, ofBar: 1) - 0.007]), grid: grid,
+                              bars: 1...2, width: 800)
+
+        XCTAssertEqual(band.strokes.map(\.shortLabel), ["+18", "-7"])
+        Texts.language = .german
+        XCTAssertEqual(TimingBand(review: review([beat(2, ofBar: 1) + 0.018]), grid: grid, bars: 1...2, width: 800)
+            .strokes.map(\.label), ["+18 ms"])
     }
 
     func testTenToFortyMillisecondsStandClearOfTheClickInAThreeMinuteTake() {

@@ -708,6 +708,12 @@ private struct TimingLine: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(tr("Timing review"))
             .accessibilityValue(hints.map { "\(text) \($0)" } ?? text)
+            if model.canChooseTimingGrid {
+                DevicePopup(tr("Grid"), selection: Binding(get: { model.timingGrid }, set: { model.setTimingGrid($0) }),
+                            options: TimingReview.Resolution.allCases.map { ($0, $0.name) }, height: 22)
+                    .frame(width: 112)
+                    .help(tr("The grid the notes are matched to. The click plays quarters; a piece keeps the grid chosen for one of its takes."))
+            }
             if showing.canFold {
                 Button(showing == .folded ? tr("Unfold") : tr("Fold"), action: model.toggleTimingBand)
                     .buttonStyle(.hardwareKey(size: .small))
@@ -737,8 +743,8 @@ private struct TimingLine: View {
     private var text: String {
         switch model.timingOutcome {
         case .review(let review):
-            return tr("Placement %+.1f ms · Spread %.1f ms · %d notes on quarters",
-                      review.placement * 1000, review.spread * 1000, review.counted)
+            return tr("Placement %+.1f ms · Spread %.1f ms · %@",
+                      review.placement * 1000, review.spread * 1000, review.resolution.notes(review.counted))
         case .noReview(let reason):
             return reason.text
         case nil:
@@ -855,6 +861,7 @@ private struct TimingBandCanvas: View, Equatable {
             var edges = Path()
             var bars = Path()
             var clicks = Path()
+            var between = Path()
             for (index, click) in band.clicks.enumerated() {
                 let left = Double(index) * cell
                 if index == 0 || band.clicks[index - 1].bar != click.bar {
@@ -866,7 +873,12 @@ private struct TimingBandCanvas: View, Equatable {
                 } else {
                     edges.addRect(CGRect(x: left, y: top, width: 1, height: height))
                 }
-                clicks.addRect(CGRect(x: click.x - 0.75, y: top, width: 1.5, height: height))
+                // The click plays only the beats while recording; the grid points between them are drawn fainter.
+                if click.beat == nil {
+                    between.addRect(CGRect(x: click.x - 0.5, y: top, width: 1, height: height))
+                } else {
+                    clicks.addRect(CGRect(x: click.x - 0.75, y: top, width: 1.5, height: height))
+                }
                 if let beat = click.beat {
                     let text = context.resolve(Text("\(beat)").font(Theme.Fonts.mono(10, weight: .semibold))
                         .foregroundStyle(.secondary))
@@ -887,6 +899,7 @@ private struct TimingBandCanvas: View, Equatable {
             context.fill(edges, with: .color(Theme.desk.gridBeat.color))
             context.fill(bars, with: .color(Theme.desk.gridBar.color))
             context.fill(clicks, with: .color(Theme.desk.gridBar.color))
+            context.fill(between, with: .color(Theme.desk.gridBeat.color))
 
             var faint = Path()
             var counted = Path()
@@ -904,14 +917,17 @@ private struct TimingBandCanvas: View, Equatable {
                     arrow.closeSubpath()
                     if stroke.isCounted { counted.addPath(arrow) } else { faint.addPath(arrow) }
                 }
-                guard let label = stroke.label else { continue }
-                let text = context.resolve(Text(label).font(Theme.Fonts.mono(10, weight: .semibold))
-                    .foregroundStyle(Theme.desk.onset.color))
+                // On fine grids the cell may be too narrow for "+18 ms": then "+18", or no number (VoiceOver still reads it).
+                let texts = [stroke.label, stroke.shortLabel].compactMap { $0 }.map {
+                    context.resolve(Text($0).font(Theme.Fonts.mono(10, weight: .semibold))
+                        .foregroundStyle(Theme.desk.onset.color))
+                }
+                guard let text = texts.first(where: { Double($0.measure(in: size).width) + 4 <= cell }) else { continue }
                 let width = Double(text.measure(in: size).width)
                 let left = Double(stroke.click) * cell
                 let low = left + width / 2 + 2
                 let high = left + cell - width / 2 - 2
-                let x = low <= high ? min(max(stroke.x, low), high) : left + cell / 2
+                let x = min(max(stroke.x, low), high)
                 context.draw(text, at: CGPoint(x: x, y: top + height + 9), anchor: .center)
             }
             context.fill(faint, with: .color(Theme.desk.onsetFaint.color))
