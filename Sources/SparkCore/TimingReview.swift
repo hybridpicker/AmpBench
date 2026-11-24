@@ -125,7 +125,8 @@ public struct TimingReview: Equatable, Sendable {
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
                                     spread: variance.squareRoot(), counted: offsets.count,
                                     hints: soundHasDelay ? [.delayInTheSound] : [],
-                                    bars: bars(of: onsets, grid: grid, resolution: resolution, duration: duration)))
+                                    bars: bars(of: onsets, grid: grid, resolution: resolution, duration: duration,
+                                               takeSpread: variance.squareRoot())))
     }
 
     /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.

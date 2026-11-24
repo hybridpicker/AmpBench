@@ -75,4 +75,49 @@ final class TimingReviewBarsTests: XCTestCase {
         XCTAssertNil(placements[4])
         XCTAssertNil(spreads[4])
     }
+
+    // MARK: Steady and unsteady
+
+    func testABarFarLessSteadyThanTheTakeIsUnsteady() throws {
+        // Bar 3 lies 12 ms early and late in turn, the others on the click: the take spreads by 6 ms, bar 3 by 12.
+        let review = try review(bars: 4) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.012 : 0.012) : 0 }
+
+        XCTAssertEqual(review.bars.map(\.steadiness), [.steady, .steady, .unsteady, .steady, nil])
+    }
+
+    func testATakeUnevenThroughoutHasNoUnsteadyBar() throws {
+        // Every bar spreads by 12 ms, as the take does: no bar is a weak spot of its own.
+        let review = try review(bars: 4) { beat in beat % 2 == 0 ? -0.012 : 0.012 }
+
+        XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .steady, .steady])
+    }
+
+    func testASmallSpreadIsSteadyEvenWhenTheRestIsSteadier() throws {
+        // Bar 3 spreads by 5 ms against 2.5 ms for the take: twice the take, but too little to call unsteady.
+        let review = try review(bars: 4) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.005 : 0.005) : 0 }
+
+        XCTAssertEqual(review.bars[2].steadiness, .steady)
+    }
+
+    func testABarWithASingleNoteHasNoSpreadAndIsNotJudged() throws {
+        // Bar 2 has only its first beat; the rest of the take is on the click.
+        let review = try review(bars: 3) { beat in beat / 4 == 1 && beat % 4 != 0 ? nil : 0 }
+
+        let bar = review.bars[1]
+        XCTAssertEqual(bar.counted, 1)
+        XCTAssertEqual(try XCTUnwrap(bar.placement), 0, accuracy: 0.001)
+        XCTAssertNil(bar.spread)
+        XCTAssertNil(bar.steadiness)
+    }
+
+    // MARK: Bars recorded again
+
+    func testATakeRecordedAgainForBars5To8HasItsOwnReview() throws {
+        // A retake of bars 5 to 8: its bars start at 5, and bar 7 was still uneven.
+        let review = try review(bars: 4, firstBar: 5) { beat in beat / 4 == 2 ? (beat % 2 == 0 ? -0.012 : 0.012) : 0 }
+
+        XCTAssertEqual(review.bars.prefix(4).map(\.number), [5, 6, 7, 8])
+        XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .unsteady, .steady])
+        XCTAssertEqual(review.counted, 16)
+    }
 }
