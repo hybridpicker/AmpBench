@@ -1047,5 +1047,27 @@ extension German {
             "Timing wird ausgewertet …",
         "The timing could not be reviewed.":
             "Das Timing konnte nicht ausgewertet werden.",
+        "Timing band":
+            "Timing-Band",
+        "Timing band folded":
+            "Timing-Band eingeklappt",
+        "Timing band shown":
+            "Timing-Band angezeigt",
+        "Fold":
+            "Einklappen",
+        "Unfold":
+            "Ausklappen",
+        "Fold the timing band":
+            "Timing-Band einklappen",
+        "Unfold the timing band":
+            "Timing-Band ausklappen",
+        "Shows the timing band below the waveform":
+            "Zeigt das Timing-Band unter der Wellenform",
+        "Folds the timing band away, so the waveform has the room":
+            "Klappt das Timing-Band ein, damit die Wellenform den Platz hat",
+        "bar %d beat %d %@":
+            "Takt %d Schlag %d %@",
+        "%@, no counted notes":
+            "%@, keine gezählten Töne",
     ]
 }

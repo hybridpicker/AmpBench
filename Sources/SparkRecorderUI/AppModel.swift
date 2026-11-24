@@ -176,6 +176,8 @@ final class AppModel: ObservableObject {
     /// could not be read.
     @Published private(set) var timingOutcome: TimingReview.Outcome?
     @Published private(set) var isReviewingTiming = false
+    /// The timing band folded away: it stays so for the next takes until it is unfolded.
+    @Published private(set) var isTimingBandFolded = false
     private var tapTempo = TapTempo()
 
     // MARK: Messages
@@ -1320,6 +1322,11 @@ final class AppModel: ObservableObject {
             show(.error, error.localizedDescription)
         }
         if !waveformReady { loadWaveform(for: recording) }
+    }
+
+    func toggleTimingBand() {
+        isTimingBandFolded.toggle()
+        announce(isTimingBandFolded ? tr("Timing band folded") : tr("Timing band shown"))
     }
 
     /// Works out the timing review of the take in focus in the background, holding back while a recording runs. A
