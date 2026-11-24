@@ -69,6 +69,9 @@ public struct TimingReview: Equatable, Sendable {
             case laterInWindow
             /// Between the catch windows, such as a fill or a passing note.
             case outsideWindows
+            /// First in its catch window, but the detector is unsure of it: a quiet note, legato or a swell. It still
+            /// takes the window, so a later onset there, maybe its echo, does not count instead.
+            case unsure
         }
 
         /// Where the onset lies in the file.
@@ -132,9 +135,13 @@ public struct TimingReview: Equatable, Sendable {
                               resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         guard let grid, let stamp, let accuracy = accuracy(of: stamp) else { return .noReview(.noBars) }
-        let times = OnsetDetector.onsets(in: samples, sampleRate: sampleRate)
+        let attacks = OnsetDetector.attacks(in: samples, sampleRate: sampleRate)
         let duration = Double(samples.count) / sampleRate
-        let onsets = match(times, to: grid, resolution: resolution, duration: duration)
+        var onsets = match(attacks.map(\.time), to: grid, resolution: resolution, duration: duration)
+        // The attacks come in the order of time, as the onsets do.
+        for index in onsets.indices where onsets[index].status == .counted && !attacks[index].isClear {
+            onsets[index].status = .unsure
+        }
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
         guard offsets.count >= minimumCounted else { return .noReview(.tooFewOnsets) }
         let placement = offsets.reduce(0, +) / Double(offsets.count)
@@ -213,7 +220,38 @@ public enum NoReviewReason: Hashable, Sendable {
 /// in its first milliseconds, then followed back to the first sample that stands out from what sounded before, so
 /// its time is where the note begins and not where it has grown loud: half a sample before that first sample, since
 /// the note began between it and the last quiet one.
+///
+/// An attack is clear when it is not far quieter than the take's typical attack and rises fast: a picked note
+/// reaches a quarter of its level within a few samples, a legato note or a swell takes many milliseconds.
 enum OnsetDetector {
+    struct Attack: Equatable {
+        /// Where the note begins, in seconds in the file.
+        var time: Double
+        /// The loudest sample in the attack's first 20 ms.
+        var level: Float
+        /// Seconds from the beginning until the attack reaches a quarter of its level.
+        var rise: Double
+        var isClear = true
+    }
+
+    private static let levelSeconds = 0.020
+    private static let riseShare: Float = 0.25
+    /// The slowest rise of a clear attack.
+    private static let slowestRise = 0.002
+    /// Quieter than this share of the take's median attack (18 dB below it), an attack is unsure.
+    private static let quietShare: Float = 0.125
+
+    static func attacks(in samples: [Float], sampleRate: Double) -> [Attack] {
+        var attacks = rawAttacks(in: samples, sampleRate: sampleRate)
+        let levels = attacks.map(\.level).sorted()
+        guard !levels.isEmpty else { return [] }
+        let typical = levels[levels.count / 2]
+        for index in attacks.indices {
+            attacks[index].isClear = attacks[index].level >= typical * quietShare && attacks[index].rise <= slowestRise
+        }
+        return attacks
+    }
+
     private static let stepSeconds = 0.001
     private static let lookBackSteps = 25
     private static let rise: Float = 2
@@ -223,7 +261,7 @@ enum OnsetDetector {
     private static let peakSeconds = 0.001
     private static let peakShare: Float = 0.3
 
-    static func onsets(in samples: [Float], sampleRate: Double) -> [Double] {
+    private static func rawAttacks(in samples: [Float], sampleRate: Double) -> [Attack] {
         let step = max(Int((sampleRate * stepSeconds).rounded()), 1)
         let count = samples.count / step
         guard count > lookBackSteps else { return [] }
@@ -239,7 +277,8 @@ enum OnsetDetector {
         let floor = max(loudest * 0.02, 0.001)
         let peakLength = Int(sampleRate * peakSeconds)
 
-        var onsets: [Double] = []
+        let levelLength = Int(sampleRate * levelSeconds)
+        var attacks: [Attack] = []
         var index = 1
         while index < count {
             // The step just before belongs to the attack when it starts late in it, so it is not the background.
@@ -255,11 +294,15 @@ enum OnsetDetector {
             if var first = samples[start..<end].firstIndex(where: { abs($0) >= threshold }) {
                 let before = max(background, floor * 0.05)
                 while first > start, abs(samples[first - 1]) > before { first -= 1 }
+                let attack = samples[first..<min(first + levelLength, samples.count)]
+                let level = attack.reduce(Float(0)) { max($0, abs($1)) }
+                let risen = attack.firstIndex { abs($0) >= level * riseShare } ?? first
                 // The note began somewhere between the last quiet sample and the first that stands out.
-                onsets.append((Double(first) - 0.5) / sampleRate)
+                attacks.append(Attack(time: (Double(first) - 0.5) / sampleRate, level: level,
+                                      rise: Double(risen - first) / sampleRate))
             }
             index += holdSteps
         }
-        return onsets
+        return attacks
     }
 }

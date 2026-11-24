@@ -17,6 +17,8 @@ final class TimingReviewTests: XCTestCase {
         var time: Double
         var frequency: Double = 196
         var amplitude: Double = 0.5
+        /// Seconds the note takes to swell in, as a legato note or a volume swell does; 0 for a picked attack.
+        var attack: Double = 0
     }
 
     /// A take of `seconds` with the notes in it, over a faint noise floor. Each note starts exactly at its time.
@@ -27,8 +29,10 @@ final class TimingReviewTests: XCTestCase {
             let pluck = Self.pluck(frequency: note.frequency, rate: rate, seed: UInt64(number % 4 + 1))
             let start = Int((note.time * rate).rounded())
             let gain = Float(note.amplitude / 0.5)
+            let attackFrames = note.attack * rate
             for (step, value) in pluck.enumerated() where start + step >= 0 && start + step < samples.count {
-                samples[start + step] += gain * value
+                let swell = attackFrames > 0 ? Float(min(Double(step) / attackFrames, 1)) : 1
+                samples[start + step] += gain * swell * value
             }
         }
         return samples
@@ -157,6 +161,43 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(outside.first).time, between, accuracy: 0.001)
         XCTAssertNil(outside.first?.offset)
         XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+    }
+
+    func testQuietAndLegatoNotesAreFaintAndNotCounted() throws {
+        // Four bars of clean plucks; two of them played 24 dB quieter, two legato with an attack of 20 ms.
+        let quiet: Set<Int> = [3, 9]
+        let legato: Set<Int> = [6, 13]
+        for rate in [44_100.0, 48_000.0] {
+            let grid = BeatGrid(bpm: 100, beatsPerBar: 4, offset: 0.15)
+            let notes = (0..<16).map { beat -> Note in
+                var note = Note(time: grid.offset + Double(beat) * grid.secondsPerBeat, frequency: beat % 2 == 0 ? 196 : 247)
+                if quiet.contains(beat) { note.amplitude = 0.5 * pow(10, -24.0 / 20) }
+                if legato.contains(beat) { note.attack = 0.020 }
+                return note
+            }
+            let samples = take(notes, seconds: grid.offset + 16 * grid.secondsPerBeat + 0.3, rate: rate)
+            let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+            XCTAssertEqual(review.counted, 12, "\(rate) Hz")
+            let unsure = review.onsets.filter { $0.status == .unsure }
+            XCTAssertEqual(Set(unsure.compactMap(\.gridPoint)), quiet.union(legato), "\(rate) Hz: shown faint")
+            XCTAssertTrue(unsure.allSatisfy { !$0.isCounted })
+            XCTAssertEqual(Set(review.onsets.filter(\.isCounted).compactMap(\.gridPoint)),
+                           Set(0..<16).subtracting(quiet).subtracting(legato), "\(rate) Hz: clean plucks still count")
+            XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+        }
+    }
+
+    func testAVolumeSwellDoesNotCount() throws {
+        let rate = 48_000.0
+        let grid = BeatGrid(bpm: 90, beatsPerBar: 4, offset: 0.15)
+        let swells: Set<Int> = [4, 11]
+        let notes = (0..<16).map { beat in
+            Note(time: grid.offset + Double(beat) * grid.secondsPerBeat, attack: swells.contains(beat) ? 0.3 : 0)
+        }
+        let samples = take(notes, seconds: grid.offset + 16 * grid.secondsPerBeat + 0.3, rate: rate)
+        let review = try XCTUnwrap(review(samples, rate: rate, grid: grid, stamp: measured))
+        XCTAssertEqual(review.counted, 14)
+        XCTAssertTrue(review.onsets.filter(\.isCounted).allSatisfy { !swells.contains($0.gridPoint ?? -1) })
     }
 
     // MARK: Numbers
