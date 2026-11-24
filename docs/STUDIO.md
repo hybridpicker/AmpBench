@@ -418,7 +418,8 @@ own timing against the click note by note, including playing laid back on purpos
 2026-11-23; the terms are those of [GLOSSARY.md](../GLOSSARY.md). Status: the click latency per amp is built, and so are
 the timing stamp of a take and a first review on quarters with one line in the area Record (`TimingReview` in
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
-band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`); the rest is spec.
+band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`) with its bars steady
+or unsteady; the rest is spec.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
@@ -575,6 +576,16 @@ Live timing while playing comes next, then Linux and the iPad.
   placement, spread and accuracy in the status line. It opens on its own for a take with a review and can be
   folded; without a review it is one line with the reason. All texts through `tr()` with German tables, as
   everywhere.
+- **Bars:** every bar of the take has its placement, spread (both nil below the notes they need: placement one,
+  spread two) and number of counted onsets (`TimingReview.Bar`). A bar is **unsteady** when its spread is more than
+  1.5 times the take's spread and above 8 ms, otherwise steady; a bar with a single note is not judged. So a take
+  uneven throughout has no weak spot of its own, and a few milliseconds are never one. This line is provisional:
+  asked of the owner on 2026-11-24, answer pending; it is one rule in `TimingReview.Steadiness`. In the band a
+  steady bar has a faint tint in the wave's colour, an unsteady one an amber tint, each with its word ("steady",
+  "unsteady"; German "ruhig", "unruhig") between its first two beat numbers where it fits. Pointing at a bar shows
+  its numbers, VoiceOver reads them, and a click chooses the bar for "Loop bars" and "Record bars again". A take
+  recorded again for some bars is a take of its own and gets its own review, its bars numbered from the first
+  bar recorded again.
 - **Devices:** the Mac first. Linux and the iPad get the same view and the same rules once the Mac is accepted, as
   one piece ("One-piece UI").
 
@@ -626,7 +637,8 @@ Live timing while playing comes next, then Linux and the iPad.
   a player 1.5 m from the speaker who plays exactly on the heard click shows a placement of about +4 ms. The review
   is right about it; the band could say so when the click output is a speaker.
 - To be settled while building, with the owner where it is a matter of taste: the smallest number of counted onsets
-  for a review; the line between a steady and an unsteady bar; whether a reverb tail needs a hint as well as a delay.
+  for a review; the line between a steady and an unsteady bar (provisional rule under "Bars"); whether a reverb tail
+  needs a hint as well as a delay.
 
 ## Ordering presets: hashtags
 
