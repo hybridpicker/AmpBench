@@ -580,7 +580,8 @@ Live timing while playing comes next, then Linux and the iPad.
 - **Delay in the sound** is read from the take's sound snapshot by the layer that knows the preset format
   (SparkControl) and handed to the review as a flag. It gives a hint, not a refusal. A delay counts when it is
   switched on: a delay model of the catalog, or an unknown model on the delay place of a full chain. A take without
-  a snapshot gets no hint. Built; whether a reverb tail needs a hint too is open and asked of the owner.
+  a snapshot gets no hint. A reverb tail gets no hint for now (owner, 2026-11-24); that may change once a test with
+  synthetic reverb shows it moves onsets.
 - **The timing band:** below the waveform in the area Record. The waveform has no zoom and always shows the whole
   take, so the band does not follow a zoom: it shows the two bars around the playhead, each beat magnified to about
   ±60 ms, follows playback and jumps to a click into the waveform or to selected bars (owner, 2026-11-23). The
@@ -592,8 +593,8 @@ Live timing while playing comes next, then Linux and the iPad.
 - **Bars:** every bar of the take has its placement, spread (both nil below the notes they need: placement one,
   spread two) and number of counted onsets (`TimingReview.Bar`). A bar is **unsteady** when its spread is more than
   1.5 times the take's spread and above 8 ms, otherwise steady; a bar with a single note is not judged. So a take
-  uneven throughout has no weak spot of its own, and a few milliseconds are never one. This line is provisional:
-  asked of the owner on 2026-11-24, answer pending; it is one rule in `TimingReview.Steadiness`. In the band a
+  uneven throughout has no weak spot of its own, and a few milliseconds are never one. Confirmed by the owner on
+  2026-11-24, with the words and the band turning in pairs of bars; it is one rule in `TimingReview.Steadiness`. In the band a
   steady bar has a faint tint in the wave's color, an unsteady one an amber tint, each with its word ("steady",
   "unsteady"; German "ruhig", "unruhig") between its first two beat numbers where it fits. Pointing at a bar shows
   its numbers, VoiceOver reads them, and a click chooses the bar for "Loop bars" and "Record bars again". A take
@@ -656,10 +657,11 @@ Live timing while playing comes next, then Linux and the iPad.
   44.1 kHz, 0.11 ms at 48 kHz) and agrees with the review within 0.1 ms. A real amp and an earbud on the pickup
   may rise more slowly than that, so the amp part measured on 2026-11-23 (21.7 ms) is likely a little too large: the
   owner should measure again before trusting a review to a tenth of a millisecond.
-- **The smallest number of counted onsets** for a review is 8, two bars of quarters (provisional, 2026-11-24, asked
-  of the owner; one constant, `TimingReview.minimumCounted`).
-- To be settled while building, with the owner where it is a matter of taste: the line between a steady and an
-  unsteady bar (provisional rule under "Bars"); whether a reverb tail needs a hint as well as a delay.
+- **The smallest number of counted onsets** for a review is 8, two bars of quarters (confirmed by the owner on
+  2026-11-24; one constant, `TimingReview.minimumCounted`).
+- Settled with the owner on 2026-11-24: the line between a steady and an unsteady bar (under "Bars"), at least 8
+  counted onsets, no hint for a reverb tail yet, the band turning in pairs of bars, the German words "ruhig" and
+  "unruhig". Still open: the acceptance on the amp (loop probe, check take, real playing).
 
 ## Ordering presets: hashtags
 
