@@ -186,6 +186,86 @@ final class ClickSyncTests: XCTestCase {
         XCTAssertLessThan(result.spread, 0.0002)
     }
 
+    /// The click as the click engine plays it, a sine from phase 0 fading over 12 ms, with 1760 Hz on every first
+    /// beat of 4, `lag` frames late and through a synthetic amp: a high pass at 80 Hz, a soft drive and a cabinet's
+    /// low pass at 4.5 kHz of fourth order, over a faint noise floor.
+    private func clicksThroughAnAmp(lag: Double, beats: Int = 12, rate: Double) -> (samples: [Float], expected: [Double]) {
+        let interval = rate * 0.6
+        let first = rate * 0.3
+        var dry = [Double](repeating: 0, count: Int(first + Double(beats + 1) * interval))
+        var expected: [Double] = []
+        for beat in 0..<beats {
+            let beatFrame = first + Double(beat) * interval
+            expected.append(beatFrame)
+            let onset = Int((beatFrame + lag).rounded())
+            let frequency = beat % 4 == 0 ? 1760.0 : 1175.0
+            let amplitude = beat % 4 == 0 ? 0.5 : 0.35
+            for step in 0..<Int(rate * 0.08) {
+                let t = Double(step) / rate
+                dry[onset + step] += amplitude * sin(2 * .pi * frequency * t) * exp(-t / 0.012)
+            }
+        }
+        var highPass = Biquad.highPass(80, rate: rate)
+        var low1 = Biquad.lowPass(4_500, rate: rate)
+        var low2 = Biquad.lowPass(4_500, rate: rate)
+        var generator = SeededGenerator(seed: 9)
+        let samples = dry.map { value -> Float in
+            let driven = tanh(3 * highPass.process(value)) / 3
+            return Float(low2.process(low1.process(driven)) + generator.gaussian() * 0.0003)
+        }
+        return (samples, expected)
+    }
+
+    /// A second-order filter after the Audio EQ Cookbook, Q of 0.707.
+    private struct Biquad {
+        var b0, b1, b2, a1, a2: Double
+        var x1 = 0.0, x2 = 0.0, y1 = 0.0, y2 = 0.0
+
+        static func lowPass(_ frequency: Double, rate: Double) -> Biquad { make(frequency, rate: rate, high: false) }
+        static func highPass(_ frequency: Double, rate: Double) -> Biquad { make(frequency, rate: rate, high: true) }
+
+        private static func make(_ frequency: Double, rate: Double, high: Bool) -> Biquad {
+            let omega = 2 * Double.pi * frequency / rate
+            let alpha = sin(omega) / (2 * 0.707)
+            let a0 = 1 + alpha
+            let c = cos(omega)
+            let b0 = (high ? (1 + c) : (1 - c)) / 2
+            let b1 = high ? -(1 + c) : (1 - c)
+            return Biquad(b0: b0 / a0, b1: b1 / a0, b2: b0 / a0, a1: -2 * c / a0, a2: (1 - alpha) / a0)
+        }
+
+        mutating func process(_ x: Double) -> Double {
+            let y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2
+            (x2, x1, y2, y1) = (x1, x, y1, y)
+            return y
+        }
+    }
+
+    func testTheMeasurementPlacesAClickWhereTheReviewPlacesANote() throws {
+        // A note played exactly on the click must review as on it, so both find the same moment in the same sound.
+        let stamp = TimingStamp(clickOnThroughout: true, latency: ClickLatency(
+            amp: AmpPart(seconds: 0, origin: .measured(spread: 0, date: Date(timeIntervalSince1970: 1_795_435_200)))))
+        for rate in [44_100.0, 48_000.0] {
+            let lag = 0.0137 * rate
+            let (samples, expected) = clicksThroughAnAmp(lag: lag, rate: rate)
+            let analysis = LatencyProbe.analyze(samples: samples, sampleRate: rate, expected: expected)
+            XCTAssertEqual(analysis.lags.count, expected.count)
+            let grid = BeatGrid(bpm: 100, beatsPerBar: 4, offset: expected[0] / rate)
+            guard case .review(let review) = TimingReview.review(samples: samples, sampleRate: rate, grid: grid,
+                                                                 stamp: stamp) else {
+                return XCTFail("the clicks must have a review")
+            }
+            let onsets = review.onsets.filter(\.isCounted)
+            XCTAssertEqual(onsets.count, expected.count)
+            for (lag, onset) in zip(analysis.lags, onsets) {
+                XCTAssertEqual(lag / rate, try XCTUnwrap(onset.offset), accuracy: 0.0001,
+                               "\(rate) Hz, click \(onset.gridPoint ?? -1)")
+            }
+            let mean = analysis.lags.reduce(0, +) / Double(analysis.lags.count)
+            print("NOTE click through the amp at \(rate) Hz: measured \(String(format: "%.3f", (mean - lag) / rate * 1000)) ms after it begins")
+        }
+    }
+
     func testMeasurementWithoutSignalIsRefused() {
         let (samples, expected) = loopback(lag: 600, level: 0)
         let analysis = LatencyProbe.analyze(samples: samples, sampleRate: 44_100, expected: expected)

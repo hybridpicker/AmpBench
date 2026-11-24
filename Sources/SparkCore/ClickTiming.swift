@@ -197,12 +197,14 @@ public enum LatencyProbe {
     private static let stableSpread = 0.002
 
     /// Finds the onset of each click in the recorded samples. `expected` are file frames where the clicks would be
-    /// without any delay.
+    /// without any delay. A click is placed where it begins, by the timing review's own onset detector, so a note
+    /// played exactly on the click reviews as on it.
     public static func analyze(samples: [Float], sampleRate: Double, expected: [Double]) -> Analysis {
         guard let first = expected.first, sampleRate > 0 else { return Analysis(lags: [], played: expected.count) }
         let early = Int(earlyTolerance * sampleRate)
         let quietEnd = min(max(Int(first) - early, 0), samples.count)
         let noise = samples[0..<quietEnd].reduce(Float(0)) { max($0, abs($1)) }
+        let onsets = OnsetDetector.attacks(in: samples, sampleRate: sampleRate).map { $0.time * sampleRate }
 
         var lags: [Double] = []
         for (index, beat) in expected.enumerated() {
@@ -213,10 +215,9 @@ public enum LatencyProbe {
             guard upper > lower else { continue }
             let window = samples[lower..<upper]
             let peak = window.reduce(Float(0)) { max($0, abs($1)) }
-            guard peak > max(noise * 4, 0.003) else { continue }
-            let threshold = max(peak * 0.3, noise * 3)
-            guard let onset = window.firstIndex(where: { abs($0) >= threshold }) else { continue }
-            lags.append(Double(onset) - beat)
+            guard peak > max(noise * 4, 0.003),
+                  let onset = onsets.first(where: { $0 >= Double(lower) && $0 < Double(upper) }) else { continue }
+            lags.append(onset - beat)
         }
         return Analysis(lags: lags, played: expected.count)
     }
