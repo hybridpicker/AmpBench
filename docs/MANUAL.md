@@ -207,8 +207,9 @@ The Mac's headphone output is a 3.5 mm jack and the amp's guitar input is 6.3 mm
 channels, so the left one is enough.
 
 1. Unplug the guitar and connect the cable from the headphone output to the amp's guitar input. Keep USB connected.
-2. On the amp, choose a preset without delay, reverb and noise gate, and turn the master volume down.
-3. Set the Mac's volume to about half.
+2. On the amp, choose a preset without delay, reverb and noise gate. Keep the master volume where you play: the
+   amp's USB level follows it, so a master turned far down makes the clicks too quiet to find.
+3. Set the Mac's volume to about half (with a headphone on the pickup: all the way up).
 4. In the metronome details, the click output must be the headphone output (macOS calls it "External Headphones").
    "Check input" and retro recording must be off.
 5. Choose "Record → Measure click latency …" and "Measure". It takes about ten seconds.
@@ -217,6 +218,10 @@ channels, so the left one is enough.
 Without a cable, a wired headphone or earbud held directly on a pickup works too. The pickup picks up the speaker's
 magnetic field without any delay of its own, so the click then takes exactly the way a played note does. Mute the
 strings, turn the Mac up and use a preset with some gain. The neck pickup and single coils give the strongest signal.
+Speakers on the headphone output do not work this way: they are shielded and reach the pickup far too weakly.
+
+If the measurement finds no clicks at all, check that the amp sends sound over USB: now and then it sends only
+silence until it is switched off and on again and USB is plugged in again.
 
 The result is stored for the amp, with its spread and the day of the measurement. It holds when the click moves to
 another wired output, such as the built-in speakers: that output's own delay comes from what it reports. A value
@@ -236,9 +241,22 @@ Below the bar controls, the line "Timing" shows for the take in focus where its 
 placement (the average offset, positive is later than the click) and the spread (how tightly the notes lie around
 it), in milliseconds, on the chosen grid. Each note counts from its first attack, the first string of a strum.
 It belongs to a grid point only within 35 % of the grid spacing to either side, and only the first note there
-counts, so delay echoes, later strings and notes between the grid points do not. A take that gets no review says why: recorded without the
-click, the click not on for the whole take, recorded before the measurement (every take from before this change), or
-click latency not measured (also when it was set by hand).
+counts, so delay echoes, later strings and notes between the grid points do not. Next to placement and spread the
+line shows the accuracy, such as "±1.1 ms": half the spread of the latency measurement plus 0.5 ms for finding the
+notes. Notes too faint or too slow in their attack to place exactly are shown but not counted.
+
+Where a number could be wrong there is none, and the line says why:
+
+- recorded without the click, or the click not on for the whole take;
+- recorded before the measurement (every take from before this change);
+- click latency not measured (also when it was set by hand);
+- the click went to a Bluetooth or AirPlay output, whose delay is not steady;
+- accuracy not good enough (worse than ±2 ms): measure the click latency again;
+- too few clear notes: fewer than 8 counted, two bars of quarters.
+
+The measurement leaves out the way through the air. Sitting 1.5 m from a speaker that plays the click, you hear it
+about 4 ms late, so playing exactly on what you hear shows a placement of about +4 ms. On headphones there is no
+such gap.
 
 When the sound the take was recorded with has a delay switched on, a second line says "Delay in the sound: echoes
 may count as notes. For exact practice choose a dry sound." The review is still shown. A take without a known
@@ -249,8 +267,13 @@ on, with each beat magnified to about ±60 ms, so 10 ms are already a clear gap.
 middle of each beat with their numbers 1, 2, 3, 4; your notes are strokes beside them, later to the right, each
 with its offset below it ("+18 ms"). Notes that do not count (echoes, later strings, notes between the beats) are
 faint and carry no number. A note further off than the band shows sits at the edge with a small arrow and its true
-offset. The band follows the playhead while playing, jumps to a click into the waveform, and shows the bars chosen
-with the bar steppers. "Fold" on the "Timing" line folds it away, and it stays folded for the next takes until
+offset. Each bar has a tint and a word between its first two beat numbers: "steady", or "unsteady" on amber when
+its spread is more than 1.5 times the take's spread and above 8 ms, so a take uneven throughout has no weak spot of
+its own and a few milliseconds are never one. A bar with a single note is not judged. Pointing at a bar shows its
+placement, spread and number of notes, VoiceOver reads them, and a click chooses the bar for "Loop bars" and
+"Record bars again". Bars recorded again are a take of their own with their own review, on the grid of the take
+they replace. The band follows the playhead while playing, jumps to a click into the waveform, and shows the bars
+chosen with the bar steppers. "Fold" on the "Timing" line folds it away, and it stays folded for the next takes until
 "Unfold".
 
 The popup "Grid" on the "Timing" line chooses what the notes are matched to: quarters, eighths, triplets or

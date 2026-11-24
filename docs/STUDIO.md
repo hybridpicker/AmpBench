@@ -41,6 +41,7 @@ labels.
 | – | Area Metronome (⇧⌘4) on Mac, iPad and Linux: accents per beat, subdivisions, three sounds, tap, tempo trainer, tempo and pattern kept in a piece; C renderer on the output's sample clock (`spark_metronome_*`), Linux port on `pw-cat` | 9297313, 7125156, 617da0e | offline: two hours at 97 BPM without a millionth of a sample of drift, block-size independent, sub-sample onset, trainer, changes on the beat; seen running in a test instance on the Mac (lamps follow the beat, Space starts and stops); installed on the Mac and on the owner's iPad (2026-11-16), not yet opened there; Linux tested headless on the Mac, all Linux tests green on the laptop and installed there (2026-11-18, 40619f7), not yet heard there; heard by the owner on the Mac (2026-11-17) |
 | – | Metronome follows the output on the Mac: headphones plugged in or pulled, a device coming or going, another output chosen | b5a6415 | metronome tests; the owner plugged headphones in and out while it played on the Mac and heard it move (2026-11-17) |
 | – | Linux install gate: the Bluetooth banner test waited for the link's "connected", not for the window, which hears of it a queued signal later; it failed on the laptop every time and held the install back at 2ee0d57 | e5be35c | the laptop's full Linux suite green, installed there (2026-11-18), both machines on 40619f7 |
+| – | Timing review on the Mac: click latency per amp, measured (`LatencyProbe`), a timing stamp per take, the review (placement, spread, accuracy, steady and unsteady bars) and the timing band below the waveform with a grid per piece | 8d6f90a … 7b81a7c, 6bf9706 | 773 Swift tests and the self-tests `main` and `timing` green, the BlackHole loop within half a sample; click latency measured by the owner on the MINI (2026-11-23); installed on the Mac (2026-11-24), the owner measures again and checks it on the amp (loop probe, check take, real playing); Linux and iPad not yet |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -420,7 +421,9 @@ the timing stamp of a take and a first review on quarters with one line in the a
 SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole loop at half a sample), and the timing
 band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`) with its bars steady
 or unsteady, its review accuracy, faint unsure onsets and every reason for no review, and the choice of the grid
-(`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take without one); the rest is spec.
+(`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take without one). All of it is on main and
+installed on the Mac since 2026-11-24; the acceptance on the amp is open (see "Open and next"). Live timing, Linux
+and the iPad are still spec.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement
@@ -1114,9 +1117,11 @@ For every device, without exception:
 
 ## Open and next
 
-- **Timing review** (the owner's wish, 2026-11-23): first measure the amp's click latency with the owner, then the
-  review module test first, the click latency per amp with a timing stamp per take, the timing band on the Mac and
-  the loop probe as acceptance. Live timing, Linux and the iPad after that. See "Timing review".
+- **Timing review** (the owner's wish, 2026-11-23): built and installed on the Mac (2026-11-24). Open, with the
+  owner at the amp: measure the click latency again (headphone on the neck pickup, Mac volume 100, no noise gate),
+  because the measurement's onset moved; then the loop probe (placement 0 ± 1 ms, spread under 1 ms), a check take
+  of muted strums, and real playing on the beat and laid back. Live timing, Linux and the iPad after that. See
+  "Timing review".
 - **Levels:** the owner's verdict on the corrected sounds (which still lack drive, which are too loud); a second
   measurement in batches of about ten sounds with rests; then the rule into the import and the Linux app (see
   "Levels").
