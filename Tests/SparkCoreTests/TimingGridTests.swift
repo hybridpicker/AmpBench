@@ -1,3 +1,4 @@
+import AmpText
 import XCTest
 @testable import SparkCore
 
@@ -10,6 +11,11 @@ final class TimingGridTests: XCTestCase {
         folder = try TemporaryFolder()
         store = LibraryStore(folder: folder.file("Library"), trasher: FakeTrash(folder: folder.file("Trash")))
         try store.load()
+    }
+
+    override func tearDown() {
+        Texts.language = .english
+        super.tearDown()
     }
 
     private func addTake(_ name: String, piece: Piece? = nil) -> Recording {
@@ -81,5 +87,16 @@ final class TimingGridTests: XCTestCase {
         XCTAssertNil(piece.timingGrid)
         let old = try decoder.decode(Piece.self, from: Data(#"{"id": "\#(UUID().uuidString)", "name": "Old"}"#.utf8))
         XCTAssertNil(old.timingGrid)
+    }
+
+    func testTheGridsAndTheirNotesReadInEnglishAndGerman() {
+        Texts.language = .english
+        XCTAssertEqual(TimingReview.Resolution.allCases.map(\.name), ["Quarters", "Eighths", "Triplets", "Sixteenths"])
+        XCTAssertEqual(TimingReview.Resolution.allCases.map { $0.notes(16) },
+                       ["16 notes on quarters", "16 notes on eighths", "16 notes on triplets", "16 notes on sixteenths"])
+        Texts.language = .german
+        XCTAssertEqual(TimingReview.Resolution.allCases.map(\.name), ["Viertel", "Achtel", "Triolen", "Sechzehntel"])
+        XCTAssertEqual(TimingReview.Resolution.allCases.map { $0.notes(16) },
+                       ["16 Töne auf Vierteln", "16 Töne auf Achteln", "16 Töne auf Triolen", "16 Töne auf Sechzehnteln"])
     }
 }

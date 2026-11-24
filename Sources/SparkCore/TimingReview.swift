@@ -60,6 +60,26 @@ public struct TimingReview: Equatable, Sendable {
         case sixteenths = 4
 
         public var pointsPerBeat: Int { rawValue }
+
+        /// The grid's name, for choosing it.
+        public var name: String {
+            switch self {
+            case .quarters: return tr("Quarters")
+            case .eighths: return tr("Eighths")
+            case .triplets: return tr("Triplets")
+            case .sixteenths: return tr("Sixteenths")
+            }
+        }
+
+        /// How many notes the review counted, on this grid: "16 notes on eighths".
+        public func notes(_ count: Int) -> String {
+            switch self {
+            case .quarters: return tr("%d notes on quarters", count)
+            case .eighths: return tr("%d notes on eighths", count)
+            case .triplets: return tr("%d notes on triplets", count)
+            case .sixteenths: return tr("%d notes on sixteenths", count)
+            }
+        }
     }
 
     public struct Onset: Equatable, Sendable {
