@@ -277,11 +277,18 @@ public final class LibraryStore {
         change(&document.pieces[index])
     }
 
-    /// The grid a take's timing review uses: the one its piece keeps, else the take's own, else quarters, the beats
-    /// the click plays while recording.
+    /// The grid a take's timing review uses: the one its piece keeps, else the take's own, else, for bars recorded
+    /// again, the grid of the take they were recorded into, else quarters, the beats the click plays while recording.
     public func timingGrid(of recording: Recording) -> TimingReview.Resolution {
-        let piece = recording.pieceID.flatMap { id in document.pieces.first { $0.id == id } }
-        return piece?.timingGrid ?? recording.timingGrid ?? .quarters
+        var take = recording
+        var seen: Set<UUID> = []
+        while seen.insert(take.id).inserted {
+            let piece = take.pieceID.flatMap { id in document.pieces.first { $0.id == id } }
+            if let chosen = piece?.timingGrid ?? take.timingGrid { return chosen }
+            guard let source = take.punch.flatMap({ self.recording($0.sourceID) }) else { break }
+            take = source
+        }
+        return .quarters
     }
 
     /// Keeps a grid chosen for a take: with its piece, for all the piece's takes, or with the take when it has none.

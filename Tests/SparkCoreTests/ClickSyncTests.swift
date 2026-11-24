@@ -1,3 +1,4 @@
+import AmpText
 import AudioToolbox
 import CSparkRT
 import XCTest
@@ -281,5 +282,28 @@ final class ClickSyncTests: XCTestCase {
         XCTAssertThrowsError(try LatencyProbe.evaluate(analysis, sampleRate: 44_100, reported: 0)) {
             guard case .unstable = $0 as? LatencyProbeError else { return XCTFail("expected unstable, got \($0)") }
         }
+    }
+
+    /// A Bluetooth or AirPlay output's own delay would be stored as the amp's part, marked measured: it is refused
+    /// before a click plays, with what to do instead.
+    func testAMeasurementThroughABluetoothOrAirPlayOutputIsRefused() throws {
+        XCTAssertNoThrow(try LatencyProbe.checkOutput(.wired))
+        XCTAssertThrowsError(try LatencyProbe.checkOutput(.bluetooth)) {
+            XCTAssertEqual($0 as? LatencyProbeError, .clickOnBluetooth)
+        }
+        XCTAssertThrowsError(try LatencyProbe.checkOutput(.airPlay)) {
+            XCTAssertEqual($0 as? LatencyProbeError, .clickOnAirPlay)
+        }
+        defer { Texts.language = .english }
+        Texts.language = .english
+        XCTAssertEqual(LatencyProbeError.clickOnBluetooth.errorDescription,
+                       "The click goes to a Bluetooth output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
+        XCTAssertEqual(LatencyProbeError.clickOnAirPlay.errorDescription,
+                       "The click goes to an AirPlay output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
+        Texts.language = .german
+        XCTAssertEqual(LatencyProbeError.clickOnBluetooth.errorDescription,
+                       "Der Klick geht an einen Bluetooth-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.")
+        XCTAssertEqual(LatencyProbeError.clickOnAirPlay.errorDescription,
+                       "Der Klick geht an einen AirPlay-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.")
     }
 }

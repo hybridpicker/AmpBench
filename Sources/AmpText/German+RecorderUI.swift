@@ -1071,6 +1071,12 @@ extension German {
             "Klappt das Timing-Band ein, damit die Wellenform den Platz hat",
         "bar %d beat %d %@":
             "Takt %d Schlag %d %@",
+        "bar %d beat %d and %@":
+            "Takt %d Schlag %d und %@",
+        "bar %d beat %d triplet %d %@":
+            "Takt %d Schlag %d Triole %d %@",
+        "bar %d beat %d sixteenth %d %@":
+            "Takt %d Schlag %d Sechzehntel %d %@",
         "%@, no counted notes":
             "%@, keine gezählten Töne",
         "Chooses this bar for Loop bars and Record bars again":

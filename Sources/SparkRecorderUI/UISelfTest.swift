@@ -617,7 +617,7 @@ final class UISelfTest {
         }
         if !model.metronome.clickEnabled { model.toggleClick() }
         // The test input has no measured amp part, so its takes say so instead of a review.
-        model.setLatencyCorrection(0)
+        model.setAmpPartByHand(0)
         await press("r", keyCode: 15)
         check(await waitUntil(timeout: 8) { model.phase == .recording }, "recording with bars starts")
         check(await waitUntil { model.activeGrid != nil }, "the bars are known during the recording")
@@ -969,7 +969,8 @@ final class UISelfTest {
         if role == kAXMenuBarRole { return }
         let name = [text(kAXDescriptionAttribute), text(kAXTitleAttribute)].first { !$0.isEmpty } ?? ""
         if !name.isEmpty {
-            let value = text(kAXValueAttribute)
+            // SwiftUI hands a view's accessibility value to VoiceOver as its value description; controls have a value.
+            let value = [text(kAXValueAttribute), text("AXValueDescription")].first { !$0.isEmpty } ?? ""
             named.append("\(role): \(name)\(value.isEmpty ? "" : " = \(value)")")
         } else if role == kAXButtonRole {
             // The window's own title bar buttons are named by the system.
@@ -1215,7 +1216,6 @@ final class UISelfTest {
 
     // MARK: Pictures
 
-    /// A filled library in both appearances, for looking at the design.
     /// The timing band of a generated take: plucks a little off a click at 120 bpm, a fill between the beats and a
     /// late note past the cell, with a measured click latency. Pictures in dark and light, folded and in the smallest
     /// window; the band follows the playhead and the chosen bars.
@@ -1259,7 +1259,8 @@ final class UISelfTest {
         guard case .review(let review) = model.timingOutcome else { return }
         check(review.counted == bars * 4, "every beat counts once", detail: "\(review.counted)")
         check(review.onsets.contains { $0.status == .outsideWindows }, "the fill is found and not counted")
-        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "the band opens by itself")
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band(review),
+              "the band opens by itself")
 
         // At the start the band shows bars 1 and 2.
         await voiceOverCheck("VoiceOver finds the band on bars 1–2") { named in
@@ -1281,7 +1282,12 @@ final class UISelfTest {
         await voiceOverCheck("the band follows the playhead to bars 3–4") { named in
             named.contains { $0.contains(tr("Timing band")) && $0.contains(AppModel.barsText(3...4)) }
         }
-        await snapshot("timing-band-bars-3-4-dark")
+        // Bars 3–4 hold the unsteady bar 4, in both appearances.
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-bars-3-4-\(suffix)")
+        }
+        NSApp.appearance = NSAppearance(named: .darkAqua)
 
         // Bar 4 holds the late note, so it alone is unsteady; pointing at it reads its numbers, and the bar tools take it.
         check(review.bars.prefix(bars).map(\.steadiness) == [.steady, .steady, .steady, .unsteady,
@@ -1338,7 +1344,7 @@ final class UISelfTest {
         }
         await snapshot("timing-band-folded-dark")
         model.toggleTimingBand()
-        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band, "unfolded again")
+        check(TimingBand.shows(model.timingOutcome, folded: model.isTimingBandFolded) == .band(review), "unfolded again")
 
         // On eighths the two fills between the beats lie on grid points of their own and count; the take, which has
         // no piece, keeps the grid for itself and opens on it again.
@@ -1354,9 +1360,23 @@ final class UISelfTest {
         check(model.store.recording(take.id)?.timingGrid == .eighths, "the take without a piece keeps the grid")
         model.setBarSelection(1...2)
         await wait(0.3)
+        await voiceOverCheck("on eighths VoiceOver reads the fill by its place, the and of beat 2") { named in
+            named.contains { $0.contains(tr("Timing band")) && $0.contains(tr("bar %d beat %d and %@", 1, 2, "")) }
+        }
         for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
             NSApp.appearance = NSAppearance(named: appearance)
             await snapshot("timing-band-eighths-\(suffix)")
+        }
+        // On eighths, too, bar 4 with its late note is the unsteady one.
+        model.setBarSelection(3...4)
+        await wait(0.3)
+        if case .review(let eighths) = model.timingOutcome {
+            check(eighths.bars.first { $0.number == 4 }?.steadiness == .unsteady, "on eighths bar 4 is unsteady",
+                  detail: "\(eighths.bars.map(\.steadiness))")
+        }
+        for (appearance, suffix) in [(NSAppearance.Name.darkAqua, "dark"), (.aqua, "light")] {
+            NSApp.appearance = NSAppearance(named: appearance)
+            await snapshot("timing-band-eighths-bars-3-4-\(suffix)")
         }
         NSApp.appearance = NSAppearance(named: .darkAqua)
         model.select(take.id)
@@ -1385,6 +1405,7 @@ final class UISelfTest {
         check(condition(named), text, detail: named.filter { $0.contains(tr("Timing")) }.joined(separator: " | "))
     }
 
+    /// A filled library in both appearances, for looking at the design.
     private func pictureScenario() async {
         useTestDevices()
         let piece = model.store.addPiece(named: "Blues in A")

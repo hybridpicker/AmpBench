@@ -438,7 +438,7 @@ First the click latency of the amp is measured once on the Mac, with an earbud h
 then on every new take recorded with the click on throughout gets a timing review: below the waveform a timing band,
 showing the two bars around the playhead magnified around every beat, shows the fixed click lines with their beat numbers and the
 player's onsets as strokes behind or before them, each with its offset in milliseconds. Per take the review gives
-placement (where the player sits), spread (how steady, the main number) and review accuracy; per bar a colour shows
+placement (where the player sits), spread (how steady, the main number) and review accuracy; per bar a color shows
 the steady and unsteady bars. Laid back is shown as placement, never as an error. Where a review would not be
 exact, there is none, and one line says why. The loop probe proves the precision before the owner relies on it.
 Live timing while playing comes next, then Linux and the iPad.
@@ -502,7 +502,7 @@ Live timing while playing comes next, then Linux and the iPad.
     them.
 29. As the owner, I want no review when its accuracy is worse than ±2 ms, so that I never practise against a wrong
     number.
-30. As the owner, I want each bar coloured as steady or unsteady, so that I find the weak spots at once.
+30. As the owner, I want each bar colored as steady or unsteady, so that I find the weak spots at once.
 31. As the owner, I want the placement and spread of a bar when I point at it, so that I can compare bars.
 32. As the owner, I want to loop or record again the unsteady bars with the bar tools I already have, so that
     practising follows straight from the review.
@@ -516,7 +516,7 @@ Live timing while playing comes next, then Linux and the iPad.
     whole path is confirmed with my real guitar.
 37. As the owner, I want the band, its numbers and its reasons in English and German, so that the app reads the
     same as everywhere else.
-38. As the owner, I want the band to follow the app's colours, with red only for recording, so that early and late
+38. As the owner, I want the band to follow the app's colors, with red only for recording, so that early and late
     do not look like an alarm.
 39. As the owner, I want VoiceOver to read a bar's placement and spread, so that the review does not depend on
     seeing the strokes.
@@ -536,8 +536,9 @@ Live timing while playing comes next, then Linux and the iPad.
   Values stored per pair before this change carry over as hand-set, except the one measured with the owner on
   2026-11-23 (the Spark MINI with the built-in headphone output), which carries over as measured with spread 1.2 ms;
   it is found by the shape of its pair key. The per-pair values stay stored, so an older build still finds them.
-- **Bluetooth click outputs** are recognised by their transport type. Their bars are corrected as today, but their
-  takes get no review.
+- **Bluetooth and AirPlay click outputs** are recognised by their transport type, also when an aggregate or
+  multi-output device plays to one of them. Their bars are corrected as today, but their takes get no review, and a
+  measurement of the click latency through one is refused, since it would store the output's delay as the amp part.
 - **Timing stamp of a take:** a new optional part of the take's library entry, written only by recordings made
   after this change: the click on for the whole take (switching the click off at any moment clears it), the click
   latency used (output part, input part, amp part, measured or hand-set, the measurement's spread) and the click
@@ -545,13 +546,15 @@ Live timing while playing comes next, then Linux and the iPad.
   a take without a stamp gets no review. A take rebuilt after a crash gets no stamp, since whether the click stayed
   on cannot be known. The stamp is saved before the recording's click state and latency are reset at the stop.
 - **The review module (`TimingReview` in SparkCore):** one pure entry point. In: the take's samples and sample rate,
-  its bars, its timing stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
+  its bars (for bars recorded again only up to the last one recorded, not what rings out after it), its timing
+  stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
   "no review" with one reason. A review holds every onset (time, grid point, offset in ms, counted or why not), the
   placement, spread and number of counted onsets per take and per bar, the review accuracy and the hints. It knows
   nothing of devices, files or the UI, so the Linux port can follow it line by line.
-- **Reasons for no review**, checked in this order: no bars; the click not on throughout; no timing stamp (recorded
-  before this change); the amp part not measured; a Bluetooth click output; review accuracy worse than ±2 ms; too
-  few counted onsets.
+- **Reasons for no review**, checked in this order: no bars; no timing stamp (recorded before this change), checked
+  before the click since only the stamp knows whether it stayed on; the click not on throughout; the amp part not
+  measured; a Bluetooth click output; an AirPlay click output; review accuracy worse than ±2 ms; too few counted
+  onsets.
 - **Onset:** the first attack of a note or strum, found in the recorded signal as the amp sends it over USB, with
   effects. For a strummed chord the first string counts. The detector must place a clean synthetic pluck within
   1 ms. An onset it is unsure about (low level against the take, slow rise) is kept but not counted: more than
@@ -562,7 +565,8 @@ Live timing while playing comes next, then Linux and the iPad.
   millisecond, then the loudest channel around each attack) and never holds the whole take.
 - **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is quarters, because the
   click plays only quarters while recording, whatever the metronome's pattern; a grid chosen for a take is kept by
-  its piece and used for that piece's takes (quarters: owner, 2026-11-23; kept per piece: owner, 2026-11-24). The catch window reaches 35 % of the grid
+  its piece and used for that piece's takes, and bars recorded again open on the grid of the take they were recorded
+  into (quarters: owner, 2026-11-23; kept per piece: owner, 2026-11-24). The catch window reaches 35 % of the grid
   spacing to each side; only the first onset in it counts.
 - **Numbers:** offset in milliseconds, positive later than the click. Placement is the mean of the counted offsets.
   Spread is their standard deviation around the placement, the main number. Review accuracy combines the
@@ -581,7 +585,7 @@ Live timing while playing comes next, then Linux and the iPad.
   take, so the band does not follow a zoom: it shows the two bars around the playhead, each beat magnified to about
   ±60 ms, follows playback and jumps to a click into the waveform or to selected bars (owner, 2026-11-23). The
   waveform stays as it is. Click lines fixed with their beat numbers, onsets as strokes with their offset, faint
-  for onsets not counted, one colour per bar (steady or unsteady) from the design tokens, never red. Per take
+  for onsets not counted, one color per bar (steady or unsteady) from the design tokens, never red. Per take
   placement, spread and accuracy in the status line. It opens on its own for a take with a review and can be
   folded; without a review it is one line with the reason. All texts through `tr()` with German tables, as
   everywhere.
@@ -590,7 +594,7 @@ Live timing while playing comes next, then Linux and the iPad.
   1.5 times the take's spread and above 8 ms, otherwise steady; a bar with a single note is not judged. So a take
   uneven throughout has no weak spot of its own, and a few milliseconds are never one. This line is provisional:
   asked of the owner on 2026-11-24, answer pending; it is one rule in `TimingReview.Steadiness`. In the band a
-  steady bar has a faint tint in the wave's colour, an unsteady one an amber tint, each with its word ("steady",
+  steady bar has a faint tint in the wave's color, an unsteady one an amber tint, each with its word ("steady",
   "unsteady"; German "ruhig", "unruhig") between its first two beat numbers where it fits. Pointing at a bar shows
   its numbers, VoiceOver reads them, and a click chooses the bar for "Loop bars" and "Record bars again". A take
   recorded again for some bars is a take of its own and gets its own review, its bars numbered from the first
@@ -628,7 +632,7 @@ Live timing while playing comes next, then Linux and the iPad.
 - Takes with the click on a Bluetooth output.
 - A target placement per piece (decided against on 2026-11-23).
 - Progress over several takes or days.
-- Grades, scores or any verdict beyond placement, spread and the bar colour.
+- Grades, scores or any verdict beyond placement, spread and the bar color.
 - Exporting the review or writing it into a file; the take's file stays untouched.
 - Tempo changes within a take (the bars already keep tempo and meter fixed).
 

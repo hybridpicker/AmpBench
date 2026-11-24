@@ -19,12 +19,12 @@ final class AmpLatencyTests: XCTestCase {
         amps.store(measurement, for: mini, at: measuredAt)
 
         let headphones = amps.clickLatency(input: mini, reportedOutput: 0.0012, reportedInput: 0.0025,
-                                           outputTransport: kAudioDeviceTransportTypeBuiltIn)
+                                           outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn))
         let speakers = amps.clickLatency(input: mini, reportedOutput: 0.0105, reportedInput: 0.0025,
-                                         outputTransport: kAudioDeviceTransportTypeBuiltIn)
+                                         outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn))
 
-        XCTAssertEqual(headphones.correction, 0.0217, accuracy: 1e-9)
-        XCTAssertEqual(speakers.correction, 0.0217, accuracy: 1e-9)
+        XCTAssertEqual(headphones.ampSeconds, 0.0217, accuracy: 1e-9)
+        XCTAssertEqual(speakers.ampSeconds, 0.0217, accuracy: 1e-9)
         XCTAssertEqual(headphones.total, 0.0012 + 0.0025 + 0.0217, accuracy: 1e-9)
         XCTAssertEqual(speakers.total, 0.0105 + 0.0025 + 0.0217, accuracy: 1e-9)
         XCTAssertEqual(speakers.amp?.origin, .measured(spread: 0.0012, date: measuredAt))
@@ -36,7 +36,7 @@ final class AmpLatencyTests: XCTestCase {
         amps.setByHand(0.019, for: mini)
 
         let latency = amps.clickLatency(input: mini, reportedOutput: 0.002, reportedInput: 0.0025,
-                                        outputTransport: kAudioDeviceTransportTypeBuiltIn)
+                                        outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn))
         XCTAssertEqual(latency.amp, AmpPart(seconds: 0.019, origin: .setByHand))
         XCTAssertEqual(latency.total, 0.0235, accuracy: 1e-9)
         let offset = ClickTiming.gridOffset(anchorFrame: 0, beatsBefore: 0, bpm: 120, inputRate: 48_000,
@@ -87,6 +87,27 @@ final class AmpLatencyTests: XCTestCase {
         XCTAssertEqual(amps.part(for: neo)?.origin, .setByHand)
     }
 
+    /// The pair is the MINI's USB input, under either of its product names, and the built-in headphone output; other
+    /// headphones and other devices named after the MINI carry over as hand-set.
+    func testThatPairIsTheMINIsUSBInputAndTheBuiltInHeadphoneOutput() {
+        let usbName = "AppleUSBAudioEngine:Positive Grid:Spark MINI USB:1:1"
+        let pairs = [
+            "\(usbName)|BuiltInHeadphoneOutputDevice": 0.0215,
+            "\(mini.uid)|AppleUSBAudioEngine:Generic:USB Headphones:7:2": 0.02166,
+            "~:AMS2_Aggregate:Spark MINI + headphones|BuiltInHeadphoneOutputDevice": 0.03,
+            "AppleUSBAudioEngine:Positive Grid:Spark MINI 2:9:1|BuiltInHeadphoneOutputDevice": 0.04,
+        ]
+        let amps = AmpLatencies.carryOver(pairs: pairs)
+        func origin(_ uid: String) -> AmpPart.Origin? {
+            amps.part(for: DeviceIdentity(uid: uid, modelUID: "", name: "", isBuiltIn: false))?.origin
+        }
+        XCTAssertEqual(origin(usbName), .measured(spread: AmpLatencies.firstMeasurementSpread,
+                                                  date: AmpLatencies.firstMeasurementDate))
+        XCTAssertEqual(origin(mini.uid), .setByHand, "USB headphones are not the built-in headphone output")
+        XCTAssertEqual(origin("~:AMS2_Aggregate:Spark MINI + headphones"), .setByHand, "an aggregate is not the MINI")
+        XCTAssertEqual(origin("AppleUSBAudioEngine:Positive Grid:Spark MINI 2:9:1"), .setByHand)
+    }
+
     /// One amp with values for several outputs keeps one part: the measured one, otherwise the first by key.
     func testSeveralPairsOfOneAmpKeepTheMeasuredValue() {
         let amps = AmpLatencies.carryOver(pairs: [
@@ -117,19 +138,38 @@ final class AmpLatencyTests: XCTestCase {
         var amps = AmpLatencies()
         amps.store(measurement, for: mini, at: measuredAt)
         let headphones = amps.clickLatency(input: mini, reportedOutput: 0.0012, reportedInput: 0.0025,
-                                           outputTransport: kAudioDeviceTransportTypeBuiltIn)
+                                           outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn))
         let earbuds = amps.clickLatency(input: mini, reportedOutput: 0.16, reportedInput: 0.0025,
-                                        outputTransport: kAudioDeviceTransportTypeBluetooth)
+                                        outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBluetooth))
         let lowEnergy = amps.clickLatency(input: mini, reportedOutput: 0.16, reportedInput: 0.0025,
-                                          outputTransport: kAudioDeviceTransportTypeBluetoothLE)
+                                          outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBluetoothLE))
         let interface = amps.clickLatency(input: mini, reportedOutput: 0.003, reportedInput: 0.0025,
-                                          outputTransport: kAudioDeviceTransportTypeUSB)
+                                          outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeUSB))
         XCTAssertEqual(headphones.outputKind, .wired)
         XCTAssertEqual(interface.outputKind, .wired)
         XCTAssertEqual(earbuds.outputKind, .bluetooth)
         XCTAssertEqual(lowEnergy.outputKind, .bluetooth)
         // Their bars are still corrected, with the amp part and what the Bluetooth output reports.
         XCTAssertEqual(earbuds.total, 0.16 + 0.0025 + 0.0217, accuracy: 1e-9)
+    }
+
+    /// AirPlay, and an aggregate or multi-output device that plays to a Bluetooth or AirPlay device, are not wired.
+    func testAirPlayAndDevicesThatPlayToAWirelessOneAreNotWired() {
+        let aggregate = kAudioDeviceTransportTypeAggregate
+        XCTAssertEqual(ClickOutputKind(transport: kAudioDeviceTransportTypeAirPlay), .airPlay)
+        XCTAssertEqual(ClickOutputKind(transport: aggregate,
+                                       parts: [kAudioDeviceTransportTypeBuiltIn, kAudioDeviceTransportTypeBluetooth]),
+                       .bluetooth)
+        XCTAssertEqual(ClickOutputKind(transport: aggregate,
+                                       parts: [kAudioDeviceTransportTypeBluetoothLE, kAudioDeviceTransportTypeUSB]),
+                       .bluetooth)
+        XCTAssertEqual(ClickOutputKind(transport: aggregate,
+                                       parts: [kAudioDeviceTransportTypeBuiltIn, kAudioDeviceTransportTypeAirPlay]),
+                       .airPlay)
+        XCTAssertEqual(ClickOutputKind(transport: aggregate,
+                                       parts: [kAudioDeviceTransportTypeBuiltIn, kAudioDeviceTransportTypeUSB]),
+                       .wired)
+        XCTAssertEqual(ClickOutputKind(transport: kAudioDeviceTransportTypeVirtual), .wired)
     }
 
     func testEachAmpKeepsItsOwnPart() {
@@ -140,7 +180,10 @@ final class AmpLatencyTests: XCTestCase {
         XCTAssertEqual(amps.part(for: neo), AmpPart(seconds: 0.012, origin: .setByHand))
         let unknown = DeviceIdentity(uid: "other", modelUID: "", name: "Other", isBuiltIn: false)
         XCTAssertEqual(amps.clickLatency(input: unknown, reportedOutput: 0.002, reportedInput: 0.001,
-                                         outputTransport: kAudioDeviceTransportTypeBuiltIn).total, 0.003,
+                                         outputKind: ClickOutputKind(transport: kAudioDeviceTransportTypeBuiltIn)).total, 0.003,
                        accuracy: 1e-9)
+        let noInput = amps.clickLatency(input: nil, reportedOutput: 0.002, reportedInput: 0.001, outputKind: .bluetooth)
+        XCTAssertNil(noInput.amp)
+        XCTAssertEqual(noInput.outputKind, .bluetooth)
     }
 }

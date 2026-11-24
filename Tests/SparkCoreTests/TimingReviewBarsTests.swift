@@ -32,7 +32,9 @@ final class TimingReviewBarsTests: XCTestCase {
 
     /// Bars in 4/4 at 120 bpm from 0.15 s on, as after a count-in, with a pluck `offset(beat)` seconds off each beat
     /// from the first one, or none where it gives nil.
-    private func review(bars: Int, firstBar: Int = 1, offset: (Int) -> Double?) throws -> TimingReview {
+    /// `lastBar`, when given, is the take's last bar, as for bars recorded again, which ring out past it.
+    private func review(bars: Int, firstBar: Int = 1, lastBar: Int? = nil, offset: (Int) -> Double?) throws
+        -> TimingReview {
         let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15, firstBar: firstBar)
         let beats = bars * 4
         var generator = SeededGenerator(seed: 5)
@@ -46,7 +48,8 @@ final class TimingReviewBarsTests: XCTestCase {
                 samples[start + step] += value
             }
         }
-        let outcome = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured)
+        let outcome = TimingReview.review(samples: samples, sampleRate: rate, grid: grid, stamp: measured,
+                                          lastBar: lastBar)
         guard case .review(let review) = outcome else { return try XCTUnwrap(nil, "\(outcome)") }
         return review
     }
@@ -119,6 +122,17 @@ final class TimingReviewBarsTests: XCTestCase {
         XCTAssertEqual(review.bars.prefix(4).map(\.number), [5, 6, 7, 8])
         XCTAssertEqual(review.bars.prefix(4).map(\.steadiness), [.steady, .steady, .unsteady, .steady])
         XCTAssertEqual(review.counted, 16)
+    }
+
+    func testTheRingingOutAfterBarsRecordedAgainIsNotReviewed() throws {
+        // Bars 3 and 4 recorded again, all on the click. The recording ran on past bar 4 and the player went on: a
+        // note 20 ms late on the first beat of bar 5 lies in the file but outside the bars recorded again.
+        let review = try review(bars: 3, firstBar: 3, lastBar: 4) { beat in beat < 8 ? 0 : (beat == 8 ? 0.020 : nil) }
+
+        XCTAssertEqual(review.bars.map(\.number), [3, 4])
+        XCTAssertEqual(review.counted, 8)
+        XCTAssertEqual(review.placement, 0, accuracy: 0.001)
+        XCTAssertEqual(review.onsets.filter { $0.status == .outsideWindows }.count, 1)
     }
 
     // MARK: What a bar says

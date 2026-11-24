@@ -12,6 +12,7 @@ public let kAudioDeviceTransportTypeVirtual: UInt32 = 0x7669_7274   // 'virt'
 public let kAudioDeviceTransportTypeAggregate: UInt32 = 0x6772_7570 // 'grup'
 public let kAudioDeviceTransportTypeBluetooth: UInt32 = 0x626C_7565   // 'blue'
 public let kAudioDeviceTransportTypeBluetoothLE: UInt32 = 0x626C_6561 // 'blea'
+public let kAudioDeviceTransportTypeAirPlay: UInt32 = 0x6169_7270     // 'airp'
 #endif
 
 /// An audio device that exposes at least one input stream.
@@ -53,9 +54,16 @@ public struct OutputDevice: Identifiable, Hashable, Sendable {
     public let name: String
     public let channels: Int
     public let transport: UInt32
+    /// The transports of the devices an aggregate or multi-output device plays to; empty for any other.
+    public var partTransports: [UInt32] = []
 
     public var identity: DeviceIdentity {
         DeviceIdentity(uid: uid, modelUID: modelUID, name: name, isBuiltIn: transport == kAudioDeviceTransportTypeBuiltIn)
+    }
+
+    /// Wired, Bluetooth or AirPlay, also through an aggregate or multi-output device.
+    public var clickKind: ClickOutputKind {
+        ClickOutputKind(transport: transport, parts: partTransports)
     }
 }
 
@@ -180,9 +188,17 @@ public enum AudioDevices {
                 modelUID: string(device, kAudioDevicePropertyModelUID) ?? "",
                 name: string(device, kAudioObjectPropertyName) ?? tr("Unknown device"),
                 channels: channelCount(outputs),
-                transport: transport(of: device)
+                transport: transport(of: device),
+                partTransports: partTransports(of: device)
             )
         }
+    }
+
+    /// The transports of the devices an aggregate or multi-output device plays to now; empty for any other.
+    private static func partTransports(of device: AudioDeviceID) -> [UInt32] {
+        guard transport(of: device) == kAudioDeviceTransportTypeAggregate else { return [] }
+        let parts: [AudioObjectID] = array(device, address(kAudioAggregateDevicePropertyActiveSubDeviceList))
+        return parts.map(transport(of:))
     }
 
     public static func defaultInputDevice() -> AudioDeviceID? {

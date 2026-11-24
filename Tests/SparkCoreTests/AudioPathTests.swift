@@ -438,7 +438,7 @@ final class AudioPathTests: XCTestCase {
             throw XCTSkip("no microphone permission for the test process")
         }
         let result = try await MainActor.run {
-            Task { try await LatencyProbe.measure(input: input, output: output.id, beats: 8, bpm: 150,
+            Task { try await LatencyProbe.measure(input: input, output: output, beats: 8, bpm: 150,
                                                   inputPolicy: .testDevices) }
         }.value
         XCTAssertEqual(result.detected, 8)

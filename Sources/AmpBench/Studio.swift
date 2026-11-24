@@ -236,7 +236,7 @@ final class Studio: ObservableObject {
                 self?.show(.presets)
             }))
         // Only this side knows the preset format; the timing review gets a flag.
-        recorder.judgeSounds(hasDelay: PresetFile.soundHasDelay)
+        recorder.recognizeDelays(with: PresetFile.soundHasDelay)
     }
 
     // MARK: Pieces and their sounds

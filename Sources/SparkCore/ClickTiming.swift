@@ -22,20 +22,30 @@ public struct ClickLatency: Codable, Equatable, Sendable {
     }
 
     /// The amp's part in seconds, 0 when none is known.
-    public var correction: Double { amp?.seconds ?? 0 }
+    public var ampSeconds: Double { amp?.seconds ?? 0 }
     public var reported: Double { output + input }
-    public var total: Double { reported + correction }
+    public var total: Double { reported + ampSeconds }
 }
 
-/// How the click reaches the ear. A Bluetooth output's delay is not steady enough for a timing review.
+/// How the click reaches the ear. The delay of a Bluetooth or AirPlay output is not steady enough for a timing
+/// review.
 public enum ClickOutputKind: String, Codable, Equatable, Sendable {
     case wired
     case bluetooth
+    case airPlay
 
-    public init(transport: UInt32) {
-        let bluetooth = transport == kAudioDeviceTransportTypeBluetooth
-            || transport == kAudioDeviceTransportTypeBluetoothLE
-        self = bluetooth ? .bluetooth : .wired
+    /// The kind of an output by its transport. `parts` are the transports of the devices an aggregate or multi-output
+    /// device plays to: one Bluetooth or AirPlay device among them makes the whole output so.
+    public init(transport: UInt32, parts: [UInt32] = []) {
+        let transports = [transport] + parts
+        if transports.contains(where: { $0 == kAudioDeviceTransportTypeBluetooth
+                                        || $0 == kAudioDeviceTransportTypeBluetoothLE }) {
+            self = .bluetooth
+        } else if transports.contains(kAudioDeviceTransportTypeAirPlay) {
+            self = .airPlay
+        } else {
+            self = .wired
+        }
     }
 }
 
@@ -100,7 +110,8 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
             let output = String(key[key.index(after: bar)...])
             guard !input.isEmpty, !output.isEmpty else { continue }
             if isFirstMeasurement(input: input, output: output) {
-                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: 0.0012, date: firstMeasurementDate))
+                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: firstMeasurementSpread,
+                                                                              date: firstMeasurementDate))
             } else if amps.parts[input] == nil {
                 amps.parts[input] = AmpPart(seconds: value, origin: .setByHand)
             }
@@ -110,17 +121,27 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
 
     /// 2026-11-23, noon UTC.
     static let firstMeasurementDate = Date(timeIntervalSince1970: 1_795_435_200)
+    /// The spread of that measurement: 1.2 ms over 12 clicks.
+    static let firstMeasurementSpread = 0.0012
 
+    /// The Mac's built-in headphone output, by its UID.
+    private static let builtInHeadphones = "BuiltInHeadphoneOutputDevice"
+
+    /// The Spark MINI's USB input (`AppleUSBAudioEngine:<maker>:<product>:<place>:<stream>`, the product "Spark MINI"
+    /// or "Spark MINI USB") with the built-in headphone output.
     private static func isFirstMeasurement(input: String, output: String) -> Bool {
-        func squeezed(_ text: String) -> String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
-        return squeezed(input).contains("sparkmini") && squeezed(output).contains("headphone")
+        let fields = input.split(separator: ":", omittingEmptySubsequences: false)
+        guard output == builtInHeadphones, fields.count >= 3, fields[0] == "AppleUSBAudioEngine" else { return false }
+        let product = fields[2].lowercased().filter { $0.isLetter || $0.isNumber }
+        return product == "sparkmini" || product == "sparkminiusb"
     }
 
-    /// The click latency of a recording from this input, with what the click output and the input report.
-    public func clickLatency(input: DeviceIdentity, reportedOutput: Double, reportedInput: Double,
-                             outputTransport: UInt32) -> ClickLatency {
-        ClickLatency(output: reportedOutput, input: reportedInput, amp: part(for: input),
-                     outputKind: ClickOutputKind(transport: outputTransport))
+    /// The click latency of a recording from this input, with what the click output and the input report. Without
+    /// an input there is no amp part.
+    public func clickLatency(input: DeviceIdentity?, reportedOutput: Double, reportedInput: Double,
+                             outputKind: ClickOutputKind) -> ClickLatency {
+        ClickLatency(output: reportedOutput, input: reportedInput, amp: input.flatMap(part(for:)),
+                     outputKind: outputKind)
     }
 }
 
@@ -154,6 +175,10 @@ public enum LatencyProbeError: LocalizedError, Equatable {
     case clickDidNotStart
     case noSignal
     case unstable(spreadMilliseconds: Double)
+    /// The click goes to a Bluetooth output, whose own delay would be stored as the amp's part.
+    case clickOnBluetooth
+    /// The click goes to an AirPlay output, the same.
+    case clickOnAirPlay
 
     public var errorDescription: String? {
         switch self {
@@ -163,6 +188,10 @@ public enum LatencyProbeError: LocalizedError, Equatable {
             return tr("No click arrived at the input. Is the cable in the guitar input, or do the headphones lie directly on the pickup? Is the output loud enough?")
         case .unstable(let spread):
             return tr("The clicks arrived unevenly (spread %.1f ms). Choose a preset without delay, reverb and noise gate on the amp and measure again.", spread)
+        case .clickOnBluetooth:
+            return tr("The click goes to a Bluetooth output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
+        case .clickOnAirPlay:
+            return tr("The click goes to an AirPlay output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
         }
     }
 }
@@ -222,6 +251,16 @@ public enum LatencyProbe {
         return Analysis(lags: lags, played: expected.count)
     }
 
+    /// Refuses a click output whose own delay is not steady: a measurement through it would store that delay as the
+    /// amp's part, marked measured.
+    public static func checkOutput(_ kind: ClickOutputKind) throws {
+        switch kind {
+        case .wired: return
+        case .bluetooth: throw LatencyProbeError.clickOnBluetooth
+        case .airPlay: throw LatencyProbeError.clickOnAirPlay
+        }
+    }
+
     /// Turns single lags into one result, refusing a measurement that is not clean enough to trust.
     public static func evaluate(_ analysis: Analysis, sampleRate: Double, reported: Double) throws -> Result {
         let needed = max(4, (analysis.played * 2 + 2) / 3)
@@ -243,8 +282,9 @@ public enum LatencyProbe {
     /// Runs on the main thread and takes about ten seconds. The audio goes to a temporary file that is deleted
     /// again; nothing is added to the library.
     @MainActor
-    public static func measure(input: InputDevice, output: AudioDeviceID, beats: Int = 12, bpm: Double = 100,
+    public static func measure(input: InputDevice, output: OutputDevice, beats: Int = 12, bpm: Double = 100,
                                volume: Float = 0.5, inputPolicy: InputPolicy = .sparkOnly) async throws -> Result {
+        try checkOutput(output.clickKind)
         let capture = CaptureEngine(inputPolicy: inputPolicy)
         try capture.open(device: input)
         defer { capture.close() }
@@ -259,7 +299,7 @@ public enum LatencyProbe {
         try await Task.sleep(nanoseconds: 300_000_000)
 
         let click = ClickEngine()
-        try click.start(device: output, settings: MetronomeSettings(bpm: bpm, beatsPerBar: 4, volume: volume),
+        try click.start(device: output.id, settings: MetronomeSettings(bpm: bpm, beatsPerBar: 4, volume: volume),
                         clock: clock)
         defer { click.stop() }
         guard let anchor = await click.waitForAnchor() else { throw LatencyProbeError.clickDidNotStart }

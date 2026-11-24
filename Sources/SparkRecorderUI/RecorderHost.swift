@@ -112,7 +112,7 @@ public final class RecorderHost {
 
     /// How to tell from a take's sound snapshot that its delay is on, for the hint of the timing review. Asked away
     /// from the main thread, while the review is worked out.
-    public func judgeSounds(hasDelay: @escaping @Sendable (Data) -> Bool) {
+    public func recognizeDelays(with hasDelay: @escaping @Sendable (Data) -> Bool) {
         model.soundHasDelay = hasDelay
     }
 

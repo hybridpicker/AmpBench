@@ -67,6 +67,7 @@ gives a `Color` where one is needed, such as in a `Canvas`.
 | Playhead | `#1D1D1F` | `#FFFFFF` |
 | Onset in the timing band / not counted | `#1F6F7E` / same at 35 % | `#68C6D6` / same at 35 % |
 | Bar in the timing band, steady / unsteady | `#1F6F7E` at 7 % / `rgba(230,162,60,.22)`, word `#7E5508` | `#68C6D6` at 7 % / `rgba(247,196,92,.16)`, word `#F7C45C` |
+| Text in the timing band: bar labels, beat numbers, "steady" | `#5E5E63` | `#A3A3A8` |
 | Selected row | `rgba(230,162,60,.18)`, bar `#E6A23C` | `rgba(247,196,92,.14)`, bar `#F7C45C` |
 | Stars | `#F2B233` | `#F2B233` |
 | Pill "Open" | text `#7E5508` | text `#F7C45C` |
@@ -137,7 +138,7 @@ a variant of `LEDSegments`).
   with bars are a second row on the same front.
 - **Timing band:** below the waveform on its background, for a take with a timing review. Two bars, one cell per beat
   magnified to about ±60 ms: the click lines in bar-line color stand fixed in the middle with their beat numbers in
-  secondary text, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
+  the band's text gray, cell edges in beat-line color, bar starts with their numbers. Counted onsets are strokes in the
   onset color with their offset ("+18 ms") in mono; onsets that do not count are faint and carry no number. An onset
   further off than the cell sits at its edge with a small arrow. The playhead shows in the band only near a click. On
   eighths, triplets or sixteenths there is one cell per grid point; the points between the beats are thinner, in
@@ -293,8 +294,8 @@ The canvas "Spark Apps Design" is intent, not a pixel specification. These diffe
 ## Checks
 
 - `swift test` runs `Tests/SparkDesignTests`, which computes the contrast of every text color on the device, keys,
-  nameplates, amp and pills against each background it is drawn on and fails below 4.5 : 1; lines and bars on the
-  desk must reach 3 : 1.
+  nameplates, amp, pills and the timing band against each background it is drawn on and fails below 4.5 : 1; lines
+  and bars on the desk must reach 3 : 1.
 - Smallest window: 1120 × 720 for AmpBench, the deck's 122 pt included; the areas Presets, Tuner and
   Metronome get 1120 × 598. The
   `pictures` self-test and the snapshot at `--size 1120x720` show both areas there; nothing may be cut off. At that

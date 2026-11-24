@@ -60,6 +60,23 @@ final class TimingGridTests: XCTestCase {
         XCTAssertEqual(grid(other), .quarters)
     }
 
+    /// Bars recorded again open on the grid of the take they were recorded into, until a grid is chosen for them.
+    func testARetakeWithoutAPieceOpensOnItsSourcesGrid() {
+        let source = addTake("Loose")
+        store.keepTimingGrid(.triplets, for: source.id)
+        var retake = Recording(fileName: "Loose bars 3-4.wav", createdAt: Date(), duration: 4, sampleRate: 48_000,
+                               channels: 1, fileBits: 24,
+                               grid: BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15, firstBar: 3),
+                               punch: PunchInfo(sourceID: source.id, bars: 3...4))
+        store.add(retake)
+        XCTAssertEqual(grid(retake), .triplets)
+
+        store.keepTimingGrid(.eighths, for: retake.id)
+        retake = store.recording(retake.id) ?? retake
+        XCTAssertEqual(grid(retake), .eighths, "a grid chosen for the retake is its own")
+        XCTAssertEqual(grid(source), .triplets, "and leaves the source's as it was")
+    }
+
     func testTheChosenGridSurvivesSavingAndLoading() throws {
         let piece = try XCTUnwrap(store.addPiece(named: "Blues in A"))
         let inPiece = addTake("Take 1", piece: piece)

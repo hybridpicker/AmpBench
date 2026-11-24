@@ -29,7 +29,7 @@ extension TimingReview {
         case steady
         case unsteady
 
-        /// The word beside the bar's colour, so the colour is never alone.
+        /// The word beside the bar's color, so the color is never alone.
         public var word: String {
             switch self {
             case .steady: return tr("steady")
@@ -41,36 +41,31 @@ extension TimingReview {
         /// than 1.5 times as much as the whole take and by more than 8 ms. So a take uneven throughout has no bar
         /// of its own to point at, and a few milliseconds are never a weak spot.
         public init(spread: Double, takeSpread: Double) {
-            self = spread > Self.share * takeSpread && spread > Self.least ? .unsteady : .steady
+            self = spread > Self.timesTheTake * takeSpread && spread > Self.smallestUnsteady ? .unsteady : .steady
         }
 
         /// How many times the take's spread an unsteady bar spreads by, at least.
-        public static let share = 1.5
+        public static let timesTheTake = 1.5
         /// The spread an unsteady bar exceeds in any case, in seconds.
-        public static let least = 0.008
+        public static let smallestUnsteady = 0.008
     }
 
     /// Every bar the take's grid points reach into, with the numbers of its counted onsets.
-    static func bars(of onsets: [Onset], grid: BeatGrid, resolution: Resolution, duration: Double,
-                     takeSpread: Double) -> [Bar] {
-        let pointsPerBar = grid.beatsPerBar * resolution.pointsPerBeat
-        let spacing = grid.secondsPerBeat / Double(resolution.pointsPerBeat)
-        let lastPoint = Int(((duration - grid.offset) / spacing).rounded(.down))
-        guard lastPoint >= 0, pointsPerBar > 0 else { return [] }
-        var offsets = [[Double]](repeating: [], count: lastPoint / pointsPerBar + 1)
+    static func bars(of onsets: [Onset], on points: GridPoints, takeSpread: Double) -> [Bar] {
+        let pointsPerBar = points.pointsPerBar
+        guard !points.range.isEmpty, pointsPerBar > 0 else { return [] }
+        var offsets = [[Double]](repeating: [], count: (points.range.upperBound - 1) / pointsPerBar + 1)
         for onset in onsets where onset.isCounted {
             guard let point = onset.gridPoint, let offset = onset.offset, point / pointsPerBar < offsets.count else { continue }
             offsets[point / pointsPerBar].append(offset)
         }
         return offsets.enumerated().map { index, offsets in
-            var bar = Bar(number: grid.firstBar + index, counted: offsets.count)
-            guard !offsets.isEmpty else { return bar }
-            let placement = offsets.reduce(0, +) / Double(offsets.count)
-            let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
-            bar.placement = placement
+            var bar = Bar(number: points.grid.firstBar + index, counted: offsets.count)
+            guard let numbers = Numbers(offsets) else { return bar }
+            bar.placement = numbers.placement
             guard offsets.count >= 2 else { return bar }
-            bar.spread = variance.squareRoot()
-            bar.steadiness = Steadiness(spread: variance.squareRoot(), takeSpread: takeSpread)
+            bar.spread = numbers.spread
+            bar.steadiness = Steadiness(spread: numbers.spread, takeSpread: takeSpread)
             return bar
         }
     }

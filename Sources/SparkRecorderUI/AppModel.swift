@@ -963,8 +963,9 @@ final class AppModel: ObservableObject {
         guard let clock = capture.clock else { throw CaptureError.notOpen }
         try click.start(device: output.id, settings: settings, clock: clock)
         activeClickSettings = settings
-        activeLatency = clickLatency(output: output, reportedOutput: click.reportedOutputLatency,
-                                     reportedInput: capture.reportedInputLatency)
+        activeLatency = ampLatencies.clickLatency(input: selectedInput?.identity,
+                                                  reportedOutput: click.reportedOutputLatency,
+                                                  reportedInput: capture.reportedInputLatency, outputKind: output.clickKind)
         isClickRunning = true
     }
 
@@ -1370,6 +1371,8 @@ final class AppModel: ObservableObject {
         let url = store.url(of: recording)
         let grid = recording.grid
         let stamp = recording.timing
+        // Bars recorded again ring out past their last bar; that is not reviewed.
+        let lastBar = recording.lastBar
         let flag = recordingFlag
         // A take without a sound stamp, or whose sound was only listened to, has no snapshot and so no hint.
         let snapshotURL = recording.preset == nil ? nil : store.presetSnapshotURL(of: id)
@@ -1383,7 +1386,7 @@ final class AppModel: ObservableObject {
                 let snapshot = snapshotURL.flatMap { try? Data(contentsOf: $0) }
                 let delay = snapshot.map { hasDelay?($0) ?? false } ?? false
                 return (try? TimingReview.review(take, grid: grid, stamp: stamp, resolution: resolution,
-                                                 soundHasDelay: delay)) ?? nil
+                                                 soundHasDelay: delay, lastBar: lastBar)) ?? nil
             }
             let outcome = await withTaskCancellationHandler {
                 await work.value
@@ -2247,19 +2250,9 @@ final class AppModel: ObservableObject {
         selectedInput.flatMap { ampLatencies.part(for: $0.identity) }
     }
 
-    /// The correction for the input in use now, in seconds.
-    var currentLatencyCorrection: Double {
+    /// The amp part of the input in use now, in seconds; 0 without one.
+    var currentAmpSeconds: Double {
         currentAmpPart?.seconds ?? 0
-    }
-
-    /// What the bars of a recording from the input in use now rest on, with this click output.
-    private func clickLatency(output: OutputDevice, reportedOutput: Double, reportedInput: Double) -> ClickLatency {
-        guard let input = selectedInput else {
-            return ClickLatency(output: reportedOutput, input: reportedInput,
-                                outputKind: ClickOutputKind(transport: output.transport))
-        }
-        return ampLatencies.clickLatency(input: input.identity, reportedOutput: reportedOutput,
-                                         reportedInput: reportedInput, outputTransport: output.transport)
     }
 
     private func saveAmpLatencies() {
@@ -2277,8 +2270,9 @@ final class AppModel: ObservableObject {
             + Double(AudioDevices.outputLatencyFrames(of: output.id)) / outputRate
     }
 
-    /// Sets the correction by hand. The bars of later recordings move by it; earlier ones stay as they are.
-    func setLatencyCorrection(_ seconds: Double) {
+    /// Sets the amp part of the input in use by hand. The bars of later recordings move by it; earlier ones stay as
+    /// they are.
+    func setAmpPartByHand(_ seconds: Double) {
         guard let input = selectedInput else { return }
         ampLatencies.setByHand(seconds, for: input.identity)
         saveAmpLatencies()
@@ -2293,7 +2287,7 @@ final class AppModel: ObservableObject {
             defer { isMeasuring = false }
             guard await requestMicrophone() else { return }
             do {
-                let result = try await LatencyProbe.measure(input: input, output: output.id, inputPolicy: inputPolicy)
+                let result = try await LatencyProbe.measure(input: input, output: output, inputPolicy: inputPolicy)
                 ampLatencies.store(result, for: input.identity, at: Date())
                 saveAmpLatencies()
                 let text = tr(
