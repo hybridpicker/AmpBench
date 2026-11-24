@@ -103,6 +103,8 @@ public struct TimingReview: Equatable, Sendable {
     public var spread: Double
     public var counted: Int
     public var hints: [Hint]
+    /// Every bar of the take, each with its own placement and spread.
+    public var bars: [Bar] = []
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35
@@ -122,7 +124,8 @@ public struct TimingReview: Equatable, Sendable {
         let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
         return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
                                     spread: variance.squareRoot(), counted: offsets.count,
-                                    hints: soundHasDelay ? [.delayInTheSound] : []))
+                                    hints: soundHasDelay ? [.delayInTheSound] : [],
+                                    bars: bars(of: onsets, grid: grid, resolution: resolution, duration: duration)))
     }
 
     /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.
