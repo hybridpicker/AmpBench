@@ -1069,5 +1069,7 @@ extension German {
             "Takt %d Schlag %d %@",
         "%@, no counted notes":
             "%@, keine gezählten Töne",
+        "Chooses this bar for Loop bars and Record bars again":
+            "Wählt diesen Takt für „Takte loopen“ und „Takte neu aufnehmen“",
     ]
 }

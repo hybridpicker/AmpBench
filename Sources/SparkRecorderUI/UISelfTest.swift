@@ -1280,6 +1280,21 @@ final class UISelfTest {
         }
         await snapshot("timing-band-bars-3-4-dark")
 
+        // Bar 4 holds the late note, so it alone is unsteady; pointing at it reads its numbers, and the bar tools take it.
+        check(review.bars.prefix(bars).map(\.steadiness) == [.steady, .steady, .steady, .unsteady,
+                                                              .steady, .steady, .steady, .steady],
+              "only bar 4 is unsteady", detail: "\(review.bars.map(\.steadiness))")
+        if let unsteady = review.bars.first(where: { $0.steadiness == .unsteady }) {
+            await voiceOverCheck("VoiceOver reads the unsteady bar's numbers") { $0.contains { $0.contains(unsteady.text) } }
+            model.setBarSelection(unsteady.number...unsteady.number)
+            model.toggleBarLoop()
+            check(model.isLoopingBars && model.loopRange == grid.loopRange(bars: 4...4, duration: seconds),
+                  "the unsteady bar loops with the bar tools", detail: "\(String(describing: model.loopRange))")
+            check(model.canRecordBars || model.selectedInput == nil, "the unsteady bar can be recorded again")
+            model.toggleBarLoop()
+            await wait(0.3)
+        }
+
         // Chosen bars move it without moving the playhead.
         model.setBarSelection(5...6)
         await wait(0.3)

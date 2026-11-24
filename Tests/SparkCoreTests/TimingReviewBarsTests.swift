@@ -136,8 +136,8 @@ final class TimingReviewBarsTests: XCTestCase {
         XCTAssertEqual(empty.text, "Bar 10: no counted notes")
 
         Texts.language = .german
-        XCTAssertEqual(unsteady.text, "Takt 7, ungleichmäßig: Lage +12,3 ms, Streuung 9,5 ms, 4 Töne")
-        XCTAssertEqual(steady.text, "Takt 8, gleichmäßig: Lage -4,0 ms, Streuung 2,1 ms, 3 Töne")
+        XCTAssertEqual(unsteady.text, "Takt 7, unruhig: Lage +12,3 ms, Streuung 9,5 ms, 4 Töne")
+        XCTAssertEqual(steady.text, "Takt 8, ruhig: Lage -4,0 ms, Streuung 2,1 ms, 3 Töne")
         XCTAssertEqual(single.text, "Takt 9: Lage +18,0 ms, ein einzelner Ton, zu wenige für ein Urteil")
         XCTAssertEqual(empty.text, "Takt 10: keine gezählten Töne")
     }
