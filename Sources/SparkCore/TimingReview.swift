@@ -106,8 +106,8 @@ public struct TimingReview: Equatable, Sendable {
 
     /// The share of the grid spacing a catch window reaches to each side of its grid point.
     public static let catchWindow = 0.35
-    /// The fewest counted onsets a review rests on: one bar of quarters.
-    public static let minimumCounted = 4
+    /// The fewest counted onsets a review rests on: two bars of quarters (provisional, until the owner confirms it).
+    public static let minimumCounted = 8
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
                               resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {

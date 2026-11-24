@@ -245,6 +245,17 @@ final class TimingReviewTests: XCTestCase {
         XCTAssertEqual(reason(three, rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
     }
 
+    func testAReviewNeedsEightCountedOnsets() {
+        // Two bars of quarters; the number waits for the owner's word and lives in one constant.
+        let rate = 44_100.0
+        let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
+        func beats(_ count: Int) -> [Float] {
+            take((0..<count).map { Note(time: grid.offset + Double($0) * grid.secondsPerBeat) }, seconds: 5, rate: rate)
+        }
+        XCTAssertEqual(reason(beats(7), rate: rate, grid: grid, stamp: measured), .tooFewOnsets)
+        XCTAssertNil(reason(beats(8), rate: rate, grid: grid, stamp: measured))
+    }
+
     func testTheReasonsReadInEnglishAndGerman() {
         let english: [NoReviewReason: String] = [
             .noBars: "No timing review: recorded without the click.",
