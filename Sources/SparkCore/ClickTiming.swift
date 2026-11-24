@@ -100,7 +100,8 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
             let output = String(key[key.index(after: bar)...])
             guard !input.isEmpty, !output.isEmpty else { continue }
             if isFirstMeasurement(input: input, output: output) {
-                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: 0.0012, date: firstMeasurementDate))
+                amps.parts[input] = AmpPart(seconds: value, origin: .measured(spread: firstMeasurementSpread,
+                                                                              date: firstMeasurementDate))
             } else if amps.parts[input] == nil {
                 amps.parts[input] = AmpPart(seconds: value, origin: .setByHand)
             }
@@ -110,10 +111,19 @@ public struct AmpLatencies: Codable, Equatable, Sendable {
 
     /// 2026-11-23, noon UTC.
     static let firstMeasurementDate = Date(timeIntervalSince1970: 1_795_435_200)
+    /// The spread of that measurement: 1.2 ms over 12 clicks.
+    static let firstMeasurementSpread = 0.0012
 
+    /// The Mac's built-in headphone output, by its UID.
+    private static let builtInHeadphones = "BuiltInHeadphoneOutputDevice"
+
+    /// The Spark MINI's USB input (`AppleUSBAudioEngine:<maker>:<product>:<place>:<stream>`, the product "Spark MINI"
+    /// or "Spark MINI USB") with the built-in headphone output.
     private static func isFirstMeasurement(input: String, output: String) -> Bool {
-        func squeezed(_ text: String) -> String { text.lowercased().filter { $0.isLetter || $0.isNumber } }
-        return squeezed(input).contains("sparkmini") && squeezed(output).contains("headphone")
+        let fields = input.split(separator: ":", omittingEmptySubsequences: false)
+        guard output == builtInHeadphones, fields.count >= 3, fields[0] == "AppleUSBAudioEngine" else { return false }
+        let product = fields[2].lowercased().filter { $0.isLetter || $0.isNumber }
+        return product == "sparkmini" || product == "sparkminiusb"
     }
 
     /// The click latency of a recording from this input, with what the click output and the input report.

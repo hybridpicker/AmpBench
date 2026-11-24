@@ -87,6 +87,27 @@ final class AmpLatencyTests: XCTestCase {
         XCTAssertEqual(amps.part(for: neo)?.origin, .setByHand)
     }
 
+    /// The pair is the MINI's USB input, under either of its product names, and the built-in headphone output; other
+    /// headphones and other devices named after the MINI carry over as hand-set.
+    func testThatPairIsTheMINIsUSBInputAndTheBuiltInHeadphoneOutput() {
+        let usbName = "AppleUSBAudioEngine:Positive Grid:Spark MINI USB:1:1"
+        let pairs = [
+            "\(usbName)|BuiltInHeadphoneOutputDevice": 0.0215,
+            "\(mini.uid)|AppleUSBAudioEngine:Generic:USB Headphones:7:2": 0.02166,
+            "~:AMS2_Aggregate:Spark MINI + headphones|BuiltInHeadphoneOutputDevice": 0.03,
+            "AppleUSBAudioEngine:Positive Grid:Spark MINI 2:9:1|BuiltInHeadphoneOutputDevice": 0.04,
+        ]
+        let amps = AmpLatencies.carryOver(pairs: pairs)
+        func origin(_ uid: String) -> AmpPart.Origin? {
+            amps.part(for: DeviceIdentity(uid: uid, modelUID: "", name: "", isBuiltIn: false))?.origin
+        }
+        XCTAssertEqual(origin(usbName), .measured(spread: AmpLatencies.firstMeasurementSpread,
+                                                  date: AmpLatencies.firstMeasurementDate))
+        XCTAssertEqual(origin(mini.uid), .setByHand, "USB headphones are not the built-in headphone output")
+        XCTAssertEqual(origin("~:AMS2_Aggregate:Spark MINI + headphones"), .setByHand, "an aggregate is not the MINI")
+        XCTAssertEqual(origin("AppleUSBAudioEngine:Positive Grid:Spark MINI 2:9:1"), .setByHand)
+    }
+
     /// One amp with values for several outputs keeps one part: the measured one, otherwise the first by key.
     func testSeveralPairsOfOneAmpKeepTheMeasuredValue() {
         let amps = AmpLatencies.carryOver(pairs: [
