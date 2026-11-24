@@ -29,7 +29,7 @@ extension TimingReview {
         case steady
         case unsteady
 
-        /// The word beside the bar's colour, so the colour is never alone.
+        /// The word beside the bar's color, so the color is never alone.
         public var word: String {
             switch self {
             case .steady: return tr("steady")

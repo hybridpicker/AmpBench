@@ -1,7 +1,7 @@
 import XCTest
 @testable import SparkCore
 
-/// Where each bar lies in the timing band, for its colour and for pointing at it.
+/// Where each bar lies in the timing band, for its color and for pointing at it.
 final class TimingBandBarsTests: XCTestCase {
     func testEachBarOfTheBandHasItsShareOfTheWidth() {
         let grid = BeatGrid(bpm: 120, beatsPerBar: 4, offset: 0.15)
