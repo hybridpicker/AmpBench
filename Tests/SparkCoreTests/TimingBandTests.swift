@@ -22,7 +22,7 @@ final class TimingBandTests: XCTestCase {
     private func review(_ times: [Double], grid: BeatGrid? = nil, duration: Double = 20,
                         resolution: TimingReview.Resolution = .quarters) -> TimingReview {
         let grid = grid ?? self.grid
-        let onsets = TimingReview.match(times, to: grid, resolution: resolution, duration: duration)
+        let onsets = TimingReview.match(times, to: GridPoints(grid: grid, resolution: resolution, duration: duration))
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
         return TimingReview(resolution: resolution, onsets: onsets, placement: 0, spread: 0, counted: offsets.count,
                             hints: [])

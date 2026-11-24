@@ -51,26 +51,21 @@ extension TimingReview {
     }
 
     /// Every bar the take's grid points reach into, with the numbers of its counted onsets.
-    static func bars(of onsets: [Onset], grid: BeatGrid, resolution: Resolution, duration: Double,
-                     takeSpread: Double) -> [Bar] {
-        let pointsPerBar = grid.beatsPerBar * resolution.pointsPerBeat
-        let spacing = grid.secondsPerBeat / Double(resolution.pointsPerBeat)
-        let lastPoint = Int(((duration - grid.offset) / spacing).rounded(.down))
-        guard lastPoint >= 0, pointsPerBar > 0 else { return [] }
-        var offsets = [[Double]](repeating: [], count: lastPoint / pointsPerBar + 1)
+    static func bars(of onsets: [Onset], on points: GridPoints, takeSpread: Double) -> [Bar] {
+        let pointsPerBar = points.pointsPerBar
+        guard !points.range.isEmpty, pointsPerBar > 0 else { return [] }
+        var offsets = [[Double]](repeating: [], count: (points.range.upperBound - 1) / pointsPerBar + 1)
         for onset in onsets where onset.isCounted {
             guard let point = onset.gridPoint, let offset = onset.offset, point / pointsPerBar < offsets.count else { continue }
             offsets[point / pointsPerBar].append(offset)
         }
         return offsets.enumerated().map { index, offsets in
-            var bar = Bar(number: grid.firstBar + index, counted: offsets.count)
-            guard !offsets.isEmpty else { return bar }
-            let placement = offsets.reduce(0, +) / Double(offsets.count)
-            let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
-            bar.placement = placement
+            var bar = Bar(number: points.grid.firstBar + index, counted: offsets.count)
+            guard let numbers = Numbers(offsets) else { return bar }
+            bar.placement = numbers.placement
             guard offsets.count >= 2 else { return bar }
-            bar.spread = variance.squareRoot()
-            bar.steadiness = Steadiness(spread: variance.squareRoot(), takeSpread: takeSpread)
+            bar.spread = numbers.spread
+            bar.steadiness = Steadiness(spread: numbers.spread, takeSpread: takeSpread)
             return bar
         }
     }

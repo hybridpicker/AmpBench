@@ -51,11 +51,10 @@ public protocol TakeAudio {
 
 /// The look at a finished take against its click: every onset with its offset, the placement and the spread.
 ///
-/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:soundHasDelay:)`, so the Linux port can follow it line
-/// by line; a long take comes in through `TakeAudio` instead of its samples, by the same rules. It knows nothing of
-/// devices, files or the window. What it grows (bars, accuracy, hints) comes in as
-/// parameters with defaults and out as fields of the review, so callers stay as they are. Times are seconds in the file, offsets
-/// seconds with positive meaning later than the click.
+/// One pure entry point, `review(samples:sampleRate:grid:stamp:resolution:soundHasDelay:lastBar:)`, so the Linux
+/// port can follow it line by line; a long take comes in through `TakeAudio` instead of its samples, by the same
+/// rules. It knows nothing of devices, files or the window. Times are seconds in the file, offsets seconds with
+/// positive meaning later than the click.
 public struct TimingReview: Equatable, Sendable {
     public enum Outcome: Equatable, Sendable {
         case review(TimingReview)
@@ -164,39 +163,39 @@ public struct TimingReview: Equatable, Sendable {
     }
 
     public static func review(samples: [Float], sampleRate: Double, grid: BeatGrid?, stamp: TimingStamp?,
-                              resolution: Resolution = .quarters, soundHasDelay: Bool = false) -> Outcome {
+                              resolution: Resolution = .quarters, soundHasDelay: Bool = false,
+                              lastBar: Int? = nil) -> Outcome {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         return judge(OnsetDetector.attacks(in: samples, sampleRate: sampleRate), duration: Double(samples.count) / sampleRate,
-                     grid: grid, stamp: stamp, resolution: resolution, soundHasDelay: soundHasDelay)
+                     grid: grid, stamp: stamp, resolution: resolution, soundHasDelay: soundHasDelay, lastBar: lastBar)
     }
 
     /// The same review of a take read block by block. Nil when the reading stopped before the end.
     public static func review(_ audio: some TakeAudio, grid: BeatGrid?, stamp: TimingStamp?,
-                              resolution: Resolution = .quarters, soundHasDelay: Bool = false) throws -> Outcome? {
+                              resolution: Resolution = .quarters, soundHasDelay: Bool = false,
+                              lastBar: Int? = nil) throws -> Outcome? {
         if let reason = reasonBeforeListening(grid: grid, stamp: stamp) { return .noReview(reason) }
         guard let detected = try OnsetDetector.attacks(sampleRate: audio.sampleRate, read: audio.read) else { return nil }
         return judge(detected.attacks, duration: Double(detected.frames) / audio.sampleRate, grid: grid, stamp: stamp,
-                     resolution: resolution, soundHasDelay: soundHasDelay)
+                     resolution: resolution, soundHasDelay: soundHasDelay, lastBar: lastBar)
     }
 
     private static func judge(_ attacks: [OnsetDetector.Attack], duration: Double, grid: BeatGrid?, stamp: TimingStamp?,
-                              resolution: Resolution, soundHasDelay: Bool) -> Outcome {
+                              resolution: Resolution, soundHasDelay: Bool, lastBar: Int?) -> Outcome {
         // Always there once `reasonBeforeListening` found nothing.
         guard let grid, let stamp, let accuracy = accuracy(of: stamp) else { return .noReview(.noBars) }
-        var onsets = match(attacks.map(\.time), to: grid, resolution: resolution, duration: duration)
+        let points = GridPoints(grid: grid, resolution: resolution, duration: duration, lastBar: lastBar)
+        var onsets = match(attacks.map(\.time), to: points)
         // The attacks come in the order of time, as the onsets do.
         for index in onsets.indices where onsets[index].status == .counted && !attacks[index].isClear {
             onsets[index].status = .unsure
         }
         let offsets = onsets.filter(\.isCounted).compactMap(\.offset)
-        guard offsets.count >= minimumCounted else { return .noReview(.tooFewOnsets) }
-        let placement = offsets.reduce(0, +) / Double(offsets.count)
-        let variance = offsets.reduce(0) { $0 + ($1 - placement) * ($1 - placement) } / Double(offsets.count)
-        return .review(TimingReview(resolution: resolution, onsets: onsets, placement: placement,
-                                    spread: variance.squareRoot(), counted: offsets.count,
+        guard offsets.count >= minimumCounted, let numbers = Numbers(offsets) else { return .noReview(.tooFewOnsets) }
+        return .review(TimingReview(resolution: resolution, onsets: onsets, placement: numbers.placement,
+                                    spread: numbers.spread, counted: offsets.count,
                                     hints: soundHasDelay ? [.delayInTheSound] : [], accuracy: accuracy,
-                                    bars: bars(of: onsets, grid: grid, resolution: resolution, duration: duration,
-                                               takeSpread: variance.squareRoot())))
+                                    bars: bars(of: onsets, on: points, takeSpread: numbers.spread)))
     }
 
     /// The reason a take gets no review that is known without its samples, so a window need not read the file for it.
@@ -212,20 +211,68 @@ public struct TimingReview: Equatable, Sendable {
     }
 
     /// Gives each onset its grid point: the nearest one, when the onset lies in its catch window and is the first there.
-    static func match(_ times: [Double], to grid: BeatGrid, resolution: Resolution, duration: Double) -> [Onset] {
-        let spacing = grid.secondsPerBeat / Double(resolution.pointsPerBeat)
-        let reach = spacing * catchWindow
-        let lastPoint = Int(((duration - grid.offset) / spacing).rounded(.down))
+    static func match(_ times: [Double], to points: GridPoints) -> [Onset] {
+        let reach = points.spacing * catchWindow
         var taken = Set<Int>()
         return times.sorted().map { time in
-            let point = Int(((time - grid.offset) / spacing).rounded())
-            let offset = time - (grid.offset + Double(point) * spacing)
-            guard point >= 0, point <= lastPoint, abs(offset) <= reach else {
+            let point = points.nearest(to: time)
+            let offset = time - points.time(of: point)
+            guard points.range.contains(point), abs(offset) <= reach else {
                 return Onset(time: time, gridPoint: nil, offset: nil, status: .outsideWindows)
             }
             let first = taken.insert(point).inserted
             return Onset(time: time, gridPoint: point, offset: offset, status: first ? .counted : .laterInWindow)
         }
+    }
+
+    /// The mean of some offsets and their standard deviation around it. Nil without any.
+    struct Numbers {
+        var placement: Double
+        var spread: Double
+
+        init?(_ offsets: [Double]) {
+            guard !offsets.isEmpty else { return nil }
+            let count = Double(offsets.count)
+            let mean = offsets.reduce(0, +) / count
+            placement = mean
+            spread = (offsets.reduce(0) { $0 + ($1 - mean) * ($1 - mean) } / count).squareRoot()
+        }
+    }
+}
+
+/// The grid points of a take's bars on one grid, numbered from the first beat of its bars, 0 on: those that lie in
+/// the file, and for bars recorded again only those of the bars recorded, not of what rings out after them.
+struct GridPoints {
+    let grid: BeatGrid
+    let pointsPerBeat: Int
+    /// The time from one grid point to the next.
+    let spacing: Double
+    /// The numbers of the take's grid points; empty when none lies in the file.
+    let range: Range<Int>
+
+    init(grid: BeatGrid, resolution: TimingReview.Resolution, duration: Double = .infinity, lastBar: Int? = nil) {
+        self.grid = grid
+        pointsPerBeat = resolution.pointsPerBeat
+        spacing = grid.secondsPerBeat / Double(resolution.pointsPerBeat)
+        let inFile = duration.isFinite ? Int(((duration - grid.offset) / spacing).rounded(.down)) + 1 : Int.max
+        let inBars = lastBar.map { ($0 - grid.firstBar + 1) * grid.beatsPerBar * resolution.pointsPerBeat } ?? Int.max
+        range = 0..<max(min(inFile, inBars), 0)
+    }
+
+    var pointsPerBar: Int { grid.beatsPerBar * pointsPerBeat }
+
+    func time(of point: Int) -> Double {
+        grid.offset + Double(point) * spacing
+    }
+
+    /// The grid point nearest to a moment of the file, whether the take has it or not.
+    func nearest(to time: Double) -> Int {
+        Int(((time - grid.offset) / spacing).rounded())
+    }
+
+    /// The first grid point of a bar.
+    func first(ofBar bar: Int) -> Int {
+        (bar - grid.firstBar) * pointsPerBar
     }
 }
 

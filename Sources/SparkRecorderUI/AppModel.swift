@@ -1370,6 +1370,8 @@ final class AppModel: ObservableObject {
         let url = store.url(of: recording)
         let grid = recording.grid
         let stamp = recording.timing
+        // Bars recorded again ring out past their last bar; that is not reviewed.
+        let lastBar = recording.lastBar
         let flag = recordingFlag
         // A take without a sound stamp, or whose sound was only listened to, has no snapshot and so no hint.
         let snapshotURL = recording.preset == nil ? nil : store.presetSnapshotURL(of: id)
@@ -1383,7 +1385,7 @@ final class AppModel: ObservableObject {
                 let snapshot = snapshotURL.flatMap { try? Data(contentsOf: $0) }
                 let delay = snapshot.map { hasDelay?($0) ?? false } ?? false
                 return (try? TimingReview.review(take, grid: grid, stamp: stamp, resolution: resolution,
-                                                 soundHasDelay: delay)) ?? nil
+                                                 soundHasDelay: delay, lastBar: lastBar)) ?? nil
             }
             let outcome = await withTaskCancellationHandler {
                 await work.value

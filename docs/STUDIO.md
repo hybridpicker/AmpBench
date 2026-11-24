@@ -545,7 +545,8 @@ Live timing while playing comes next, then Linux and the iPad.
   a take without a stamp gets no review. A take rebuilt after a crash gets no stamp, since whether the click stayed
   on cannot be known. The stamp is saved before the recording's click state and latency are reset at the stop.
 - **The review module (`TimingReview` in SparkCore):** one pure entry point. In: the take's samples and sample rate,
-  its bars, its timing stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
+  its bars (for bars recorded again only up to the last one recorded, not what rings out after it), its timing
+  stamp, the chosen grid resolution and whether its sound has a delay. Out: either a review or
   "no review" with one reason. A review holds every onset (time, grid point, offset in ms, counted or why not), the
   placement, spread and number of counted onsets per take and per bar, the review accuracy and the hints. It knows
   nothing of devices, files or the UI, so the Linux port can follow it line by line.
