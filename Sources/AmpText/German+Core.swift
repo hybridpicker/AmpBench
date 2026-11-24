@@ -62,6 +62,8 @@ extension German {
         "%@ failed (error %d).": "%@ ist fehlgeschlagen (Fehler %d).",
         "“%@” is not allowed as an input. AmpBench records only from a Spark over USB.": "„%@“ ist als Eingang nicht erlaubt. AmpBench nimmt nur von einem Spark über USB auf.",
         "The clicks arrived unevenly (spread %.1f ms). Choose a preset without delay, reverb and noise gate on the amp and measure again.": "Die Klicks kamen ungleichmäßig an (Streuung %.1f ms). Wähle am Amp ein Preset ohne Delay, Hall und Noise Gate und miss noch einmal.",
+        "The click goes to a Bluetooth output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.": "Der Klick geht an einen Bluetooth-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.",
+        "The click goes to an AirPlay output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.": "Der Klick geht an einen AirPlay-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.",
         "The output device could not be selected (error %d).": "Das Ausgabegerät konnte nicht gewählt werden (Fehler %d).",
         "Playback could not start: %@": "Die Wiedergabe konnte nicht starten: %@",
         "A file named “%@” already exists.": "Es gibt bereits eine Datei mit dem Namen „%@“.",

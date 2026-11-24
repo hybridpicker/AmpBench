@@ -221,7 +221,8 @@ strings, turn the Mac up and use a preset with some gain. The neck pickup and si
 The result is stored for the amp, with its spread and the day of the measurement. It holds when the click moves to
 another wired output, such as the built-in speakers: that output's own delay comes from what it reports. A value
 changed by hand afterwards counts as set by hand. A Bluetooth or AirPlay click output is recognised as such, also
-behind an aggregate or multi-output device; its bars are corrected the same way, but its delay is not steady.
+behind an aggregate or multi-output device; its bars are corrected the same way, but its delay is not steady. A
+measurement with the click on such an output is refused, since its delay would be taken for the amp's.
 
 On the BlackHole loop test, every beat lands within one sample of the grid.
 

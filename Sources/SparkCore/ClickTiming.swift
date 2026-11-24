@@ -175,6 +175,10 @@ public enum LatencyProbeError: LocalizedError, Equatable {
     case clickDidNotStart
     case noSignal
     case unstable(spreadMilliseconds: Double)
+    /// The click goes to a Bluetooth output, whose own delay would be stored as the amp's part.
+    case clickOnBluetooth
+    /// The click goes to an AirPlay output, the same.
+    case clickOnAirPlay
 
     public var errorDescription: String? {
         switch self {
@@ -184,6 +188,10 @@ public enum LatencyProbeError: LocalizedError, Equatable {
             return tr("No click arrived at the input. Is the cable in the guitar input, or do the headphones lie directly on the pickup? Is the output loud enough?")
         case .unstable(let spread):
             return tr("The clicks arrived unevenly (spread %.1f ms). Choose a preset without delay, reverb and noise gate on the amp and measure again.", spread)
+        case .clickOnBluetooth:
+            return tr("The click goes to a Bluetooth output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
+        case .clickOnAirPlay:
+            return tr("The click goes to an AirPlay output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.")
         }
     }
 }
@@ -243,6 +251,16 @@ public enum LatencyProbe {
         return Analysis(lags: lags, played: expected.count)
     }
 
+    /// Refuses a click output whose own delay is not steady: a measurement through it would store that delay as the
+    /// amp's part, marked measured.
+    public static func checkOutput(_ kind: ClickOutputKind) throws {
+        switch kind {
+        case .wired: return
+        case .bluetooth: throw LatencyProbeError.clickOnBluetooth
+        case .airPlay: throw LatencyProbeError.clickOnAirPlay
+        }
+    }
+
     /// Turns single lags into one result, refusing a measurement that is not clean enough to trust.
     public static func evaluate(_ analysis: Analysis, sampleRate: Double, reported: Double) throws -> Result {
         let needed = max(4, (analysis.played * 2 + 2) / 3)
@@ -264,8 +282,9 @@ public enum LatencyProbe {
     /// Runs on the main thread and takes about ten seconds. The audio goes to a temporary file that is deleted
     /// again; nothing is added to the library.
     @MainActor
-    public static func measure(input: InputDevice, output: AudioDeviceID, beats: Int = 12, bpm: Double = 100,
+    public static func measure(input: InputDevice, output: OutputDevice, beats: Int = 12, bpm: Double = 100,
                                volume: Float = 0.5, inputPolicy: InputPolicy = .sparkOnly) async throws -> Result {
+        try checkOutput(output.clickKind)
         let capture = CaptureEngine(inputPolicy: inputPolicy)
         try capture.open(device: input)
         defer { capture.close() }
@@ -280,7 +299,7 @@ public enum LatencyProbe {
         try await Task.sleep(nanoseconds: 300_000_000)
 
         let click = ClickEngine()
-        try click.start(device: output, settings: MetronomeSettings(bpm: bpm, beatsPerBar: 4, volume: volume),
+        try click.start(device: output.id, settings: MetronomeSettings(bpm: bpm, beatsPerBar: 4, volume: volume),
                         clock: clock)
         defer { click.stop() }
         guard let anchor = await click.waitForAnchor() else { throw LatencyProbeError.clickDidNotStart }

@@ -537,7 +537,8 @@ Live timing while playing comes next, then Linux and the iPad.
   2026-11-23 (the Spark MINI with the built-in headphone output), which carries over as measured with spread 1.2 ms;
   it is found by the shape of its pair key. The per-pair values stay stored, so an older build still finds them.
 - **Bluetooth and AirPlay click outputs** are recognised by their transport type, also when an aggregate or
-  multi-output device plays to one of them. Their bars are corrected as today, but their takes get no review.
+  multi-output device plays to one of them. Their bars are corrected as today, but their takes get no review, and a
+  measurement of the click latency through one is refused, since it would store the output's delay as the amp part.
 - **Timing stamp of a take:** a new optional part of the take's library entry, written only by recordings made
   after this change: the click on for the whole take (switching the click off at any moment clears it), the click
   latency used (output part, input part, amp part, measured or hand-set, the measurement's spread) and the click

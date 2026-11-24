@@ -2286,7 +2286,7 @@ final class AppModel: ObservableObject {
             defer { isMeasuring = false }
             guard await requestMicrophone() else { return }
             do {
-                let result = try await LatencyProbe.measure(input: input, output: output.id, inputPolicy: inputPolicy)
+                let result = try await LatencyProbe.measure(input: input, output: output, inputPolicy: inputPolicy)
                 ampLatencies.store(result, for: input.identity, at: Date())
                 saveAmpLatencies()
                 let text = tr(
