@@ -562,7 +562,8 @@ Live timing while playing comes next, then Linux and the iPad.
   millisecond, then the loudest channel around each attack) and never holds the whole take.
 - **Grid points:** quarter, eighth, sixteenth or triplet on the take's bars. The default is quarters, because the
   click plays only quarters while recording, whatever the metronome's pattern; a grid chosen for a take is kept by
-  its piece and used for that piece's takes (quarters: owner, 2026-11-23; kept per piece: owner, 2026-11-24). The catch window reaches 35 % of the grid
+  its piece and used for that piece's takes, and bars recorded again open on the grid of the take they were recorded
+  into (quarters: owner, 2026-11-23; kept per piece: owner, 2026-11-24). The catch window reaches 35 % of the grid
   spacing to each side; only the first onset in it counts.
 - **Numbers:** offset in milliseconds, positive later than the click. Placement is the mean of the counted offsets.
   Spread is their standard deviation around the placement, the main number. Review accuracy combines the
