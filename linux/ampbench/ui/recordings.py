@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QInputDialog, QLabel, Q
                                QVBoxLayout, QWidget)
 
 from .. import peaks, store as storemod
+from ..beat_grid import BeatGrid
 from ..i18n import tr
 from ..player import PITCH_RANGE, TEMPO_RANGE, Player, Track
 from . import theme
@@ -48,6 +49,7 @@ class RecordingsPage(QWidget):
         self.recorder = recorder
         self.store = recorder.store
         self.player = Player()
+        self.click_settings = None  # () -> metronome.Settings, set by the window
         self.player.on_finished = lambda: QTimer.singleShot(0, self._finished)
         self.current_id: str | None = None
         self.loop_start: float | None = None
@@ -263,7 +265,8 @@ class RecordingsPage(QWidget):
             path = self.store.url(take)
             self.player.load(self._track_for(take))
             self.player.set_tempo(self.tempo_slider.value)
-            self.wave.set_take(None, float(take.get("duration", 0)), take.get("markers", []))
+            self.wave.set_take(None, float(take.get("duration", 0)), take.get("markers", []),
+                               BeatGrid.from_json(take.get("grid")))
             self.wave.message = tr("Calculating waveform …")
             cache = self.store.folder / storemod.WAVEFORMS / f"{take['id']}.lpeaks"
             threading.Thread(target=self._compute_wave, args=(take["id"], path, cache, float(take.get("duration", 0))),
@@ -271,6 +274,7 @@ class RecordingsPage(QWidget):
             self.takes.select_ids([take_id])
         self._show_inspector()
         self._update_keys()
+        self.apply_click()
         if play:
             self.player.play()
 
@@ -675,13 +679,33 @@ class RecordingsPage(QWidget):
     # MARK: State
 
     def _phase_changed(self, phase: str) -> None:
-        if phase == "recording":
+        if phase in ("countin", "recording"):
             self.player.stop()
             self.wave.live_columns = []
             self.wave.waveform = None
+            self.wave.grid = None
         else:
             self.wave.live_columns = []
         self._update_keys()
+        self.apply_click()
+
+    # MARK: The click during playback
+
+    def apply_click(self) -> None:
+        """During playback the click is part of what plays, on the take's bars; a take without bars of its own gets
+        the metronome's tempo, counted from its start (Mac: applyPlaybackClick)."""
+        settings = self.click_settings() if self.click_settings else None
+        take = self.current
+        grid = None
+        if settings is not None and settings.click_enabled and not self.recorder.is_recording and take is not None:
+            grid = BeatGrid.from_json(take.get("grid")) or BeatGrid(settings.bpm, settings.beats_per_bar, 0.0)
+        self.player.set_click(grid, settings.volume if settings else 0.0)
+
+    def playback_beat(self) -> int | None:
+        """The beat the playhead is in, counted from the first, while a take plays with the click."""
+        if not self.player.is_playing or self.player.click is None:
+            return None
+        return self.player.click[0].beat_index(self.player.position)
 
     def _tick(self) -> None:
         recorder = self.recorder
@@ -689,6 +713,7 @@ class RecordingsPage(QWidget):
             meter = recorder.engine.meter
             self.wave.duration = max(meter.seconds * 1.04, 10.0)
             self.wave.live_columns = list(meter.overview)
+            self.wave.grid = recorder.active_grid
             self.wave.message = ""
             self.wave.update()
             self.time_label.setText(f"{clock(meter.seconds, True)} / –")

@@ -112,10 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     devices = None
     engine = None
     if args.demo:
-        from .demo_input import demo_engine, demo_devices
-        engine, devices = demo_engine(), demo_devices
+        from .demo_input import click_engine, demo_devices, demo_outputs
+        # The demo's click comes back into its input like an earbud on the pickup, so its bars can be seen.
+        engine, devices = click_engine(pluck=True), demo_devices
         recordings = recordings or Path(tempfile.mkdtemp(prefix="ampbench-demo-recordings-"))
-    recorder_args = {"devices": devices} if devices else {}
+    recorder_args = {"devices": devices, "outputs": demo_outputs} if devices else {}
     if args.made_up_sounds:
         from . import made_up
         made_up.fill(folder)

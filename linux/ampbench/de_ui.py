@@ -124,7 +124,36 @@ GERMAN_UI: dict[str, str] = {
     "Source": "Quelle",
     "File": "Datei",
     "Click": "Klick",
-    "Click, count-in and\nRetro recording follow.": "Klick, Einzähler und\nRetro-Aufnahme folgen.",
+    # The click module of the deck (ui/deck.py), word for word as on the Mac where the Mac has the text
+    "Volume": "Lautstärke",
+    "Click on": "Klick an",
+    "Click output": "Klick-Ausgang",
+    "Automatic": "Automatisch",
+    "Click on or off (N). It can only be heard while playing and recording.":
+        "Klick an oder aus (N). Er ist nur beim Abspielen und Aufnehmen zu hören.",
+    "Click on or off": "Klick an oder aus",
+    "Time signature": "Taktart",
+    "Tap in the tempo (T)": "Tempo eintippen (T)",
+    "Tap in the tempo": "Tempo eintippen",
+    "Count-in before recording": "Einzähler vor der Aufnahme",
+    "Count-in, volume and click output": "Einzähler, Lautstärke und Klickausgang",
+    "No count-in": "Kein Einzähler",
+    "Count in 1 bar": "1 Takt einzählen",
+    "Count in 2 bars": "2 Takte einzählen",
+    "On · N": "An · N",
+    "Off · N": "Aus · N",
+    "It can only be heard while playing and recording. While playing it is on the playback output, while recording on the click output. A count-in always sounds.":
+        "Er ist nur beim Abspielen und Aufnehmen zu hören. Beim Abspielen liegt er auf dem Ausgang der Wiedergabe, beim Aufnehmen auf dem Klick-Ausgang. Ein Einzähler klingt immer.",
+    "The app never puts the click into the file. Outputs of the same device are skipped until a measurement shows that they do not arrive at the input.":
+        "Der Klick landet nie durch die App in der Datei. Ausgänge desselben Geräts werden übersprungen, bis eine Messung zeigt, dass sie nicht am Eingang ankommen.",
+    "The click needs ampbench-rt, which is not built here. Run linux/install.sh again once a C compiler is there.":
+        "Der Klick braucht ampbench-rt, das hier nicht gebaut ist. Führe linux/install.sh noch einmal aus, sobald ein C-Compiler da ist.",
+    "Cancel count-in (R)": "Einzähler abbrechen (R)",
+    "While recording, the click goes to “{}”.": "Beim Aufnehmen geht der Klick auf „{}“.",
+    "Right now there is no output that is certain not to reach the recording.":
+        "Es gibt gerade keinen Ausgang, der die Aufnahme sicher nicht erreicht.",
+    "Count-in": "Einzähler",
+    "Count-in {}": "Einzähler {}",
     "Recording": "Aufnahme",
     "{}-bit": "{} Bit",
     "Mono": "Mono",

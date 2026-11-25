@@ -42,6 +42,7 @@ labels.
 | – | Metronome follows the output on the Mac: headphones plugged in or pulled, a device coming or going, another output chosen | b5a6415 | metronome tests; the owner plugged headphones in and out while it played on the Mac and heard it move (2026-11-17) |
 | – | Linux install gate: the Bluetooth banner test waited for the link's "connected", not for the window, which hears of it a queued signal later; it failed on the laptop every time and held the install back at 2ee0d57 | e5be35c | the laptop's full Linux suite green, installed there (2026-11-18), both machines on 40619f7 |
 | – | Timing review on the Mac: click latency per amp, measured (`LatencyProbe`), a timing stamp per take, the review (placement, spread, accuracy, steady and unsteady bars) and the timing band below the waveform with a grid per piece | 8d6f90a … 7b81a7c, 6bf9706 | 773 Swift tests and the self-tests `main` and `timing` green, the BlackHole loop within half a sample; click latency measured by the owner on the MINI (2026-11-23); installed on the Mac (2026-11-24), the owner measures again and checks it on the amp (loop probe, check take, real playing); Linux and iPad not yet |
+| – | Linux, timing review stage 1: the click while recording (on/off N, tempo, time signature, tap, count-in, click output), the bars of a take and its timing stamp, bars over the waveform, the click during playback; `native/ampbench-rt.c` records and clicks on the input's clock | (this commit) | 391 of 392 Linux tests green on the Mac (the tuner timing test fails there with or without this change); a take through a PipeWire loop in a container (Arch, PipeWire 1.6) with every click on its beat to 1.5 frames at 97, 120 and 140 BPM; not yet on the laptop or with the amp; the click latency measurement, the review and the band follow |
 | Phase 2 | Several devices: profiles, device choice, NEO's peculiarities, listening to the REACTOR, probe `listen`, Linux | 1e59cb0 … f59743a | finding and reading the NEO, switching MINI ↔ NEO confirmed by the owner (2026-11-09); the rest see "Open" |
 
 AmpBench has been installed in /Applications and in the Dock since 2026-11-07. At its first start it created
@@ -422,8 +423,10 @@ SparkCore; worst onset error on clean synthetic plucks 0.03 ms, the BlackHole lo
 band on the Mac (`TimingBand` in SparkCore says what it shows, self-test scenario `timing`) with its bars steady
 or unsteady, its review accuracy, faint unsure onsets and every reason for no review, and the choice of the grid
 (`LibraryStore.keepTimingGrid` keeps it with the piece, or with a take without one). All of it is on main and
-installed on the Mac since 2026-11-24; the acceptance on the amp is open (see "Open and next"). Live timing, Linux
-and the iPad are still spec.
+installed on the Mac since 2026-11-24; the acceptance on the amp is open (see "Open and next"). Live timing and
+the iPad are still spec. Linux (the owner's wish, 2026-11-25) comes in stages: (1) the click while recording, the bars
+and the timing stamp of a take, built 2026-11-25; (2) the click latency per amp, measured; (3) the review; (4) the
+timing band.
 The guiding rule is "no number rather than a wrong number".
 
 ### Problem Statement

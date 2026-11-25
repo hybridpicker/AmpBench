@@ -63,6 +63,8 @@ def bluetooth_hint(status: str) -> str | None:
 def shortcuts() -> list[tuple[str, str]]:
     return [
         ("R", tr("Start or stop recording")),
+        ("N", tr("Click on or off")),
+        ("T", tr("Tap in the tempo")),
         (tr("Space"), tr("Play or pause; while recording: stop and play")),
         ("L / M", tr("Loop A, B, clear / add a marker")),
         ("1 – 5 / F", tr("Rating / favorite")),
@@ -555,6 +557,24 @@ class MainWindow(QMainWindow):
             r.devices_changed.connect(self._refresh_devices)
             r.meter_changed.connect(lambda: self.deck.show_levels(r))
             r.message.connect(self._say)
+            # The recording's click is the metronome's: one tempo, meter, count-in and volume (Mac: "metronome").
+            m = self.metronome
+            r.click_settings = lambda: m.settings
+            r.on_click_settings_changed = lambda: m.update(lambda s: None)
+            d = self.deck
+            d.click_toggled.connect(r.toggle_click)
+            d.tempo_changed.connect(m.set_bpm)
+            d.meter_chosen.connect(lambda n: m.update(lambda s: setattr(s, "beats_per_bar", n)))
+            d.tap_clicked.connect(m.tap)
+            d.count_in_chosen.connect(lambda n: m.update(lambda s: setattr(s, "count_in_bars", n)))
+            d.click_volume_changed.connect(lambda v: m.update(lambda s: setattr(s, "volume", v)))
+            d.click_output_chosen.connect(r.choose_click_output)
+            m.changed.connect(self._refresh_click)
+            self.recordings.click_settings = lambda: m.settings
+            m.changed.connect(self.recordings.apply_click)
+            r.meter_changed.connect(self._refresh_click)
+            r.devices_changed.connect(self._refresh_click)
+            r.phase_changed.connect(lambda _: self._refresh_click())
         sb = self.sidebar
         sb.new_menu.addAction(tr("Empty preset"), lambda: self._new(None))
         sb.new_menu.addAction(tr("From template …"), self._new_from_template)
@@ -790,6 +810,12 @@ class MainWindow(QMainWindow):
         if key == Qt.Key_R:
             self.recorder.toggle()
             return True
+        if key == Qt.Key_N:
+            self.recorder.toggle_click()
+            return True
+        if key == Qt.Key_T and not self.recorder.is_recording and self.stack.currentIndex() != 3:
+            self.metronome.tap()
+            return True
         if key == Qt.Key_Space and self.stack.currentIndex() == 3:
             self.metronome.toggle()
             return True
@@ -850,6 +876,15 @@ class MainWindow(QMainWindow):
             self.tuner.set_a4(self.tuner.a4 + hertz)
         elif self.stack.currentIndex() == 3:
             self.metronome.nudge(bpm)
+
+    def _refresh_click(self) -> None:
+        r = self.recorder
+        if r is None:
+            return
+        beat = r.engine.click.beats - 1 if r.is_click_running and r.engine.click.beats > 0 else None
+        if beat is None:
+            beat = self.recordings.playback_beat()
+        self.deck.show_click(self.metronome.settings, r, beat)
 
     def _refresh_recorder(self) -> None:
         self.deck.show_recorder(self.recorder)

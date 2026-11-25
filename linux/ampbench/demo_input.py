@@ -1,5 +1,6 @@
 """A simulated Spark input for ``ampbench --demo`` and the tests: a guitar-like decaying tone from a helper process
-that speaks the same raw 32-bit stream as pw-record."""
+that speaks the same raw 32-bit stream as pw-record, or ampbench/fake_rt.py, which also plays a click and hears it
+back like a cable from the headphone output to the pickup."""
 from __future__ import annotations
 
 import sys
@@ -31,3 +32,26 @@ def demo_devices() -> list[InputDevice]:
 
 def demo_engine() -> CaptureEngine:
     return CaptureEngine(lambda d: [sys.executable, "-c", SCRIPT, str(d.rate), str(d.channels)])
+
+
+def click_engine(loop: float | None = 0.0254, latency: tuple[float, float] = (0.002, 0.0017),
+                 pluck: bool = False) -> CaptureEngine:
+    """An input with the click: fake_rt, whose clicks come back ``loop`` seconds after they left (None: never)."""
+    from pathlib import Path
+    script = str(Path(__file__).resolve().parent / "fake_rt.py")
+
+    def command(d: InputDevice) -> list[str]:
+        args = [sys.executable, script, "--target", d.node_name, "--rate", str(d.rate), "--channels", str(d.channels),
+                "--latency", f"{latency[0]}", f"{latency[1]}"]
+        if loop is not None:
+            args += ["--loop", f"{loop}"]
+        if pluck:
+            args += ["--pluck", "1"]
+        return args
+    return CaptureEngine(command, speaks_rt=True)
+
+
+def demo_outputs():
+    from .capture import OutputDevice
+    return [OutputDevice("demo.headphones", 2, "Headphones (Demo)", "pci", "alsa", True),
+            OutputDevice("demo.spark.out", 3, "Spark MINI (Demo)", "usb", "alsa", False)]

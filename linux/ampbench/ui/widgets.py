@@ -860,15 +860,18 @@ class DisplayStepper(QWidget):
             self.changed.emit(value)
 
     def mousePressEvent(self, event):
-        self._step(1 if event.position().x() > self.width() * 0.55 else -1)
+        if self.isEnabled():
+            self._step(1 if event.position().x() > self.width() * 0.55 else -1)
 
     def wheelEvent(self, event):
-        self._step(1 if event.angleDelta().y() > 0 else -1)
+        if self.isEnabled():
+            self._step(1 if event.angleDelta().y() > 0 else -1)
 
     def paintEvent(self, _):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        p.setOpacity(1.0 if self.isEnabled() else 0.45)
         p.setPen(QPen(c(theme.DISPLAY_EDGE), 1))
         p.setBrush(c(theme.DISPLAY))
         p.drawRoundedRect(r, 7, 7)

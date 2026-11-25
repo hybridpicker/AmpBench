@@ -83,14 +83,22 @@ class Settings:
     volume: float = 0.6
     pattern: Pattern = field(default_factory=Pattern)
     trainer: Trainer = field(default_factory=Trainer)
+    # The recording's click (area Record): bars counted in before a take, and the click on while recording.
+    count_in_bars: int = 0
+    click_enabled: bool = False
 
     @property
     def levels(self) -> list[int]:
         return self.pattern.levels_for(self.beats_per_bar)
 
+    @property
+    def count_in_beats(self) -> int:
+        return self.count_in_bars * self.beats_per_bar
+
     def to_json(self) -> dict:
-        return {"bpm": self.bpm, "beatsPerBar": self.beats_per_bar, "volume": self.volume, "countInBars": 0,
-                "clickEnabled": False, "pattern": pattern_json(self.pattern),
+        return {"bpm": self.bpm, "beatsPerBar": self.beats_per_bar, "volume": self.volume,
+                "countInBars": self.count_in_bars, "clickEnabled": self.click_enabled,
+                "pattern": pattern_json(self.pattern),
                 "trainer": {"isOn": self.trainer.is_on, "stepBPM": self.trainer.step_bpm,
                             "everyBars": self.trainer.every_bars, "targetBPM": self.trainer.target_bpm}}
 
@@ -101,6 +109,8 @@ class Settings:
         trainer = data.get("trainer") if isinstance(data.get("trainer"), dict) else {}
         return cls(bpm=float(data.get("bpm", 90)), beats_per_bar=int(data.get("beatsPerBar", 4)),
                    volume=float(data.get("volume", 0.6)), pattern=pattern_from_json(data.get("pattern")),
+                   count_in_bars=min(max(int(data.get("countInBars", 0) or 0), 0), 2),
+                   click_enabled=bool(data.get("clickEnabled", False)),
                    trainer=Trainer(bool(trainer.get("isOn", False)), float(trainer.get("stepBPM", 2)),
                                    int(trainer.get("everyBars", 4)), float(trainer.get("targetBPM", 140))))
 

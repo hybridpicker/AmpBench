@@ -38,6 +38,21 @@ printf '%s\n' "$build_id" > "$new/BUILD"
 cp "$root/docs/ai/spark-catalog.json" "$new/ampbench/data/spark-catalog.json"
 cp "$root/Resources/AppIcon.png" "$new/ampbench/data/AppIcon.png"
 
+# The native helper (native/ampbench-rt.c): one PipeWire client that records the input and plays the click on its
+# clock, which the bars of a take rest on. Without a C compiler or PipeWire's headers the app records with pw-record
+# as before and has no click; that never stops the install.
+mkdir -p "$new/bin"
+if command -v cc >/dev/null && pkg-config --exists libpipewire-0.3 2>/dev/null; then
+    # shellcheck disable=SC2046
+    if ! cc -O2 -std=c11 -Wall -Wextra "$root/linux/native/ampbench-rt.c" $(pkg-config --cflags --libs libpipewire-0.3) \
+            -lm -lpthread -o "$new/bin/ampbench-rt"; then
+        echo "ampbench-rt could not be built. AmpBench records without the click." >&2
+        rm -f "$new/bin/ampbench-rt"
+    fi
+else
+    echo "No C compiler or no PipeWire headers (libpipewire-0.3): AmpBench records without the click." >&2
+fi
+
 # The tests are the gate.
 if [[ -d "$root/linux/tests" ]]; then
     (cd "$root/linux" && QT_QPA_PLATFORM=offscreen "$venv/bin/python" -m pytest -q -p no:cacheprovider tests) \

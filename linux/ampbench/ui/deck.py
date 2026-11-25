@@ -1,12 +1,15 @@
-"""The deck: the fixed front on top of the window. Recording, level, the Spark and (later) the click."""
+"""The deck: the fixed front on top of the window. Recording, level, the Spark and the click."""
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QPointF, Qt, Signal
+from PySide6.QtGui import QPainter
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QSlider, QVBoxLayout,
+                               QWidget)
 
 from . import theme
 from .formats import channels, clock, khz
-from .widgets import (DevicePopup, Display, Engraving, Front, HardwareKey, Lamp, LEDMeter, RecordKey)
+from .theme import c
+from .widgets import (DevicePopup, Display, DisplayStepper, Engraving, Front, HardwareKey, Lamp, LEDMeter, RecordKey)
 from ..capture import to_db
 from ..i18n import tr
 
@@ -30,11 +33,106 @@ def fact(name: str, value: str) -> str:
     return f"{name.upper():<9}{value}"
 
 
+METERS = (2, 3, 4, 5, 6, 7, 9, 12)
+
+
+class BeatLamps(QWidget):
+    """Up to four dots, the current beat of the bar lit."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.beats, self.current = 4, -1
+        self.setFixedSize(4 * 9, 16)
+
+    def show_beat(self, beats: int, current: int) -> None:
+        if (beats, current) != (self.beats, self.current):
+            self.beats, self.current = beats, current
+            self.update()
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        p.setPen(Qt.NoPen)
+        for index in range(min(max(self.beats, 1), 4)):
+            p.setBrush(c(theme.ON) if index == self.current else c(theme.LAMP_OFF))
+            p.drawEllipse(QPointF(4 + index * 9, 8), 3, 3)
+
+
+class ClickDetails(QFrame):
+    """Behind "⋯": volume, the click on or off, and where it goes while recording (Mac: MetronomeDetails)."""
+    volume_changed = Signal(float)
+    click_toggled = Signal()
+    output_chosen = Signal(object)  # a node name, or None for automatic
+
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.Popup)
+        self.setFixedWidth(330)
+        self.setStyleSheet(f"ClickDetails {{ background: {theme.PANEL_TOP}; border: 1px solid {theme.FIELD_EDGE}; "
+                           f"border-radius: 8px; }} QLabel {{ color: {theme.TEXT}; }}")
+        form = QFormLayout(self)
+        form.setContentsMargins(14, 12, 14, 12)
+        self.volume = QSlider(Qt.Horizontal)
+        self.volume.setRange(0, 100)
+        self.volume.valueChanged.connect(lambda v: self.volume_changed.emit(v / 100))
+        form.addRow(tr("Volume"), self.volume)
+        self.on = QCheckBox(tr("Click on"))
+        self.on.clicked.connect(lambda _: self.click_toggled.emit())
+        form.addRow(self.on)
+        form.addRow(self._note(tr("It can only be heard while playing and recording. While playing it is on the "
+                                  "playback output, while recording on the click output. A count-in always "
+                                  "sounds.")))
+        self.output = QComboBox()
+        self.output.setStyleSheet(f"QComboBox {{ background: {theme.FIELD}; color: {theme.FIELD_TEXT}; "
+                                  f"border: 1px solid {theme.FIELD_EDGE}; border-radius: 6px; padding: 3px 8px; }}")
+        self.output.activated.connect(lambda i: self.output_chosen.emit(self.output.itemData(i)))
+        form.addRow(tr("Click output"), self.output)
+        self.goes_to = self._note("")
+        form.addRow(self.goes_to)
+        form.addRow(self._note(tr("The app never puts the click into the file. Outputs of the same device are "
+                                  "skipped until a measurement shows that they do not arrive at the input.")))
+
+    @staticmethod
+    def _note(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setWordWrap(True)
+        label.setFont(theme.sans(11))
+        label.setStyleSheet(f"color: {theme.TEXT_DIM};")
+        return label
+
+    def show_state(self, settings, recorder) -> None:
+        self.volume.blockSignals(True)
+        self.volume.setValue(int(round(settings.volume * 100)))
+        self.volume.blockSignals(False)
+        self.on.setChecked(settings.click_enabled)
+        self.output.clear()
+        self.output.addItem(tr("Automatic"), None)
+        for device in recorder.outputs:
+            self.output.addItem(device.title, device.node_name)
+        chosen = recorder.chosen_click_output
+        index = self.output.findData(chosen) if chosen else 0
+        self.output.setCurrentIndex(max(index, 0))
+        target = recorder.click_output
+        if not recorder.can_click:
+            self.goes_to.setText(tr("The click needs ampbench-rt, which is not built here. Run linux/install.sh "
+                                    "again once a C compiler is there."))
+        elif target is not None:
+            self.goes_to.setText(tr("While recording, the click goes to “{}”.", target.title))
+        else:
+            self.goes_to.setText(tr("Right now there is no output that is certain not to reach the recording."))
+
+
 class Deck(Front):
     connect_clicked = Signal()
     record_clicked = Signal()
     check_clicked = Signal()
     input_chosen = Signal(object)
+    click_toggled = Signal()
+    tempo_changed = Signal(int)
+    meter_chosen = Signal(int)
+    tap_clicked = Signal()
+    count_in_chosen = Signal(int)
+    click_volume_changed = Signal(float)
+    click_output_chosen = Signal(object)
 
     def __init__(self, parent=None):
         super().__init__(radius=0, parent=parent)
@@ -151,13 +249,81 @@ class Deck(Front):
 
     def _click_module(self) -> QVBoxLayout:
         box = QVBoxLayout()
-        box.addWidget(Engraving(tr("Click")))
-        later = QLabel(tr("Click, count-in and\nRetro recording follow."))
-        later.setFont(theme.sans(12))
-        later.setStyleSheet(f"background: transparent; color: {theme.ENGRAVING};")
-        box.addWidget(later)
-        box.addStretch(1)
+        box.setSpacing(5)
+        top = QHBoxLayout()
+        top.addWidget(Engraving(tr("Click")))
+        top.addStretch(1)
+        self.beat_lamps = BeatLamps()
+        top.addWidget(self.beat_lamps)
+        self.click_lamp = ClickLampKey()
+        self.click_lamp.clicked.connect(self.click_toggled)
+        self.click_lamp.setToolTip(tr("Click on or off (N). It can only be heard while playing and recording."))
+        top.addWidget(self.click_lamp)
+        box.addLayout(top)
+        tempo = QHBoxLayout()
+        tempo.setSpacing(6)
+        self.tempo = DisplayStepper(20, 400, signed=False)
+        self.tempo.changed.connect(self.tempo_changed)
+        self.tempo.setToolTip(tr("Tempo"))
+        tempo.addWidget(self.tempo)
+        bpm = QLabel("BPM")
+        bpm.setFont(theme.sans(10, bold=True, spacing=0.09))
+        bpm.setStyleSheet(f"background: transparent; color: {theme.ENGRAVING};")
+        tempo.addWidget(bpm)
+        self.meter_popup = DevicePopup(tr("Time signature"))
+        self.meter_popup.setMinimumWidth(64)
+        self.meter_popup.setFixedWidth(64)
+        self.meter_popup.set_options([(f"{n}/4", n) for n in METERS], "4/4")
+        self.meter_popup.chosen.connect(lambda n: self.meter_chosen.emit(int(n)))
+        self.meter_popup.setToolTip(tr("Time signature"))
+        tempo.addWidget(self.meter_popup)
+        self.tap_key = HardwareKey(tr("Tap"), keycap="T")
+        self.tap_key.setToolTip(tr("Tap in the tempo (T)"))
+        self.tap_key.clicked.connect(self.tap_clicked)
+        tempo.addWidget(self.tap_key)
+        box.addLayout(tempo)
+        count = QHBoxLayout()
+        count.setSpacing(8)
+        self.count_in_popup = DevicePopup(tr("Count-in before recording"))
+        self.count_in_popup.setMinimumWidth(150)
+        self.count_in_popup.set_options(COUNT_INS(), COUNT_INS()[0][0])
+        self.count_in_popup.chosen.connect(lambda n: self.count_in_chosen.emit(int(n)))
+        count.addWidget(self.count_in_popup, 1)
+        self.details_key = HardwareKey("⋯")
+        self.details_key.setToolTip(tr("Count-in, volume and click output"))
+        self.details_key.clicked.connect(self._show_details)
+        count.addWidget(self.details_key)
+        box.addLayout(count)
+        self.details = ClickDetails(self)
+        self.details.volume_changed.connect(self.click_volume_changed)
+        self.details.click_toggled.connect(self.click_toggled)
+        self.details.output_chosen.connect(self.click_output_chosen)
+        self._details_state = None
         return box
+
+    def _show_details(self) -> None:
+        if self._details_state is not None:
+            self.details.show_state(*self._details_state)
+        self.details.move(self.details_key.mapToGlobal(self.details_key.rect().bottomRight())
+                          - QPointF(self.details.width(), -4).toPoint())
+        self.details.show()
+
+    def show_click(self, settings, recorder, beat_index: int | None) -> None:
+        """The click module: what the metronome's settings say, and the beat of the running click or playback."""
+        self._details_state = (settings, recorder)
+        if self.details.isVisible():
+            self.details.show_state(settings, recorder)
+        self.click_lamp.set_on(settings.click_enabled)
+        self.tempo.set_value(int(round(settings.bpm)))
+        self.meter_popup.set_options([(f"{n}/4", n) for n in METERS], f"{settings.beats_per_bar}/4")
+        options = COUNT_INS()
+        self.count_in_popup.set_options(options, options[min(max(settings.count_in_bars, 0), 2)][0])
+        idle = not recorder.is_recording
+        for widget in (self.tempo, self.meter_popup, self.tap_key, self.count_in_popup):
+            widget.setEnabled(idle)
+        beats = max(settings.beats_per_bar if idle or not recorder.active_grid else recorder.active_grid.beats_per_bar,
+                    1)
+        self.beat_lamps.show_beat(beats, beat_index % beats if beat_index is not None else -1)
 
     # State
 
@@ -165,7 +331,13 @@ class Deck(Front):
         engine, meter = model.engine, model.engine.meter
         recording = model.is_recording
         self.record_key.set_recording(recording)
-        if recording:
+        self.record_key.setToolTip(tr("Cancel count-in (R)") if model.is_counting_in else "")
+        if model.is_counting_in:
+            self.state_lamp.set_state(True, tr("Count-in {}", model.count_in_left) if model.count_in_left
+                                      else tr("Count-in"), "hot")
+            self.time_label.setStyleSheet(f"background: transparent; color: {theme.AMBER};")
+            self.time_label.setText(time_text(0))
+        elif recording:
             self.state_lamp.set_state(True, tr("Recording"), "rec")
             self.time_label.setStyleSheet(f"background: transparent; color: #FFFFFF;")
             self.time_label.setText(time_text(meter.seconds))
@@ -191,12 +363,35 @@ class Deck(Front):
         self.clip_lamp.set_state(live and meter.clipped)
         quiet = live and meter.quiet_since is not None and (time_now() - meter.quiet_since) > 2.0
         self.silence_lamp.set_state(bool(quiet))
-        if model.is_recording:
+        if model.is_counting_in:
+            self.state_lamp.set_state(True, tr("Count-in {}", model.count_in_left) if model.count_in_left
+                                      else tr("Count-in"), "hot")
+        elif model.is_recording:
             self.time_label.setText(time_text(meter.seconds))
 
     def show_devices(self, model) -> None:
         options = [(d.title, d) for d in model.devices]
         self.input_popup.set_options(options, model.selected.title if model.selected else tr("No Spark"))
+
+
+def COUNT_INS() -> list[tuple[str, int]]:  # noqa: N802 – the texts follow the language, so they are made late
+    return [(tr("No count-in"), 0), (tr("Count in 1 bar"), 1), (tr("Count in 2 bars"), 2)]
+
+
+class ClickLampKey(Lamp):
+    """The click's lamp is a key: "On · N" or "Off · N"."""
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(tr("Off · N"), "on", False, size=7, parent=parent)
+        self.setCursor(Qt.PointingHandCursor)
+
+    def set_on(self, on: bool) -> None:
+        self.set_state(on, tr("On · N") if on else tr("Off · N"))
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.LeftButton and self.isEnabled():
+            self.clicked.emit()
 
 
 def time_now() -> float:

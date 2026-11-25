@@ -84,7 +84,27 @@ writes the accent. `age.py` is the port of the age format (with the `cryptograph
 the places, `sound_store.py` the sync, `store_profile.py` settings and secrets, `store_cli.py` the commands,
 `ui/store_view.py` the front. Format and rules: [docs/STORE.md](../docs/STORE.md).
 
-**Not here yet:** reading a REACTOR's presets, and the REACTOR live commands.
+**The click while recording** works as on the Mac (the deck's module "Click"): on or off with N (or the lamp),
+tempo, time signature and Tap (T), a count-in of one or two bars, and behind "⋯" the volume and the click output
+("Automatic" takes the system's output, never the amp being recorded). The settings are the metronome's (key
+`metronome`). With a count-in the file starts 0.15 s before bar 1 and R during the count-in cancels it; without a
+count-in and the click on, bar 1 is the click's first beat. Either way the take gets its bars (`grid`, the same JSON
+as on the Mac), drawn over the waveform with bar numbers on the ruler, and a timing stamp (`timing`: click on
+throughout, the click latency, wired or Bluetooth) for the timing review that follows. While a take plays with the
+click on, the click plays along on its bars, at every tempo and in a loop.
+
+The click runs on the input's clock, as on the Mac: `native/ampbench-rt.c` is one PipeWire client that records the
+input (to stdout, as `pw-record` did) and plays the click, placing every beat on an input frame through the time
+stamps PipeWire gives both streams (`pw_stream_get_time_n`). So the click and the Spark may run on different
+devices and clocks for any length of time without drifting apart. The app speaks to it through stdin and `@` lines
+on stderr; `fake_rt.py` speaks the same for the tests and `--demo`, its clicks coming back into its input like a
+cable from the headphone output to the pickup. `click_timing.py` (ClickTiming, ClickLatency, the timing stamp) and
+`beat_grid.py` (BeatGrid, the playback click) are ports of SparkCore. The amp's own part of the click latency is not
+measured on Linux yet; until it is, the bars carry the amp's delay (about 22 ms on the MINI), as on the Mac before
+2026-11-23.
+
+**Not here yet:** reading a REACTOR's presets, and the REACTOR live commands; on the way to the timing review, the
+click latency measurement, the review itself and the timing band (docs/STUDIO.md, "Timing review").
 
 ## Install
 
@@ -96,7 +116,9 @@ linux/install.sh "$(git rev-parse --short HEAD)"   # the argument is the build i
 
 It needs `python3` and installs without root into `~/.local/share/ampbench` (app and Python environment),
 `~/.local/bin/ampbench` and the menu entry, after the tests pass. A failing test stops the install and leaves the
-installed version as it is.
+installed version as it is. With a C compiler (`cc`) and PipeWire's headers (`pkg-config libpipewire-0.3`; Arch
+ships them with `pipewire`) it also builds `bin/ampbench-rt`, the recording and click helper; without them, or when
+the helper gets nothing from the input, the app records with `pw-record` and has no click.
 
 ## Keep in step with the Mac
 
@@ -171,6 +193,11 @@ VIRTUAL_ENV=/tmp/ampbench-linux-venv uv pip install -r linux/requirements.txt
 cd linux && QT_QPA_PLATFORM=offscreen /tmp/ampbench-linux-venv/bin/python -m pytest -q
 ```
 
-On macOS, Qt keeps the Linux app's settings in the preferences domain `com.local-ampbench.AmpBench`, apart from the
-Mac app's `local.ampbench`; the tests leave a few values there (`defaults delete com.local-ampbench.AmpBench`
-removes them).
+The tests keep the app's settings in a folder of the test run (tests/conftest.py), so the install gate never
+changes the owner's settings. That holds on Linux, where QSettings writes INI files; on macOS, Qt keeps the Linux
+app's settings in the preferences domain `com.local-ampbench.AmpBench`, apart from the Mac app's `local.ampbench`,
+and the tests leave a few values there (`defaults delete com.local-ampbench.AmpBench` removes them).
+
+The helper itself can be tried without a Spark in a container with PipeWire: a `pw-loopback` from a virtual sink
+to a virtual source stands for the cable, `AMPBENCH_RT=<built helper>` makes the app use it. On 2026-11-25 a take
+through that loop (Arch, PipeWire 1.6) had every click on its beat to 1.35 frames at quantum 256 and 1024.

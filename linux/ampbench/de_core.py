@@ -283,6 +283,25 @@ GERMAN_CORE: dict[str, str] = {
         "Es wurde nichts aufgenommen, weil das Gerät keine Daten geliefert hat.",
     "The library could not be saved: {}":
         "Die Bibliothek konnte nicht gespeichert werden: {}",
+    # The click while recording (recorder.py), word for word as on the Mac where the Mac has the text
+    "The count-in was canceled.":
+        "Der Einzähler wurde abgebrochen.",
+    "No safe output found for the click. The recording starts without a count-in.":
+        "Kein sicherer Ausgang für den Klick gefunden. Die Aufnahme startet ohne Einzähler.",
+    "No safe output found for the click. The recording runs without a click.":
+        "Kein sicherer Ausgang für den Klick gefunden. Die Aufnahme läuft ohne Klick.",
+    "The click did not start. The recording starts without a count-in.":
+        "Der Klick ist nicht angelaufen. Die Aufnahme startet ohne Einzähler.",
+    "The click did not start. The recording runs without a click.":
+        "Der Klick ist nicht angelaufen. Die Aufnahme läuft ohne Klick.",
+    "ampbench-rt got no sound from the input, so AmpBench records with pw-record until it is started again. The recording starts without a count-in.":
+        "ampbench-rt hat vom Eingang nichts bekommen, deshalb nimmt AmpBench bis zum nächsten Start mit pw-record auf. Die Aufnahme startet ohne Einzähler.",
+    "ampbench-rt got no sound from the input, so AmpBench records with pw-record until it is started again. The recording runs without a click.":
+        "ampbench-rt hat vom Eingang nichts bekommen, deshalb nimmt AmpBench bis zum nächsten Start mit pw-record auf. Die Aufnahme läuft ohne Klick.",
+    "The click needs ampbench-rt, which is not built here. The recording starts without a count-in.":
+        "Der Klick braucht ampbench-rt, das hier nicht gebaut ist. Die Aufnahme startet ohne Einzähler.",
+    "The click needs ampbench-rt, which is not built here. The recording runs without a click.":
+        "Der Klick braucht ampbench-rt, das hier nicht gebaut ist. Die Aufnahme läuft ohne Klick.",
     "Take saved ({} s).":
         "Aufnahme gespeichert ({} s).",
     "The device is gone. The recording was ended safely and what was there until then is kept.":

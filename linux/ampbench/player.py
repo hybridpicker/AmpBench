@@ -2,14 +2,22 @@
 
 Tempo and pitch are independent, as in the Mac app (tempo 50–150 %, pitch ±12 semitones). Every change of position,
 loop, tempo or pitch restarts the pipeline at the current position; the playhead follows the clock, which is exact
-enough for practicing and never drifts far, because it is re-anchored at every restart."""
+enough for practicing and never drifts far, because it is re-anchored at every restart.
+
+With the click on, the sound goes from ffmpeg through this process to pw-cat and the click is mixed in on the take's
+bars (Mac: PlaybackClick): placed by the output frame, scaled by the tempo and started anew on every lap of a loop,
+so it stays on the bars across seeks, loops and tempo changes."""
 from __future__ import annotations
 
 import subprocess
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+
+import numpy as np
+
+from .beat_grid import BeatGrid, mix_click
 
 TEMPO_RANGE = (0.5, 1.5)
 PITCH_RANGE = (-12, 12)
@@ -71,6 +79,7 @@ class Player:
         self.is_playing = False
         self.on_finished = None
         self._generation = 0
+        self.click: tuple[BeatGrid, float] | None = None  # the bars to click on and the volume
 
     # State
 
@@ -144,6 +153,12 @@ class Player:
             if self.is_playing:
                 self._start(loop[0] if loop else keep)
 
+    def set_click(self, grid: BeatGrid | None, volume: float = 0.6) -> None:
+        click = (grid, volume) if grid is not None and volume > 0 else None
+        if click != self.click:
+            self.click = click
+            self._restart()
+
     def set_gain(self, gain_db: float) -> None:
         if self.track and self.track.gain_db != gain_db:
             self.track.gain_db = gain_db
@@ -158,16 +173,22 @@ class Player:
     def _start(self, position: float) -> None:
         self._kill()
         decode, play = self._make(self.track, position, self.tempo, self.pitch, self.loop)
+        start = self.loop[0] if self.loop else max(position, self.track.trim_start)
         try:
             ffmpeg = subprocess.Popen(decode, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            sink = subprocess.Popen(play, stdin=ffmpeg.stdout, stderr=subprocess.DEVNULL)
-            ffmpeg.stdout.close()
+            if self.click is None:
+                sink = subprocess.Popen(play, stdin=ffmpeg.stdout, stderr=subprocess.DEVNULL)
+                ffmpeg.stdout.close()
+            else:
+                sink = subprocess.Popen(play, stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+                threading.Thread(target=relay, args=(ffmpeg.stdout, sink.stdin, ClickPlan(
+                    self.click[0], self.click[1], start, self.tempo, self.loop)), daemon=True).start()
         except OSError:
             self.is_playing = False
             return
         self._procs = [ffmpeg, sink]
         self._anchor_time = time.monotonic()
-        self._anchor_pos = self.loop[0] if self.loop else max(position, self.track.trim_start)
+        self._anchor_pos = start
         self.is_playing = True
         threading.Thread(target=self._watch, args=(self._generation, sink), daemon=True).start()
 
@@ -192,3 +213,64 @@ class Player:
                 proc.wait(timeout=1)
             except subprocess.TimeoutExpired:
                 proc.kill()
+
+
+RATE = 48000
+
+
+@dataclass(frozen=True)
+class ClickPlan:
+    """Where the take's beats fall in what plays: output frames counted from the start of the pipeline."""
+    grid: BeatGrid
+    volume: float
+    start: float  # the file position the pipeline starts at (a loop's start)
+    tempo: float
+    loop: tuple[float, float] | None
+
+    def mix(self, block: np.ndarray, first: int, rate: int = RATE) -> None:
+        """Adds the click to ``block`` (frames × channels), whose first row is output frame ``first``."""
+        g, tempo = self.grid, self.tempo
+        heard = replace(g, bpm=g.bpm * tempo)  # beats come faster or slower with the tempo
+        if self.loop is None:
+            mix_click(block, first, rate, replace(heard, offset=(g.offset - self.start) / tempo), self.volume)
+            return
+        a, b = self.loop
+        lap = max(b - a, 0.05) / tempo * rate
+        count = block.shape[0]
+        k = int(first // lap)
+        while k * lap < first + count:
+            lo, hi = int(round(k * lap)), int(round((k + 1) * lap))
+            rows = slice(max(lo - first, 0), min(hi - first, count))
+            if rows.stop > rows.start:
+                part = block[rows]
+                grid = replace(heard, offset=(g.offset - a) / tempo + k * lap / rate)
+                mix_click(part, first + rows.start, rate, grid, self.volume)
+                # A beat whose ring would cross into the next lap is cut there, as the loop cuts the sound.
+            k += 1
+
+
+def relay(source, sink, plan: ClickPlan, rate: int = RATE) -> None:
+    """ffmpeg's stereo float output to pw-cat, with the click mixed in."""
+    frames = 0
+    chunk = 2048 * 8
+    pending = b""
+    try:
+        while True:
+            data = source.read(chunk)
+            if not data:
+                break
+            data = pending + data
+            usable = len(data) - len(data) % 8
+            data, pending = data[:usable], data[usable:]
+            block = np.frombuffer(data, dtype="<f4").reshape(-1, 2).copy()
+            plan.mix(block, frames, rate)
+            frames += block.shape[0]
+            sink.write(np.clip(block, -1, 1).astype("<f4").tobytes())
+    except (BrokenPipeError, OSError, ValueError):
+        pass
+    finally:
+        for stream in (source, sink):
+            try:
+                stream.close()
+            except OSError:
+                pass

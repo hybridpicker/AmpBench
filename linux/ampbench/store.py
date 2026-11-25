@@ -308,6 +308,9 @@ class LibraryStore:
             take_id=journal.get("takeID") or new_id(), file_name=journal["fileName"], started_at=started,
             seconds=seconds, fmt=fmt, source=journal.get("source"), piece_id=journal.get("pieceID"), peak_db=None,
             auto_level=False, markers=journal.get("markers"), preset=journal.get("preset"), recovered=True)
+        # The bars survive a crash; the timing stamp does not, since whether the click stayed on cannot be known.
+        if isinstance(journal.get("grid"), dict):
+            recording["grid"] = journal["grid"]
         self.add(recording)
         self.log_practice(started, seconds, journal.get("pieceID"))
         self.save()
