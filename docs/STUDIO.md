@@ -1128,9 +1128,11 @@ For every device, without exception:
   of muted strums, and real playing on the beat and laid back. Live timing and the iPad after that. See
   "Timing review".
 - **Timing review on Linux** (the owner's wish, 2026-11-25): all four stages built (cfb00fd, 9658f61), tested on the
-  Mac and through a PipeWire loop in a container. Open: the laptop was offline, so whether its install builds
-  `ampbench-rt` (C compiler, PipeWire headers), what its real devices report as latencies, a Bluetooth sink there,
-  and with the owner at the amp: a measurement with the earbud on the pickup, a take with count-in and its review.
+  Mac and through a PipeWire loop in a container. Installed on the laptop 2026-11-25 (6897750): it built
+  `ampbench-rt` (gcc, PipeWire 1.6.9), 424 Linux tests green there, a `pw-loopback` on its own PipeWire put all 12
+  clicks on their beats (1 frame, the detector's threshold), and its headphone output reports 5.3 ms (one quantum of
+  256) on a clock of its own. Open: the Spark's input latency as PipeWire reports it, a Bluetooth sink, and with the
+  owner at the amp: a measurement with the earbud on the pickup, a take with count-in and its review.
   Bar tools ("Loop bars", "Record bars again") are not on Linux yet.
 - **Levels:** the owner's verdict on the corrected sounds (which still lack drive, which are too loud); a second
   measurement in batches of about ten sounds with rests; then the rule into the import and the Linux app (see
