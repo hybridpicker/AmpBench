@@ -1125,8 +1125,13 @@ For every device, without exception:
 - **Timing review** (the owner's wish, 2026-11-23): built and installed on the Mac (2026-11-24). Open, with the
   owner at the amp: measure the click latency again (headphone on the neck pickup, Mac volume 100, no noise gate),
   because the measurement's onset moved; then the loop probe (placement 0 ± 1 ms, spread under 1 ms), a check take
-  of muted strums, and real playing on the beat and laid back. Live timing, Linux and the iPad after that. See
+  of muted strums, and real playing on the beat and laid back. Live timing and the iPad after that. See
   "Timing review".
+- **Timing review on Linux** (the owner's wish, 2026-11-25): all four stages built (cfb00fd, 9658f61), tested on the
+  Mac and through a PipeWire loop in a container. Open: the laptop was offline, so whether its install builds
+  `ampbench-rt` (C compiler, PipeWire headers), what its real devices report as latencies, a Bluetooth sink there,
+  and with the owner at the amp: a measurement with the earbud on the pickup, a take with count-in and its review.
+  Bar tools ("Loop bars", "Record bars again") are not on Linux yet.
 - **Levels:** the owner's verdict on the corrected sounds (which still lack drive, which are too loud); a second
   measurement in batches of about ten sounds with rests; then the rule into the import and the Linux app (see
   "Levels").

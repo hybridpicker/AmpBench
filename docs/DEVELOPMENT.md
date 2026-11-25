@@ -16,7 +16,13 @@ an Apple Development certificate if one exists, because macOS then keeps the mic
 Without one it uses an ad-hoc signature. `SPARK_SIGN_IDENTITY` overrides the choice, and `-` forces ad-hoc.
 
 **Linux and one version everywhere.** AmpBench also runs on Linux (Omarchy) with the areas Record, Presets,
-Tuner and Metronome, the Kemper import, hashtags and AI Sound; only the REACTOR's presets, their editing and storing, and live commands are Mac-only so far.
+Tuner and Metronome, the Kemper import, hashtags, AI Sound, and the click, bars and timing review while recording;
+only the REACTOR's presets, their editing and storing, live commands, and looping or recording bars again are
+Mac-only so far. The Linux app is Python except one C file, `linux/native/ampbench-rt.c`: the recording and the click
+in one PipeWire client, the Linux form of `Sources/CSparkRT` (`clock.c`, `click.c`). Change both together, as with
+the Python ports of SparkCore and SparkControl; `fake_rt.py` speaks its protocol for the tests. Without PipeWire on
+the Mac, the helper is tried in a Podman container with PipeWire and a `pw-loopback` as the cable
+([linux/README.md](../linux/README.md#code)).
 See [linux/README.md](../linux/README.md).
 Development happens on either machine. Each has its own clone, and GitHub's `main` is where they meet: `./sync.sh`
 publishes this machine's commits, installs them here and has the other machine pull and install them, then checks

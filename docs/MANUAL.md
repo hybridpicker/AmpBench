@@ -283,6 +283,22 @@ and used for all its takes; a take without a piece keeps it for itself. On eight
 late on its own point, never early on the next beat. In the band the grid points between the beats stand fainter
 than the beats, and where a cell is too narrow for "+18 ms" it says "+18".
 
+#### On Linux
+
+The Linux app has the same click, bars, measurement and timing review, with these differences:
+
+- The click settings sit in the deck's module "Click": on or off with `N`, tempo, time signature, Tap (`T`) and the
+  count-in; behind "⋯" volume, click output, "Compensation" (the amp's part by hand) and "Measure latency with a
+  cable …". There is no menu "Record → Measure click latency".
+- The click and the recording run in one small program, `ampbench-rt`, which the install builds when a C compiler
+  and PipeWire's headers are there. Without it, or when it gets no sound from the input, AmpBench records as before
+  but without click, count-in and bars, and says so when a take starts.
+- The latencies the devices report come from PipeWire. It knows them only while the click runs, so the click
+  details show the last ones reported.
+- A Bluetooth click output is recognised by PipeWire's device (BlueZ); there is no AirPlay.
+- There are no bar controls yet ("Loop bars", "Record bars again", the bar steppers), so a click on a bar of the
+  timing band sends the playhead to its start.
+
 ### Audio quality
 
 - The device runs at its highest rate up to 192 kHz during a recording, and its previous rate comes back afterwards.

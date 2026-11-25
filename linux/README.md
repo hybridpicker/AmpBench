@@ -5,7 +5,8 @@ the Spark's USB input through PipeWire, the library of takes, pieces), **Presets
 Bluetooth LE, edit a preset with knobs and the signal chain, hear every change live on the amp, keep presets on the
 computer and store them in a slot, with a backup and a read-back; sound recipes open like presets) and
 **Tuner**. Since 2026-11-10 it has every function the Mac app has for a Spark; only the REACTOR's presets and
-live commands are not here yet. The sound library came on 2026-11-15, the same as on the Mac.
+live commands are not here yet. The sound library came on 2026-11-15, the same as on the Mac; the click while
+recording, the bars, the click latency measurement and the timing review on 2026-11-25, without the Mac's bar tools.
 
 The UI is English by default and German when the system language is German; the menu "Language" switches it, as on
 the Mac. This page quotes the English labels.
