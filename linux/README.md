@@ -186,6 +186,22 @@ When the adapter is off or missing, a strip above the areas says so until Blueto
 bluetooth`, `bluetoothctl power on` or the desktop's Bluetooth settings); then the app connects by itself. The
 REACTOR 50 records over USB like the Spark MINI ("Reactor 50 USB Audio"; not yet tried under PipeWire).
 
+To see that the click and recording helper is there and works without a Spark or the microphone (nothing sounds; a
+virtual cable from a sink to a source, removed again afterwards):
+
+```bash
+~/.local/share/ampbench/app/bin/ampbench-rt --version      # missing: install gcc and run linux/install.sh again
+pw-loopback --capture-props='media.class=Audio/Sink node.name=ab_testsink' \
+            --playback-props='media.class=Audio/Source node.name=ab_testsource' &
+( sleep 1; echo "click 1 120 4 0 -1 ab_testsink"; sleep 3; echo stop ) | \
+  ~/.local/share/ampbench/app/bin/ampbench-rt --target ab_testsource --rate 48000 --channels 2 >/dev/null
+kill %1
+```
+
+It prints `@` lines: the click's `@latency` (input, output in seconds, as the devices report them), `@anchor` and
+`@beats`. On the laptop on 2026-11-25 every click of such a loop lay on its beat to one frame, and the headphone
+output reported 5.3 ms.
+
 ## Code
 
 `ampbench/protocol.py`, `catalog.py`, `recipe.py`, `factory.py`, `editor.py`, `library.py`, `library_query.py`,
