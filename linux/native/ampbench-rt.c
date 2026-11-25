@@ -446,6 +446,8 @@ static void start_click(App *app, unsigned long id, double bpm, uint32_t beats, 
                         const char *target) {
     stop_click(app);
     app->click_id = id;
+    // Told again for every click, before its anchor: the app starts each click's latencies afresh.
+    app->latency_in_told = app->latency_out_told = UINT64_MAX;
     click_reset(&app->click, app->rate, &app->clock);
     click_set_tempo(&app->click, bpm, beats, volume);
     atomic_store(&app->click.mute_from_beat, mute_from);
@@ -529,15 +531,21 @@ static void on_timer(void *data, uint64_t expirations) {
         event("format %u %u", app->rate, app->channels);
         app->format_told = true;
     }
+    // A click's latencies are told before its anchor. The playback callback stores the output's latency before it
+    // anchors beat 0 (a release); reading the anchor first (an acquire) makes that latency visible here.
+    bool anchored = app->playback && atomic_load_explicit(&app->click.anchored, memory_order_acquire);
     uint64_t in = atomic_load(&app->latency_in_ns), out = atomic_load(&app->latency_out_ns);
-    // Reported in steps of 10 µs, so the line does not repeat for noise.
-    if (in / 10000 != app->latency_in_told / 10000 || out / 10000 != app->latency_out_told / 10000) {
+    bool fresh = app->latency_out_told == UINT64_MAX;
+    if (fresh && app->playback && !anchored) {
+        // The click's output has not run yet; its latency comes with its first cycle.
+    } else if (fresh || in / 10000 != app->latency_in_told / 10000 || out / 10000 != app->latency_out_told / 10000) {
+        // Otherwise in steps of 10 µs, so the line does not repeat for noise.
         event("latency %.6f %.6f", in / 1e9, out / 1e9);
         app->latency_in_told = in;
         app->latency_out_told = out;
     }
     if (app->playback) {
-        if (!app->anchor_told && atomic_load_explicit(&app->click.anchored, memory_order_acquire)) {
+        if (!app->anchor_told && anchored) {
             event("anchor %lu %.4f", app->click_id, bits_double(atomic_load(&app->click.anchor_bits)));
             app->anchor_told = true;
         }

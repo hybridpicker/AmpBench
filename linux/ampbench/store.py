@@ -499,3 +499,63 @@ def read_snapshot(store: LibraryStore, take_id: str):
         return Preset.from_json(json.loads(snapshot_path(store, take_id).read_text(encoding="utf-8"))["preset"])
     except (OSError, ValueError, KeyError):
         return None
+
+
+# The timing review's inputs that only the library knows
+
+def timing_grid(store: LibraryStore, take: dict) -> int:
+    """The grid a take is reviewed on: its piece's choice, else its own, else that of the take it was recorded into;
+    quarters when nobody chose (Mac: LibraryStore.timingGrid)."""
+    seen: set[str] = set()
+    current = take
+    while current is not None and current.get("id") not in seen:
+        seen.add(current.get("id"))
+        found = piece(store, current.get("pieceID"))
+        chosen = (found or {}).get("timingGrid") or current.get("timingGrid")
+        if chosen in (1, 2, 3, 4):
+            return int(chosen)
+        source = (current.get("punch") or {}).get("sourceID")
+        current = next((r for r in store.document["recordings"] if r.get("id") == source), None) if source else None
+    return 1
+
+
+def keep_timing_grid(store: LibraryStore, take_id: str, resolution: int) -> None:
+    """Keeps a grid chosen for a take: with its piece, for all the piece's takes, or with the take when it has none."""
+    take = next((r for r in store.document["recordings"] if r.get("id") == take_id), None)
+    if take is None:
+        return
+    found = piece(store, take.get("pieceID"))
+    if found is not None:
+        found["timingGrid"] = resolution
+    else:
+        take["timingGrid"] = resolution
+
+
+def last_bar(take: dict) -> int | None:
+    """The last bar a take's review reaches: for bars recorded again only up to the last one recorded."""
+    from .beat_grid import BeatGrid
+    grid = BeatGrid.from_json(take.get("grid"))
+    if grid is None:
+        return None
+    last = grid.last_bar(float(take.get("duration", 0)))
+    punch = take.get("punch") or {}
+    return min(last, int(punch["lastBar"])) if isinstance(punch.get("lastBar"), int) else last
+
+
+def snapshot_has_delay(store: LibraryStore, take_id: str) -> bool:
+    """Whether the take's sound had a delay switched on: a delay model of the catalog, or an unknown model on the
+    delay place of a full chain (Mac: SparkPreset.hasDelayOn). A take without a snapshot has none."""
+    preset = read_snapshot(store, take_id)
+    if preset is None:
+        return False
+    from .catalog import PLACES, load
+    catalog = load()
+    full = len(preset.effects) == len(PLACES)
+    for index, effect in enumerate(preset.effects):
+        if not effect.is_on:
+            continue
+        known = catalog.known(effect.name)
+        place = known.place if known else (PLACES[index] if full else None)
+        if place == "delay":
+            return True
+    return False

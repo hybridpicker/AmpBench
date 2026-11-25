@@ -414,3 +414,138 @@ def test_the_playback_click_follows_tempo_and_loop():
     # A loop from 1.1 to 2.1 s at full tempo: beats at 1.25, 1.75 in every lap of one second.
     assert clicks(ClickPlan(grid, 0.8, 1.1, 1.0, (1.1, 2.1)), 2.9) == \
         pytest.approx([0.15, 0.65, 1.15, 1.65, 2.15, 2.65], abs=2 / RATE)
+
+
+# MARK: Measuring the click latency
+
+def test_the_measurement_finds_the_amps_part_and_the_bars_then_rest_on_it(tmp_path, settings):
+    click = metronome.Settings(bpm=120, count_in_bars=1, click_enabled=True)
+    recorder, messages = make_recorder(tmp_path, settings, click_engine(LOOP, REPORTED), click)
+    assert recorder.can_measure_latency and recorder.amp_part is None
+    recorder.measure_latency()
+    assert recorder.is_measuring and not recorder.can_measure_latency
+    run_for(recorder, 0.3)
+    recorder.start()
+    assert not recorder.is_recording, "no take while measuring"
+    end = time.monotonic() + 15
+    while recorder.is_measuring and time.monotonic() < end:
+        recorder._tick()
+        time.sleep(0.01)
+    assert not recorder.is_measuring
+    part = recorder.amp_part
+    assert part is not None and part.measured, messages
+    assert part.seconds == pytest.approx(LOOP - sum(REPORTED), abs=0.0001)
+    assert part.spread < 0.0001
+    assert messages[-1][0] == "info" and messages[-1][1].startswith("Measured: 25.4 ms from the click into the file, "
+                                                                    "of which 21.7 ms are not reported")
+    assert list(tmp_path.glob("**/ampbench-latency-*")) == [] and recorder.store.document["recordings"] == []
+    assert not recorder.engine.is_open, "the input it opened is closed again"
+    # Kept with the input, it carries over to a new start of the app.
+    again = RecorderModel(LibraryStore(tmp_path / "lib2"), click_engine(), demo_devices, demo_outputs,
+                          settings=settings)
+    again.refresh_devices()
+    assert again.amp_part == part
+    # A take now has bars where the notes on the click land, and a stamp a review can rest on.
+    recorder.start()
+    run_for(recorder, 2.0 + 2.4)
+    recorder.stop()
+    take, path = take_of(recorder)
+    grid = BeatGrid.from_json(take["grid"])
+    assert grid.offset == pytest.approx(COUNT_IN_PRE_ROLL + LOOP, abs=0.0002)
+    stamp = ct.TimingStamp.from_json(take["timing"])
+    assert stamp.latency.amp.measured
+    from ampbench import timing_review
+    assert timing_review.reason_before_listening(grid, stamp) is None
+
+
+def test_a_measurement_without_a_signal_or_through_bluetooth_is_refused(tmp_path, settings):
+    click = metronome.Settings()
+    recorder, messages = make_recorder(tmp_path, settings, click_engine(loop=None), click)
+    recorder.measure_latency()
+    end = time.monotonic() + 15
+    while recorder.is_measuring and time.monotonic() < end:
+        recorder._tick()
+        time.sleep(0.01)
+    assert recorder.amp_part is None
+    assert messages[-1][0] == "error" and "No click arrived at the input" in messages[-1][1]
+    buds = OutputDevice("bluez_output.AA", 9, "Buds", "bluetooth", "bluez5", True)
+    recorder._outputs_provider = lambda: [buds]
+    recorder.refresh_devices()
+    recorder.measure_latency()
+    assert not recorder.is_measuring
+    assert "Bluetooth output, whose own delay" in messages[-1][1]
+
+
+def test_uneven_clicks_are_refused_and_a_clean_run_kept():
+    from ampbench import latency_probe as lp
+    with pytest.raises(lp.LatencyProbeError) as refused:
+        lp.evaluate([1000, 1010, 1200, 1005, 1300, 1002, 1400, 1003, 1500, 1004, 1600, 1001], 12, 48_000, 0.004)
+    assert refused.value.kind == "unstable"
+    result = lp.evaluate([1219.0 + (k % 3) * 10 for k in range(12)], 12, 48_000, 0.0037)
+    assert result.measured == pytest.approx(1229 / 48_000, abs=1e-6) and result.spread == pytest.approx(20 / 48_000)
+    assert result.correction == pytest.approx(result.measured - 0.0037)
+    with pytest.raises(lp.LatencyProbeError):
+        lp.evaluate([1000.0] * 7, 12, 48_000, 0.0)
+
+
+def test_a_take_on_the_click_shows_its_review_and_band_in_the_window(qapp, tmp_path, settings):
+    from datetime import datetime, timezone
+    from ampbench.fake_amp import FakeAmp
+    from ampbench.library import PresetLibrary
+    from ampbench.qtlink import QtLink
+    from ampbench.ui.main_window import MainWindow
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), click_engine(LOOP, REPORTED), demo_devices,
+                             demo_outputs, settings=settings)
+    recorder.amp_latencies.store_measurement("demo.spark", LOOP - sum(REPORTED), 0.0012, datetime.now(timezone.utc))
+    w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False,
+                   recorder=recorder)
+    w.show()
+    page = w.recordings
+    try:
+        w.metronome.update(lambda s: (setattr(s, "bpm", 160), setattr(s, "beats_per_bar", 4),
+                                      setattr(s, "count_in_bars", 1), setattr(s, "click_enabled", True),
+                                      setattr(s, "volume", 0.8)))
+        recorder.start()
+        wait_for(lambda: recorder.phase == "recording", timeout=5000)
+        wait_for(lambda: recorder.engine.meter.seconds > 3.3, timeout=6000)
+        recorder.stop()
+        wait_for(lambda: page.timing_outcome is not None and page.timing_outcome.review is not None, timeout=8000)
+        review = page.timing_outcome.review
+        assert review.counted >= 8
+        assert abs(review.placement) < 0.0005 and review.spread < 0.0005, "every note on its click"
+        assert review.accuracy == pytest.approx(0.0011)
+        assert page.timing_line.text.text().startswith("Placement +0.0 ms · Spread 0.0 ms · Accuracy ±1.1 ms · ")
+        assert page.band.isVisible() and page.band.band().bars == (1, 2)
+        page.toggle_timing_band()
+        assert not page.band.isVisible() and page.timing_line.fold_key.text() == "Unfold"
+        page.toggle_timing_band()
+        page.set_timing_grid(2)
+        take = recorder.store.document["recordings"][0]
+        assert take["timingGrid"] == 2, "kept with the take, which has no piece"
+        wait_for(lambda: page.timing_outcome and page.timing_outcome.review
+                 and page.timing_outcome.review.resolution == 2, timeout=8000)
+        assert page.timing_line.text.text().endswith(f"{page.timing_outcome.review.counted} notes on eighths")
+    finally:
+        w.close()
+
+
+def test_a_take_without_a_measured_amp_says_why(qapp, tmp_path, settings):
+    from ampbench.fake_amp import FakeAmp
+    from ampbench.library import PresetLibrary
+    from ampbench.qtlink import QtLink
+    from ampbench.ui.main_window import MainWindow
+    recorder = RecorderModel(LibraryStore(tmp_path / "Recordings"), click_engine(LOOP, REPORTED), demo_devices,
+                             demo_outputs, settings=settings)
+    w = MainWindow(QtLink(lambda: FakeAmp()), PresetLibrary(tmp_path / "Presets"), auto_connect=False,
+                   recorder=recorder)
+    w.show()
+    try:
+        w.metronome.update(lambda s: (setattr(s, "count_in_bars", 0), setattr(s, "click_enabled", True)))
+        recorder.start()
+        wait_for(lambda: recorder.engine.meter.seconds > 0.6)
+        recorder.stop()
+        wait_for(lambda: w.recordings.timing_outcome is not None)
+        assert w.recordings.timing_line.text.text() == "No timing review: click latency not measured."
+        assert not w.recordings.band.isVisible() and not w.recordings.timing_line.grid_popup.isVisible()
+    finally:
+        w.close()

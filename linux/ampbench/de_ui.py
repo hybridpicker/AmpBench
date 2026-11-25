@@ -154,6 +154,81 @@ GERMAN_UI: dict[str, str] = {
         "Es gibt gerade keinen Ausgang, der die Aufnahme sicher nicht erreicht.",
     "Count-in": "Einzähler",
     "Count-in {}": "Einzähler {}",
+    # The click latency and the timing review (deck.py, ui/timing_view.py, main_window.py), word for word as on the Mac
+    '{} ms':
+        '{} ms',
+    'Measure latency with a cable …':
+        'Latenz mit Kabel messen …',
+    'Measured on {}, spread {} ms.':
+        'Gemessen am {}, Streuung {} ms.',
+    'Not measured yet.':
+        'Noch nicht gemessen.',
+    'Set by hand.':
+        'Von Hand eingestellt.',
+    'The devices report {} from the click into the file; the app always compensates for that. The compensation is added for what the amp delays internally. It belongs to the amp and applies to new takes with every wired click output.':
+        'Die Geräte melden {} vom Klick bis in die Datei, das gleicht die App immer aus. Der Ausgleich kommt für das, was der Amp intern verzögert, dazu. Er gehört zum Amp und gilt für neue Aufnahmen mit jedem kabelgebundenen Klick-Ausgang.',
+    'No click arrived at the input. Is the cable in the guitar input, or do the headphones lie directly on the pickup? Is the output loud enough?':
+        'Am Eingang kam kein Klick an. Steckt das Kabel im Gitarreneingang, oder liegt der Kopfhörer direkt auf dem Tonabnehmer? Ist der Ausgang laut genug?',
+    'The click did not start.':
+        'Der Klick ist nicht angelaufen.',
+    "The click goes to a Bluetooth output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.":
+        'Der Klick geht an einen Bluetooth-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.',
+    "The click goes to an AirPlay output, whose own delay would be taken for the amp's. Choose a wired output for the click and measure again.":
+        'Der Klick geht an einen AirPlay-Ausgang, dessen eigene Verzögerung als die des Verstärkers gälte. Wähle einen Ausgang mit Kabel für den Klick und miss noch einmal.',
+    'The clicks arrived unevenly (spread {} ms). Choose a preset without delay, reverb and noise gate on the amp and measure again.':
+        'Die Klicks kamen ungleichmäßig an (Streuung {} ms). Wähle am Amp ein Preset ohne Delay, Hall und Noise Gate und miss noch einmal.',
+    'Measure':
+        'Messen',
+    'Measure click latency':
+        'Klick-Latenz messen',
+    'So that the bars are right to the millisecond, the app measures how long a click takes from “{}” into the recording from “{}”. The amp delays the guitar internally, and the devices do not report that.':
+        'Damit die Takte auf die Millisekunde stimmen, misst die App, wie lange ein Klick von „{}“ bis in die Aufnahme von „{}“ braucht. Der Amp verzögert die Gitarre intern, und das melden die Geräte nicht.',
+    'The result applies to exactly these two devices and to takes recorded afterwards.':
+        'Das Ergebnis gilt für genau diese beiden Geräte und für Aufnahmen, die danach entstehen.',
+    'Measured: {} ms from the click into the file, of which {} ms are not reported by the devices. Spread {} ms over {} clicks. The bars of new takes now rest on it. Unplug the cable again.':
+        'Gemessen: {} ms vom Klick bis in die Datei, davon {} ms nicht von den Geräten gemeldet. Streuung {} ms über {} Klicks. Die Takte neuer Aufnahmen liegen jetzt darauf. Zieh das Kabel wieder ab.',
+    'The latency measurement failed: {}':
+        'Die Latenzmessung ist fehlgeschlagen: {}',
+    '{}, no counted notes':
+        '{}, keine gezählten Töne',
+    '{}: {}':
+        '{}: {}',
+    'Bar {}':
+        'Takt {}',
+    'bar {} beat {} {}':
+        'Takt {} Schlag {} {}',
+    'bar {} beat {} and {}':
+        'Takt {} Schlag {} und {}',
+    'bar {} beat {} sixteenth {} {}':
+        'Takt {} Schlag {} Sechzehntel {} {}',
+    'bar {} beat {} triplet {} {}':
+        'Takt {} Schlag {} Triole {} {}',
+    'Bars {}–{}':
+        'Takte {}–{}',
+    'Fold':
+        'Einklappen',
+    'Folds the timing band away, so the waveform has the room':
+        'Klappt das Timing-Band ein, damit die Wellenform den Platz hat',
+    'Grid':
+        'Raster',
+    'Placement {} ms · Spread {} ms · {} · {}':
+        'Lage {} ms · Streuung {} ms · {} · {}',
+    'Reviewing the timing …':
+        'Timing wird ausgewertet …',
+    'Shows the timing band below the waveform':
+        'Zeigt das Timing-Band unter der Wellenform',
+    'The grid the notes are matched to. The click plays quarters; a piece keeps the grid chosen for one of its takes.':
+        'Das Raster, auf das die Töne bezogen werden. Der Klick spielt Viertel; ein Stück behält das Raster, das für eine seiner Aufnahmen gewählt wurde.',
+    'The timing could not be reviewed.':
+        'Das Timing konnte nicht ausgewertet werden.',
+    'Timing':
+        'Timing',
+    'Unfold':
+        'Ausklappen',
+    "Compensation": "Ausgleich",
+    "For this, run a cable from the headphone output to the amp's guitar input. Without a cable, headphones held directly on the pickup work too, with the strings muted. Choose a preset without delay, reverb and noise gate and set the output to medium volume. The measurement takes about ten seconds; nothing is saved.":
+        "Steck dafür ein Kabel vom Kopfhörerausgang in den Gitarreneingang des Amps. Ohne Kabel geht auch ein Kopfhörer direkt auf dem Tonabnehmer, bei abgedämpften Saiten. Wähle ein Preset ohne Delay, Hall und Noise Gate und dreh den Ausgang auf mittlere Lautstärke. Die Messung dauert rund zehn Sekunden, es wird nichts gespeichert.",
+    "AmpBench was closed.": "AmpBench wurde geschlossen.",
     "Recording": "Aufnahme",
     "{}-bit": "{} Bit",
     "Mono": "Mono",

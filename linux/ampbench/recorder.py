@@ -11,6 +11,8 @@ click latency, and the take's timing stamp says whether the click stayed on and 
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +20,7 @@ from typing import Callable
 
 from PySide6.QtCore import QObject, QSettings, QTimer, Signal
 
-from . import capture, click_timing as ct, protocol, store as storemod
+from . import capture, click_timing as ct, latency_probe, protocol, store as storemod
 from .beat_grid import BeatGrid
 from .capture import CaptureEngine, InputDevice, OutputDevice
 from .i18n import number, tr
@@ -71,6 +73,8 @@ class RecorderModel(QObject):
         self._latency = ct.ClickLatency()
         self._watch: ct.ClickWatch | None = None
         self._waiting_anchor: tuple | None = None  # (path, deadline, settings) while a count-in waits for its click
+        self._measuring: dict | None = None  # the click latency measurement under way
+        self._last_reported: float | None = None
         self.engine.on_lost = lambda: QTimer.singleShot(0, self._device_lost)
         self.engine.on_limit = lambda: QTimer.singleShot(0, lambda: self.stop(
             tr("The recording reached the size limit of a WAV file and was ended safely.")))
@@ -156,6 +160,130 @@ class RecorderModel(QObject):
 
     def save_amp_latencies(self) -> None:
         self._settings.setValue(AMP_LATENCIES_KEY, json.dumps(self.amp_latencies.to_json()))
+
+    def set_amp_part_by_hand(self, seconds: float) -> None:
+        """A hand-set part still corrects the bars, but enables no timing review."""
+        if self.selected is None:
+            return
+        self.amp_latencies.set_by_hand(self.selected.node_name, seconds)
+        self.save_amp_latencies()
+        self.devices_changed.emit()
+
+    @property
+    def reported_latency(self) -> float | None:
+        """What the devices report from the click into the file: now while a click runs, otherwise the last report
+        (the helper only knows it while both streams run)."""
+        click = self.engine.click
+        if click.running and click.anchor is not None:
+            self._last_reported = click.latency_in + click.latency_out
+        return self._last_reported
+
+    # MARK: Measuring the click latency
+
+    @property
+    def is_measuring(self) -> bool:
+        return self._measuring is not None
+
+    @property
+    def can_measure_latency(self) -> bool:
+        return (not self.is_recording and not self.is_measuring and self.selected is not None
+                and self.click_output is not None and self.engine.has_click)
+
+    def measure_latency(self) -> None:
+        """Plays twelve clicks into the input (a cable or an earbud on the pickup) and measures how late they arrive
+        in a file (Mac: AppModel.measureLatency, LatencyProbe.measure). About ten seconds; nothing is kept."""
+        if not self.can_measure_latency:
+            return
+        output = self.click_output
+        try:
+            latency_probe.check_output(output.kind)
+        except latency_probe.LatencyProbeError as error:
+            self.message.emit("error", tr("The latency measurement failed: {}", error.text))
+            return
+        opened = not self.engine.is_open
+        try:
+            if opened:
+                self.engine.open(self.selected)
+            handle, name = tempfile.mkstemp(prefix="ampbench-latency-", suffix=".wav")
+            os.close(handle)
+            path = Path(name)
+            # The file starts first, so the stretch before the first click shows the noise floor.
+            self.engine.start_recording(path)
+        except (OSError, RuntimeError) as error:
+            self.message.emit("error", tr("The latency measurement failed: {}", error))
+            if opened:
+                self._close_unless_shared()
+            return
+        self._measuring = {"path": path, "opened": opened, "output": output, "stage": "settle",
+                           "until": time.monotonic() + 0.3, "input": self.selected.node_name}
+        self.devices_changed.emit()
+
+    def _measure_tick(self) -> None:
+        m = self._measuring
+        now = time.monotonic()
+        if m["stage"] == "settle" and self.engine.frames_read == 0 and now < m["until"] + INPUT_WAIT:
+            return
+        if m["stage"] == "settle" and now >= m["until"]:
+            if not self.engine.click_start(latency_probe.BPM, 4, latency_probe.VOLUME, latency_probe.BEATS,
+                                           m["output"].target):
+                self._end_measuring(latency_probe.LatencyProbeError("clickDidNotStart"))
+                return
+            m.update(stage="anchor", until=now + ANCHOR_WAIT)
+        elif m["stage"] == "anchor":
+            if self.engine.click.anchor is not None:
+                # The click stops after the last measured beat, so its echo cannot run into a new one.
+                m.update(stage="listen", anchor=self.engine.click.anchor,
+                         until=now + latency_probe.BEATS * 60 / latency_probe.BPM + latency_probe.MAXIMUM_LATENCY + 0.2)
+            elif now >= m["until"] or not self.engine.click.running:
+                self._end_measuring(latency_probe.LatencyProbeError("clickDidNotStart"))
+        elif m["stage"] == "listen" and now >= m["until"]:
+            click, first = self.engine.click, self.engine.file_first_frame
+            reported = click.latency_out + click.latency_in
+            self._last_reported = reported
+            self.engine.click_stop()
+            result = self.engine.stop_recording()
+            if result is None or first is None or self.engine.format is None:
+                self._end_measuring(latency_probe.LatencyProbeError("noSignal"))
+                return
+            try:
+                samples, rate = latency_probe.loudest_channel(m["path"])
+                interval = ct.beat_interval(latency_probe.BPM, rate)
+                expected = [m["anchor"] + k * interval - first for k in range(latency_probe.BEATS)]
+                lags, played = latency_probe.analyze(samples, rate, expected)
+                measured = latency_probe.evaluate(lags, played, rate, reported)
+            except latency_probe.LatencyProbeError as error:
+                self._end_measuring(error)
+                return
+            except (OSError, ValueError) as error:
+                self._end_measuring(error)
+                return
+            self.amp_latencies.store_measurement(m["input"], measured.correction, measured.spread,
+                                                 datetime.now(timezone.utc))
+            self.save_amp_latencies()
+            self._end_measuring(None, measured)
+
+    def _end_measuring(self, error, result=None) -> None:
+        m, self._measuring = self._measuring, None
+        if self.engine.click.running:
+            self.engine.click_stop()
+        if self.engine.is_recording:
+            self.engine.stop_recording()
+        try:
+            m["path"].unlink()
+        except OSError:
+            pass
+        if m["opened"] and not self.is_monitoring:
+            self._close_unless_shared()
+        if error is not None:
+            text = error.text if isinstance(error, latency_probe.LatencyProbeError) else str(error)
+            self.message.emit("error", tr("The latency measurement failed: {}", text))
+        else:
+            self.message.emit("info", tr(
+                "Measured: {} ms from the click into the file, of which {} ms are not reported by the devices. "
+                "Spread {} ms over {} clicks. The bars of new takes now rest on it. Unplug the cable again.",
+                number(result.measured * 1000, 1), number(result.correction * 1000, 1),
+                number(result.spread * 1000, 1), result.detected))
+        self.devices_changed.emit()
 
     def select(self, device: InputDevice) -> None:
         if self.is_recording:
@@ -243,7 +371,7 @@ class RecorderModel(QObject):
             self.engine.close()
 
     def toggle_monitoring(self) -> None:
-        if self.is_recording:
+        if self.is_recording or self.is_measuring:
             return
         if self.is_monitoring:
             self._close_unless_shared()
@@ -271,6 +399,8 @@ class RecorderModel(QObject):
                                         "its name, never from the microphone."))
 
     def start(self) -> None:
+        if self.is_measuring:
+            return
         if self.is_recording or not self.usable:
             if not self.usable:
                 self.message.emit("error", tr("The library cannot be used, nothing is recorded."))
@@ -399,6 +529,7 @@ class RecorderModel(QObject):
         self._latency = self.amp_latencies.click_latency(self.selected.node_name if self.selected else None,
                                                          click.latency_out, click.latency_in,
                                                          getattr(self, "_click_output_kind", ct.WIRED))
+        self._last_reported = self._latency.reported
         offset = ct.grid_offset(click.anchor, self._count_in_beats, self._click_bpm, rate, first, self._latency)
         self.active_grid = BeatGrid(self._click_bpm, self._click_beats, offset)
         if self.active_journal is not None:
@@ -410,6 +541,9 @@ class RecorderModel(QObject):
 
     def _tick(self) -> None:
         """Every frame of the window: the count-in waits for the click's first beat, then counts down."""
+        if self._measuring is not None:
+            self._measure_tick()
+            return
         if self._waiting_anchor is not None:
             path, deadline, settings = self._waiting_anchor
             click = self.engine.click
@@ -543,6 +677,9 @@ class RecorderModel(QObject):
         self.refresh_devices()
 
     def shutdown(self) -> None:
+        if self._measuring is not None:
+            self._measuring["opened"] = True
+            self._end_measuring(RuntimeError(tr("AmpBench was closed.")))
         if self.is_recording:
             self.stop()
         self.engine.close()

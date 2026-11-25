@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from PySide6.QtCore import QPointF, Qt, Signal
 from PySide6.QtGui import QPainter
-from PySide6.QtWidgets import (QCheckBox, QComboBox, QFormLayout, QFrame, QHBoxLayout, QLabel, QSlider, QVBoxLayout,
-                               QWidget)
+from PySide6.QtWidgets import (QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QHBoxLayout, QLabel,
+                               QPushButton, QSlider, QVBoxLayout, QWidget)
 
 from . import theme
 from .formats import channels, clock, khz
 from .theme import c
 from .widgets import (DevicePopup, Display, DisplayStepper, Engraving, Front, HardwareKey, Lamp, LEDMeter, RecordKey)
 from ..capture import to_db
-from ..i18n import tr
+from ..i18n import number, tr
 
 DASH = "–"
 
@@ -63,6 +63,8 @@ class ClickDetails(QFrame):
     volume_changed = Signal(float)
     click_toggled = Signal()
     output_chosen = Signal(object)  # a node name, or None for automatic
+    amp_part_set = Signal(float)  # seconds, set by hand
+    measure_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent, Qt.Popup)
@@ -88,6 +90,24 @@ class ClickDetails(QFrame):
         form.addRow(tr("Click output"), self.output)
         self.goes_to = self._note("")
         form.addRow(self.goes_to)
+        self.compensation = QDoubleSpinBox()
+        self.compensation.setRange(-100.0, 300.0)
+        self.compensation.setSingleStep(0.5)
+        self.compensation.setDecimals(1)
+        self.compensation.setSuffix(" ms")
+        self.compensation.setKeyboardTracking(False)
+        self.compensation.setStyleSheet(f"QDoubleSpinBox {{ background: {theme.FIELD}; color: {theme.FIELD_TEXT}; "
+                                        f"border: 1px solid {theme.FIELD_EDGE}; border-radius: 6px; padding: 3px 8px; }}")
+        self.compensation.valueChanged.connect(lambda v: self.amp_part_set.emit(v / 1000))
+        form.addRow(tr("Compensation"), self.compensation)
+        self.origin = self._note("")
+        self.origin.setStyleSheet(f"color: {theme.TEXT};")
+        form.addRow(self.origin)
+        self.explanation = self._note("")
+        form.addRow(self.explanation)
+        self.measure = QPushButton(tr("Measure latency with a cable …"))
+        self.measure.clicked.connect(self._measure)
+        form.addRow(self.measure)
         form.addRow(self._note(tr("The app never puts the click into the file. Outputs of the same device are "
                                   "skipped until a measurement shows that they do not arrive at the input.")))
 
@@ -98,6 +118,10 @@ class ClickDetails(QFrame):
         label.setFont(theme.sans(11))
         label.setStyleSheet(f"color: {theme.TEXT_DIM};")
         return label
+
+    def _measure(self) -> None:
+        self.hide()
+        self.measure_requested.emit()
 
     def show_state(self, settings, recorder) -> None:
         self.volume.blockSignals(True)
@@ -119,6 +143,26 @@ class ClickDetails(QFrame):
             self.goes_to.setText(tr("While recording, the click goes to “{}”.", target.title))
         else:
             self.goes_to.setText(tr("Right now there is no output that is certain not to reach the recording."))
+        part = recorder.amp_part
+        self.compensation.blockSignals(True)
+        self.compensation.setValue(part.seconds * 1000 if part else 0.0)
+        self.compensation.blockSignals(False)
+        for widget in (self.compensation, self.origin, self.explanation, self.measure):
+            widget.setVisible(target is not None and recorder.can_click)
+        if part is None:
+            self.origin.setText(tr("Not measured yet."))
+        elif part.measured:
+            day = (part.date or "")[:10]
+            self.origin.setText(tr("Measured on {}, spread {} ms.", day, number(part.spread * 1000, 1)))
+        else:
+            self.origin.setText(tr("Set by hand."))
+        reported = recorder.reported_latency
+        self.explanation.setText(tr(
+            "The devices report {} from the click into the file; the app always compensates for that. The "
+            "compensation is added for what the amp delays internally. It belongs to the amp and applies to new "
+            "takes with every wired click output.",
+            tr("{} ms", number(reported * 1000, 1)) if reported is not None else tr("unknown")))
+        self.measure.setEnabled(recorder.can_measure_latency)
 
 
 class Deck(Front):
@@ -133,6 +177,8 @@ class Deck(Front):
     count_in_chosen = Signal(int)
     click_volume_changed = Signal(float)
     click_output_chosen = Signal(object)
+    amp_part_set = Signal(float)
+    measure_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(radius=0, parent=parent)
@@ -298,6 +344,8 @@ class Deck(Front):
         self.details.volume_changed.connect(self.click_volume_changed)
         self.details.click_toggled.connect(self.click_toggled)
         self.details.output_chosen.connect(self.click_output_chosen)
+        self.details.amp_part_set.connect(self.amp_part_set)
+        self.details.measure_requested.connect(self.measure_requested)
         self._details_state = None
         return box
 

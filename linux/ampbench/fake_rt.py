@@ -70,6 +70,7 @@ def main(argv: list[str]) -> int:
                              "volume": float(words[4]), "mute": int(words[5]), "anchor": frames + chunk // 2,
                              "told": -1, "anchor_told": False}
                     event(f"state click {click['id']} streaming")
+                    event(f"latency {latency_in:.6f} {latency_out:.6f}")
                 elif words[0] == "tempo" and click and len(words) >= 4:
                     click["bpm"], click["beats"], click["volume"] = float(words[1]), int(words[2]), float(words[3])
                 elif words[0] == "mute" and click:

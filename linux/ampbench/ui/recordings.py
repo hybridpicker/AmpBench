@@ -15,12 +15,15 @@ from PySide6.QtWidgets import (QFileDialog, QHBoxLayout, QInputDialog, QLabel, Q
                                QVBoxLayout, QWidget)
 
 from .. import peaks, store as storemod
+from .. import timing_review
 from ..beat_grid import BeatGrid
+from ..click_timing import TimingStamp
 from ..i18n import tr
 from ..player import PITCH_RANGE, TEMPO_RANGE, Player, Track
 from . import theme
 from .formats import clock
 from .library_views import Inspector, PiecesView, StatsView, TakesView
+from .timing_view import TimingBandView, TimingLine
 from .wave import WaveView, time_label
 from .widgets import DeviceSlider, DisplayStepper, Engraving, HardwareKey, SegmentTabs
 
@@ -28,6 +31,7 @@ from .widgets import DeviceSlider, DisplayStepper, Engraving, HardwareKey, Segme
 class _Waves(QObject):
     ready = Signal(str, object)
     exported = Signal(str, bool)
+    timing = Signal(str, int, object)  # take id, generation, outcome
 
 
 def _apply(recording: dict, fields: dict) -> None:
@@ -58,6 +62,12 @@ class RecordingsPage(QWidget):
         self._waves = _Waves()
         self._waves.ready.connect(self._wave_ready)
         self._waves.exported.connect(self._exported)
+        self._waves.timing.connect(self._timing_ready)
+        self.timing_outcome = None
+        self.timing_grid = 1
+        self.reviewing_timing = False
+        self.timing_folded = False
+        self._timing_generation = 0
         self._build()
         self._timer = QTimer(self)
         self._timer.setInterval(40)
@@ -77,6 +87,10 @@ class RecordingsPage(QWidget):
         self.wave.seek_requested.connect(self._seek)
         self.wave.loop_changed.connect(self._loop_dragged)
         v.addWidget(self.wave)
+        self.band = TimingBandView()
+        self.band.seek_requested.connect(self._seek)
+        self.band.hide()
+        v.addWidget(self.band)
 
         bar = QWidget()
         bar.setFixedHeight(56)
@@ -129,6 +143,11 @@ class RecordingsPage(QWidget):
         for key in (self.keep_key, self.discard_key, self.again_key):
             row.addWidget(key)
         v.addWidget(bar)
+        self.timing_line = TimingLine()
+        self.timing_line.grid_chosen.connect(self.set_timing_grid)
+        self.timing_line.fold_toggled.connect(self.toggle_timing_band)
+        self.timing_line.hide()
+        v.addWidget(self.timing_line)
 
         splitter = QSplitter(Qt.Horizontal)
         splitter.setChildrenCollapsible(False)
@@ -275,6 +294,7 @@ class RecordingsPage(QWidget):
         self._show_inspector()
         self._update_keys()
         self.apply_click()
+        self.load_timing_review()
         if play:
             self.player.play()
 
@@ -688,6 +708,85 @@ class RecordingsPage(QWidget):
             self.wave.live_columns = []
         self._update_keys()
         self.apply_click()
+        self._show_timing()
+
+    # MARK: The timing review
+
+    def load_timing_review(self, keep_showing: bool = False) -> None:
+        """Works out the review of the take in focus in the background. A reason known from the library entry needs
+        no reading of the file; ``keep_showing`` leaves the review on screen until the new one is there."""
+        self._timing_generation += 1
+        take = self.current
+        self.reviewing_timing = False
+        if take is None:
+            self.timing_outcome = None
+            self._show_timing()
+            return
+        self.timing_grid = storemod.timing_grid(self.store, take)
+        grid = BeatGrid.from_json(take.get("grid"))
+        stamp = TimingStamp.from_json(take.get("timing"))
+        reason = timing_review.reason_before_listening(grid, stamp)
+        if reason:
+            self.timing_outcome = timing_review.Outcome(reason=reason)
+            self._show_timing()
+            return
+        if not keep_showing:
+            self.timing_outcome = None
+        self.reviewing_timing = True
+        self._show_timing()
+        generation, take_id, path = self._timing_generation, take["id"], self.store.url(take)
+        resolution, last = self.timing_grid, storemod.last_bar(take)
+        delay = bool(take.get("preset")) and storemod.snapshot_has_delay(self.store, take_id)
+
+        def work():
+            try:
+                outcome = timing_review.review_file(path, grid, stamp, resolution, delay, last)
+            except Exception:  # a broken file gives the line "could not be reviewed", never a crash
+                outcome = None
+            self._waves.timing.emit(take_id, generation, outcome)
+        threading.Thread(target=work, name="timing-review", daemon=True).start()
+
+    def _timing_ready(self, take_id: str, generation: int, outcome) -> None:
+        if take_id != self.current_id or generation != self._timing_generation:
+            return
+        self.timing_outcome = outcome
+        self.reviewing_timing = False
+        self._show_timing()
+
+    @property
+    def can_choose_timing_grid(self) -> bool:
+        take = self.current
+        return take is not None and timing_review.reason_before_listening(
+            BeatGrid.from_json(take.get("grid")), TimingStamp.from_json(take.get("timing"))) is None
+
+    def set_timing_grid(self, resolution: int) -> None:
+        """Reviews the take again on another grid, and keeps the grid with its piece, or with the take."""
+        take = self.current
+        if take is None or resolution == self.timing_grid:
+            return
+        storemod.keep_timing_grid(self.store, take["id"], resolution)
+        try:
+            self.store.save()
+        except OSError:
+            pass
+        self.load_timing_review(keep_showing=True)
+
+    def toggle_timing_band(self) -> None:
+        self.timing_folded = not self.timing_folded
+        self._show_timing()
+
+    def _show_timing(self) -> None:
+        take = self.current
+        showing = take is not None and not self.recorder.is_recording
+        self.timing_line.setVisible(showing)
+        review = self.timing_outcome.review if self.timing_outcome else None
+        if showing:
+            self.timing_line.show_outcome(self.timing_outcome, self.reviewing_timing, self.timing_grid,
+                                          self.can_choose_timing_grid, self.timing_folded)
+        band = showing and review is not None and not self.timing_folded
+        if band:
+            self.band.show_review(review, BeatGrid.from_json(take.get("grid")), storemod.last_bar(take))
+        self.band.setVisible(band)
 
     # MARK: The click during playback
 
@@ -720,6 +819,8 @@ class RecordingsPage(QWidget):
             return
         position = self.player.position
         self.wave.set_position(position)
+        if self.band.isVisible():
+            self.band.set_position(position)
         take = self.current
         duration = float(take.get("duration", 0)) if take else 0.0
         self.time_label.setText(f"{clock(position, True)} / {clock(duration)}")

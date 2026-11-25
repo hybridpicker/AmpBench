@@ -569,6 +569,8 @@ class MainWindow(QMainWindow):
             d.count_in_chosen.connect(lambda n: m.update(lambda s: setattr(s, "count_in_bars", n)))
             d.click_volume_changed.connect(lambda v: m.update(lambda s: setattr(s, "volume", v)))
             d.click_output_chosen.connect(r.choose_click_output)
+            d.amp_part_set.connect(r.set_amp_part_by_hand)
+            d.measure_requested.connect(self._measure_latency)
             m.changed.connect(self._refresh_click)
             self.recordings.click_settings = lambda: m.settings
             m.changed.connect(self.recordings.apply_click)
@@ -876,6 +878,29 @@ class MainWindow(QMainWindow):
             self.tuner.set_a4(self.tuner.a4 + hertz)
         elif self.stack.currentIndex() == 3:
             self.metronome.nudge(bpm)
+
+    def _measure_latency(self) -> None:
+        """Explains the cable first, as the Mac's sheet does, then measures."""
+        r = self.recorder
+        if r is None or not r.can_measure_latency:
+            return
+        box = QMessageBox(self)
+        box.setWindowTitle(tr("Measure click latency"))
+        box.setText(tr("So that the bars are right to the millisecond, the app measures how long a click takes from "
+                       "“{}” into the recording from “{}”. The amp delays the guitar internally, and the devices do "
+                       "not report that.", r.click_output.title if r.click_output else "–",
+                       r.selected.title if r.selected else "–"))
+        box.setInformativeText(tr(
+            "For this, run a cable from the headphone output to the amp's guitar input. Without a cable, headphones "
+            "held directly on the pickup work too, with the strings muted. Choose a preset without delay, reverb and "
+            "noise gate and set the output to medium volume. The measurement takes about ten seconds; nothing is "
+            "saved.") + "\n\n" + tr("The result applies to exactly these two devices and to takes recorded "
+                                       "afterwards."))
+        measure = box.addButton(tr("Measure"), QMessageBox.AcceptRole)
+        box.addButton(tr("Cancel"), QMessageBox.RejectRole)
+        box.exec()
+        if box.clickedButton() is measure:
+            r.measure_latency()
 
     def _refresh_click(self) -> None:
         r = self.recorder

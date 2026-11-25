@@ -99,12 +99,22 @@ stamps PipeWire gives both streams (`pw_stream_get_time_n`). So the click and th
 devices and clocks for any length of time without drifting apart. The app speaks to it through stdin and `@` lines
 on stderr; `fake_rt.py` speaks the same for the tests and `--demo`, its clicks coming back into its input like a
 cable from the headphone output to the pickup. `click_timing.py` (ClickTiming, ClickLatency, the timing stamp) and
-`beat_grid.py` (BeatGrid, the playback click) are ports of SparkCore. The amp's own part of the click latency is not
-measured on Linux yet; until it is, the bars carry the amp's delay (about 22 ms on the MINI), as on the Mac before
-2026-11-23.
+`beat_grid.py` (BeatGrid, the playback click) are ports of SparkCore.
 
-**Not here yet:** reading a REACTOR's presets, and the REACTOR live commands; on the way to the timing review, the
-click latency measurement, the review itself and the timing band (docs/STUDIO.md, "Timing review").
+**The timing review** works as on the Mac ([STUDIO.md](../docs/STUDIO.md#timing-review)). Behind "⋯" in the click
+module, "Measure latency with a cable …" plays twelve clicks from the click output into the amp (a cable into the
+guitar input, or headphones held on the pickup) and keeps the amp's part of the click latency, the delay no device
+reports, with the amp; "Compensation" sets it by hand instead (it still corrects the bars, but enables no review).
+Every take recorded with the click on throughout, a measured amp part and a wired click output then gets its review:
+below the waveform the timing band shows the two bars around the playhead, each beat magnified to about ±60 ms, the
+click lines with their beat numbers and the notes as strokes with their offset ("+18 ms"), each bar steady or
+unsteady; below the transport one line gives placement, spread, accuracy and the counted notes, or why there is no
+review, with the grid (quarters, eighths, triplets, sixteenths; kept with the take's piece) and "Fold". Pointing at a
+bar shows its numbers, a click sends the playhead to it. `timing_review.py` is the port of TimingReview (the onset
+detector, catch windows, numbers, bars, reasons), `latency_probe.py` of LatencyProbe, `timing_band.py` of TimingBand,
+`ui/timing_view.py` draws band and line.
+
+**Not here yet:** reading a REACTOR's presets, and the REACTOR live commands; "Loop bars" and "Record bars again".
 
 ## Install
 
@@ -199,5 +209,7 @@ app's settings in the preferences domain `com.local-ampbench.AmpBench`, apart fr
 and the tests leave a few values there (`defaults delete com.local-ampbench.AmpBench` removes them).
 
 The helper itself can be tried without a Spark in a container with PipeWire: a `pw-loopback` from a virtual sink
-to a virtual source stands for the cable, `AMPBENCH_RT=<built helper>` makes the app use it. On 2026-11-25 a take
-through that loop (Arch, PipeWire 1.6) had every click on its beat to 1.35 frames at quantum 256 and 1024.
+to a virtual source stands for the cable, `AMPBENCH_RT=<built helper>` makes the app use it. On 2026-11-25, through
+that loop (Arch, PipeWire 1.6), every click of a take lay on its beat to 1.5 frames at quantum 256, 512 and 1024,
+and measuring the latency, recording and reviewing gave a placement of 0.001 ms and a spread of 0.006 ms: the loop
+probe of the spec, done automatically.

@@ -283,6 +283,36 @@ GERMAN_CORE: dict[str, str] = {
         "Es wurde nichts aufgenommen, weil das Gerät keine Daten geliefert hat.",
     "The library could not be saved: {}":
         "Die Bibliothek konnte nicht gespeichert werden: {}",
+    # The timing review (timing_review.py), word for word as on the Mac
+    "Quarters": "Viertel",
+    "Eighths": "Achtel",
+    "Triplets": "Triolen",
+    "Sixteenths": "Sechzehntel",
+    "{} notes on quarters": "{} Töne auf Vierteln",
+    "{} notes on eighths": "{} Töne auf Achteln",
+    "{} notes on triplets": "{} Töne auf Triolen",
+    "{} notes on sixteenths": "{} Töne auf Sechzehnteln",
+    "Delay in the sound: echoes may count as notes. For exact practice choose a dry sound.":
+        "Delay im Sound: Echos können als Töne zählen. Für genaues Üben einen trockenen Sound wählen.",
+    "steady": "ruhig",
+    "unsteady": "unruhig",
+    "Bar {}: no counted notes": "Takt {}: keine gezählten Töne",
+    "Bar {}: placement {} ms, a single note, too few to judge":
+        "Takt {}: Lage {} ms, ein einzelner Ton, zu wenige für ein Urteil",
+    "Bar {}, {}: placement {} ms, spread {} ms, {} notes": "Takt {}, {}: Lage {} ms, Streuung {} ms, {} Töne",
+    "No timing review: recorded without the click.": "Keine Timing-Auswertung: ohne Klick aufgenommen.",
+    "No timing review: recorded before the measurement.": "Keine Timing-Auswertung: vor der Messung aufgenommen.",
+    "No timing review: the click was not on for the whole take.":
+        "Keine Timing-Auswertung: Der Klick lief nicht während der ganzen Aufnahme.",
+    "No timing review: click latency not measured.": "Keine Timing-Auswertung: Klick-Latenz nicht gemessen.",
+    "No timing review: the click went to a Bluetooth output.":
+        "Keine Timing-Auswertung: Der Klick lief über einen Bluetooth-Ausgang.",
+    "No timing review: the click went to an AirPlay output.":
+        "Keine Timing-Auswertung: Der Klick lief über einen AirPlay-Ausgang.",
+    "No timing review: accuracy not good enough. Measure the click latency again.":
+        "Keine Timing-Auswertung: Genauigkeit nicht gut genug. Miss die Klick-Latenz noch einmal.",
+    "No timing review: too few clear notes.": "Keine Timing-Auswertung: zu wenige klare Töne.",
+    "Accuracy ±{} ms": "Genauigkeit ±{} ms",
     # The click while recording (recorder.py), word for word as on the Mac where the Mac has the text
     "The count-in was canceled.":
         "Der Einzähler wurde abgebrochen.",
